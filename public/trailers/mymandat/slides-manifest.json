@@ -1,0 +1,84 @@
+[
+  {
+    "id": "00-intro",
+    "kicker": "MALAYSIAN POLITICAL STRATEGY GAME",
+    "title": "MY MANDAT",
+    "subtitle": "Menang pilihan raya cuma permulaan.",
+    "route": "",
+    "bg": null,
+    "file": "public/trailers/mymandat/slides/00-00-intro.png"
+  },
+  {
+    "id": "01-results",
+    "kicker": "ELECTION NIGHT",
+    "title": "Malam Keputusan",
+    "subtitle": "Seat demi seat menentukan mandat rakyat.",
+    "bg": "01-results.png",
+    "file": "public/trailers/mymandat/slides/01-01-results.png"
+  },
+  {
+    "id": "02-mandate",
+    "kicker": "MANDATE STATUS",
+    "title": "Sahkan Mandat",
+    "subtitle": "Majoriti jelas, hung parliament, pembangkang atau rebuild.",
+    "bg": "02-mandate.png",
+    "file": "public/trailers/mymandat/slides/02-02-mandate.png"
+  },
+  {
+    "id": "03-formation",
+    "kicker": "POWER TRANSITION",
+    "title": "Runding Kuasa",
+    "subtitle": "Istana, koalisi dan confidence check sebelum kerajaan terbentuk.",
+    "bg": "03-formation.png",
+    "file": "public/trailers/mymandat/slides/03-03-formation.png"
+  },
+  {
+    "id": "04-cabinet",
+    "kicker": "CABINET WAR ROOM",
+    "title": "Bentuk Kabinet",
+    "subtitle": "Setiap menteri ada score, portfolio dan kesan pemerintahan.",
+    "bg": "04-cabinet.png",
+    "file": "public/trailers/mymandat/slides/04-04-cabinet.png"
+  },
+  {
+    "id": "05-swearing",
+    "kicker": "NEW GOVERNMENT",
+    "title": "Angkat Sumpah",
+    "subtitle": "War Room dikunci. Cabaran sebenar bermula.",
+    "bg": "05-swearing.png",
+    "file": "public/trailers/mymandat/slides/05-05-swearing.png"
+  },
+  {
+    "id": "06-government",
+    "kicker": "FIRST 100 DAYS",
+    "title": "Memerintah Negara",
+    "subtitle": "Dasar, krisis, approval, trust dan kestabilan koalisi.",
+    "bg": "06-government.png",
+    "file": "public/trailers/mymandat/slides/06-06-government.png"
+  },
+  {
+    "id": "07-career",
+    "kicker": "MULTI-TERM CAREER",
+    "title": "Urus Penggal",
+    "subtitle": "Masa bergerak bulanan menuju PRU seterusnya.",
+    "bg": "07-career.png",
+    "file": "public/trailers/mymandat/slides/07-07-career.png"
+  },
+  {
+    "id": "08-sandbox",
+    "kicker": "NATIONAL SANDBOX",
+    "title": "Simulasi Malaysia",
+    "subtitle": "Ekonomi, federalisme, parlimen, institusi dan legasi.",
+    "bg": "08-sandbox.png",
+    "file": "public/trailers/mymandat/slides/08-08-sandbox.png"
+  },
+  {
+    "id": "09-outro",
+    "kicker": "BUILD POWER. GOVERN. SURVIVE.",
+    "title": "MANDAT RAKYAT",
+    "subtitle": "Dari kempen ke kabinet. Dari kerajaan ke legasi.",
+    "route": "",
+    "bg": null,
+    "file": "public/trailers/mymandat/slides/09-09-outro.png"
+  }
+]

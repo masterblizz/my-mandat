@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
+import { useGameStore } from "../../store/gameStore";
 
 const WAR_ROOM_FLOW_ROUTES = [
   "/calendar",
@@ -11,19 +12,30 @@ const WAR_ROOM_FLOW_ROUTES = [
   "/messaging",
   "/polling",
   "/results",
+  "/mandate",
+  "/formation",
+  "/cabinet",
 ];
+
+const GOVERNING_ROUTES = ["/swearing-in", "/government", "/career", "/sandbox", "/opposition", "/postmortem"];
 
 function isWarRoomFlowRoute(pathname: string): boolean {
   return WAR_ROOM_FLOW_ROUTES.includes(pathname) || pathname.startsWith("/state/");
+}
+
+function isGoverningRoute(pathname: string): boolean {
+  return GOVERNING_ROUTES.includes(pathname);
 }
 
 export default function Header() {
   const [time, setTime] = useState("");
   const pathname = usePathname();
   const lang = useLang();
+  const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
 
   const isHome = pathname === "/warroom";
   const showWarRoomHome = isWarRoomFlowRoute(pathname);
+  const governingRoute = isGoverningRoute(pathname);
 
   useEffect(() => {
     const update = () => {
@@ -66,6 +78,15 @@ export default function Header() {
           </Link>
         )}
 
+        {governingRoute && (
+          <span
+            className="px-2 py-1 text-[12px] font-bold tracking-[0.18em]"
+            style={{ color: "var(--warn-orange)", border: "1px solid rgb(255 176 0 / 0.38)", background: "rgb(255 176 0 / 0.06)" }}
+          >
+            {t(lang, "WAR ROOM DIKUNCI", "WAR ROOM LOCKED")}
+          </span>
+        )}
+
         {isHome && (
           <Link
             href="/menu"
@@ -81,7 +102,11 @@ export default function Header() {
       </div>
 
       <div className="hidden text-xs uppercase tracking-widest text-text-muted md:block">
-        GENERAL ELECTION - COMMAND SIMULATOR
+        {governingRoute
+          ? t(lang, "PENTADBIRAN KERAJAAN - BUKAN MOD PILIHAN RAYA", "GOVERNMENT ADMINISTRATION - NON-ELECTION MODE")
+          : electionScope === "prn"
+            ? t(lang, "PILIHAN RAYA NEGERI - SIMULATOR ARAHAN", "STATE ELECTION - COMMAND SIMULATOR")
+            : t(lang, "PILIHAN RAYA UMUM - SIMULATOR ARAHAN", "GENERAL ELECTION - COMMAND SIMULATOR")}
       </div>
 
       <div className="flex items-center gap-3 text-xs">

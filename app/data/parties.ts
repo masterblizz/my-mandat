@@ -19,7 +19,7 @@ export const parties: Party[] = [
     ideology: "Centre-progressive",
     nationalSupport: 47,
     projectedSeats: 94,
-    leader: "Syurahbil",
+    leader: "Ali Rahman",
     founded: 2018,
   },
   {

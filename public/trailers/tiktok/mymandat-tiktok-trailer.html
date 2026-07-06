@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1080,height=1920" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin:0; width:1080px; height:1920px; overflow:hidden; background:#02050b; font-family: Consolas, 'Courier New', monospace; color:white; }
+    .stage { position:relative; width:1080px; height:1920px; overflow:hidden; background:
+      radial-gradient(circle at 20% 10%, rgba(0,212,255,.24), transparent 34%),
+      radial-gradient(circle at 80% 82%, rgba(255,196,87,.24), transparent 36%),
+      linear-gradient(180deg,#02050b 0%,#07111d 52%,#02050b 100%); }
+    .stage:before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.034), rgba(255,255,255,.034) 1px, transparent 1px, transparent 7px); opacity:.55; mix-blend-mode:screen; pointer-events:none; }
+    .stage:after { content:""; position:absolute; inset:24px; border:2px solid rgba(0,212,255,.34); box-shadow:0 0 70px rgba(0,212,255,.16) inset, 0 0 90px rgba(255,196,87,.08) inset; pointer-events:none; }
+    .grid { position:absolute; inset:-100px; background-image:linear-gradient(rgba(0,212,255,.10) 1px, transparent 1px),linear-gradient(90deg, rgba(0,212,255,.10) 1px, transparent 1px); background-size:76px 76px; transform:perspective(700px) rotateX(62deg) translateY(820px); animation:gridMove 8s linear infinite; opacity:.55; }
+    @keyframes gridMove { from{background-position:0 0,0 0;} to{background-position:0 152px,152px 0;} }
+    .brand { position:absolute; top:54px; left:58px; font-size:28px; letter-spacing:.28em; color:#00d4ff; font-weight:900; text-shadow:0 0 25px rgba(0,212,255,.85); z-index:20; }
+    .subbrand { position:absolute; top:96px; left:58px; color:rgba(255,255,255,.58); font-size:18px; letter-spacing:.19em; z-index:20; }
+    .badge { position:absolute; top:54px; right:58px; z-index:20; border:1px solid rgba(255,196,87,.55); background:rgba(255,196,87,.10); color:#ffc457; padding:12px 16px; font-weight:900; font-size:16px; letter-spacing:.18em; }
+    .radar { position:absolute; width:650px; height:650px; border-radius:50%; right:-220px; top:180px; border:2px solid rgba(0,212,255,.22); animation:pulse 1.8s ease-out infinite; opacity:.9; }
+    .radar:before, .radar:after { content:""; position:absolute; inset:75px; border-radius:50%; border:2px solid rgba(0,212,255,.18); }
+    .radar:after { inset:150px; border-color:rgba(255,196,87,.25); }
+    @keyframes pulse { 0%{transform:scale(.92);opacity:.55} 55%{opacity:.95} 100%{transform:scale(1.06);opacity:.35} }
+    .sweep { position:absolute; right:-220px; top:180px; width:650px; height:650px; border-radius:50%; background:conic-gradient(from 0deg, rgba(0,212,255,.0), rgba(0,212,255,.30), rgba(0,212,255,.0) 18%); animation:spin 2.4s linear infinite; opacity:.9; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .ticker { position:absolute; left:0; right:0; bottom:0; height:64px; background:rgba(255,196,87,.13); border-top:1px solid rgba(255,196,87,.45); overflow:hidden; z-index:30; }
+    .ticker span { display:block; white-space:nowrap; color:#ffc457; font-size:22px; letter-spacing:.14em; font-weight:900; line-height:64px; animation:ticker 14s linear infinite; }
+    @keyframes ticker { from{transform:translateX(1080px)} to{transform:translateX(-2400px)} }
+    .beat { position:absolute; inset:0; opacity:0; animation:beat 21s linear infinite; z-index:10; }
+    @keyframes beat { 0%,100%{opacity:0} 2%,12%{opacity:1} 14%{opacity:0} }
+    .b1{animation-delay:0s}.b2{animation-delay:2.5s}.b3{animation-delay:5s}.b4{animation-delay:7.5s}.b5{animation-delay:10s}.b6{animation-delay:12.5s}.b7{animation-delay:15s}.b8{animation-delay:17.5s}
+    .copy { position:absolute; left:58px; right:58px; top:210px; z-index:12; }
+    .kicker { color:#ffc457; font-size:24px; font-weight:900; letter-spacing:.20em; text-transform:uppercase; margin-bottom:20px; text-shadow:0 0 20px rgba(255,196,87,.45); }
+    .title { font-size:88px; line-height:.92; font-weight:1000; letter-spacing:-.04em; text-transform:uppercase; text-shadow:0 0 36px rgba(0,212,255,.35),0 3px 0 #000; }
+    .title.small { font-size:72px; }
+    .desc { margin-top:22px; max-width:880px; font-size:34px; line-height:1.22; color:rgba(255,255,255,.86); text-shadow:0 3px 8px #000; }
+    .screen { position:absolute; left:58px; right:58px; height:542px; border:2px solid rgba(0,212,255,.50); background-size:cover; background-position:center; box-shadow:0 0 45px rgba(0,212,255,.22), 0 28px 80px rgba(0,0,0,.70); overflow:hidden; z-index:11; }
+    .screen:before { content:"REAL GAME SCREEN"; position:absolute; top:14px; left:16px; color:#ffc457; font-size:15px; font-weight:900; letter-spacing:.14em; background:rgba(0,0,0,.70); border:1px solid rgba(255,196,87,.45); padding:7px 10px; }
+    .screen:after { content:""; position:absolute; inset:0; border:1px solid rgba(255,255,255,.08); box-shadow:inset 0 -120px 120px rgba(0,0,0,.42); }
+    .mainScreen { top:760px; transform:translateY(70px) scale(.92); animation:screenIn 2.4s ease-out infinite; }
+    .b1 .mainScreen { display:none; }
+    @keyframes screenIn { 0%{transform:translateY(80px) scale(.92);opacity:0} 18%,88%{transform:translateY(0) scale(1);opacity:1} 100%{transform:translateY(-18px) scale(1.02);opacity:.65} }
+    .stack1, .stack2 { position:absolute; width:470px; height:265px; border:1px solid rgba(255,196,87,.45); background-size:cover; background-position:center; box-shadow:0 18px 70px rgba(0,0,0,.75); z-index:13; }
+    .stack1 { left:58px; top:1328px; transform:rotate(-3deg); animation:floatA 2.5s ease-in-out infinite; }
+    .stack2 { right:58px; top:1375px; transform:rotate(3deg); animation:floatB 2.2s ease-in-out infinite; }
+    @keyframes floatA { 50%{transform:translateY(-18px) rotate(-2deg)} } @keyframes floatB { 50%{transform:translateY(16px) rotate(2deg)} }
+    .statrow { position:absolute; left:58px; right:58px; top:625px; display:flex; gap:16px; z-index:14; }
+    .stat { flex:1; border:1px solid rgba(0,212,255,.35); background:rgba(3,8,18,.70); padding:18px 12px; text-align:center; box-shadow:0 0 28px rgba(0,212,255,.12); }
+    .stat b { display:block; color:#ffc457; font-size:42px; line-height:1; } .stat span { color:rgba(255,255,255,.65); font-weight:900; font-size:15px; letter-spacing:.12em; }
+    .cta { position:absolute; left:58px; right:58px; bottom:128px; z-index:40; border-left:6px solid #ffc457; background:rgba(2,7,16,.82); padding:30px 34px; box-shadow:0 0 45px rgba(255,196,87,.16); opacity:0; animation:cta 21s linear infinite; }
+    @keyframes cta { 0%,82%{opacity:0;transform:translateY(40px)} 86%,96%{opacity:1;transform:translateY(0)} 100%{opacity:0} }
+    .cta h2 { margin:0; font-size:58px; line-height:1; text-transform:uppercase; } .cta p { margin:14px 0 0; color:#ffc457; font-size:26px; font-weight:900; }
+    .flash { position:absolute; inset:0; background:linear-gradient(110deg,transparent,rgba(255,255,255,.16),transparent); transform:translateX(-120%) skewX(-16deg); animation:flash 2.5s ease-in-out infinite; z-index:18; pointer-events:none; }
+    @keyframes flash { 0%,55%{transform:translateX(-120%) skewX(-16deg)} 82%{transform:translateX(120%) skewX(-16deg)} 100%{transform:translateX(120%) skewX(-16deg)} }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="grid"></div><div class="radar"></div><div class="sweep"></div><div class="flash"></div>
+    <div class="brand">MY MANDAT</div><div class="subbrand">MALAYSIA POLITICAL SIM</div><div class="badge">TIKTOK TRAILER</div>
+
+    <section class="beat b1">
+      <div class="copy"><div class="kicker">POV: kau menang PRU</div><div class="title">TAPI GAME BARU MULA</div><div class="desc">Bina parti. Menang kerusi. Tubuh kerajaan. Bertahan sampai PRU seterusnya.</div></div>
+      <div class="statrow"><div class="stat"><b>222</b><span>KERUSI</span></div><div class="stat"><b>112</b><span>MAJORITI</span></div><div class="stat"><b>60</b><span>BULAN</span></div></div>
+      <div class="stack1" style="background-image:url('../mymandat/screens/01-results.png')"></div><div class="stack2" style="background-image:url('../mymandat/screens/04-cabinet.png')"></div>
+    </section>
+    <section class="beat b2"><div class="copy"><div class="kicker">Malam keputusan</div><div class="title">MANDAT RAKYAT</div><div class="desc">Setiap negeri ubah laluan ke Putrajaya.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/01-results.png')"></div></section>
+    <section class="beat b3"><div class="copy"><div class="kicker">Transition kuasa</div><div class="title small">SAHKAN MANDAT</div><div class="desc">Majoriti jelas, hung parliament, pembangkang atau rebuild.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/02-mandate.png')"></div><div class="stack2" style="background-image:url('../mymandat/screens/03-formation.png')"></div></section>
+    <section class="beat b4"><div class="copy"><div class="kicker">Istana + koalisi</div><div class="title small">RUNDING KUASA</div><div class="desc">Cukupkan majoriti sebelum kerajaan diperkenan.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/03-formation.png')"></div></section>
+    <section class="beat b5"><div class="copy"><div class="kicker">Pilih barisan menteri</div><div class="title small">BENTUK KABINET</div><div class="desc">Portfolio, score dan avatar menteri beri kesan kepada negara.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/04-cabinet.png')"></div></section>
+    <section class="beat b6"><div class="copy"><div class="kicker">War Room dikunci</div><div class="title small">MEMERINTAH NEGARA</div><div class="desc">100 hari pertama: dasar, krisis, trust dan koalisi.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/06-government.png')"></div></section>
+    <section class="beat b7"><div class="copy"><div class="kicker">Bulan demi bulan</div><div class="title small">URUS PENGGAL</div><div class="desc">PRN, PRK, faction parti dan countdown PRU seterusnya.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/07-career.png')"></div></section>
+    <section class="beat b8"><div class="copy"><div class="kicker">Simulasi negara</div><div class="title small">BINA LEGASI</div><div class="desc">Ekonomi, federalisme, parlimen dan institusi.</div></div><div class="screen mainScreen" style="background-image:url('../mymandat/screens/08-sandbox.png')"></div></section>
+
+    <div class="cta"><h2>MY MANDAT</h2><p>Kalau menang pun belum tentu mampu memerintah.</p></div>
+    <div class="ticker"><span> REAL GAME UI CAPTURE // PRU → MANDAT → KOALISI → KABINET → PEMERINTAHAN → PRU SETERUSNYA // </span></div>
+  </div>
+</body>
+</html>

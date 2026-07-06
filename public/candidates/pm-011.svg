@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="160" viewBox="0 0 140 160" role="img" aria-label="Roslan Ibrahim candidate portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#eab308" stop-opacity="0.95"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0.42"/></linearGradient>
+    <filter id="grain"><feTurbulence baseFrequency="0.85" numOctaves="2" seed="28"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer></filter>
+  </defs>
+  <rect width="140" height="160" fill="#07111f"/>
+  <rect x="3" y="3" width="134" height="154" fill="url(#bg)" opacity="0.24"/>
+  <path d="M14 20 L126 132 M126 20 L14 132" stroke="#ffffff" stroke-opacity="0.05" stroke-width="3"/>
+  <rect x="3" y="3" width="134" height="154" fill="transparent" stroke="#eab308" stroke-width="2" opacity="0.85"/>
+  <circle cx="70" cy="71" r="49" fill="#eab308" opacity="0.10"/>
+  <path d="M38 155 C43 126 52 112 70 112 C88 112 97 126 102 155Z" fill="#0f172a"/>
+  <path d="M58 116 L70 145 L82 116" fill="#e5e7eb" opacity="0.92"/>
+  <path d="M67 123 L73 123 L76 153 L64 153Z" fill="#f59e0b"/>
+  
+  <ellipse cx="70" cy="75" rx="36" ry="44" fill="#f2c9a0"/>
+  <path d="M46 64 C50 43 90 36 99 59 C84 55 63 53 46 64Z" fill="#1f2937"/><path d="M55 45 L82 39 L99 58" stroke="#1f2937" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <ellipse cx="58" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <ellipse cx="82" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <circle cx="60" cy="76" r="7" fill="none" stroke="#dbeafe" stroke-width="2"/><circle cx="80" cy="76" r="7" fill="none" stroke="#dbeafe" stroke-width="2"/><path d="M67 76 H73" stroke="#dbeafe" stroke-width="2"/>
+  <path d="M70 79 L66 88 H74Z" fill="#8a5a44" opacity="0.45"/>
+  
+  <path d="M59 92 C65 96 75 96 82 92" stroke="#7f3f2a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <rect x="0" y="139" width="140" height="21" fill="#00ff88" opacity="0.92"/>
+  <text x="70" y="153" text-anchor="middle" font-family="Space Mono, Consolas, monospace" font-size="10" font-weight="800" fill="#052e16">RI</text>
+  <rect width="140" height="160" filter="url(#grain)" opacity="0.5"/>
+</svg>

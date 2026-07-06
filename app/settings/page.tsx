@@ -8,6 +8,7 @@ import Toggle from "../components/ui/Toggle";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 import { useLang, t } from "../i18n/useLang";
+import { states } from "../data/states";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,20 @@ function GameplayTab() {
               <option value="short">{t(lang, "Kempen Singkat", "Short Campaign")}</option>
               <option value="custom">{t(lang, "Tersuai", "Custom")}</option>
             </select>
+          </SettingRow>
+
+          <SettingRow label={t(lang, "MOD PILIHAN RAYA", "ELECTION MODE")}>
+            <div className="flex flex-col gap-2" style={{ minWidth: "260px" }}>
+              <select value={settings.electionScope ?? "pru"} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
+                <option value="pru">{t(lang, "PRU — Pilihan Raya Umum", "GE — General Election")}</option>
+                <option value="prn">{t(lang, "PRN — Pilihan Raya Negeri", "State Election")}</option>
+              </select>
+              {(settings.electionScope ?? "pru") === "prn" && (
+                <select value={settings.prnStateId ?? "selangor"} onChange={(e) => updateSettings({ prnStateId: e.target.value })}>
+                  {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "kerusi", "seats")}</option>)}
+                </select>
+              )}
+            </div>
           </SettingRow>
 
           <SettingRow label={t(lang, "TAHAP KESUKARAN", "DIFFICULTY")}>

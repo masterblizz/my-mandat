@@ -1,0 +1,6 @@
+file 'y-1046.png'
+file 'y-1060.png'
+file 'y-1074.png'
+file 'y-1088.png'
+file 'y-1102.png'
+file 'y-1116.png'

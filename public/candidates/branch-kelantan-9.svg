@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="160" viewBox="0 0 140 160" role="img" aria-label="Khalid Singh candidate portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f59e0b" stop-opacity="0.95"/><stop offset="1" stop-color="#ef4444" stop-opacity="0.42"/></linearGradient>
+    <filter id="grain"><feTurbulence baseFrequency="0.85" numOctaves="2" seed="76"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer></filter>
+  </defs>
+  <rect width="140" height="160" fill="#07111f"/>
+  <rect x="3" y="3" width="134" height="154" fill="url(#bg)" opacity="0.24"/>
+  <circle cx="20" cy="24" r="2" fill="#fff" opacity="0.09"/><circle cx="118" cy="38" r="2" fill="#fff" opacity="0.09"/><circle cx="42" cy="132" r="2" fill="#fff" opacity="0.09"/>
+  <rect x="3" y="3" width="134" height="154" fill="transparent" stroke="#f59e0b" stroke-width="2" opacity="0.85"/>
+  <circle cx="70" cy="71" r="49" fill="#f59e0b" opacity="0.10"/>
+  <path d="M38 155 C43 126 52 112 70 112 C88 112 97 126 102 155Z" fill="#064e3b"/>
+  <path d="M58 116 L70 145 L82 116" fill="#e5e7eb" opacity="0.92"/>
+  <path d="M67 123 L73 123 L76 153 L64 153Z" fill="#f59e0b"/>
+  
+  <ellipse cx="70" cy="75" rx="38" ry="42" fill="#b97652"/>
+  <path d="M45 66 C45 42 74 32 97 57 C88 51 67 50 50 70Z" fill="#0f172a"/>
+  <ellipse cx="58" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <ellipse cx="82" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  
+  <path d="M70 79 L66 88 H74Z" fill="#8a5a44" opacity="0.45"/>
+  
+  <path d="M59 91 C65 95 75 95 82 91" stroke="#7f3f2a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <rect x="0" y="139" width="140" height="21" fill="#00ff88" opacity="0.92"/>
+  <text x="70" y="153" text-anchor="middle" font-family="Space Mono, Consolas, monospace" font-size="10" font-weight="800" fill="#052e16">KS</text>
+  <rect width="140" height="160" filter="url(#grain)" opacity="0.5"/>
+</svg>

@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-07-01T16:47:25.932Z",
+  "sourceSheets": [
+    {
+      "file": "100ahliV1.png",
+      "grid": "12x12",
+      "portraits": 144
+    },
+    {
+      "file": "100ahliV2.png",
+      "grid": "11x12",
+      "portraits": 132
+    },
+    {
+      "file": "100ahliV3.png",
+      "grid": "12x11",
+      "portraits": 132
+    }
+  ],
+  "outputSize": "256x256",
+  "cellInset": 1,
+  "splitPortraits": 408,
+  "assignedProfiles": 247,
+  "assignedRange": {
+    "first": {
+      "id": "pm-001",
+      "portrait": "public/candidate-portraits/v1/v1-001.png"
+    },
+    "last": {
+      "id": "branch-wp-12",
+      "portrait": "public/candidate-portraits/v2/v2-103.png"
+    }
+  }
+}

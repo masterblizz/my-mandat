@@ -1,0 +1,74 @@
+[
+  {
+    "id": "00-hook",
+    "kicker": "BUKAN SEKADAR PILIHAN RAYA",
+    "title": "MENANG PRU",
+    "subtitle": "...cuma permulaan kuasa.",
+    "bg": null,
+    "punch": true
+  },
+  {
+    "id": "01-results",
+    "kicker": "MALAM KEPUTUSAN",
+    "title": "MANDAT RAKYAT",
+    "subtitle": "222 kerusi. Satu peluang bentuk kerajaan.",
+    "bg": "01-results.png"
+  },
+  {
+    "id": "02-mandate",
+    "kicker": "STATUS MANDAT",
+    "title": "SAHKAN KUASA",
+    "subtitle": "Majoriti jelas, parlimen tergantung, atau pembangkang.",
+    "bg": "02-mandate.png"
+  },
+  {
+    "id": "03-formation",
+    "kicker": "ISTANA · KOALISI · CONFIDENCE",
+    "title": "RUNDING KUASA",
+    "subtitle": "Cukupkan majoriti sebelum kerajaan diperkenan.",
+    "bg": "03-formation.png"
+  },
+  {
+    "id": "04-cabinet",
+    "kicker": "WAR ROOM KABINET",
+    "title": "PILIH MENTERI",
+    "subtitle": "Setiap portfolio mengubah ekonomi, trust dan risiko.",
+    "bg": "04-cabinet.png"
+  },
+  {
+    "id": "05-swearing",
+    "kicker": "ANGKAT SUMPAH",
+    "title": "KERAJAAN RASMI",
+    "subtitle": "War Room dikunci. Musim memerintah bermula.",
+    "bg": "05-swearing.png"
+  },
+  {
+    "id": "06-government",
+    "kicker": "100 HARI PERTAMA",
+    "title": "URUS KRISIS",
+    "subtitle": "Dasar, approval, koalisi dan tekanan media.",
+    "bg": "06-government.png"
+  },
+  {
+    "id": "07-career",
+    "kicker": "BULAN DEMI BULAN",
+    "title": "BINA LEGASI",
+    "subtitle": "PRN, PRK, faction parti dan PRU seterusnya.",
+    "bg": "07-career.png"
+  },
+  {
+    "id": "08-sandbox",
+    "kicker": "SIMULASI NEGARA",
+    "title": "MALAYSIA BERUBAH",
+    "subtitle": "Ekonomi, federalisme, parlimen dan institusi.",
+    "bg": "08-sandbox.png"
+  },
+  {
+    "id": "09-outro",
+    "kicker": "MY MANDAT",
+    "title": "KUASA BUKAN TAMAT DI PETI UNDI",
+    "subtitle": "Kempen. Menang. Bentuk kerajaan. Bertahan.",
+    "bg": null,
+    "punch": true
+  }
+]

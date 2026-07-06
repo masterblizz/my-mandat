@@ -1,0 +1,98 @@
+[
+  {
+    "name": "01-menu",
+    "route": "/menu",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\01-menu.png",
+    "url": "http://localhost:3035/menu",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 2406,
+      "images": 1
+    }
+  },
+  {
+    "name": "02-setup",
+    "route": "/setup",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\02-setup.png",
+    "url": "http://localhost:3035/setup",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 1116,
+      "images": 0
+    }
+  },
+  {
+    "name": "03-warroom",
+    "route": "/warroom",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\03-warroom.png",
+    "url": "http://localhost:3035/warroom",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 3664,
+      "images": 0
+    }
+  },
+  {
+    "name": "04-campaign-nomination",
+    "route": "/campaign",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\04-campaign-nomination.png",
+    "url": "http://localhost:3035/campaign",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 48683,
+      "images": 247
+    }
+  },
+  {
+    "name": "05-polling",
+    "route": "/polling",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\05-polling.png",
+    "url": "http://localhost:3035/polling",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 1017,
+      "images": 0
+    }
+  },
+  {
+    "name": "06-calendar",
+    "route": "/calendar",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\06-calendar.png",
+    "url": "http://localhost:3035/calendar",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 688,
+      "images": 0
+    }
+  },
+  {
+    "name": "07-results",
+    "route": "/results",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\07-results.png",
+    "url": "http://localhost:3035/results",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 4158,
+      "images": 0
+    }
+  },
+  {
+    "name": "08-stats",
+    "route": "/stats",
+    "wait": 2500,
+    "file": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\public\\trailer-captures\\08-stats.png",
+    "url": "http://localhost:3035/stats",
+    "info": {
+      "title": "MY MANDAT — Malaysian Political Campaign Simulator",
+      "textLength": 803,
+      "images": 0
+    }
+  }
+]

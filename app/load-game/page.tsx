@@ -12,7 +12,8 @@ import {
   type SavedGameSlot,
 } from "../store/saveGame";
 import { useGameStore } from "../store/gameStore";
-import IntroVideo from "../components/ui/IntroVideo";
+import { usePendingNav } from "../hooks/usePendingNav";
+
 
 function formatSavedAt(value: string) {
   const date = new Date(value);
@@ -48,12 +49,13 @@ type SlotView = {
 
 export default function LoadGamePage() {
   const router = useRouter();
+  const { isPending, navigate } = usePendingNav();
   const currentGame = useGameStore();
   const [slots, setSlots] = useState<SavedGameSlot[]>([]);
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(1);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const [status, setStatus] = useState("SCAN LOCAL SAVE SLOTS");
-  const [showIntro, setShowIntro] = useState(false);
+
 
   const refreshSlots = (preferredSlotNumber?: number) => {
     const records = getSavedGames();
@@ -89,11 +91,12 @@ export default function LoadGamePage() {
 
   const handleLoad = () => {
     if (!selectedSlot) return;
-    setActiveSaveSlot(selectedSlot.id);
-    setActiveSlotId(selectedSlot.id);
-    useGameStore.setState({ ...selectedSlot.state, phase: "playing" });
-    setStatus(`SLOT ${selectedSlot.slotNumber.toString().padStart(2, "0")} LOADED · BOOTING TACTICAL CORE`);
-    setShowIntro(true);
+    navigate("/warroom", () => {
+      setActiveSaveSlot(selectedSlot.id);
+      setActiveSlotId(selectedSlot.id);
+      useGameStore.setState({ ...selectedSlot.state, phase: "playing" });
+      setStatus(`SLOT ${selectedSlot.slotNumber.toString().padStart(2, "0")} LOADED · ENTERING WAR ROOM`);
+    });
   };
 
   const handleDelete = (slot: SavedGameSlot) => {
@@ -122,16 +125,6 @@ export default function LoadGamePage() {
         fontFamily: "'Space Mono', 'Chakra Petch', monospace",
       }}
     >
-      {showIntro && selectedSlot && (
-        <IntroVideo
-          leaderName={selectedSlot.state.leader.name}
-          partyName={selectedSlot.state.leader.party}
-          partyAbbr={selectedSlot.state.leader.partyAbbr}
-          partyColor={selectedSlot.state.leader.partyColor}
-          difficulty={selectedSlot.state.difficulty}
-          onComplete={() => router.push("/warroom")}
-        />
-      )}
       <div className="pointer-events-none absolute inset-0 opacity-[0.24]" style={{ backgroundImage: "linear-gradient(rgb(var(--cyan-rgb) / 0.08) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.06) 1px, transparent 1px)", backgroundSize: "56px 56px" }} />
       <div className="pointer-events-none absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.018), rgba(255,255,255,0.018) 1px, transparent 1px, transparent 4px)" }} />
 
@@ -232,11 +225,11 @@ export default function LoadGamePage() {
                 </button>
                 <button
                   onClick={handleLoad}
-                  disabled={!selectedSlot}
+                  disabled={!selectedSlot || isPending}
                   className="border px-5 py-3 text-[11px] font-black tracking-[0.22em] disabled:cursor-not-allowed disabled:opacity-45"
                   style={{ borderColor: "rgb(var(--cyan-rgb) / 0.35)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / 0.055)" }}
                 >
-                  {selectedSlot ? `LOAD SLOT ${selectedSlotNumber.toString().padStart(2, "0")} »` : "LOAD DISABLED · EMPTY"}
+                  {isPending ? "⟳ LOADING..." : selectedSlot ? `LOAD SLOT ${selectedSlotNumber.toString().padStart(2, "0")} »` : "LOAD DISABLED · EMPTY"}
                 </button>
                 <button
                   onClick={() => selectedSlot && handleDelete(selectedSlot)}

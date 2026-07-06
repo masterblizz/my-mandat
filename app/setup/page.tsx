@@ -1,16 +1,16 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import StatBar from "../components/ui/StatBar";
 import Toggle from "../components/ui/Toggle";
-import IntroVideo from "../components/ui/IntroVideo";
+
 import { useGameStore } from "../store/gameStore";
 import { setActiveSaveSlot } from "../store/saveGame";
 import { states } from "../data/states";
 import { type DatasetKind, availableDatasets, getDatasetById } from "../data/datasets";
+import { usePendingNav } from "../hooks/usePendingNav";
 
 const POSITIONS = ["PRESIDENT", "SECRETARY GENERAL", "CHAIRMAN", "DEPUTY PRESIDENT"];
 const EXPERIENCE_OPTIONS = ["VETERAN", "MODERATE", "ROOKIE"] as const;
@@ -39,11 +39,11 @@ const STEPS = [
 ];
 
 export default function SetupPage() {
-  const router = useRouter();
-  const { setLeader, setPhase, updateSettings, setDataset, resetGame, settings } = useGameStore();
+  const { isPending: isLaunching, navigate } = usePendingNav();
+  const { setLeader, setPhase, updateSettings, setDataset, setSelectedState, resetGame, settings } = useGameStore();
 
   const [step, setStep] = useState(0);
-  const [showIntro, setShowIntro] = useState(false);
+
 
   // Step 0 state
   const [selectedDataset, setSelectedDataset] = useState<DatasetKind>("dummy");
@@ -51,7 +51,7 @@ export default function SetupPage() {
 
   // Step 1 state
   const [avatarIndex, setAvatarIndex] = useState(0);
-  const [leaderName, setLeaderName] = useState("SYURAHBIL");
+  const [leaderName, setLeaderName] = useState("");
   const [position, setPosition] = useState("PRESIDENT");
   const [experience, setExperience] = useState<"veteran" | "moderate" | "rookie">("veteran");
   const [homeState, setHomeState] = useState("selangor");
@@ -74,6 +74,8 @@ export default function SetupPage() {
   const [economicIdeology, setEconomicIdeology] = useState(45);
   const [socialIdeology, setSocialIdeology] = useState(40);
   const [partyDesc, setPartyDesc] = useState("");
+  const [electionScope, setElectionScope] = useState<"pru" | "prn">(settings.electionScope ?? "pru");
+  const [prnStateId, setPrnStateId] = useState(settings.prnStateId ?? "selangor");
   const [regionPeninsular, setRegionPeninsular] = useState(true);
   const [regionSabah, setRegionSabah] = useState(true);
   const [regionSarawak, setRegionSarawak] = useState(true);
@@ -91,13 +93,21 @@ export default function SetupPage() {
   const pointsRemaining = TOTAL_POINTS - pointsUsed;
   const oppSliderPct = ((oppStrength - 20) / (99 - 20)) * 100;
 
+  function handleAttributeChange(newVal: number, currentVal: number, setter: (v: number) => void) {
+    // Cap increases so pointsRemaining never drops below 0; decreases are always allowed.
+    const clamped = newVal > currentVal ? Math.min(newVal, currentVal + pointsRemaining) : newVal;
+    setter(Math.max(1, clamped));
+  }
+
   useEffect(() => {
     setDifficulty(settings.difficulty);
     setOppStrength(settings.oppositionStrength);
     setMediaBias(settings.mediaBias === "pro" ? "PRO-MANDAT" : settings.mediaBias === "hostile" ? "HOSTILE" : "BALANCED");
+    setElectionScope(settings.electionScope ?? "pru");
+    setPrnStateId(settings.prnStateId ?? "selangor");
     setEventRandomness(settings.eventRandomness);
     setPermanentConsequences(settings.permanentConsequences);
-  }, [settings.difficulty, settings.eventRandomness, settings.mediaBias, settings.oppositionStrength, settings.permanentConsequences]);
+  }, [settings.difficulty, settings.electionScope, settings.eventRandomness, settings.mediaBias, settings.oppositionStrength, settings.permanentConsequences, settings.prnStateId]);
 
   useEffect(() => {
     if (!currentDataset.parties.some((party) => party.id === selectedPartyId)) {
@@ -129,52 +139,42 @@ export default function SetupPage() {
     // LAUNCH CAMPAIGN must always start a fresh run from the setup choices.
     // If the player previously loaded an old slot, clear that active slot first
     // so the autosave subscriber creates a new slot instead of rewriting/resuming it.
-    resetGame();
-    setActiveSaveSlot(null);
-    setDataset(selectedDataset);
-    setLeader({
-      name: leaderName,
-      position,
-      party: partyName,
-      partyAbbr,
-      partyColor,
-      avatarIndex,
-      influence,
-      charisma,
-      credibility,
-      negotiation,
-      strategy,
-      experience,
-      homeState,
-      ideology: { economic: economicIdeology, social: socialIdeology },
+    navigate("/warroom", () => {
+      resetGame();
+      setActiveSaveSlot(null);
+      setDataset(selectedDataset);
+      setLeader({
+        name: leaderName,
+        position,
+        party: partyName,
+        partyAbbr,
+        partyColor,
+        avatarIndex,
+        influence,
+        charisma,
+        credibility,
+        negotiation,
+        strategy,
+        experience,
+        homeState,
+        ideology: { economic: economicIdeology, social: socialIdeology },
+      });
+      updateSettings({
+        electionScope,
+        prnStateId,
+        difficulty,
+        oppositionStrength: oppStrength,
+        mediaBias: mediaBias === "PRO-MANDAT" ? "pro" : mediaBias === "HOSTILE" ? "hostile" : "balanced",
+        eventRandomness,
+        permanentConsequences,
+      });
+      setSelectedState(electionScope === "prn" ? prnStateId : null);
+      setPhase("playing");
     });
-    updateSettings({
-      difficulty,
-      oppositionStrength: oppStrength,
-      mediaBias: mediaBias === "PRO-MANDAT" ? "pro" : mediaBias === "HOSTILE" ? "hostile" : "balanced",
-      eventRandomness,
-      permanentConsequences,
-    });
-    setPhase("playing");
-    setShowIntro(true);
-  }
-
-  function handleIntroComplete() {
-    router.push("/warroom");
   }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
-      {showIntro && (
-        <IntroVideo
-          leaderName={leaderName}
-          partyName={partyName}
-          partyAbbr={partyAbbr}
-          partyColor={partyColor}
-          difficulty={difficulty}
-          onComplete={handleIntroComplete}
-        />
-      )}
       <Header />
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
         <div className="w-full max-w-[1100px] mt-6">
@@ -453,7 +453,7 @@ export default function SetupPage() {
                             min={1}
                             max={100}
                             value={val}
-                            onChange={(e) => set(Number(e.target.value))}
+                            onChange={(e) => handleAttributeChange(Number(e.target.value), val, set)}
                             className="w-full h-1.5 appearance-none cursor-pointer rounded-none"
                             style={{
                               accentColor: "var(--cyan)",
@@ -585,6 +585,41 @@ export default function SetupPage() {
                   rows={4}
                   className="w-full resize-none text-[13px]"
                 />
+              </TacticalPanel>
+
+              <TacticalPanel title="ELECTION MODE — PRU / PRN">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: "pru" as const, title: "PRU — PILIHAN RAYA UMUM", sub: "National parliamentary campaign · all Malaysia seats · form federal government" },
+                    { id: "prn" as const, title: "PRN — PILIHAN RAYA NEGERI", sub: "State election campaign · focus one negeri · MB/state-government narrative" },
+                  ].map((mode) => {
+                    const active = electionScope === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        onClick={() => setElectionScope(mode.id)}
+                        className="p-4 text-left transition-all"
+                        style={{
+                          border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
+                          background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.025)",
+                          boxShadow: active ? "0 0 16px rgb(var(--gold-rgb) / 0.18)" : "none",
+                        }}
+                      >
+                        <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{mode.title}</div>
+                        <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{mode.sub}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {electionScope === "prn" && (
+                  <div className="mt-4 rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
+                    <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">PILIH NEGERI PRN</div>
+                    <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full text-[13px]">
+                      {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} kerusi</option>)}
+                    </select>
+                    <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>PRN mode will spotlight this negeri in the war room, state issues, and tactical map briefing.</div>
+                  </div>
+                )}
               </TacticalPanel>
 
               <TacticalPanel title="STARTING REGION FOCUS">
@@ -736,6 +771,7 @@ export default function SetupPage() {
                 <TacticalPanel title="GAME SETTINGS">
                   <div className="space-y-2">
                     <SummaryRow label="DATA MODE" value={selectedDataset === "real-malaysia" ? "REAL MALAYSIA" : "FICTIONAL"} />
+                    <SummaryRow label="ELECTION MODE" value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : "PRU · NATIONAL"} />
                     <SummaryRow label="DIFFICULTY" value={difficulty.toUpperCase()} />
                     <SummaryRow label="OPP. STRENGTH" value={`${oppStrength}%`} />
                     <SummaryRow label="MEDIA BIAS" value={mediaBias} />
@@ -764,7 +800,8 @@ export default function SetupPage() {
 
               <button
                 onClick={handleLaunch}
-                className="w-full py-4 text-sm font-bold tracking-[0.2em] uppercase transition-all"
+                disabled={isLaunching}
+                className="w-full py-4 text-sm font-bold tracking-[0.2em] uppercase transition-all disabled:opacity-60 disabled:cursor-wait"
                 style={{
                   background: "var(--gold)",
                   color: "#000000",
@@ -772,7 +809,7 @@ export default function SetupPage() {
                   boxShadow: "0 0 20px rgb(var(--gold-rgb) / 0.4)",
                 }}
               >
-                ▶ LAUNCH CAMPAIGN
+                {isLaunching ? "⟳ LOADING..." : "▶ LAUNCH CAMPAIGN"}
               </button>
             </div>
           )}
@@ -821,7 +858,8 @@ export default function SetupPage() {
               ) : (
                 <button
                   onClick={handleLaunch}
-                  className="px-6 py-2 text-[13px] font-bold tracking-widest uppercase transition-all"
+                  disabled={isLaunching}
+                  className="px-6 py-2 text-[13px] font-bold tracking-widest uppercase transition-all disabled:opacity-60 disabled:cursor-wait"
                   style={{
                     background: "var(--gold)",
                     color: "#000000",
@@ -829,7 +867,7 @@ export default function SetupPage() {
                     boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)",
                   }}
                 >
-                  LAUNCH →
+                  {isLaunching ? "⟳ LOADING..." : "LAUNCH →"}
                 </button>
               )}
             </div>

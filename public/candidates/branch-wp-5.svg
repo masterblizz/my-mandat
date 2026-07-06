@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="160" viewBox="0 0 140 160" role="img" aria-label="Marlina Yusof candidate portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#38bdf8" stop-opacity="0.95"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0.42"/></linearGradient>
+    <filter id="grain"><feTurbulence baseFrequency="0.85" numOctaves="2" seed="82"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer></filter>
+  </defs>
+  <rect width="140" height="160" fill="#07111f"/>
+  <rect x="3" y="3" width="134" height="154" fill="url(#bg)" opacity="0.24"/>
+  <path d="M10 24 H130 M10 46 H130 M10 68 H130" stroke="#ffffff" stroke-opacity="0.05"/>
+  <rect x="3" y="3" width="134" height="154" fill="transparent" stroke="#38bdf8" stroke-width="2" opacity="0.85"/>
+  <circle cx="70" cy="71" r="49" fill="#38bdf8" opacity="0.10"/>
+  <path d="M38 155 C43 126 52 112 70 112 C88 112 97 126 102 155Z" fill="#312e81"/>
+  <path d="M58 116 L70 145 L82 116" fill="#e5e7eb" opacity="0.92"/>
+  <path d="M67 123 L73 123 L76 153 L64 153Z" fill="#14b8a6"/>
+  
+  <ellipse cx="70" cy="75" rx="40" ry="42" fill="#d9a171"/>
+  <path d="M49 59 C56 39 90 39 96 61 C84 58 69 52 49 59Z" fill="#4a3428"/><rect x="48" y="59" width="48" height="10" rx="5" fill="#4a3428"/>
+  <ellipse cx="58" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <ellipse cx="82" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <circle cx="60" cy="76" r="7" fill="none" stroke="#dbeafe" stroke-width="2"/><circle cx="80" cy="76" r="7" fill="none" stroke="#dbeafe" stroke-width="2"/><path d="M67 76 H73" stroke="#dbeafe" stroke-width="2"/>
+  <path d="M70 79 L66 88 H74Z" fill="#8a5a44" opacity="0.45"/>
+  
+  <path d="M59 94 C65 98 75 98 82 94" stroke="#7f3f2a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <rect x="0" y="139" width="140" height="21" fill="#00ff88" opacity="0.92"/>
+  <text x="70" y="153" text-anchor="middle" font-family="Space Mono, Consolas, monospace" font-size="10" font-weight="800" fill="#052e16">MY</text>
+  <rect width="140" height="160" filter="url(#grain)" opacity="0.5"/>
+</svg>

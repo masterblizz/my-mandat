@@ -16,7 +16,7 @@ interface EngineInput {
   resources: { funds: number; manpower: number };
   totalDays?: number;
   difficulty?: "easy" | "normal" | "hard" | "nightmare";
-  settings?: { oppositionStrength: number };
+  settings?: { oppositionStrength: number; electionScope?: "pru" | "prn"; prnStateId?: string };
 }
 
 interface Alert {
@@ -45,7 +45,19 @@ export interface DayResult {
 const BORNEO_STATES = new Set(["sabah", "sarawak"]);
 
 export function processDay(state: EngineInput): DayResult {
-  const triggeredEvent = pickEvent(state.day);
+  const electionScope = state.settings?.electionScope ?? "pru";
+  const prnStateId = state.settings?.prnStateId;
+
+  // PRN (state election) campaigns are scoped to a single negeri — every event,
+  // opponent action and per-day support swing below only concerns that state.
+  // Other negeri are untouched (no entry in stateUpdates) since they're not part
+  // of this campaign.
+  const scopedStates = electionScope === "prn"
+    ? state.states.filter((s) => s.id === prnStateId)
+    : state.states;
+  const effectiveStates = scopedStates.length ? scopedStates : state.states;
+
+  const triggeredEvent = pickEvent(state.day, electionScope, prnStateId);
   const totalDays = state.totalDays ?? 30;
 
   // ── Build opponent AI inputs from current game state ──────────────────────
@@ -58,14 +70,14 @@ export function processDay(state: EngineInput): DayResult {
   const playerBorneoOps = activeOps.filter((op) =>
     op.stateIds.some((id) => BORNEO_STATES.has(id))
   ).length;
-  const recentPlayerGains = state.states
+  const recentPlayerGains = effectiveStates
     .filter((s) => s.trend > 0.5)
     .map((s) => s.id);
 
   const opponentResult: OpponentResult = runOpponentAI({
     day: state.day,
     totalDays,
-    states: state.states,
+    states: effectiveStates,
     activeStateIds,
     playerDigitalOps,
     playerCeramahOps,
@@ -73,13 +85,14 @@ export function processDay(state: EngineInput): DayResult {
     oppositionStrength: state.settings?.oppositionStrength ?? 60,
     difficulty: state.difficulty ?? "normal",
     recentPlayerGains,
+    scopeStateName: electionScope === "prn" ? effectiveStates[0]?.name : undefined,
   });
 
-  // Spread national damage evenly across all states
-  const perStateNationalDamage = opponentResult.nationalDamage / state.states.length;
+  // Spread national damage evenly across all in-scope states
+  const perStateNationalDamage = opponentResult.nationalDamage / effectiveStates.length;
 
   // ── Per-state support updates ─────────────────────────────────────────────
-  const stateUpdates = state.states.map((s) => {
+  const stateUpdates = effectiveStates.map((s) => {
     let delta = 0;
 
     // Player operations boost
@@ -186,8 +199,13 @@ export function processDay(state: EngineInput): DayResult {
   };
 }
 
-function pickEvent(day: number): (typeof gameEvents)[0] | null {
-  const candidates = gameEvents.filter((ev) => Math.abs(ev.day - day) <= 1);
+function pickEvent(day: number, electionScope: "pru" | "prn", prnStateId?: string): (typeof gameEvents)[0] | null {
+  const candidates = gameEvents.filter((ev) => {
+    if (Math.abs(ev.day - day) > 1) return false;
+    // In PRN mode, drop events tied to a different negeri; keep negeri-agnostic ones.
+    if (electionScope === "prn") return !ev.impact.states || ev.impact.states.includes(prnStateId ?? "");
+    return true;
+  });
   for (const ev of candidates) {
     if (Math.random() < ev.probability * 0.4) return ev;
   }

@@ -10,14 +10,14 @@ import { useGameStore, Operation, NominationEntry } from "../store/gameStore";
 import { generateConstituencies, Constituency } from "../data/constituencies";
 import type { StateData } from "../data/states";
 import { PARTY_MEMBERS, PartyMember } from "../data/members";
+import { buildCandidateFalloutReaction } from "../data/politicalReactions";
 import { useLang, t } from "../i18n/useLang";
+import type { MiniGameTactic, MiniGameType } from "../store/campaignMath";
+import CeramahSceneModal from "../components/campaign/CeramahSceneModal";
 
 type Tab = "NOMINATION" | "MINI-GAMES" | "OPERATIONS" | "VOLUNTEERS" | "RESOURCES" | "SCHEDULE" | "MESSAGING";
 
 const TABS: Tab[] = ["NOMINATION", "MINI-GAMES", "OPERATIONS", "VOLUNTEERS", "RESOURCES", "SCHEDULE", "MESSAGING"];
-
-type MiniGameType = "ceramah" | "social";
-type MiniGameTactic = "safe" | "balanced" | "aggressive";
 
 const MINI_GAME_TACTICS: Record<MiniGameTactic, { title: string; descMS: string; descEN: string; risk: string; color: string }> = {
   safe: { title: "SAFE MESSAGE", descMS: "Mesej terkawal, stabil, risiko backlash rendah.", descEN: "Controlled, stable message. Low risk of backlash.", risk: "Low risk / modest gain", color: "var(--neon-green)" },
@@ -96,9 +96,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function DeployModal({ onClose }: { onClose: () => void }) {
-  const { resources, states: gameStates, addOperation } = useGameStore();
+  const { resources, states: gameStates, addOperation, settings } = useGameStore();
+  const isPrn = settings.electionScope === "prn";
+  const targetableStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [opType, setOpType] = useState<OpType>("ceramah");
-  const [selectedStateIds, setSelectedStateIds] = useState<string[]>([]);
+  const [selectedStateIds, setSelectedStateIds] = useState<string[]>(() => isPrn ? [settings.prnStateId] : []);
 
   const template = OP_TEMPLATES[opType];
   const canAffordFunds = resources.funds >= template.fundsCost;
@@ -183,9 +185,9 @@ function DeployModal({ onClose }: { onClose: () => void }) {
 
           {/* State selection */}
           <div>
-            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>TARGET STATES <span style={{ color: "#4a5568" }}>(select at least one)</span></div>
+            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>TARGET STATES <span style={{ color: "#4a5568" }}>{isPrn ? "(locked to PRN negeri)" : "(select at least one)"}</span></div>
             <div className="grid grid-cols-3 gap-1.5">
-              {gameStates.map((s) => {
+              {targetableStates.map((s) => {
                 const selected = selectedStateIds.includes(s.id);
                 const statusColor = s.status === "winning" ? "var(--cyan)" : s.status === "losing" ? "var(--neon-red)" : "var(--gold)";
                 return (
@@ -254,17 +256,259 @@ function DeployModal({ onClose }: { onClose: () => void }) {
 
 const LOCAL_CANDIDATE_FIRST_NAMES = ["Amir", "Sofia", "Hakim", "Aina", "Farhan", "Nadia", "Khalid", "Mei Lin", "Ravi", "Aisyah", "Daniel", "Zulaikha", "Hafiz", "Priya", "Johan", "Marlina"];
 const LOCAL_CANDIDATE_LAST_NAMES = ["Rahman", "Tan", "Ibrahim", "Lim", "Kumar", "Zainal", "Wong", "Ismail", "Lee", "Yusof", "Singh", "Othman", "Chong", "Hassan", "Ng", "Salleh"];
-const CANDIDATE_PORTRAITS = [
-  "/avatars/leader-01.png",
-  "/avatars/leader-02.png",
-  "/avatars/leader-03.png",
-  "/avatars/leader-04.png",
-  "/avatars/leader-05.png",
-];
+
+const CANDIDATE_PORTRAIT_MAP: Map<string, string> = new Map([
+  ["pm-001", "/candidate-portraits/v1/v1-001.png"],
+  ["pm-002", "/candidate-portraits/v1/v1-005.png"],
+  ["pm-003", "/candidate-portraits/v3/v3-001.png"],
+  ["pm-004", "/candidate-portraits/v3/v3-010.png"],
+  ["pm-005", "/candidate-portraits/v2/v2-001.png"],
+  ["pm-006", "/candidate-portraits/v1/v1-002.png"],
+  ["pm-007", "/candidate-portraits/v1/v1-014.png"],
+  ["pm-008", "/candidate-portraits/v3/v3-002.png"],
+  ["pm-009", "/candidate-portraits/v2/v2-002.png"],
+  ["pm-010", "/candidate-portraits/v1/v1-003.png"],
+  ["pm-011", "/candidate-portraits/v3/v3-003.png"],
+  ["pm-012", "/candidate-portraits/v3/v3-013.png"],
+  ["pm-013", "/candidate-portraits/v2/v2-003.png"],
+  ["pm-014", "/candidate-portraits/v1/v1-025.png"],
+  ["pm-015", "/candidate-portraits/v1/v1-004.png"],
+  ["pm-016", "/candidate-portraits/v3/v3-014.png"],
+  ["pm-017", "/candidate-portraits/v3/v3-004.png"],
+  ["pm-018", "/candidate-portraits/v1/v1-006.png"],
+  ["pm-019", "/candidate-portraits/v1/v1-028.png"],
+  ["pm-020", "/candidate-portraits/v3/v3-005.png"],
+  ["pm-021", "/candidate-portraits/v1/v1-007.png"],
+  ["pm-022", "/candidate-portraits/v3/v3-006.png"],
+  ["pm-023", "/candidate-portraits/v3/v3-018.png"],
+  ["pm-024", "/candidate-portraits/v1/v1-008.png"],
+  ["pm-025", "/candidate-portraits/v1/v1-031.png"],
+  ["branch-johor-0", "/candidate-portraits/v3/v3-021.png"],
+  ["branch-johor-1", "/candidate-portraits/v1/v1-032.png"],
+  ["branch-johor-2", "/candidate-portraits/v3/v3-022.png"],
+  ["branch-johor-3", "/candidate-portraits/v1/v1-037.png"],
+  ["branch-johor-4", "/candidate-portraits/v3/v3-023.png"],
+  ["branch-johor-5", "/candidate-portraits/v1/v1-038.png"],
+  ["branch-johor-6", "/candidate-portraits/v3/v3-025.png"],
+  ["branch-johor-7", "/candidate-portraits/v1/v1-041.png"],
+  ["branch-johor-8", "/candidate-portraits/v3/v3-029.png"],
+  ["branch-johor-9", "/candidate-portraits/v1/v1-042.png"],
+  ["branch-johor-10", "/candidate-portraits/v3/v3-007.png"],
+  ["branch-johor-11", "/candidate-portraits/v1/v1-009.png"],
+  ["branch-johor-12", "/candidate-portraits/v3/v3-008.png"],
+  ["branch-johor-13", "/candidate-portraits/v1/v1-010.png"],
+  ["branch-johor-14", "/candidate-portraits/v3/v3-009.png"],
+  ["branch-johor-15", "/candidate-portraits/v1/v1-011.png"],
+  ["branch-johor-16", "/candidate-portraits/v3/v3-011.png"],
+  ["branch-johor-17", "/candidate-portraits/v1/v1-012.png"],
+  ["branch-johor-18", "/candidate-portraits/v3/v3-012.png"],
+  ["branch-johor-19", "/candidate-portraits/v1/v1-013.png"],
+  ["branch-johor-20", "/candidate-portraits/v3/v3-033.png"],
+  ["branch-johor-21", "/candidate-portraits/v1/v1-045.png"],
+  ["branch-johor-22", "/candidate-portraits/v3/v3-037.png"],
+  ["branch-johor-23", "/candidate-portraits/v1/v1-051.png"],
+  ["branch-johor-24", "/candidate-portraits/v3/v3-039.png"],
+  ["branch-johor-25", "/candidate-portraits/v1/v1-056.png"],
+  ["branch-kedah-0", "/candidate-portraits/v3/v3-015.png"],
+  ["branch-kedah-1", "/candidate-portraits/v1/v1-015.png"],
+  ["branch-kedah-2", "/candidate-portraits/v3/v3-016.png"],
+  ["branch-kedah-3", "/candidate-portraits/v1/v1-016.png"],
+  ["branch-kedah-4", "/candidate-portraits/v3/v3-017.png"],
+  ["branch-kedah-5", "/candidate-portraits/v1/v1-017.png"],
+  ["branch-kedah-6", "/candidate-portraits/v3/v3-019.png"],
+  ["branch-kedah-7", "/candidate-portraits/v1/v1-018.png"],
+  ["branch-kedah-8", "/candidate-portraits/v3/v3-020.png"],
+  ["branch-kedah-9", "/candidate-portraits/v1/v1-019.png"],
+  ["branch-kedah-10", "/candidate-portraits/v3/v3-040.png"],
+  ["branch-kedah-11", "/candidate-portraits/v1/v1-058.png"],
+  ["branch-kedah-12", "/candidate-portraits/v3/v3-043.png"],
+  ["branch-kedah-13", "/candidate-portraits/v1/v1-060.png"],
+  ["branch-kedah-14", "/candidate-portraits/v3/v3-045.png"],
+  ["branch-kelantan-0", "/candidate-portraits/v3/v3-024.png"],
+  ["branch-kelantan-1", "/candidate-portraits/v1/v1-020.png"],
+  ["branch-kelantan-2", "/candidate-portraits/v3/v3-026.png"],
+  ["branch-kelantan-3", "/candidate-portraits/v1/v1-021.png"],
+  ["branch-kelantan-4", "/candidate-portraits/v3/v3-027.png"],
+  ["branch-kelantan-5", "/candidate-portraits/v1/v1-022.png"],
+  ["branch-kelantan-6", "/candidate-portraits/v3/v3-028.png"],
+  ["branch-kelantan-7", "/candidate-portraits/v1/v1-023.png"],
+  ["branch-kelantan-8", "/candidate-portraits/v3/v3-030.png"],
+  ["branch-kelantan-9", "/candidate-portraits/v1/v1-024.png"],
+  ["branch-kelantan-10", "/candidate-portraits/v1/v1-062.png"],
+  ["branch-kelantan-11", "/candidate-portraits/v3/v3-046.png"],
+  ["branch-kelantan-12", "/candidate-portraits/v1/v1-067.png"],
+  ["branch-kelantan-13", "/candidate-portraits/v3/v3-049.png"],
+  ["branch-melaka-0", "/candidate-portraits/v1/v1-069.png"],
+  ["branch-melaka-1", "/candidate-portraits/v3/v3-052.png"],
+  ["branch-melaka-2", "/candidate-portraits/v1/v1-077.png"],
+  ["branch-melaka-3", "/candidate-portraits/v3/v3-054.png"],
+  ["branch-melaka-4", "/candidate-portraits/v1/v1-078.png"],
+  ["branch-melaka-5", "/candidate-portraits/v3/v3-055.png"],
+  ["branch-ns-0", "/candidate-portraits/v1/v1-079.png"],
+  ["branch-ns-1", "/candidate-portraits/v3/v3-058.png"],
+  ["branch-ns-2", "/candidate-portraits/v1/v1-080.png"],
+  ["branch-ns-3", "/candidate-portraits/v3/v3-062.png"],
+  ["branch-ns-4", "/candidate-portraits/v1/v1-081.png"],
+  ["branch-ns-5", "/candidate-portraits/v3/v3-065.png"],
+  ["branch-ns-6", "/candidate-portraits/v1/v1-083.png"],
+  ["branch-ns-7", "/candidate-portraits/v3/v3-066.png"],
+  ["branch-pahang-0", "/candidate-portraits/v1/v1-086.png"],
+  ["branch-pahang-1", "/candidate-portraits/v3/v3-068.png"],
+  ["branch-pahang-2", "/candidate-portraits/v1/v1-088.png"],
+  ["branch-pahang-3", "/candidate-portraits/v3/v3-069.png"],
+  ["branch-pahang-4", "/candidate-portraits/v1/v1-090.png"],
+  ["branch-pahang-5", "/candidate-portraits/v3/v3-070.png"],
+  ["branch-pahang-6", "/candidate-portraits/v1/v1-092.png"],
+  ["branch-pahang-7", "/candidate-portraits/v3/v3-077.png"],
+  ["branch-pahang-8", "/candidate-portraits/v1/v1-095.png"],
+  ["branch-pahang-9", "/candidate-portraits/v3/v3-079.png"],
+  ["branch-pahang-10", "/candidate-portraits/v3/v3-031.png"],
+  ["branch-pahang-11", "/candidate-portraits/v1/v1-026.png"],
+  ["branch-pahang-12", "/candidate-portraits/v3/v3-032.png"],
+  ["branch-pahang-13", "/candidate-portraits/v1/v1-027.png"],
+  ["branch-perak-0", "/candidate-portraits/v1/v1-097.png"],
+  ["branch-perak-1", "/candidate-portraits/v3/v3-081.png"],
+  ["branch-perak-2", "/candidate-portraits/v1/v1-098.png"],
+  ["branch-perak-3", "/candidate-portraits/v3/v3-085.png"],
+  ["branch-perak-4", "/candidate-portraits/v1/v1-102.png"],
+  ["branch-perak-5", "/candidate-portraits/v3/v3-086.png"],
+  ["branch-perak-6", "/candidate-portraits/v1/v1-103.png"],
+  ["branch-perak-7", "/candidate-portraits/v3/v3-089.png"],
+  ["branch-perak-8", "/candidate-portraits/v1/v1-105.png"],
+  ["branch-perak-9", "/candidate-portraits/v3/v3-100.png"],
+  ["branch-perak-10", "/candidate-portraits/v3/v3-034.png"],
+  ["branch-perak-11", "/candidate-portraits/v1/v1-029.png"],
+  ["branch-perak-12", "/candidate-portraits/v3/v3-035.png"],
+  ["branch-perak-13", "/candidate-portraits/v1/v1-030.png"],
+  ["branch-perak-14", "/candidate-portraits/v3/v3-036.png"],
+  ["branch-perak-15", "/candidate-portraits/v1/v1-033.png"],
+  ["branch-perak-16", "/candidate-portraits/v3/v3-038.png"],
+  ["branch-perak-17", "/candidate-portraits/v1/v1-034.png"],
+  ["branch-perak-18", "/candidate-portraits/v3/v3-041.png"],
+  ["branch-perak-19", "/candidate-portraits/v1/v1-035.png"],
+  ["branch-perak-20", "/candidate-portraits/v1/v1-106.png"],
+  ["branch-perak-21", "/candidate-portraits/v3/v3-114.png"],
+  ["branch-perak-22", "/candidate-portraits/v1/v1-107.png"],
+  ["branch-perak-23", "/candidate-portraits/v3/v3-120.png"],
+  ["branch-perlis-0", "/candidate-portraits/v1/v1-110.png"],
+  ["branch-perlis-1", "/candidate-portraits/v3/v3-122.png"],
+  ["branch-perlis-2", "/candidate-portraits/v1/v1-113.png"],
+  ["branch-penang-0", "/candidate-portraits/v3/v3-042.png"],
+  ["branch-penang-1", "/candidate-portraits/v1/v1-036.png"],
+  ["branch-penang-2", "/candidate-portraits/v3/v3-044.png"],
+  ["branch-penang-3", "/candidate-portraits/v1/v1-039.png"],
+  ["branch-penang-4", "/candidate-portraits/v3/v3-047.png"],
+  ["branch-penang-5", "/candidate-portraits/v1/v1-040.png"],
+  ["branch-penang-6", "/candidate-portraits/v3/v3-048.png"],
+  ["branch-penang-7", "/candidate-portraits/v1/v1-043.png"],
+  ["branch-penang-8", "/candidate-portraits/v3/v3-050.png"],
+  ["branch-penang-9", "/candidate-portraits/v1/v1-044.png"],
+  ["branch-penang-10", "/candidate-portraits/v3/v3-129.png"],
+  ["branch-penang-11", "/candidate-portraits/v1/v1-115.png"],
+  ["branch-penang-12", "/candidate-portraits/v1/v1-117.png"],
+  ["branch-sabah-0", "/candidate-portraits/v1/v1-119.png"],
+  ["branch-sabah-1", "/candidate-portraits/v1/v1-122.png"],
+  ["branch-sabah-2", "/candidate-portraits/v1/v1-124.png"],
+  ["branch-sabah-3", "/candidate-portraits/v1/v1-128.png"],
+  ["branch-sabah-4", "/candidate-portraits/v1/v1-130.png"],
+  ["branch-sabah-5", "/candidate-portraits/v1/v1-133.png"],
+  ["branch-sabah-6", "/candidate-portraits/v1/v1-138.png"],
+  ["branch-sabah-7", "/candidate-portraits/v1/v1-139.png"],
+  ["branch-sabah-8", "/candidate-portraits/v1/v1-140.png"],
+  ["branch-sabah-9", "/candidate-portraits/v1/v1-142.png"],
+  ["branch-sabah-10", "/candidate-portraits/v3/v3-051.png"],
+  ["branch-sabah-11", "/candidate-portraits/v1/v1-046.png"],
+  ["branch-sabah-12", "/candidate-portraits/v3/v3-053.png"],
+  ["branch-sabah-13", "/candidate-portraits/v1/v1-047.png"],
+  ["branch-sabah-14", "/candidate-portraits/v3/v3-056.png"],
+  ["branch-sabah-15", "/candidate-portraits/v1/v1-048.png"],
+  ["branch-sabah-16", "/candidate-portraits/v3/v3-057.png"],
+  ["branch-sabah-17", "/candidate-portraits/v1/v1-049.png"],
+  ["branch-sabah-18", "/candidate-portraits/v3/v3-059.png"],
+  ["branch-sabah-19", "/candidate-portraits/v1/v1-050.png"],
+  ["branch-sabah-20", "/candidate-portraits/v3/v3-021.png"],
+  ["branch-sabah-21", "/candidate-portraits/v1/v1-032.png"],
+  ["branch-sabah-22", "/candidate-portraits/v3/v3-022.png"],
+  ["branch-sabah-23", "/candidate-portraits/v1/v1-037.png"],
+  ["branch-sabah-24", "/candidate-portraits/v3/v3-023.png"],
+  ["branch-sarawak-0", "/candidate-portraits/v1/v1-038.png"],
+  ["branch-sarawak-1", "/candidate-portraits/v3/v3-025.png"],
+  ["branch-sarawak-2", "/candidate-portraits/v1/v1-041.png"],
+  ["branch-sarawak-3", "/candidate-portraits/v3/v3-029.png"],
+  ["branch-sarawak-4", "/candidate-portraits/v1/v1-042.png"],
+  ["branch-sarawak-5", "/candidate-portraits/v3/v3-033.png"],
+  ["branch-sarawak-6", "/candidate-portraits/v1/v1-045.png"],
+  ["branch-sarawak-7", "/candidate-portraits/v3/v3-037.png"],
+  ["branch-sarawak-8", "/candidate-portraits/v1/v1-051.png"],
+  ["branch-sarawak-9", "/candidate-portraits/v3/v3-039.png"],
+  ["branch-sarawak-10", "/candidate-portraits/v3/v3-060.png"],
+  ["branch-sarawak-11", "/candidate-portraits/v1/v1-052.png"],
+  ["branch-sarawak-12", "/candidate-portraits/v3/v3-061.png"],
+  ["branch-sarawak-13", "/candidate-portraits/v1/v1-053.png"],
+  ["branch-sarawak-14", "/candidate-portraits/v3/v3-063.png"],
+  ["branch-sarawak-15", "/candidate-portraits/v1/v1-054.png"],
+  ["branch-sarawak-16", "/candidate-portraits/v3/v3-064.png"],
+  ["branch-sarawak-17", "/candidate-portraits/v1/v1-055.png"],
+  ["branch-sarawak-18", "/candidate-portraits/v3/v3-067.png"],
+  ["branch-sarawak-19", "/candidate-portraits/v1/v1-057.png"],
+  ["branch-sarawak-20", "/candidate-portraits/v1/v1-056.png"],
+  ["branch-sarawak-21", "/candidate-portraits/v3/v3-040.png"],
+  ["branch-sarawak-22", "/candidate-portraits/v1/v1-058.png"],
+  ["branch-sarawak-23", "/candidate-portraits/v3/v3-043.png"],
+  ["branch-sarawak-24", "/candidate-portraits/v1/v1-060.png"],
+  ["branch-sarawak-25", "/candidate-portraits/v3/v3-045.png"],
+  ["branch-sarawak-26", "/candidate-portraits/v1/v1-062.png"],
+  ["branch-sarawak-27", "/candidate-portraits/v3/v3-046.png"],
+  ["branch-sarawak-28", "/candidate-portraits/v1/v1-067.png"],
+  ["branch-sarawak-29", "/candidate-portraits/v3/v3-049.png"],
+  ["branch-sarawak-30", "/candidate-portraits/v3/v3-071.png"],
+  ["branch-selangor-0", "/candidate-portraits/v1/v1-069.png"],
+  ["branch-selangor-1", "/candidate-portraits/v3/v3-052.png"],
+  ["branch-selangor-2", "/candidate-portraits/v1/v1-077.png"],
+  ["branch-selangor-3", "/candidate-portraits/v3/v3-054.png"],
+  ["branch-selangor-4", "/candidate-portraits/v1/v1-078.png"],
+  ["branch-selangor-5", "/candidate-portraits/v3/v3-055.png"],
+  ["branch-selangor-6", "/candidate-portraits/v1/v1-079.png"],
+  ["branch-selangor-7", "/candidate-portraits/v3/v3-058.png"],
+  ["branch-selangor-8", "/candidate-portraits/v1/v1-080.png"],
+  ["branch-selangor-9", "/candidate-portraits/v3/v3-062.png"],
+  ["branch-selangor-10", "/candidate-portraits/v1/v1-059.png"],
+  ["branch-selangor-11", "/candidate-portraits/v3/v3-072.png"],
+  ["branch-selangor-12", "/candidate-portraits/v1/v1-061.png"],
+  ["branch-selangor-13", "/candidate-portraits/v3/v3-073.png"],
+  ["branch-selangor-14", "/candidate-portraits/v1/v1-063.png"],
+  ["branch-selangor-15", "/candidate-portraits/v3/v3-074.png"],
+  ["branch-selangor-16", "/candidate-portraits/v1/v1-064.png"],
+  ["branch-selangor-17", "/candidate-portraits/v3/v3-075.png"],
+  ["branch-selangor-18", "/candidate-portraits/v1/v1-065.png"],
+  ["branch-selangor-19", "/candidate-portraits/v3/v3-076.png"],
+  ["branch-selangor-20", "/candidate-portraits/v1/v1-081.png"],
+  ["branch-selangor-21", "/candidate-portraits/v3/v3-065.png"],
+  ["branch-terengganu-0", "/candidate-portraits/v1/v1-066.png"],
+  ["branch-terengganu-1", "/candidate-portraits/v3/v3-078.png"],
+  ["branch-terengganu-2", "/candidate-portraits/v1/v1-068.png"],
+  ["branch-terengganu-3", "/candidate-portraits/v3/v3-080.png"],
+  ["branch-terengganu-4", "/candidate-portraits/v1/v1-070.png"],
+  ["branch-terengganu-5", "/candidate-portraits/v3/v3-082.png"],
+  ["branch-terengganu-6", "/candidate-portraits/v1/v1-071.png"],
+  ["branch-terengganu-7", "/candidate-portraits/v3/v3-083.png"],
+  ["branch-wp-0", "/candidate-portraits/v1/v1-083.png"],
+  ["branch-wp-1", "/candidate-portraits/v3/v3-066.png"],
+  ["branch-wp-2", "/candidate-portraits/v1/v1-086.png"],
+  ["branch-wp-3", "/candidate-portraits/v3/v3-068.png"],
+  ["branch-wp-4", "/candidate-portraits/v1/v1-088.png"],
+  ["branch-wp-5", "/candidate-portraits/v3/v3-069.png"],
+  ["branch-wp-6", "/candidate-portraits/v1/v1-090.png"],
+  ["branch-wp-7", "/candidate-portraits/v3/v3-070.png"],
+  ["branch-wp-8", "/candidate-portraits/v1/v1-092.png"],
+  ["branch-wp-9", "/candidate-portraits/v3/v3-077.png"],
+  ["branch-wp-10", "/candidate-portraits/v1/v1-072.png"],
+  ["branch-wp-11", "/candidate-portraits/v3/v3-084.png"],
+  ["branch-wp-12", "/candidate-portraits/v1/v1-073.png"],
+]);
 
 function candidatePortrait(member: PartyMember): string {
-  const seed = member.id.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return CANDIDATE_PORTRAITS[seed % CANDIDATE_PORTRAITS.length];
+  return CANDIDATE_PORTRAIT_MAP.get(member.id) ?? "";
 }
 
 function makeLocalBranchCandidate(state: StateData, constituency: Constituency, index: number): PartyMember {
@@ -288,9 +532,12 @@ function makeLocalBranchCandidate(state: StateData, constituency: Constituency, 
 }
 
 function NominationTab() {
-  const { states: gameStates, nominations, setNomination } = useGameStore();
-  const [selectedStateId, setSelectedStateId] = useState(gameStates[0]?.id ?? "selangor");
-  const [selectedConstId, setSelectedConstId] = useState<string | null>(null);
+  const { states: gameStates, nominations, setNomination, applyCandidateFallout, day, leader, settings } = useGameStore();
+  const isPrn = settings.electionScope === "prn";
+  const nominationStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
+  const initialStateId = (isPrn ? settings.prnStateId : gameStates[0]?.id) ?? "selangor";
+  const [selectedStateId, setSelectedStateId] = useState(initialStateId);
+  const [selectedConstId, setSelectedConstId] = useState<string | null>(`${initialStateId}-0`);
   const [advisorNote, setAdvisorNote] = useState("AI Advisor belum dijalankan. Cadangan akan isi kerusi kosong sahaja supaya pilihan player tidak ditimpa.");
 
   const selectedState = gameStates.find((s) => s.id === selectedStateId);
@@ -313,11 +560,11 @@ function NominationTab() {
   }, [nominations]);
 
   const allConstituencies = useMemo(() => {
-    return gameStates.flatMap((state) =>
+    return nominationStates.flatMap((state) =>
       generateConstituencies(state).map((constituency) => ({ state, constituency }))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameStates]);
+  }, [nominationStates]);
 
   const candidatePool = useMemo(() => {
     const branchMembers = allConstituencies.map(({ state, constituency }, index) =>
@@ -332,14 +579,14 @@ function NominationTab() {
 
   const allConsts = useMemo(() => {
     const map: Record<string, { name: string; stateShort: string }> = {};
-    for (const s of gameStates) {
+    for (const s of nominationStates) {
       for (const c of generateConstituencies(s)) {
         map[c.id] = { name: c.name, stateShort: s.shortName };
       }
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameStates]);
+  }, [nominationStates]);
 
   const stateProgress = (stateId: string) => {
     const s = gameStates.find((x) => x.id === stateId);
@@ -351,11 +598,54 @@ function NominationTab() {
 
   const assign = (entry: NominationEntry | null) => {
     if (!selectedConstId) return;
+    let fallout: { stateId: string; reaction: ReturnType<typeof buildCandidateFalloutReaction>; lawanBoost: number; othersBoost: number } | null = null;
     if (entry?.type === "member") {
       const prev = memberAssignments[entry.memberId];
       if (prev && prev !== selectedConstId) setNomination(prev, null);
+
+      if (selectedConst && selectedState) {
+        const seatName = selectedConst.name.toLowerCase();
+        const snubbed = candidatePool
+          .filter((member) => member.id !== entry.memberId && !memberAssignments[member.id])
+          .map((member) => {
+            const exactSeat = member.homeConstituency?.toLowerCase() === seatName;
+            const sameState = member.homeState === selectedStateId;
+            const seniority = member.experience === "veteran" ? 18 : member.experience === "rising" ? 10 : 0;
+            const grievance = (exactSeat ? 70 : sameState ? 34 : 0) + member.influence * 0.55 + member.credibility * 0.25 + seniority;
+            return { member, exactSeat, sameState, grievance };
+          })
+          .filter(({ member, exactSeat, sameState, grievance }) => exactSeat || (sameState && grievance >= 92) || (member.influenceScope === "national" && grievance >= 105))
+          .sort((a, b) => b.grievance - a.grievance)[0];
+
+        if (snubbed && snubbed.grievance >= 86) {
+          const scenario = snubbed.exactSeat
+            ? "independent"
+            : snubbed.member.influence >= 80 || snubbed.member.credibility >= 84
+              ? "opposition"
+              : "sabotage";
+          const reaction = buildCandidateFalloutReaction({
+            day,
+            constituencyName: selectedConst.name,
+            stateId: selectedState.id,
+            snubbedName: snubbed.member.name,
+            snubbedRole: snubbed.member.role,
+            selectedName: entry.memberName,
+            influence: snubbed.member.influence,
+            credibility: snubbed.member.credibility,
+            scenario,
+            partyAbbr: leader.partyAbbr,
+          });
+          fallout = {
+            stateId: selectedState.id,
+            reaction,
+            lawanBoost: scenario === "opposition" ? 2 : scenario === "sabotage" ? 0.8 : 0.5,
+            othersBoost: scenario === "independent" ? 2.3 : scenario === "sabotage" ? 0.4 : 0.5,
+          };
+        }
+      }
     }
     setNomination(selectedConstId, entry);
+    if (fallout) applyCandidateFallout(fallout.stateId, fallout.reaction, fallout.lawanBoost, fallout.othersBoost);
   };
 
   const scColor = (s: Constituency["safety"]) =>
@@ -474,7 +764,7 @@ function NominationTab() {
 
       {/* Col 1: State List */}
       <div style={{ width: "158px", borderRight: "1px solid rgb(var(--cyan-rgb)/0.12)", overflowY: "auto", flexShrink: 0 }}>
-        {gameStates.map((s) => {
+        {nominationStates.map((s) => {
           const { nominated, total } = stateProgress(s.id);
           const pct = total > 0 ? nominated / total : 0;
           const pColor = pct === 1 ? "var(--neon-green)" : pct > 0 ? "var(--gold)" : "#4a5568";
@@ -482,7 +772,7 @@ function NominationTab() {
           return (
             <button
               key={s.id}
-              onClick={() => { setSelectedStateId(s.id); setSelectedConstId(null); }}
+              onClick={() => { setSelectedStateId(s.id); setSelectedConstId(`${s.id}-0`); }}
               className="w-full px-3 py-2.5 text-left transition-colors"
               style={{
                 borderBottom: "1px solid rgb(var(--cyan-rgb)/0.07)",
@@ -625,13 +915,21 @@ function NominationTab() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     {currentMember && currentNom.type === "member" && (
-                      <div className="h-[58px] w-[46px] shrink-0 overflow-hidden" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.42)", background: "rgb(var(--cyan-rgb)/0.06)", boxShadow: "0 0 16px rgb(var(--cyan-rgb)/0.18)" }}>
+                      <div
+                        className="relative h-[82px] w-[64px] shrink-0 overflow-hidden"
+                        style={{
+                          border: "1px solid rgb(var(--cyan-rgb)/0.55)",
+                          background: "radial-gradient(circle at 50% 20%, rgb(var(--cyan-rgb)/0.18), transparent 42%), linear-gradient(180deg, rgb(var(--cyan-rgb)/0.08), rgb(var(--gold-rgb)/0.045))",
+                          boxShadow: "0 0 20px rgb(var(--cyan-rgb)/0.22), inset 0 0 18px rgb(var(--cyan-rgb)/0.06)",
+                        }}
+                      >
                         <img
                           src={candidatePortrait(currentMember)}
                           alt={`${currentMember.name} profile photo`}
-                          className="h-full w-full object-cover"
-                          style={{ transform: "scale(1.08)" }}
+                          className="h-full w-full object-contain object-center"
+                          style={{ padding: "4px 4px 8px", imageRendering: "auto" }}
                         />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.72))" }} />
                       </div>
                     )}
                     <div className="min-w-0">
@@ -691,7 +989,7 @@ function NominationTab() {
                   {candidatePool.filter((m) => !memberAssignments[m.id]).length}/{candidatePool.length} TERSEDIA · {candidatePool.filter((m) => m.influenceScope === "national").length} NASIONAL · {candidatePool.filter(isLocalMember).length} ANAK NEGERI
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {sortedMembers.map((member) => {
                   const assignedTo = memberAssignments[member.id];
                   const isHere = assignedTo === selectedConstId;
@@ -702,11 +1000,6 @@ function NominationTab() {
                     : isElsewhere
                     ? "rgb(var(--gold-rgb)/0.4)"
                     : "rgb(var(--cyan-rgb)/0.14)";
-                  const bgColor = isHere
-                    ? "rgb(var(--cyan-rgb)/0.08)"
-                    : isElsewhere
-                    ? "rgb(var(--gold-rgb)/0.04)"
-                    : "transparent";
                   const statusColor = isHere ? "var(--cyan)" : isElsewhere ? "var(--gold)" : "var(--neon-green)";
                   const statusLabel = isHere ? "KERUSI INI" : isElsewhere ? "PINDAH →" : "TERSEDIA";
                   const elseWhereName = isElsewhere ? (allConsts[assignedTo]?.name ?? assignedTo) : "";
@@ -727,25 +1020,35 @@ function NominationTab() {
                       }}
                       disabled={isHere}
                       className="p-3 text-left transition-all"
-                      style={{ border: `1px solid ${borderColor}`, background: bgColor, cursor: isHere ? "default" : "pointer" }}
+                      style={{
+                        border: `1px solid ${borderColor}`,
+                        background: isHere
+                          ? "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.11), rgb(var(--gold-rgb)/0.045))"
+                          : isElsewhere
+                          ? "linear-gradient(135deg, rgb(var(--gold-rgb)/0.055), rgb(var(--cyan-rgb)/0.025))"
+                          : "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.035), transparent 62%)",
+                        cursor: isHere ? "default" : "pointer",
+                        boxShadow: isHere ? "0 0 20px rgb(var(--cyan-rgb)/0.16)" : "inset 0 0 18px rgb(var(--cyan-rgb)/0.025)",
+                      }}
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className="relative h-[74px] w-[58px] shrink-0 overflow-hidden"
+                          className="relative h-[96px] w-[74px] shrink-0 overflow-hidden"
                           style={{
                             border: `1px solid ${isHere ? "var(--cyan)" : local ? "var(--neon-green)" : "rgb(var(--cyan-rgb)/0.28)"}`,
-                            background: "linear-gradient(135deg, rgba(0,212,255,0.08), rgba(255,178,44,0.06))",
-                            boxShadow: isHere ? "0 0 18px rgb(var(--cyan-rgb)/0.22)" : "none",
+                            background: "radial-gradient(circle at 50% 18%, rgb(var(--cyan-rgb)/0.18), transparent 44%), linear-gradient(180deg, rgba(0,212,255,0.075), rgba(255,178,44,0.045))",
+                            boxShadow: isHere ? "0 0 22px rgb(var(--cyan-rgb)/0.24), inset 0 0 18px rgb(var(--cyan-rgb)/0.08)" : "inset 0 0 14px rgb(var(--cyan-rgb)/0.055)",
                           }}
                         >
                           <img
                             src={portrait}
                             alt={`${member.name} profile photo`}
-                            className="h-full w-full object-cover"
-                            style={{ transform: "scale(1.08)", filter: isElsewhere ? "grayscale(0.35) brightness(0.78)" : "none" }}
+                            className="h-full w-full object-contain object-center"
+                            style={{ padding: "4px 4px 16px", filter: isElsewhere ? "grayscale(0.35) brightness(0.78)" : "contrast(1.03) saturate(1.04)" }}
                           />
-                          <div className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-center text-[7px] font-black tracking-[0.16em]" style={{ color: "#061018", background: local ? "var(--neon-green)" : "var(--cyan)" }}>
-                            ID
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.78))" }} />
+                          <div className="absolute inset-x-1 bottom-1 px-1 py-0.5 text-center text-[7px] font-black tracking-[0.16em]" style={{ color: "#061018", background: local ? "var(--neon-green)" : "var(--cyan)", boxShadow: "0 0 10px rgb(var(--cyan-rgb)/0.28)" }}>
+                            PROFILE
                           </div>
                         </div>
 
@@ -831,15 +1134,18 @@ export default function CampaignPage() {
   const [activeTab, setActiveTab] = useState<Tab>("NOMINATION");
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
-  const [selectedMiniGameState, setSelectedMiniGameState] = useState("selangor");
+  const { operations, resources, states: gameStates, removeOperation, settings } = useGameStore();
+  const isPrn = settings.electionScope === "prn";
+  const campaignStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
+  const [selectedMiniGameState, setSelectedMiniGameState] = useState(() => (isPrn ? settings.prnStateId : "selangor"));
   const [miniGameType, setMiniGameType] = useState<MiniGameType>("ceramah");
   const [recruitDone, setRecruitDone] = useState(false);
-  const { operations, resources, states: gameStates, removeOperation, runCampaignMiniGame } = useGameStore();
+  const [activeScene, setActiveScene] = useState<{ stateId: string; gameType: MiniGameType; tactic: MiniGameTactic } | null>(null);
   const router = useRouter();
 
   const activeOpsCount = operations.filter((o) => o.status === "active" || o.status === "ongoing").length;
   const plannedOpsCount = operations.filter((o) => o.status === "planned").length;
-  const miniGameState = gameStates.find((s) => s.id === selectedMiniGameState) ?? gameStates[0];
+  const miniGameState = campaignStates.find((s) => s.id === selectedMiniGameState) ?? campaignStates[0];
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
@@ -847,6 +1153,14 @@ export default function CampaignPage() {
       <StatusBar leftText="» CAMPAIGN HQ · OPERATIONS COMMAND" rightText="TAB: SWITCH PANEL · ↵ SELECT" />
 
       {showDeployModal && <DeployModal onClose={() => setShowDeployModal(false)} />}
+      {activeScene && (
+        <CeramahSceneModal
+          stateId={activeScene.stateId}
+          gameType={activeScene.gameType}
+          tactic={activeScene.tactic}
+          onClose={() => setActiveScene(null)}
+        />
+      )}
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
@@ -883,7 +1197,7 @@ export default function CampaignPage() {
                 ))}
               </div>
               <div className="space-y-1.5 max-h-[360px] overflow-y-auto">
-                {gameStates.map((s) => (
+                {campaignStates.map((s) => (
                   <button key={s.id} onClick={() => setSelectedMiniGameState(s.id)} className="w-full px-3 py-2 text-left text-[12px]" style={{ border: selectedMiniGameState === s.id ? "1px solid var(--cyan)" : "1px solid rgb(var(--cyan-rgb)/0.12)", color: selectedMiniGameState === s.id ? "#fff" : "var(--text-muted)", background: selectedMiniGameState === s.id ? "rgb(var(--cyan-rgb)/0.07)" : "transparent" }}>
                     <div className="flex justify-between"><span className="font-bold">{s.name}</span><span>{s.mandatSupport}%</span></div>
                     <div className="mt-1 h-1.5" style={{ background: "var(--bar-empty)" }}><div className="h-1.5" style={{ width: `${s.mandatSupport}%`, background: "var(--cyan)" }} /></div>
@@ -902,7 +1216,7 @@ export default function CampaignPage() {
                 {(Object.keys(MINI_GAME_TACTICS) as MiniGameTactic[]).map((tactic) => {
                   const option = MINI_GAME_TACTICS[tactic];
                   return (
-                    <button key={tactic} onClick={() => miniGameState && runCampaignMiniGame(miniGameState.id, miniGameType, tactic)} className="p-5 text-left transition-all hover:scale-[1.01]" style={{ border: `1px solid ${option.color}55`, background: `${option.color}0d`, cursor: "pointer" }}>
+                    <button key={tactic} onClick={() => miniGameState && setActiveScene({ stateId: miniGameState.id, gameType: miniGameType, tactic })} className="p-5 text-left transition-all hover:scale-[1.01]" style={{ border: `1px solid ${option.color}55`, background: `${option.color}0d`, cursor: "pointer" }}>
                       <div className="text-[13px] font-black tracking-widest" style={{ color: option.color }}>{option.title}</div>
                       <div className="mt-2 min-h-[52px] text-[11px] leading-5" style={{ color: "#9fb0c2" }}>{t(lang, option.descMS, option.descEN)}</div>
                       <div className="mt-3 text-[10px] font-bold" style={{ color: option.color }}>{option.risk}</div>
@@ -990,7 +1304,7 @@ export default function CampaignPage() {
 
               {/* Mini Map */}
               <TacticalPanel title="OPERATIONAL MAP">
-                <MalaysiaMap states={gameStates} compact={true} />
+                <MalaysiaMap states={campaignStates} compact={true} />
               </TacticalPanel>
             </div>
 

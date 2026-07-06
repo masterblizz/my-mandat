@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -8,6 +7,7 @@ import { useGameStore } from "../store/gameStore";
 import { useHistoryStore, type Outcome } from "../store/historyStore";
 import { generateConstituencies, type Constituency } from "../data/constituencies";
 import { formatNumber, formatPercent } from "../utils/format";
+import { usePendingNav } from "../hooks/usePendingNav";
 
 const TOTAL_SEATS = 222;
 const MAJORITY = 112;
@@ -156,7 +156,7 @@ function computeSeatDetails(state: ReturnType<typeof useGameStore.getState>["sta
 }
 
 export default function ResultsPage() {
-  const router = useRouter();
+  const { isPending, navigate } = usePendingNav();
   const { states, resources, day, totalDays, leader, operations, difficulty, resetGame } = useGameStore();
   const addRecord = useHistoryStore((state) => state.addRecord);
   const recordedResultRef = useRef(false);
@@ -263,13 +263,11 @@ export default function ResultsPage() {
   ];
 
   function handleRestart() {
-    resetGame();
-    router.push("/menu");
+    navigate("/menu", () => resetGame());
   }
 
   function handleNewCampaign() {
-    resetGame();
-    router.push("/setup");
+    navigate("/setup", () => resetGame());
   }
 
   return (
@@ -546,7 +544,8 @@ export default function ResultsPage() {
         <div className="flex gap-3 justify-end">
           <button
             onClick={handleRestart}
-            className="px-6 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80"
+            disabled={isPending}
+            className="px-6 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
             style={{
               background: "transparent",
               border: "1px solid rgb(var(--cyan-rgb) / 0.3)",
@@ -554,26 +553,26 @@ export default function ResultsPage() {
               fontFamily: "Space Mono, monospace",
             }}
           >
-            RETURN TO MENU
+            {isPending ? "⟳ LOADING..." : "RETURN TO MENU"}
           </button>
-          {verdict === "WIN" && (
-            <button
-              onClick={() => router.push("/cabinet")}
-              className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80"
-              style={{
-                background: "rgb(var(--gold-rgb) / 0.13)",
-                border: "1px solid rgb(var(--gold-rgb) / 0.55)",
-                color: "var(--gold)",
-                fontFamily: "Space Mono, monospace",
-                boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
-              }}
-            >
-              ♛ FORM CABINET
-            </button>
-          )}
+          <button
+            onClick={() => navigate("/mandate")}
+            disabled={isPending}
+            className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
+            style={{
+              background: "rgb(var(--gold-rgb) / 0.13)",
+              border: "1px solid rgb(var(--gold-rgb) / 0.55)",
+              color: "var(--gold)",
+              fontFamily: "Space Mono, monospace",
+              boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
+            }}
+          >
+            {isPending ? "⟳ LOADING..." : "♛ SAHKAN MANDAT"}
+          </button>
           <button
             onClick={handleNewCampaign}
-            className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80"
+            disabled={isPending}
+            className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
             style={{
               background: "rgb(var(--cyan-rgb) / 0.12)",
               border: "1px solid rgb(var(--cyan-rgb) / 0.5)",
@@ -582,7 +581,7 @@ export default function ResultsPage() {
               boxShadow: "0 0 16px rgb(var(--cyan-rgb) / 0.15)",
             }}
           >
-            » NEW CAMPAIGN
+            {isPending ? "⟳ LOADING..." : "» NEW CAMPAIGN"}
           </button>
         </div>
       </main>

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MalaysiaMap from "../components/map/MalaysiaMap";
-import IntroVideo from "../components/ui/IntroVideo";
 import { states as initialStates } from "../data/states";
 import { advisors } from "../data/advisors";
 import { useGameStore } from "../store/gameStore";
@@ -95,10 +94,9 @@ export default function MainMenuPage() {
   const [selected, setSelected] = useState(0);
   const [clock, setClock] = useState("--:--:--");
   const [mounted, setMounted] = useState(false);
-  const [introRoute, setIntroRoute] = useState<string | null>(null);
   const [showCredits, setShowCredits] = useState(false);
 
-  const { leader, difficulty, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment } = useGameStore();
+  const { leader, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment } = useGameStore();
   const projectedSeats = getTotalProjectedSeats();
   const nationalSupport = getNationalSupport();
   const campaignProgress = Math.round((day / totalDays) * 100);
@@ -129,10 +127,6 @@ export default function MainMenuPage() {
       return;
     }
     if (!item.href) return;
-    if (item.href === "/warroom") {
-      setIntroRoute(item.href);
-      return;
-    }
     router.push(item.href);
   }, [router]);
 
@@ -166,20 +160,6 @@ export default function MainMenuPage() {
         fontFamily: "'Space Mono', 'Chakra Petch', monospace",
       }}
     >
-      {introRoute && (
-        <IntroVideo
-          leaderName={leader.name}
-          partyName={leader.party}
-          partyAbbr={leader.partyAbbr}
-          partyColor={leader.partyColor}
-          difficulty={difficulty}
-          onComplete={() => {
-            const route = introRoute;
-            setIntroRoute(null);
-            router.push(route);
-          }}
-        />
-      )}
       {showCredits && (
         <div
           className="fixed inset-0 z-[9997] flex items-center justify-center px-4"
@@ -391,7 +371,7 @@ export default function MainMenuPage() {
             <div className="flex flex-col gap-0">
               {[
                 { day: "T-30", labelMS: "PARLIMEN DIBUBAR",  labelEN: "PARLIAMENT DISSOLVED", date: "12 JUN", done: true },
-                { day: "T-25", labelMS: "HARI PENAMAAN",     labelEN: "NOMINATION DAY",       date: "17 JUN", done: true },
+                { day: "T-15", labelMS: "HARI PENAMAAN",     labelEN: "NOMINATION DAY",       date: "27 JUN", done: true },
                 { day: "T-4",  labelMS: "PENGUNDIAN AWAL",   labelEN: "EARLY VOTING",         date: "8 JUL", done: false, active: false },
                 { day: "T-1",  labelMS: "HARI TENANG",       labelEN: "COOLING-OFF DAY",      date: "11 JUL", done: false, active: false },
                 { day: "T-0",  labelMS: "HARI MENGUNDI",     labelEN: "POLLING DAY",          date: "12 JUL", done: false, active: false },
@@ -527,7 +507,7 @@ export default function MainMenuPage() {
           <div className="absolute right-5 top-6 z-10 flex w-48 flex-col gap-2.5">
             <IntelPanel title={t(lang, "RINGKASAN LANGSUNG", "LIVE BRIEF")}>
               <p className="text-[10px] leading-[1.55]" style={{ color: "#93a6b8" }}>
-                {t(lang, "Parlimen dibubar. Aliran SPR selesai. Tetingkap kempen 30 hari aktif merentasi 14 negeri sebelum Hari Tenang dan hari mengundi.", "Parliament dissolved. SPR flow complete. 30-day campaign window active across 14 states before Hari Tenang and polling day.")}
+                {t(lang, "Parlimen dibubar. Penamaan calon selesai dahulu; tetingkap kempen 14 hari hanya bermula selepas penamaan dan tamat 1 hari sebelum hari mengundi.", "Parliament dissolved. Nomination is completed first; the 14-day campaign window starts only after nomination and ends 1 day before polling day.")}
               </p>
             </IntelPanel>
 

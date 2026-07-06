@@ -1,0 +1,6 @@
+file 'v3-013-trim-1.png'
+file 'v3-013-trim-6.png'
+file 'v3-013-trim-10.png'
+file 'v3-013-trim-12.png'
+file 'v3-013-trim-14.png'
+file 'v3-013-trim-16.png'

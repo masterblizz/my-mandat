@@ -1,6 +1,14 @@
 import type { StateData } from "../data/states";
 
-export type OpponentActionType = "pressure" | "scandal" | "counter_narrative" | "media_blitz";
+export type OpponentActionType =
+  | "pressure"
+  | "scandal"
+  | "counter_narrative"
+  | "media_blitz"
+  | "manifesto_attack"
+  | "candidate_poach"
+  | "coalition_form"
+  | "viral_social";
 
 export interface OpponentAction {
   id: string;
@@ -32,6 +40,7 @@ export interface AIInput {
   oppositionStrength: number; // 0–100 from settings
   difficulty: "easy" | "normal" | "hard" | "nightmare";
   recentPlayerGains: string[]; // stateIds where player trended up last day
+  scopeStateName?: string; // set when this is a PRN (single-state) campaign
 }
 
 // ── Narrative pools ───────────────────────────────────────────────────────────
@@ -85,6 +94,66 @@ const COUNTER: Record<CounterKey, { en: string; ms: string }> = {
 const BLITZ_EN = "LAWAN launches nationwide prime-time media blitz — TV, billboards, radio across all 14 states.";
 const BLITZ_MS = "LAWAN lancar serangan media perdana nasional — TV, papan iklan, radio merentasi 14 negeri.";
 
+const MANIFESTO_ATTACK_EN = [
+  "LAWAN dismantles MANDAT's flagship pledge live on TV: 'The numbers simply don't add up.'",
+  "Opposition economists publish a rebuttal costing paper — MANDAT's manifesto math is challenged nationwide.",
+  "LAWAN campaign brands MANDAT's manifesto 'a wish list, not a plan' in a widely shared statement.",
+  "Opposition spokesperson: 'MANDAT promised this before and delivered nothing.' Old pledges resurface.",
+  "LAWAN think tank releases a point-by-point takedown of MANDAT's policy platform.",
+];
+const MANIFESTO_ATTACK_MS = [
+  "LAWAN pecahkan janji utama MANDAT secara langsung di TV: 'Angka ini memang tak masuk akal.'",
+  "Ahli ekonomi pembangkang terbitkan kertas kos balas — matematik manifesto MANDAT dipersoal seluruh negara.",
+  "Kempen LAWAN gelar manifesto MANDAT 'senarai harapan, bukan rancangan' dalam kenyataan yang tular.",
+  "Jurucakap pembangkang: 'MANDAT pernah janji ini dulu dan tak tunaikan apa-apa.' Janji lama disorot semula.",
+  "Badan pemikir LAWAN terbitkan kritikan terperinci terhadap platform dasar MANDAT.",
+];
+
+const CANDIDATE_POACH_EN = [
+  "LAWAN quietly approaches a MANDAT-aligned community leader in {state} with a defection offer.",
+  "Rumours swirl in {state}: a local MANDAT figure is in closed-door talks with the opposition.",
+  "LAWAN dangles a safe seat to lure a grassroots organiser away from MANDAT in {state}.",
+  "A small allied party in {state} threatens to walk from MANDAT's camp after an opposition overture.",
+  "LAWAN recruiters target disgruntled MANDAT branch leaders in {state}.",
+];
+const CANDIDATE_POACH_MS = [
+  "LAWAN diam-diam hubungi seorang pemimpin komuniti berpihak MANDAT di {state} dengan tawaran lompat parti.",
+  "Khabar angin tular di {state}: seorang tokoh MANDAT tempatan berunding tertutup dengan pembangkang.",
+  "LAWAN tawarkan kerusi selamat untuk pikat penganjur akar umbi keluar dari MANDAT di {state}.",
+  "Sebuah parti kecil sekutu di {state} ugut tinggalkan barisan MANDAT selepas didekati pembangkang.",
+  "Perekrut LAWAN sasarkan pemimpin cawangan MANDAT yang tidak berpuas hati di {state}.",
+];
+
+const COALITION_FORM_EN = [
+  "LAWAN seals a seat-sharing pact with two independent blocs — anti-MANDAT votes stop splitting three ways.",
+  "Splinter parties fold into LAWAN's coalition ahead of polling day, unifying the opposition vote.",
+  "LAWAN announces a unity ticket with former rivals: 'One flag, one fight against MANDAT.'",
+  "Independent candidates in key seats withdraw and endorse LAWAN as part of a new pact.",
+  "LAWAN's coalition talks conclude — smaller parties agree to stand down and consolidate the anti-MANDAT vote.",
+];
+const COALITION_FORM_MS = [
+  "LAWAN meterai pakatan kongsi kerusi dengan dua blok bebas — undi anti-MANDAT tidak lagi berpecah tiga.",
+  "Parti pecahan sertai gabungan LAWAN menjelang hari mengundi, menyatukan undi pembangkang.",
+  "LAWAN umum tiket perpaduan dengan bekas saingan: 'Satu bendera, satu perjuangan lawan MANDAT.'",
+  "Calon bebas di kerusi penting menarik diri dan sokong LAWAN sebagai sebahagian pakatan baharu.",
+  "Rundingan pakatan LAWAN selesai — parti kecil bersetuju berundur dan satukan undi anti-MANDAT.",
+];
+
+const VIRAL_SOCIAL_EN = [
+  "A LAWAN-aligned hashtag hits nationwide trending — anti-MANDAT memes flood every timeline.",
+  "TikTok's algorithm favours a wave of anti-MANDAT skits overnight; youth engagement spikes.",
+  "Coordinated LAWAN accounts flood comment sections across platforms with the same talking points.",
+  "A rap parody mocking MANDAT's leader racks up millions of views in 24 hours.",
+  "LAWAN's social media wing floods group chats with edited clips ahead of the weekend.",
+];
+const VIRAL_SOCIAL_MS = [
+  "Hashtag berpihak LAWAN jadi trending seluruh negara — meme anti-MANDAT banjiri setiap timeline.",
+  "Algoritma TikTok sebar gelombang skit anti-MANDAT semalaman; penglibatan belia melonjak.",
+  "Akaun LAWAN yang diselaraskan banjiri ruangan komen merentasi platform dengan mesej sama.",
+  "Parodi rap mempersendakan pemimpin MANDAT tembusi berjuta tontonan dalam 24 jam.",
+  "Sayap media sosial LAWAN banjiri group chat dengan klip disunting menjelang hujung minggu.",
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pick<T>(arr: T[]): T {
@@ -105,6 +174,7 @@ export function runOpponentAI(input: AIInput): OpponentResult {
   const {
     day, totalDays, states, activeStateIds, oppositionStrength,
     difficulty, recentPlayerGains, playerDigitalOps, playerCeramahOps, playerBorneoOps,
+    scopeStateName,
   } = input;
 
   const mult = (oppositionStrength / 100) * diffMult(difficulty);
@@ -147,6 +217,32 @@ export function runOpponentAI(input: AIInput): OpponentResult {
     });
   }
 
+  // ── 1b. CANDIDATE POACHING ────────────────────────────────────────────────
+  // Targets the most marginal contested state not already hit by geographic
+  // pressure this round — a subtler, lower-frequency threat to a specific race.
+  const poachProb = mult * (progress > 0.3 ? 0.24 : 0.09);
+  const pressureTargets = new Set(scored.slice(0, numTargets).map(({ s }) => s.id));
+  const poachTarget = scored.find(({ s }) => s.status === "contested" && !pressureTargets.has(s.id))
+    ?? scored.find(({ s }) => !pressureTargets.has(s.id));
+  if (poachTarget && Math.random() < poachProb) {
+    const { s } = poachTarget;
+    const boost = Math.round(mult * 0.9 * 10) / 10;
+    stateDebuffs[s.id] = (stateDebuffs[s.id] ?? 0) + boost;
+    const i = Math.floor(Math.random() * CANDIDATE_POACH_EN.length);
+    actions.push({
+      id: nextId(),
+      type: "candidate_poach",
+      stateId: s.id,
+      stateName: s.name,
+      lawanBoost: boost,
+      nationalDamage: 0,
+      narrativeEN: fill(CANDIDATE_POACH_EN[i], s.name),
+      narrativeMS: fill(CANDIDATE_POACH_MS[i], s.name),
+      severity: boost >= 1.0 ? "high" : boost >= 0.55 ? "medium" : "low",
+      day,
+    });
+  }
+
   // ── 2. COUNTER NARRATIVES ──────────────────────────────────────────────────
   // React intelligently to how the player has been campaigning
   const counterKeys: CounterKey[] = [];
@@ -171,6 +267,44 @@ export function runOpponentAI(input: AIInput): OpponentResult {
     });
   }
 
+  // ── 2b. MANIFESTO ATTACK ───────────────────────────────────────────────────
+  // Independent national-level probability, separate from counter_narrative
+  // (which reacts to player op mix) — this one just chips at policy credibility.
+  const manifestoProb = mult * (progress > 0.35 ? 0.2 : 0.07);
+  if (Math.random() < manifestoProb) {
+    const dmg = Math.round(mult * 1.0 * 10) / 10;
+    nationalDamage += dmg;
+    actions.push({
+      id: nextId(),
+      type: "manifesto_attack",
+      lawanBoost: 0,
+      nationalDamage: dmg,
+      narrativeEN: pick(MANIFESTO_ATTACK_EN),
+      narrativeMS: pick(MANIFESTO_ATTACK_MS),
+      severity: dmg >= 1.3 ? "high" : "medium",
+      day,
+    });
+  }
+
+  // ── 2c. VIRAL SOCIAL MEDIA FLOOD ────────────────────────────────────────────
+  // High-frequency, low-magnitude chip damage — social media churns constantly,
+  // unlike the punchier one-off scandal/media_blitz beats. Can fire from day one.
+  const viralProb = mult * (progress > 0.1 ? 0.22 : 0.1);
+  if (Math.random() < viralProb) {
+    const dmg = Math.round(mult * 0.5 * 10) / 10;
+    nationalDamage += dmg;
+    actions.push({
+      id: nextId(),
+      type: "viral_social",
+      lawanBoost: 0,
+      nationalDamage: dmg,
+      narrativeEN: pick(VIRAL_SOCIAL_EN),
+      narrativeMS: pick(VIRAL_SOCIAL_MS),
+      severity: dmg >= 0.6 ? "medium" : "low",
+      day,
+    });
+  }
+
   // ── 3. SCANDAL / MEDIA ATTACK ──────────────────────────────────────────────
   // Probability ramps up in the second half of the campaign
   const scandalProb = mult * (progress > 0.5 ? 0.24 : 0.09);
@@ -189,6 +323,33 @@ export function runOpponentAI(input: AIInput): OpponentResult {
     });
   }
 
+  // ── 3b. COALITION FORMATION ─────────────────────────────────────────────────
+  // Consolidates smaller/independent parties into LAWAN's camp — reinforces
+  // the state where MANDAT is already trailing worst, converting split votes
+  // rather than contesting new ground the way pressure/poaching do.
+  const coalitionProb = mult * (progress > 0.25 && progress < 0.85 ? 0.16 : 0.05);
+  const consolidationTarget = states
+    .filter((s) => s.status === "losing")
+    .sort((a, b) => b.seats - a.seats)[0];
+  if (consolidationTarget && Math.random() < coalitionProb) {
+    const dmg = Math.round(mult * 0.4 * 10) / 10;
+    const boost = Math.round(mult * 0.6 * 10) / 10;
+    nationalDamage += dmg;
+    stateDebuffs[consolidationTarget.id] = (stateDebuffs[consolidationTarget.id] ?? 0) + boost;
+    actions.push({
+      id: nextId(),
+      type: "coalition_form",
+      stateId: consolidationTarget.id,
+      stateName: consolidationTarget.name,
+      lawanBoost: boost,
+      nationalDamage: dmg,
+      narrativeEN: pick(COALITION_FORM_EN),
+      narrativeMS: pick(COALITION_FORM_MS),
+      severity: boost >= 0.9 ? "high" : "medium",
+      day,
+    });
+  }
+
   // ── 4. LATE-GAME MEDIA BLITZ ───────────────────────────────────────────────
   if (progress > 0.72 && Math.random() < mult * 0.3) {
     const dmg = Math.round(mult * 0.9 * 10) / 10;
@@ -199,6 +360,12 @@ export function runOpponentAI(input: AIInput): OpponentResult {
     if (topContested) {
       stateDebuffs[topContested.id] = (stateDebuffs[topContested.id] ?? 0) + 0.5;
     }
+    const blitzEN = scopeStateName
+      ? `LAWAN launches a prime-time media blitz across ${scopeStateName} — TV, billboards, radio blanket the state.`
+      : BLITZ_EN;
+    const blitzMS = scopeStateName
+      ? `LAWAN lancar serangan media perdana merentasi ${scopeStateName} — TV, papan iklan, radio penuhi negeri.`
+      : BLITZ_MS;
     actions.push({
       id: nextId(),
       type: "media_blitz",
@@ -206,8 +373,8 @@ export function runOpponentAI(input: AIInput): OpponentResult {
       stateName: topContested?.name,
       lawanBoost: topContested ? 0.5 : 0,
       nationalDamage: dmg,
-      narrativeEN: BLITZ_EN,
-      narrativeMS: BLITZ_MS,
+      narrativeEN: blitzEN,
+      narrativeMS: blitzMS,
       severity: "high",
       day,
     });

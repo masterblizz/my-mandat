@@ -61,7 +61,7 @@ export const dummyDataset: GameDataset = {
       coalition: "Mandat Reform Bloc",
       color: "#00d4ff",
       ideology: "Centre-progressive",
-      leader: "Syurahbil Rahman",
+      leader: "Ali Rahman",
       founded: 2018,
       nationalSupport: 34,
       projectedSeats: 72,
@@ -201,8 +201,8 @@ export const dummyDataset: GameDataset = {
   ],
   politicians: [
     {
-      id: "syurahbil-rahman",
-      name: "Syurahbil Rahman",
+      id: "ali-rahman",
+      name: "Ali Rahman",
       partyId: "mandat",
       party: "Parti Mandat MY",
       role: "Prime Minister candidate",

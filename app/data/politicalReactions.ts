@@ -2,6 +2,7 @@ import type { LiveNewsItem, LiveNewsTone } from "./liveNews";
 
 export type PoliticalActionType =
   | "nomination"
+  | "candidate_fallout"
   | "ceramah"
   | "social"
   | "manifesto"
@@ -87,6 +88,71 @@ export function buildNominationReaction(input: {
     socialReactionEN: isNational ? "Netizens compare national record against local issues." : "Local supporters begin pushing constituency candidate posters.",
     advisorWarning: isNational ? "Hantar operasi akar umbi untuk neutralisasi outsider penalty." : "Gunakan calon ini untuk door-to-door dan ceramah kecil.",
     advisorWarningEN: isNational ? "Deploy grassroots operations to neutralise outsider penalty." : "Use this candidate for door-to-door and small rallies.",
+    effects,
+  };
+}
+
+export function buildCandidateFalloutReaction(input: {
+  day: number;
+  constituencyName: string;
+  stateId: string;
+  snubbedName: string;
+  snubbedRole: string;
+  selectedName: string;
+  influence: number;
+  credibility: number;
+  scenario: "independent" | "opposition" | "sabotage";
+  partyAbbr: string;
+}): PoliticalReaction {
+  const state = stateLabel(input.stateId);
+  const highInfluence = input.influence >= 75 || input.credibility >= 78;
+  const effects = input.scenario === "opposition"
+    ? ["Lawan vote share +2", "Party unity -3", "Media crisis +2"]
+    : input.scenario === "independent"
+      ? ["Independent spoiler risk +3", "Grassroots split +2", "Seat margin pressure +2"]
+      : ["Silent machinery sabotage +2", "Volunteer morale -2", "Local operation efficiency -1"];
+  const headlineCore = input.scenario === "opposition"
+    ? `${input.snubbedName} dikaitkan dengan parti lawan selepas tidak dipilih di ${input.constituencyName}`
+    : input.scenario === "independent"
+      ? `${input.snubbedName} pertimbang tiket bebas selepas diketepikan di ${input.constituencyName}`
+      : `Jentera ${input.snubbedName} dilapor dingin selepas pemilihan calon ${input.constituencyName}`;
+  const headlineCoreEN = input.scenario === "opposition"
+    ? `${input.snubbedName} linked to opposition after being dropped in ${input.constituencyName}`
+    : input.scenario === "independent"
+      ? `${input.snubbedName} weighs independent ticket after being sidelined in ${input.constituencyName}`
+      : `${input.snubbedName}'s machinery reportedly cools after ${input.constituencyName} selection`;
+
+  return {
+    id: `reaction-fallout-${input.stateId}-${input.constituencyName}-${Date.now()}`,
+    day: input.day,
+    time: clockTime(),
+    outlet: input.scenario === "sabotage" ? "Jentera Report" : "Kerusi Panas",
+    headline: headlineCore,
+    headlineEN: headlineCoreEN,
+    summary: highInfluence
+      ? `${input.snubbedName} mempunyai rekod dan pengaruh tempatan. Keputusan memilih ${input.selectedName} mencetuskan risiko pecah undi dan sabotaj jentera.`
+      : `${input.snubbedName} tidak dipilih, tetapi masih ada rangkaian penyokong kecil yang boleh mengganggu kempen kawasan.`,
+    summaryEN: highInfluence
+      ? `${input.snubbedName} has local record and influence. Choosing ${input.selectedName} creates vote-splitting and machinery sabotage risk.`
+      : `${input.snubbedName} was not selected, but still has a small supporter network that can disrupt the local campaign.`,
+    tone: input.scenario === "opposition" ? "negative" : "warning",
+    state,
+    impact: effects.join(" · "),
+    actionType: "candidate_fallout",
+    opponentAttack: input.scenario === "opposition"
+      ? "Lawan: parti sendiri pun tidak sepakat memilih calon."
+      : "Lawan: pemilihan calon MANDAT mencetuskan protes akar umbi.",
+    opponentAttackEN: input.scenario === "opposition"
+      ? "Opponent: even the party itself is divided over candidate selection."
+      : "Opponent: MANDAT candidate selection triggers grassroots protest.",
+    socialReaction: `Penyokong ${input.snubbedName} mula persoal proses pemilihan calon di ${input.constituencyName}.`,
+    socialReactionEN: `${input.snubbedName}'s supporters begin questioning the candidate selection process in ${input.constituencyName}.`,
+    advisorWarning: input.scenario === "opposition"
+      ? "Segera runding dengan kem lawan dalaman; tawarkan peranan kempen atau portfolio negeri."
+      : "Hantar mediator parti dan beri peranan rasmi supaya jentera tidak berpecah.",
+    advisorWarningEN: input.scenario === "opposition"
+      ? "Negotiate immediately with the internal rival camp; offer campaign role or state portfolio."
+      : "Send party mediator and give an official role so the machinery does not split.",
     effects,
   };
 }

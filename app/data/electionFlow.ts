@@ -11,7 +11,12 @@ export interface ElectionFlowStep {
   tone: "purple" | "mint" | "gold" | "neutral" | "red" | "green" | "blue";
 }
 
-export const CAMPAIGN_PERIOD_DAYS = 30;
+export const CAMPAIGN_PERIOD_DAYS = 14;
+export const TOTAL_ELECTION_DAYS = 30;
+export const NOMINATION_DAY = 15;
+export const CAMPAIGN_START_DAY = 16;
+export const CAMPAIGN_END_DAY = 29;
+export const POLLING_DAY = 30;
 
 export const electionFlowSteps: ElectionFlowStep[] = [
   {
@@ -64,12 +69,12 @@ export const electionFlowSteps: ElectionFlowStep[] = [
   },
   {
     id: "campaign",
-    period: "30 hari",
-    periodEN: "30 days",
+    period: "14 hari",
+    periodEN: "14 days",
     title: "Tempoh Berkempen",
     titleEN: "Campaign Period",
-    description: "Operasi kempen, ceramah, digital, jentera negeri dan strategi kerusi berjalan selama 30 hari.",
-    descriptionEN: "Campaign operations, rallies, digital outreach, state machinery and seat strategy run for 30 days.",
+    description: "Kempen hanya bermula selepas Hari Penamaan Calon dan berjalan sehingga 1 hari sebelum Hari Mengundi.",
+    descriptionEN: "Campaigning starts only after Nomination Day and runs until 1 day before Polling Day.",
     gameplay: ["Mini-game ceramah", "Kempen media sosial", "Deploy operasi negeri", "Urus dana dan manpower"],
     gameplayEN: ["Rally mini-game", "Social media campaign", "Deploy state operations", "Manage funds & manpower"],
     tone: "blue",
@@ -136,28 +141,65 @@ export const electionFlowSteps: ElectionFlowStep[] = [
   },
 ];
 
-export function getCampaignFlowStatus(day: number, totalDays = CAMPAIGN_PERIOD_DAYS) {
-  const safeDay = Math.min(Math.max(day, 1), totalDays);
-  const progress = Math.round((safeDay / totalDays) * 100);
-  const daysLeft = Math.max(0, totalDays - safeDay + 1);
+export function getCampaignDay(electionDay: number) {
+  if (electionDay < CAMPAIGN_START_DAY || electionDay > CAMPAIGN_END_DAY) return null;
+  return electionDay - CAMPAIGN_START_DAY + 1;
+}
 
-  if (safeDay === totalDays) {
+export function getElectionFlowStatus(day: number, totalDays = TOTAL_ELECTION_DAYS) {
+  const safeDay = Math.min(Math.max(day, 1), totalDays);
+  const daysToPoll = Math.max(0, POLLING_DAY - safeDay + 1);
+  const campaignDay = getCampaignDay(safeDay);
+
+  if (safeDay < NOMINATION_DAY) {
+    return {
+      current: electionFlowSteps.find((step) => step.id === "dissolution")!,
+      next: electionFlowSteps.find((step) => step.id === "nomination")!,
+      progress: Math.round((safeDay / TOTAL_ELECTION_DAYS) * 100),
+      daysLeft: daysToPoll,
+      campaignDay,
+      label: `Hari ${safeDay}/${TOTAL_ELECTION_DAYS} — Parlimen dibubar`,
+      labelEN: `Day ${safeDay}/${TOTAL_ELECTION_DAYS} — Parliament dissolved`,
+    };
+  }
+
+  if (safeDay === NOMINATION_DAY) {
+    return {
+      current: electionFlowSteps.find((step) => step.id === "nomination")!,
+      next: electionFlowSteps.find((step) => step.id === "campaign")!,
+      progress: Math.round((safeDay / TOTAL_ELECTION_DAYS) * 100),
+      daysLeft: daysToPoll,
+      campaignDay,
+      label: `Hari ${safeDay}/${TOTAL_ELECTION_DAYS} — Hari Penamaan Calon`,
+      labelEN: `Day ${safeDay}/${TOTAL_ELECTION_DAYS} — Nomination Day`,
+    };
+  }
+
+  if (campaignDay !== null) {
     return {
       current: electionFlowSteps.find((step) => step.id === "campaign")!,
-      next: electionFlowSteps.find((step) => step.id === "cooling")!,
-      progress,
-      daysLeft,
-      label: `Hari Kempen ${safeDay}/${totalDays} — final push sebelum Hari Tenang`,
-      labelEN: `Campaign Day ${safeDay}/${totalDays} — final push before Cooling-off Day`,
+      next: safeDay === CAMPAIGN_END_DAY ? electionFlowSteps.find((step) => step.id === "polling")! : electionFlowSteps.find((step) => step.id === "cooling")!,
+      progress: Math.round((campaignDay / CAMPAIGN_PERIOD_DAYS) * 100),
+      daysLeft: daysToPoll,
+      campaignDay,
+      label: campaignDay === CAMPAIGN_PERIOD_DAYS
+        ? `Hari Kempen ${campaignDay}/${CAMPAIGN_PERIOD_DAYS} — hari terakhir sebelum mengundi`
+        : `Hari Kempen ${campaignDay}/${CAMPAIGN_PERIOD_DAYS}`,
+      labelEN: campaignDay === CAMPAIGN_PERIOD_DAYS
+        ? `Campaign Day ${campaignDay}/${CAMPAIGN_PERIOD_DAYS} — final day before polling`
+        : `Campaign Day ${campaignDay}/${CAMPAIGN_PERIOD_DAYS}`,
     };
   }
 
   return {
-    current: electionFlowSteps.find((step) => step.id === "campaign")!,
-    next: electionFlowSteps.find((step) => step.id === "cooling")!,
-    progress,
-    daysLeft,
-    label: `Hari Kempen ${safeDay}/${totalDays}`,
-    labelEN: `Campaign Day ${safeDay}/${totalDays}`,
+    current: electionFlowSteps.find((step) => step.id === "polling")!,
+    next: electionFlowSteps.find((step) => step.id === "counting")!,
+    progress: 100,
+    daysLeft: 0,
+    campaignDay,
+    label: `Hari ${safeDay}/${TOTAL_ELECTION_DAYS} — Hari Mengundi`,
+    labelEN: `Day ${safeDay}/${TOTAL_ELECTION_DAYS} — Polling Day`,
   };
 }
+
+export const getCampaignFlowStatus = getElectionFlowStatus;

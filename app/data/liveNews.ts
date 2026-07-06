@@ -12,6 +12,7 @@ export interface LiveNewsItem {
   tone: LiveNewsTone;
   state?: string;
   impact: string;
+  scope?: "pru"; // marks items that only make sense in a national (PRU) campaign
 }
 
 export const liveNewsByDay: LiveNewsItem[] = [
@@ -22,7 +23,7 @@ export const liveNewsByDay: LiveNewsItem[] = [
     headlineEN: "Parliament dissolved, party machinery begins mobilising",
     summary: "War room mengesahkan semua negeri menerima arahan awal untuk mengaktifkan bilik gerakan.",
     summaryEN: "War room confirms all states received initial orders to activate operations rooms.",
-    tone: "breaking", impact: "Campaign morale +",
+    tone: "breaking", impact: "Campaign morale +", scope: "pru",
   },
   {
     id: "d01-cost",
@@ -40,7 +41,7 @@ export const liveNewsByDay: LiveNewsItem[] = [
     headlineEN: "EC expected to announce full election schedule shortly",
     summary: "Parti-parti mula menyemak senarai calon dan pusat penamaan calon.",
     summaryEN: "Parties begin reviewing candidate lists and nomination centres.",
-    tone: "neutral", impact: "Nomination prep unlocked",
+    tone: "neutral", impact: "Nomination prep unlocked", scope: "pru",
   },
   {
     id: "d02-youth",
@@ -58,7 +59,7 @@ export const liveNewsByDay: LiveNewsItem[] = [
     headlineEN: "Election writ issued, seat map now active",
     summary: "Setiap kawasan Parlimen masuk mod pertandingan penuh dengan status swing dikemaskini.",
     summaryEN: "Every parliamentary seat enters full contest mode with swing status updated.",
-    tone: "breaking", impact: "Seat targeting active",
+    tone: "breaking", impact: "Seat targeting active", scope: "pru",
   },
   {
     id: "d03-johor",
@@ -166,7 +167,7 @@ export const liveNewsByDay: LiveNewsItem[] = [
     headlineEN: "Sarawak holds the key to the 112 majority",
     summary: "Pemerhati melihat blok Borneo boleh menentukan kerajaan jika Semenanjung berpecah.",
     summaryEN: "Observers see Borneo bloc as government-decider if Peninsula results are split.",
-    tone: "breaking", state: "Sarawak", impact: "Kingmaker scenario +",
+    tone: "breaking", state: "Sarawak", impact: "Kingmaker scenario +", scope: "pru",
   },
   {
     id: "d09-media",
@@ -265,9 +266,43 @@ export const liveNewsByDay: LiveNewsItem[] = [
     headlineEN: "Nation awaits seat-by-seat results",
     summary: "Kerusi marginal, Borneo dan majoriti 112 menjadi fokus utama malam pengiraan undi.",
     summaryEN: "Marginal seats, Borneo and the 112 majority threshold are the main focus on results night.",
-    tone: "breaking", impact: "Results suspense ready",
+    tone: "breaking", impact: "Results suspense ready", scope: "pru",
   },
 ];
+
+const STATE_NAME_ALIASES: Record<string, string[]> = {
+  johor: ["johor"],
+  kedah: ["kedah"],
+  kelantan: ["kelantan"],
+  melaka: ["melaka"],
+  ns: ["negeri sembilan"],
+  pahang: ["pahang", "pantai timur", "east coast"],
+  perak: ["perak"],
+  perlis: ["perlis"],
+  penang: ["penang", "pulau pinang"],
+  sabah: ["sabah", "borneo"],
+  sarawak: ["sarawak", "borneo"],
+  selangor: ["selangor", "klang valley"],
+  terengganu: ["terengganu", "pantai timur", "east coast"],
+  wp: ["wp", "wilayah persekutuan", "kuala lumpur", "klang valley"],
+};
+
+// In PRN (state election) mode, only surface news that is either negeri-agnostic
+// (no `state` tag, e.g. generic campaign-mechanic beats) or explicitly mentions
+// the selected negeri. PRU-only items (parliament/EC/112-majority framing) are
+// dropped outright since they don't apply to a single-state campaign.
+export function newsMatchesElectionScope(
+  item: LiveNewsItem,
+  electionScope: "pru" | "prn",
+  prnStateId?: string
+): boolean {
+  if (electionScope !== "prn") return true;
+  if (item.scope === "pru") return false;
+  if (!item.state) return true;
+  const aliases = STATE_NAME_ALIASES[prnStateId ?? ""] ?? [];
+  const haystack = item.state.toLowerCase();
+  return aliases.some((alias) => haystack.includes(alias));
+}
 
 export function getLiveNewsForDay(day: number): LiveNewsItem[] {
   return liveNewsByDay.filter((item) => item.day === day);

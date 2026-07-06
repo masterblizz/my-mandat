@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="160" viewBox="0 0 140 160" role="img" aria-label="Hafiz Kumar candidate portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#00e5ff" stop-opacity="0.95"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0.42"/></linearGradient>
+    <filter id="grain"><feTurbulence baseFrequency="0.85" numOctaves="2" seed="19"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer></filter>
+  </defs>
+  <rect width="140" height="160" fill="#07111f"/>
+  <rect x="3" y="3" width="134" height="154" fill="url(#bg)" opacity="0.24"/>
+  <path d="M10 24 H130 M10 46 H130 M10 68 H130" stroke="#ffffff" stroke-opacity="0.05"/>
+  <rect x="3" y="3" width="134" height="154" fill="transparent" stroke="#00e5ff" stroke-width="2" opacity="0.85"/>
+  <circle cx="70" cy="71" r="49" fill="#00e5ff" opacity="0.10"/>
+  <path d="M38 155 C43 126 52 112 70 112 C88 112 97 126 102 155Z" fill="#111827"/>
+  <path d="M58 116 L70 145 L82 116" fill="#e5e7eb" opacity="0.92"/>
+  <path d="M67 123 L73 123 L76 153 L64 153Z" fill="#38bdf8"/>
+  
+  <ellipse cx="70" cy="75" rx="41" ry="43" fill="#e1ad85"/>
+  <path d="M48 62 C48 38 91 37 94 63 C82 51 62 52 48 62Z" fill="#3b2f2f"/>
+  <ellipse cx="58" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  <ellipse cx="82" cy="74" rx="3" ry="2.4" fill="#111827"/>
+  
+  <path d="M70 79 L66 88 H74Z" fill="#8a5a44" opacity="0.45"/>
+  <path d="M61 88 C66 84 70 89 70 89 C70 89 75 84 80 88 C76 94 64 94 61 88Z" fill="#2a1810" opacity="0.72"/>
+  <path d="M59 94 C65 98 75 98 82 94" stroke="#7f3f2a" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <rect x="0" y="139" width="140" height="21" fill="#00ff88" opacity="0.92"/>
+  <text x="70" y="153" text-anchor="middle" font-family="Space Mono, Consolas, monospace" font-size="10" font-weight="800" fill="#052e16">HK</text>
+  <rect width="140" height="160" filter="url(#grain)" opacity="0.5"/>
+</svg>

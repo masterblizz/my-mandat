@@ -3,11 +3,12 @@ import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
 import type { GameEvent } from "../data/events";
-import { CAMPAIGN_PERIOD_DAYS } from "../data/electionFlow";
+import { TOTAL_ELECTION_DAYS } from "../data/electionFlow";
 import type { DatasetKind } from "../data/datasets";
 import type { OpponentAction } from "./opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
 import { buildCampaignActionReaction, buildNominationReaction } from "../data/politicalReactions";
+import { calculateCampaignGain, getCampaignBaseGain } from "./campaignMath";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -70,6 +71,8 @@ export interface GameState {
   politicalReactions: PoliticalReaction[];
   settings: {
     campaignLength: "full" | "short" | "custom";
+    electionScope: "pru" | "prn";
+    prnStateId: string;
     difficulty: "easy" | "normal" | "hard" | "nightmare";
     startingFund: number;
     oppositionStrength: number;
@@ -93,6 +96,7 @@ export interface GameState {
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
   runCampaignMiniGame: (stateId: string, gameType: "ceramah" | "social", tactic: "safe" | "balanced" | "aggressive") => void;
   addPoliticalReaction: (reaction: PoliticalReaction) => void;
+  applyCandidateFallout: (stateId: string, reaction: PoliticalReaction, lawanBoost: number, othersBoost: number) => void;
   clearLastEvent: () => void;
   getTotalProjectedSeats: () => number;
   getNationalSupport: () => { mandat: number; lawan: number; others: number };
@@ -100,7 +104,7 @@ export interface GameState {
 }
 
 const defaultLeader: LeaderProfile = {
-  name: "SYURAHBIL",
+  name: "ALI RAHMAN",
   position: "PRESIDENT",
   party: "PARTI MANDAT MY",
   partyAbbr: "MANDAT",
@@ -150,7 +154,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   dataset: "dummy",
   nominations: {},
   day: 1,
-  totalDays: CAMPAIGN_PERIOD_DAYS,
+  totalDays: TOTAL_ELECTION_DAYS,
   leader: defaultLeader,
   resources: {
     funds: 2300000,
@@ -171,6 +175,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   politicalReactions: [],
   settings: {
     campaignLength: "full",
+    electionScope: "pru",
+    prnStateId: "selangor",
     difficulty: "normal",
     startingFund: 2300000,
     oppositionStrength: 60,
@@ -227,9 +233,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       const maxAlerts = 12;
       const combinedAlerts = [...result.newAlerts, ...gameState.alerts].slice(0, maxAlerts);
 
-      const totalSeats = gameState.states.reduce((sum, s) => sum + s.seats, 0);
+      const scopedStates = gameState.settings.electionScope === "prn"
+        ? gameState.states.filter((s) => s.id === gameState.settings.prnStateId)
+        : gameState.states;
+      const seatBasis = scopedStates.length ? scopedStates : gameState.states;
+      const totalSeats = seatBasis.reduce((sum, s) => sum + s.seats, 0);
       const weightedDelta = result.stateUpdates.reduce((sum, u) => {
-        const weight = (gameState.states.find((s) => s.id === u.id)?.seats ?? 1) / totalSeats;
+        const weight = (seatBasis.find((s) => s.id === u.id)?.seats ?? 1) / totalSeats;
         return sum + u.trend * weight;
       }, 0);
       const delta = Math.round(weightedDelta * 10) / 10;
@@ -254,7 +264,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (typeof window !== "undefined") {
         localStorage.setItem("mymandat-game-settings", JSON.stringify(settings));
       }
-      return { settings };
+      // Keep the top-level `difficulty` field (read by electionEngine's opponent AI
+      // and every difficulty display across cabinet/career/government/sandbox/results)
+      // in sync with settings.difficulty — this is the only place either one changes.
+      return updates.difficulty ? { settings, difficulty: updates.difficulty } : { settings };
     }),
 
   startCampaign: () => set({ phase: "playing" }),
@@ -266,7 +279,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       dataset: "dummy",
       nominations: {},
       day: 1,
-      totalDays: CAMPAIGN_PERIOD_DAYS,
+      totalDays: TOTAL_ELECTION_DAYS,
       leader: defaultLeader,
       states: initialStates,
       alerts: [],
@@ -281,6 +294,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       politicalReactions: [],
       settings: {
         campaignLength: "full",
+        electionScope: "pru",
+        prnStateId: "selangor",
         difficulty: "normal",
         startingFund: 2300000,
         oppositionStrength: 60,
@@ -341,18 +356,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   runCampaignMiniGame: (stateId, gameType, tactic) =>
     set((state) => {
-      const base = gameType === "ceramah"
-        ? { safe: 0.9, balanced: 1.5, aggressive: 2.3 }[tactic]
-        : { safe: 0.7, balanced: 1.3, aggressive: 2.0 }[tactic];
-      const riskPenalty = tactic === "aggressive" ? 0.45 : tactic === "balanced" ? 0.15 : 0;
       const fundsCost = gameType === "ceramah" ? 75_000 : 45_000;
       const mediaCost = gameType === "social" ? 65 : 15;
       const manpowerCost = gameType === "ceramah" ? 42 : 12;
       const ts = new Date().toTimeString().slice(0, 5);
       const targetState = state.states.find((s) => s.id === stateId);
       const projectedGain = targetState
-        ? Math.round((base + (gameType === "social" ? targetState.demographics.youth / 100 : 0) + (gameType === "ceramah" ? targetState.demographics.rural / 120 : 0) - riskPenalty) * 100) / 100
-        : base;
+        ? calculateCampaignGain(targetState, gameType, tactic)
+        : getCampaignBaseGain(gameType, tactic);
       const reaction = buildCampaignActionReaction({
         day: state.day,
         stateId,
@@ -367,9 +378,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return {
         states: state.states.map((s) => {
           if (s.id !== stateId) return s;
-          const youthBonus = gameType === "social" ? s.demographics.youth / 100 : 0;
-          const ruralBonus = gameType === "ceramah" ? s.demographics.rural / 120 : 0;
-          const gain = Math.round((base + youthBonus + ruralBonus - riskPenalty) * 100) / 100;
+          const gain = calculateCampaignGain(s, gameType, tactic);
           const mandatSupport = Math.min(82, Math.round((s.mandatSupport + gain) * 100) / 100);
           const lawanSupport = Math.max(8, Math.round((s.lawanSupport - gain * 0.5) * 100) / 100);
           const othersSupport = Math.max(4, Math.round((100 - mandatSupport - lawanSupport) * 100) / 100);
@@ -406,6 +415,31 @@ export const useGameStore = create<GameState>((set, get) => ({
       const politicalReactions = [reaction, ...state.politicalReactions].slice(0, 30);
       persistPoliticalReactions(politicalReactions);
       return { politicalReactions };
+    }),
+
+  applyCandidateFallout: (stateId, reaction, lawanBoost, othersBoost) =>
+    set((state) => {
+      const politicalReactions = [reaction, ...state.politicalReactions].slice(0, 30);
+      persistPoliticalReactions(politicalReactions);
+      return {
+        politicalReactions,
+        states: state.states.map((s) => {
+          if (s.id !== stateId) return s;
+          const mandatSupport = Math.max(8, Math.round((s.mandatSupport - lawanBoost * 0.55 - othersBoost * 0.35) * 10) / 10);
+          const lawanSupport = Math.min(82, Math.round((s.lawanSupport + lawanBoost) * 10) / 10);
+          const othersSupport = Math.min(35, Math.max(4, Math.round((s.othersSupport + othersBoost) * 10) / 10));
+          const margin = mandatSupport - Math.max(lawanSupport, othersSupport);
+          return {
+            ...s,
+            mandatSupport,
+            lawanSupport,
+            othersSupport,
+            winProbability: Math.max(8, Math.round((s.winProbability - (lawanBoost + othersBoost) * 1.4) * 10) / 10),
+            status: margin >= 8 ? "winning" : margin <= -8 ? "losing" : "contested",
+            trend: Math.round((s.trend - lawanBoost - othersBoost) * 10) / 10,
+          };
+        }),
+      };
     }),
 
   clearLastEvent: () => set({ lastEvent: null }),

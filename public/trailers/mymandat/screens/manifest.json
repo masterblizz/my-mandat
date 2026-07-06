@@ -1,0 +1,74 @@
+[
+  {
+    "id": "01-results",
+    "route": "/results",
+    "title": "Malam Keputusan",
+    "subtitle": "Seat demi seat menentukan mandat rakyat",
+    "file": "public\\trailers\\mymandat\\screens\\01-results.png",
+    "size": 112537,
+    "ok": true
+  },
+  {
+    "id": "02-mandate",
+    "route": "/mandate",
+    "title": "Sahkan Mandat",
+    "subtitle": "Menang, hung parliament, atau pembangkang",
+    "file": "public\\trailers\\mymandat\\screens\\02-mandate.png",
+    "size": 57639,
+    "ok": true
+  },
+  {
+    "id": "03-formation",
+    "route": "/formation",
+    "title": "Runding Kuasa",
+    "subtitle": "Istana, koalisi dan keyakinan majoriti",
+    "file": "public\\trailers\\mymandat\\screens\\03-formation.png",
+    "size": 71916,
+    "ok": true
+  },
+  {
+    "id": "04-cabinet",
+    "route": "/cabinet",
+    "title": "Bentuk Kabinet",
+    "subtitle": "Menteri sebenar menentukan keupayaan kerajaan",
+    "file": "public\\trailers\\mymandat\\screens\\04-cabinet.png",
+    "size": 365321,
+    "ok": true
+  },
+  {
+    "id": "05-swearing",
+    "route": "/swearing-in",
+    "title": "Angkat Sumpah",
+    "subtitle": "War Room ditutup, pemerintahan bermula",
+    "file": "public\\trailers\\mymandat\\screens\\05-swearing.png",
+    "size": 114218,
+    "ok": true
+  },
+  {
+    "id": "06-government",
+    "route": "/government",
+    "title": "Memerintah Negara",
+    "subtitle": "100 hari pertama: dasar, krisis, koalisi",
+    "file": "public\\trailers\\mymandat\\screens\\06-government.png",
+    "size": 158933,
+    "ok": true
+  },
+  {
+    "id": "07-career",
+    "route": "/career",
+    "title": "Urus Penggal",
+    "subtitle": "Masa bergerak bulanan menuju PRU seterusnya",
+    "file": "public\\trailers\\mymandat\\screens\\07-career.png",
+    "size": 121559,
+    "ok": true
+  },
+  {
+    "id": "08-sandbox",
+    "route": "/sandbox",
+    "title": "Simulasi Malaysia",
+    "subtitle": "Ekonomi, federalisme, institusi dan legasi",
+    "file": "public\\trailers\\mymandat\\screens\\08-sandbox.png",
+    "size": 132081,
+    "ok": true
+  }
+]
