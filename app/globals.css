@@ -121,6 +121,104 @@ html, body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 0 0 0 transparent;
 }
 
+/* ─── Global finish: scrollbars, focus, selection ─────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--cyan-rgb) / 0.35) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgb(var(--cyan-rgb) / 0.28); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: rgb(var(--cyan-rgb) / 0.45); }
+
+:focus-visible {
+  outline: 2px solid rgb(var(--cyan-rgb) / 0.75);
+  outline-offset: 1px;
+}
+
+::selection { background: rgb(var(--gold-rgb) / 0.4); }
+
+/* Tactile buttons everywhere: brighten on hover, sink on press.
+   .kw-zone excluded — its transform carries 3D state. */
+button:not(:disabled):not(.kw-zone) { transition: filter 0.15s, transform 0.1s; }
+button:not(:disabled):not(.kw-zone):hover { filter: brightness(1.12); }
+button:not(:disabled):not(.kw-zone):active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):not(.kw-zone):active { transform: none; }
+}
+
+/* ─── Motion kit (mm-) ────────────────────────────────────────────────────
+   App-wide ambient motion: panel scan sweep, entrance rise, bar shimmer,
+   radar sweep, particle drift, beacon blip. All honour reduced-motion. */
+.tactical-panel::after,
+.tactical-panel-gold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0%, rgb(var(--cyan-rgb) / 0.05) 5%, transparent 10%);
+  background-size: 100% 340%;
+  background-repeat: no-repeat;
+  animation: mm-scan 9s linear infinite;
+}
+.tactical-panel-gold::after { background: linear-gradient(180deg, transparent 0%, rgb(var(--gold-rgb) / 0.05) 5%, transparent 10%); background-size: 100% 340%; background-repeat: no-repeat; }
+[data-theme="light"] .tactical-panel::after,
+[data-theme="light"] .tactical-panel-gold::after { display: none; }
+
+.mm-rise { animation: mm-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--mm-i, 0) * 70ms); }
+
+/* Highlight sweep across a progress-bar fill; needs position on the fill */
+.mm-bar { position: relative; overflow: hidden; }
+.mm-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: mm-shimmer 2.8s ease-in-out infinite;
+}
+
+/* Rotating radar sweep overlay for map panels; parent must be relative */
+.mm-radar { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.mm-radar::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 160%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgb(var(--cyan-rgb) / 0.09), transparent 70deg 360deg);
+  animation: mm-radar 10s linear infinite;
+}
+
+.mm-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 30px 40px, rgb(var(--cyan-rgb) / 0.4), transparent),
+    radial-gradient(1px 1px at 140px 110px, rgb(var(--gold-rgb) / 0.35), transparent),
+    radial-gradient(1.2px 1.2px at 220px 60px, rgba(255, 255, 255, 0.25), transparent);
+  background-size: 280px 200px;
+  animation: mm-drift 26s linear infinite;
+}
+
+.mm-blip { animation: mm-blip 2.2s ease-in-out infinite; }
+
+@keyframes mm-scan { from { background-position: 0 -120%; } to { background-position: 0 220%; } }
+@keyframes mm-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mm-shimmer { 0% { transform: translateX(-110%); } 60%, 100% { transform: translateX(320%); } }
+@keyframes mm-radar { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes mm-drift { to { background-position: 280px -200px; } }
+@keyframes mm-blip { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tactical-panel::after, .tactical-panel-gold::after, .mm-rise, .mm-bar::after,
+  .mm-radar::before, .mm-particles, .mm-blip { animation: none !important; }
+  .mm-bar::after { display: none; }
+}
+
 /* Legacy tactical border classes */
 .tactical-border {
   border: 1px solid var(--cyan);
@@ -322,4 +420,432 @@ input[type="range"].range-red::-webkit-slider-thumb {
 input[type="range"].range-red::-moz-range-thumb {
   background: var(--neon-red);
   box-shadow: 0 0 8px rgb(var(--neon-red) / 0.75);
+}
+
+/* Breaking-news ticker (StatusBar `ticker` mode) — newest headline scrolls
+   across the bar. Disabled at the component level under reduced motion, with
+   a CSS guard as a fallback. */
+@keyframes mm-ticker-scroll {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(-100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="mm-ticker-scroll"] {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   Kawasan 3D interactive city (app/kawasan) — kw- prefix.
+   Camera state lives in CSS vars (--kw-rz rotate, --kw-rx tilt,
+   --kw-zoom) set imperatively on .kw-scene during drag/zoom so
+   the world and every .kw-bill billboard track it without React
+   re-renders. Billboards invert the world rotation to stay
+   camera-facing. Time-of-day presets swap lighting vars only.
+   ============================================================ */
+.kw-scene {
+  --kw-rz: 45deg;
+  --kw-rx: 57deg;
+  --kw-zoom: 0.9;
+  position: relative;
+  overflow: hidden;
+  perspective: 1300px;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+.kw-scene.kw-dragging { cursor: grabbing; }
+.kw-scene[data-tod="day"]   { --kw-sky: radial-gradient(ellipse at 50% 108%, rgba(255,255,255,0.5), transparent 58%), linear-gradient(180deg, #2f5c82 0%, #4f84ab 32%, #8fb8d4 62%, #d3e7f2 100%); --kw-lit: 0;    --kw-lamp: 0;   --kw-stars: 0;   --kw-dim: 0;    --kw-ground: linear-gradient(135deg, #33523c, #22392a); --kw-grass: rgba(190, 242, 100, 0.14); --kw-orb: radial-gradient(circle at 35% 35%, #fffbeb, #fcd34d 55%, transparent 72%); --kw-orb-glow: rgba(253, 224, 71, 0.32); --kw-fog: #cfe1ec; }
+.kw-scene[data-tod="dusk"]  { --kw-sky: radial-gradient(ellipse at 50% 108%, rgba(216,148,90,0.4), transparent 62%), linear-gradient(180deg, #191735 0%, #3a3160 25%, #6b4a68 48%, #a8714f 68%, #d0975f 86%, #e6b876 100%); --kw-lit: 0.6;  --kw-lamp: 0.4; --kw-stars: 0.4; --kw-dim: 0.3;  --kw-ground: linear-gradient(135deg, #1d3326, #12211a); --kw-grass: rgba(163, 230, 53, 0.10); --kw-orb: radial-gradient(circle at 35% 35%, #fef3c7, #e08a4a 55%, transparent 72%); --kw-orb-glow: rgba(224, 138, 74, 0.34); --kw-fog: #d29c66; }
+.kw-scene[data-tod="night"] { --kw-sky: radial-gradient(ellipse at 50% 110%, rgba(56,89,138,0.4), transparent 58%), linear-gradient(180deg, #01030a 0%, #060a17 38%, #0b1224 62%, #14203a 84%, #1c2c4a 100%); --kw-lit: 1;    --kw-lamp: 0.85; --kw-stars: 1;  --kw-dim: 1;    --kw-ground: linear-gradient(135deg, #101c15, #0a120e); --kw-grass: rgba(134, 239, 172, 0.06); --kw-orb: radial-gradient(circle at 38% 34%, #f8fafc, #94a3b8 52%, transparent 70%); --kw-orb-glow: rgba(148, 163, 184, 0.25); --kw-fog: #1c2c4a; }
+
+/* Mood (data-mood on .kw-scene) tracks overall constituency sentiment:
+   below the red threshold the streetlights go unmaintained and a hazy
+   neglect wash lands on the screen-space tint layer. Multiplies the
+   time-of-day vars rather than replacing them, and only ever touches
+   leaf/screen-space elements — never the preserve-3d world. */
+.kw-scene[data-mood="low"] { --kw-mood-lamp: 0.3; }
+.kw-scene[data-mood="low"] .kw-tintlayer {
+  background:
+    radial-gradient(ellipse at 50% 40%, transparent 44%, rgba(22, 14, 6, 0.58) 100%),
+    linear-gradient(180deg, rgba(38, 28, 12, 0.36), rgba(14, 11, 20, 0.3));
+  opacity: max(var(--kw-dim, 0), var(--kw-storm, 0), 0.4);
+}
+
+/* Weather (data-weather on .kw-scene). --kw-storm feeds the tint
+   layer so rain darkens the city on top of any time-of-day. */
+.kw-scene[data-weather="rain"] { --kw-rain: 1; --kw-storm: 0.55; }
+.kw-scene[data-weather="rain"] .kw-cloud { background: rgba(71, 85, 105, 0.45); }
+.kw-scene[data-weather="rain"] .kw-bird { opacity: 0; }
+.kw-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+  background-image:
+    linear-gradient(102deg, transparent 42%, rgba(174, 214, 241, 0.27) 47% 52%, transparent 57%),
+    linear-gradient(100deg, transparent 44%, rgba(203, 225, 247, 0.15) 48% 51%, transparent 55%);
+  background-size: 22px 88px, 34px 140px;
+  animation: kw-rainfall 0.7s linear infinite;
+}
+.kw-scene[data-weather="rain"] .kw-rain { opacity: 1; }
+.kw-lightning {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at 30% 0%, rgba(226, 240, 255, 0.9), transparent 60%);
+}
+.kw-scene[data-weather="rain"] .kw-lightning { animation: kw-lightning 9s linear infinite; }
+
+.kw-3d { transform-style: preserve-3d; }
+.kw-world {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  transform-style: preserve-3d;
+  transform: translate(-50%, -50%) scale(var(--kw-zoom)) rotateX(var(--kw-rx)) rotateZ(var(--kw-rz));
+  will-change: transform;
+  /* No opacity/filter animation here: any grouping property on this
+     element flattens preserve-3d and collapses the buildings. */
+}
+/* Screen-space night/dusk dimmer + vignette over the world, under the
+   HUD. Fixed gradient, --kw-dim drives opacity so tod cross-fades. */
+.kw-tintlayer {
+  background:
+    radial-gradient(ellipse at 50% 40%, transparent 52%, rgba(1, 6, 20, 0.5) 100%),
+    linear-gradient(180deg, rgba(2, 8, 28, 0.42), rgba(8, 18, 48, 0.28));
+  opacity: max(var(--kw-dim, 0), var(--kw-storm, 0));
+  transition: opacity 0.6s, background 0.6s;
+}
+.kw-orb {
+  background: var(--kw-orb);
+  box-shadow: 0 0 46px 14px var(--kw-orb-glow, transparent);
+  transition: background 0.6s, box-shadow 0.6s;
+}
+/* Depth fog: stronger toward the top of the frame (the world's far edge
+   under this camera tilt) fading to nothing near the bottom (foreground),
+   tinted per time-of-day so distant geometry blends into the horizon
+   instead of stopping abruptly. Screen-space, so it never touches the
+   preserve-3d tree. */
+.kw-fog {
+  background: linear-gradient(180deg, var(--kw-fog, #14203a) 0%, rgba(0,0,0,0) 58%);
+  opacity: 0.5;
+  mix-blend-mode: normal;
+  transition: background 0.6s, opacity 0.6s;
+}
+/* Dusk's fog is a warm haze — screen-blending it adds glow without the
+   washed-out look screen gives a dark night sky. */
+.kw-scene[data-tod="dusk"] .kw-fog { mix-blend-mode: screen; opacity: 0.58; }
+.kw-scene[data-tod="night"] .kw-fog { opacity: 0.36; }
+/* Distant terrain ring beyond the city's own ground tile; same palette as
+   the near ground so the two read as one continuous world. Its mask now
+   finishes fading within the default camera framing (see the JSX inset),
+   so the void around the tile reads as "ground receding to a horizon"
+   rather than a hard edge into blackness. */
+.kw-farground { opacity: 0.85; }
+.kw-scene[data-tod="day"] .kw-farground { opacity: 0.55; }
+/* Horizon glow ring: screen-space (see JSX comment for why — this must
+   never live inside .kw-world), centred on the world's fixed anchor
+   point (50%/53% of the scene, same spot .kw-world rotates around) so it
+   tracks the tile regardless of camera drag. Tinted with the tod's
+   horizon colour (--kw-fog) so the ground doesn't just vanish into
+   black — it dissolves into a lit horizon band, like real dusk/night
+   sky glow. Screen-blended so it only ever adds light, never darkens. */
+.kw-horizonglow {
+  background: radial-gradient(circle at 50% 53%, transparent 28%, var(--kw-fog, #14203a) 44%, transparent 62%);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  transition: background 0.6s, opacity 0.6s;
+}
+.kw-scene[data-tod="day"] .kw-horizonglow { opacity: 0.3; }
+.kw-scene[data-tod="night"] .kw-horizonglow { opacity: 0.4; }
+/* City base skirt: the "thickness" under the ground tile, textured like
+   packed soil/concrete courses so the platform reads as a block resting
+   on a foundation rather than a sheet floating in space. The top of each
+   wall carries two cues stacked as separate box-shadows: an AO crease
+   (dark, reads as the inner corner where the ground tile overhangs the
+   wall) immediately under a thin concrete-cap highlight (light, reads as
+   the lit top edge of the slab) — together they sell a distinct edge
+   between "ground" and "foundation" instead of one flat gradient. */
+.kw-slab-wall {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 4px, transparent 4px 12px),
+    linear-gradient(180deg, #837a69 0%, #564f42 16%, #3a352b 55%, #201d17 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.32),
+    inset 0 6px 10px -4px rgba(0,0,0,0.55);
+}
+.kw-slab-wall-side {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.26) 0 4px, transparent 4px 12px),
+    linear-gradient(180deg, #6a6355 0%, #453f34 16%, #2c2820 55%, #131210 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    inset 0 6px 10px -4px rgba(0,0,0,0.65);
+}
+/* Billboard: cancels world rotation so content faces the camera.
+   Mount inside a 0x0 .kw-3d anchor placed at a ground/roof point. */
+.kw-bill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform-origin: 0 100%;
+  transform: rotateZ(calc(var(--kw-rz) * -1)) rotateX(calc(var(--kw-rx) * -1)) translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.kw-zone {
+  position: absolute;
+  inset: 0;
+  /* Lifted off the ground plane: coplanar elements z-fight in 3D
+     hit-testing and the world container can swallow zone clicks. */
+  transform: translateZ(0.6px);
+  border: 1px solid rgb(var(--cyan-rgb) / 0.28);
+  transition: box-shadow 0.25s, border-color 0.25s;
+}
+/* Grass speckle texture, tinted per time-of-day via --kw-grass */
+.kw-grassy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 24px 30px, var(--kw-grass, rgba(163, 230, 53, 0.12)), transparent),
+    radial-gradient(1.3px 1.3px at 82px 88px, var(--kw-grass, rgba(163, 230, 53, 0.12)), transparent),
+    radial-gradient(1.1px 1.1px at 128px 46px, var(--kw-grass, rgba(163, 230, 53, 0.12)), transparent),
+    radial-gradient(1.4px 1.4px at 54px 118px, var(--kw-grass, rgba(163, 230, 53, 0.12)), transparent),
+    radial-gradient(1.2px 1.2px at 104px 124px, var(--kw-grass, rgba(163, 230, 53, 0.12)), transparent);
+  background-size: 150px 140px;
+}
+/* Softens the near-ground layer's own rectangle: without this it's a
+   crisp 1020x1020 square sitting fully opaque on top of kw-farground's
+   already-soft fade, so even though the colours match, the grass
+   texture cuts off abruptly right at that square's edge — reading as
+   a hard "platform boundary" line. Radial-gradient percentages are
+   relative to the farthest-corner distance (721px on this box), but the
+   box's own straight edges are only 510px out (70.7%) — so the fade
+   must fully complete *before* 70.7% or the straight sides stay a hard
+   cutoff even while the corners soften. Fully transparent by 68% (490px)
+   guarantees zero mask left at the real edge on every side, not just
+   the corners. */
+.kw-worldground {
+  mask-image: radial-gradient(circle at 50% 50%, black 42%, black 55%, transparent 68%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 42%, black 55%, transparent 68%);
+}
+/* Hover reads as an outward halo; selection stays the solid gold outline,
+   so a hovered-but-unselected zone never looks picked. */
+.kw-zone:hover,
+.kw-zone.kw-zone-hov { border-color: rgb(var(--cyan-rgb) / 0.9); box-shadow: inset 0 0 42px rgb(var(--cyan-rgb) / 0.22), 0 0 26px 4px rgb(var(--cyan-rgb) / 0.45); }
+.kw-zone.kw-zone-sel { border: 2px solid var(--gold); box-shadow: inset 0 0 52px rgb(var(--gold-rgb) / 0.30); }
+.kw-zone.kw-zone-sel.kw-zone-hov { box-shadow: inset 0 0 52px rgb(var(--gold-rgb) / 0.30), 0 0 26px 4px rgb(var(--cyan-rgb) / 0.45); }
+.kw-tip { animation: kw-tip-in 0.16s ease-out both; }
+
+/* Window glass + emissive night layer on building walls */
+.kw-win {
+  position: absolute;
+  inset: 12% 10%;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(226,242,255,0.34) 0 5px, transparent 5px 12px),
+    repeating-linear-gradient(0deg, rgba(2,6,23,0.42) 0 4px, transparent 4px 11px);
+}
+.kw-win-lit {
+  position: absolute;
+  inset: 12% 10%;
+  opacity: var(--kw-lit);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255,196,84,0.85) 0 5px, transparent 5px 12px),
+    repeating-linear-gradient(0deg, rgba(2,6,23,0.9) 0 4px, transparent 4px 11px);
+  animation: kw-twinkle 3.4s ease-in-out infinite alternate;
+}
+
+.kw-water {
+  background:
+    repeating-linear-gradient(115deg, rgba(186,230,253,0.35) 0 14px, rgba(56,189,248,0.15) 14px 30px),
+    linear-gradient(135deg, #0ea5e9, #075985);
+  background-size: 220% 220%, 100% 100%;
+  animation: kw-flow 7s linear infinite;
+}
+
+.kw-road-x { background: linear-gradient(180deg, #253046, #141b2c); box-shadow: inset 0 0 0 2px rgba(148,163,184,0.14); }
+.kw-road-y { background: linear-gradient(90deg, #253046, #141b2c); box-shadow: inset 0 0 0 2px rgba(148,163,184,0.14); }
+.kw-lane-x { background-image: repeating-linear-gradient(90deg, rgba(250,204,21,0.55) 0 14px, transparent 14px 34px); height: 2px; }
+.kw-lane-y { background-image: repeating-linear-gradient(0deg, rgba(250,204,21,0.55) 0 14px, transparent 14px 34px); width: 2px; }
+
+.kw-car { position: absolute; border-radius: 3px; animation: kw-drive-x var(--kw-car-dur, 12s) linear infinite; }
+/* Headlight halo, fades in with the street lamps */
+.kw-car::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 8px;
+  background: radial-gradient(circle, rgba(255, 214, 130, 0.55), transparent 70%);
+  opacity: calc(var(--kw-lamp, 0) * var(--kw-mood-lamp, 1));
+  transition: opacity 0.6s;
+}
+.kw-car-rev { animation-name: kw-drive-x-rev; }
+.kw-car-v { animation-name: kw-drive-y; }
+.kw-car-v.kw-car-rev { animation-name: kw-drive-y-rev; }
+
+.kw-lamp {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,196,84,0.55), transparent 68%);
+  opacity: calc(var(--kw-lamp) * var(--kw-mood-lamp, 1));
+  transition: opacity 0.6s;
+  transform: translateZ(1px);
+  pointer-events: none;
+}
+
+.kw-rise { animation: kw-rise 0.8s cubic-bezier(0.34, 1.4, 0.5, 1) both; transform-style: preserve-3d; }
+.kw-beacon-plane {
+  position: absolute;
+  transform-origin: top;
+  transform: rotateX(90deg);
+  background: linear-gradient(180deg, rgb(var(--gold-rgb) / 0.75), transparent);
+  animation: kw-beacon 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.kw-ring {
+  position: absolute;
+  border: 2px solid rgb(var(--gold-rgb) / 0.8);
+  border-radius: 50%;
+  animation: kw-ring 1.8s ease-out infinite;
+  pointer-events: none;
+}
+.kw-cloud { position: absolute; border-radius: 50%; filter: blur(18px); background: rgba(226,232,240,0.16); animation: kw-cloud linear infinite; pointer-events: none; }
+
+/* Ambient life: river boats, factory smoke, sky birds, rooftop
+   beacons, tree sway. All leaf elements — no opacity/filter
+   animation ever lands on a preserve-3d ancestor. */
+.kw-boat {
+  position: absolute;
+  border-radius: 45% 45% 40% 40%;
+  box-shadow: inset 0 0 0 2px rgba(255, 247, 237, 0.35), 0 0 6px rgba(0, 0, 0, 0.45);
+  animation: kw-drive-y 36s linear infinite;
+}
+.kw-boat.kw-rev { animation-name: kw-drive-y-rev; }
+.kw-smoke {
+  position: absolute;
+  left: -7px;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(203, 213, 225, 0.7), rgba(148, 163, 184, 0) 70%);
+  animation: kw-smoke 3.6s linear infinite;
+}
+.kw-blink {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 9px 2px rgba(248, 113, 113, 0.75);
+  animation: kw-blink 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+/* Birds fade out as the stars come up — they roost at night */
+.kw-bird {
+  position: absolute;
+  left: 0;
+  width: 16px;
+  height: 6px;
+  opacity: calc(1 - var(--kw-stars, 0));
+  transition: opacity 0.6s;
+  animation: kw-bird 30s linear infinite;
+  pointer-events: none;
+}
+.kw-bird::before,
+.kw-bird::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  width: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.72);
+}
+.kw-bird::before { left: 0; transform-origin: 100% 50%; animation: kw-flap 0.6s ease-in-out infinite alternate; }
+.kw-bird::after { right: 0; transform-origin: 0% 50%; animation: kw-flap-r 0.6s ease-in-out infinite alternate; }
+.kw-sway { transform-origin: 50% 100%; animation: kw-sway 5s ease-in-out infinite alternate; }
+
+/* Helicopter: outer anchor orbits the world centre, inner counter
+   spins the opposite way so the billboard keeps its heading. */
+.kw-heli-orbit { animation: kw-orbit 44s linear infinite; }
+.kw-heli-counter { animation: kw-orbit-rev 44s linear infinite; }
+.kw-rotor { transform-origin: 50% 50%; animation: kw-rotor 0.16s linear infinite; }
+.kw-balloon { animation: kw-drift 80s ease-in-out infinite alternate; }
+.kw-balloon-body { opacity: calc((1 - var(--kw-stars, 0)) * (1 - var(--kw-rain, 0))); transition: opacity 0.6s; }
+.kw-bob { animation: kw-bob 4s ease-in-out infinite alternate; }
+.kw-tlight {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f87171;
+  animation: kw-tlight 9s steps(1, end) infinite;
+}
+.kw-spark {
+  position: absolute;
+  left: -2px;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: kw-spark 1.15s ease-out both;
+}
+.kw-wave { transform-origin: left center; animation: kw-wave 1.6s ease-in-out infinite; }
+/* Wau bulan kite: flies by day, comes down at night and in rain */
+.kw-wau {
+  opacity: calc((1 - var(--kw-stars, 0)) * (1 - var(--kw-rain, 0)));
+  transition: opacity 0.6s;
+  animation: kw-wau 7s ease-in-out infinite alternate;
+}
+
+@keyframes kw-flow { from { background-position: 0 0, 0 0; } to { background-position: 440px 220px, 0 0; } }
+@keyframes kw-twinkle { from { opacity: calc(var(--kw-lit) * 0.55); } to { opacity: var(--kw-lit); } }
+@keyframes kw-drive-x { from { transform: translateX(-50px); } to { transform: translateX(930px); } }
+@keyframes kw-drive-x-rev { from { transform: translateX(930px); } to { transform: translateX(-50px); } }
+@keyframes kw-drive-y { from { transform: translateY(-50px); } to { transform: translateY(930px); } }
+@keyframes kw-drive-y-rev { from { transform: translateY(930px); } to { transform: translateY(-50px); } }
+@keyframes kw-rise { from { transform: scaleZ(0.02); } to { transform: scaleZ(1); } }
+@keyframes kw-beacon { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.35; } }
+@keyframes kw-ring { from { transform: translateZ(2px) scale(0.5); opacity: 0.9; } to { transform: translateZ(2px) scale(1.35); opacity: 0; } }
+@keyframes kw-cloud { from { transform: translateX(-30%); } to { transform: translateX(130%); } }
+@keyframes kw-smoke { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 18% { opacity: 0.75; } 100% { transform: translateY(-48px) scale(1.7); opacity: 0; } }
+@keyframes kw-blink { 0%, 100% { opacity: 1; } 55% { opacity: 0.12; } }
+@keyframes kw-bird { from { transform: translateX(-60px) translateY(0); } 30% { transform: translateX(410px) translateY(-12px); } 65% { transform: translateX(880px) translateY(4px); } to { transform: translateX(1450px) translateY(-8px); } }
+@keyframes kw-flap { from { transform: rotate(-22deg); } to { transform: rotate(16deg); } }
+@keyframes kw-flap-r { from { transform: rotate(22deg); } to { transform: rotate(-16deg); } }
+@keyframes kw-sway { from { transform: rotate(-2.4deg); } to { transform: rotate(2.4deg); } }
+@keyframes kw-rainfall { from { background-position: 0 0, 0 0; } to { background-position: 0 88px, 0 140px; } }
+@keyframes kw-lightning { 0%, 40%, 41.6%, 87%, 88.6%, 100% { opacity: 0; } 40.6% { opacity: 0.85; } 41.2% { opacity: 0.3; } 87.6% { opacity: 0.7; } }
+@keyframes kw-orbit { from { transform: rotateZ(0deg); } to { transform: rotateZ(360deg); } }
+@keyframes kw-orbit-rev { from { transform: rotateZ(360deg); } to { transform: rotateZ(0deg); } }
+@keyframes kw-rotor { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
+@keyframes kw-drift { from { transform: translate3d(120px, 740px, 200px); } 50% { transform: translate3d(430px, 420px, 235px); } to { transform: translate3d(750px, 140px, 205px); } }
+@keyframes kw-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+@keyframes kw-tlight {
+  0%, 100% { background: #f87171; box-shadow: 0 0 6px 1px rgba(248, 113, 113, 0.8); }
+  45% { background: #4ade80; box-shadow: 0 0 6px 1px rgba(74, 222, 128, 0.8); }
+  88% { background: #fbbf24; box-shadow: 0 0 6px 1px rgba(251, 191, 36, 0.8); }
+}
+@keyframes kw-spark { 0% { transform: translate(0, 0) scale(1); opacity: 0; } 8% { opacity: 1; } 100% { transform: translate(var(--sx, 20px), var(--sy, -20px)) scale(0.4); opacity: 0; } }
+@keyframes kw-wave { 0%, 100% { transform: skewY(-6deg); } 50% { transform: skewY(6deg); } }
+@keyframes kw-wau { from { transform: translate(0, 0) rotate(-4deg); } to { transform: translate(-28px, 15px) rotate(5deg); } }
+@keyframes kw-tip-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kw-car, .kw-water, .kw-win-lit, .kw-beacon-plane, .kw-ring, .kw-cloud, .kw-rise,
+  .kw-boat, .kw-smoke, .kw-blink, .kw-sway,
+  .kw-bird, .kw-bird::before, .kw-bird::after,
+  .kw-rain, .kw-lightning, .kw-heli-orbit, .kw-heli-counter, .kw-rotor,
+  .kw-balloon, .kw-bob, .kw-tlight, .kw-spark, .kw-wave, .kw-wau { animation: none !important; }
+  /* Static birds/smoke/aircraft are just floating specks — hide them */
+  .kw-bird, .kw-smoke, .kw-heli-orbit, .kw-balloon { display: none; }
 }
