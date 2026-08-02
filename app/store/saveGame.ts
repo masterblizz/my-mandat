@@ -22,6 +22,7 @@ export type SavedGameSnapshot = Pick<
   | "difficulty"
   | "mediaSentiment"
   | "settings"
+  | "hasWonElection"
 >;
 
 export interface SavedGameRecord {
@@ -54,6 +55,7 @@ export function createSaveSnapshot(state: GameState): SavedGameSnapshot {
     difficulty: state.difficulty,
     mediaSentiment: state.mediaSentiment,
     settings: state.settings,
+    hasWonElection: state.hasWonElection,
   };
 }
 

@@ -9,6 +9,7 @@ import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
 import { generateConstituencies } from "../data/constituencies";
 import { formatNumber } from "../utils/format";
+import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
 
 const STORAGE_PREFIX = "mymandat-kawasan-development-v2";
 
@@ -1046,7 +1047,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, leader, resources, settings } = useGameStore();
+  const { states, leader, resources, settings, hasWonElection } = useGameStore();
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
@@ -1124,6 +1125,13 @@ export default function KawasanDevelopmentPage() {
 
   function runProject(project: Project) {
     if (!selectedZone) return;
+    // Defensive: the UI never exposes a clickable project button pre-win
+    // (see the locked-panel branch below), but guard the action itself
+    // too in case something calls it directly.
+    if (!hasWonElection) {
+      setNotice(t(lang, "MENANG PILIHAN RAYA DAHULU UNTUK BUKA PEMBANGUNAN", "WIN YOUR ELECTION FIRST TO UNLOCK DEVELOPMENT"));
+      return;
+    }
     if (selectedZone.projects.includes(project.id)) {
       setNotice(t(lang, "PROJEK SUDAH DILULUSKAN UNTUK ZON INI", "PROJECT ALREADY APPROVED FOR THIS ZONE"));
       return;
@@ -1169,6 +1177,30 @@ export default function KawasanDevelopmentPage() {
     if (best) setTimeout(() => runProject(best), 0);
   }
 
+  // /kawasan is the landing screen (see app/page.tsx), so it now also
+  // carries the 4 actions /menu used to be the only way to reach.
+  // "Continue" mirrors /menu's own logic exactly: resume the active save
+  // slot straight into the war room, or fall back to the load-game list
+  // if there's nothing to resume.
+  function hubNavigate(action: "new" | "continue" | "load" | "settings") {
+    if (action === "continue") {
+      const slots = getSavedGames();
+      const activeId = getActiveSaveSlotId();
+      const activeSlot = activeId ? slots.find((slot) => slot.id === activeId) : null;
+      const latestSlot = [...slots].sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())[0] ?? null;
+      const slotToContinue = activeSlot ?? latestSlot;
+      if (slotToContinue) {
+        setActiveSaveSlot(slotToContinue.id);
+        useGameStore.setState({ ...slotToContinue.state, phase: "playing" });
+        router.push("/warroom");
+        return;
+      }
+      router.push("/load-game");
+      return;
+    }
+    router.push({ new: "/setup", load: "/load-game", settings: "/settings" }[action]);
+  }
+
   if (!ownSeat) {
     return (
       <div className="min-h-screen" style={{ background: "var(--bg)" }}>
@@ -1192,14 +1224,46 @@ export default function KawasanDevelopmentPage() {
       )}
 
       <main className="pt-[56px] pb-[58px] px-6 w-full">
+        {/* Landing-hub strip: /kawasan is now the app's landing screen (see
+            app/page.tsx), so it carries the 4 actions /menu used to be the
+            only way to reach — kept visually muted/secondary to the
+            constituency-builder content below, which is the actual point
+            of this page. */}
+        <div className="mb-3 flex flex-wrap gap-2">
+          {([
+            ["new", t(lang, "MULA KEMPEN", "START CAMPAIGN")],
+            ["continue", t(lang, "SAMBUNG KEMPEN", "CONTINUE RUN")],
+            ["load", t(lang, "MUAT PERMAINAN", "LOAD GAME")],
+            ["settings", t(lang, "TETAPAN", "SETTINGS")],
+          ] as const).map(([action, label]) => (
+            <button
+              key={action}
+              onClick={() => hubNavigate(action)}
+              className="px-3 py-1.5 text-[10px] font-bold tracking-widest"
+              style={{ border: "1px solid rgba(148,163,184,0.28)", color: "rgba(203,213,225,0.85)", background: "rgba(10,14,22,0.6)" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "SIMULATOR PEMBANGUNAN KAWASAN", "CONSTITUENCY BUILDER SIM")}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.voters)} {t(lang, "PENGUNDI", "VOTERS")} · {densityLabel}</div>
+            {!hasWonElection && (
+              <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "rgba(203,213,225,0.85)", background: "rgba(10,14,22,0.72)" }}>
+                🔒 {t(lang, "PEMBANGUNAN TERKUNCI — MENANG PILIHAN RAYA UNTUK BUKA", "DEVELOPMENT LOCKED — WIN YOUR ELECTION TO UNLOCK")}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
-            <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "BANGUNKAN ZON KRITIKAL", "DEVELOP PRIORITY ZONE")}</button>
+            {hasWonElection ? (
+              <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "BANGUNKAN ZON KRITIKAL", "DEVELOP PRIORITY ZONE")}</button>
+            ) : (
+              <button disabled title={t(lang, "Menang pilihan raya dahulu", "Win your election first")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "BANGUNKAN ZON KRITIKAL", "DEVELOP PRIORITY ZONE")}</button>
+            )}
             <button onClick={() => router.push("/government")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "KERAJAAN", "GOVERNMENT")}</button>
           </div>
         </div>
@@ -1223,7 +1287,16 @@ export default function KawasanDevelopmentPage() {
           </TacticalPanel>
 
           <div className="space-y-4">
-            <TacticalPanel title={selectedZone ? t(lang, `BANGUNKAN · ${selectedZone.nameMS.toUpperCase()}`, `DEVELOP · ${selectedZone.nameEN.toUpperCase()}`) : t(lang, "BANGUNKAN KAWASAN", "DEVELOP AREA")} noPadding>
+            <TacticalPanel
+              title={
+                selectedZone
+                  ? hasWonElection
+                    ? t(lang, `BANGUNKAN · ${selectedZone.nameMS.toUpperCase()}`, `DEVELOP · ${selectedZone.nameEN.toUpperCase()}`)
+                    : t(lang, `MAKLUMAT ZON · ${selectedZone.nameMS.toUpperCase()}`, `ZONE INFO · ${selectedZone.nameEN.toUpperCase()}`)
+                  : t(lang, "BANGUNKAN KAWASAN", "DEVELOP AREA")
+              }
+              noPadding
+            >
               {selectedZone && (
                 <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.07), rgba(3,8,15,0.72))" }}>
                   <div className="flex items-center justify-between gap-3">
@@ -1244,6 +1317,21 @@ export default function KawasanDevelopmentPage() {
                   </div>
                 </div>
               )}
+              {!hasWonElection ? (
+                <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 p-6 text-center">
+                  <div className="text-3xl">🔒</div>
+                  <div className="text-[12px] font-black tracking-widest text-white">
+                    {t(lang, "PEMBANGUNAN BELUM DIBUKA", "DEVELOPMENT NOT YET UNLOCKED")}
+                  </div>
+                  <div className="max-w-[280px] text-[11px] leading-relaxed text-text-muted">
+                    {t(
+                      lang,
+                      "Menang kerusi ini dalam pilihan raya untuk membuka sistem pembangunan kawasan. Peta bandar 3D masih boleh dilihat — cuma projek belum boleh dibina.",
+                      "Win this seat in the election to unlock the constituency development system. The 3D city map is still viewable — projects just can't be built yet."
+                    )}
+                  </div>
+                </div>
+              ) : (
               <div className="max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto p-4 space-y-3">
                 {PROJECTS.map((project) => {
                   const done = selectedZone?.projects.includes(project.id) ?? false;
@@ -1271,6 +1359,7 @@ export default function KawasanDevelopmentPage() {
                   );
                 })}
               </div>
+              )}
             </TacticalPanel>
           </div>
         </div>

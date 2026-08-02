@@ -9,9 +9,11 @@ import type { OpponentAction } from "./opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
 import { buildCampaignActionReaction, buildNominationReaction } from "../data/politicalReactions";
 import { calculateCampaignGain, getCampaignBaseGain } from "./campaignMath";
+import { generateConstituencies } from "../data/constituencies";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
+  | { type: "leader" }
   | { type: "none" };
 
 export interface LeaderProfile {
@@ -28,6 +30,8 @@ export interface LeaderProfile {
   strategy: number;
   experience: "veteran" | "moderate" | "rookie";
   homeState: string;
+  homeConstituencyId: string;
+  homeConstituencyName: string;
   ideology: { economic: number; social: number };
 }
 
@@ -69,6 +73,13 @@ export interface GameState {
   nationalSupportDelta: number;
   opponentLog: OpponentAction[];
   politicalReactions: PoliticalReaction[];
+  // True once the player's own seat (leader.homeConstituencyId) has been
+  // won under whichever electionScope they played (pru or prn) — set from
+  // /elected, which only ever renders on that exact win. Gates the
+  // /kawasan develop system. Resets with the rest of the run in
+  // resetGame(), and is per-save (see saveGame.ts SavedGameSnapshot), not
+  // a global one-time unlock — a new campaign starts locked again.
+  hasWonElection: boolean;
   settings: {
     campaignLength: "full" | "short" | "custom";
     electionScope: "pru" | "prn";
@@ -83,6 +94,7 @@ export interface GameState {
   };
 
   // Actions
+  setHasWonElection: (won: boolean) => void;
   setPhase: (phase: GameState["phase"]) => void;
   setDataset: (dataset: DatasetKind) => void;
   setNomination: (constituencyId: string, entry: NominationEntry | null) => void;
@@ -103,6 +115,9 @@ export interface GameState {
   resetGame: () => void;
 }
 
+const defaultHomeState = initialStates.find((s) => s.id === "selangor") ?? initialStates[0];
+const defaultHomeConstituency = generateConstituencies(defaultHomeState)[0];
+
 const defaultLeader: LeaderProfile = {
   name: "ALI RAHMAN",
   position: "PRESIDENT",
@@ -117,6 +132,8 @@ const defaultLeader: LeaderProfile = {
   strategy: 84,
   experience: "veteran",
   homeState: "selangor",
+  homeConstituencyId: defaultHomeConstituency.id,
+  homeConstituencyName: defaultHomeConstituency.name,
   ideology: { economic: 45, social: 40 },
 };
 
@@ -173,6 +190,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   nationalSupportDelta: 0,
   opponentLog: [],
   politicalReactions: [],
+  hasWonElection: false,
   settings: {
     campaignLength: "full",
     electionScope: "pru",
@@ -185,6 +203,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     eventRandomness: true,
     permanentConsequences: true,
   },
+
+  setHasWonElection: (won) => set({ hasWonElection: won }),
 
   setPhase: (phase) => set({ phase }),
 
@@ -292,6 +312,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       nationalSupportDelta: 0,
       opponentLog: [],
       politicalReactions: [],
+      hasWonElection: false,
       settings: {
         campaignLength: "full",
         electionScope: "pru",
