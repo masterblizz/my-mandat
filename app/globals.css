@@ -453,6 +453,16 @@ input[type="range"].range-red::-moz-range-thumb {
   user-select: none;
   touch-action: none;
   cursor: grab;
+  /* Colour grade / "post-process": a fake bloom+contrast pass, since
+     there's no real render pipeline to hang THREE.ColorManagement or
+     tone-mapping off of. Safe here specifically because .kw-scene has no
+     transform-style: preserve-3d of its own (only .kw-world, its child,
+     does) — filter on an element only flattens THAT element's own
+     preserve-3d, so this is a pure post-process over .kw-world's already-
+     resolved 3D render, same as it would be over a flat photo. Putting
+     this filter on .kw-world itself instead would force it flat and
+     collapse every building into a roof-only rectangle. */
+  filter: saturate(1.14) contrast(1.05);
 }
 .kw-scene.kw-dragging { cursor: grabbing; }
 .kw-scene[data-tod="day"]   { --kw-sky: radial-gradient(ellipse at 50% 108%, rgba(255,255,255,0.5), transparent 58%), linear-gradient(180deg, #2f5c82 0%, #4f84ab 32%, #8fb8d4 62%, #d3e7f2 100%); --kw-lit: 0;    --kw-lamp: 0;   --kw-stars: 0;   --kw-dim: 0;    --kw-ground: linear-gradient(135deg, #33523c, #22392a); --kw-grass: rgba(190, 242, 100, 0.14); --kw-orb: radial-gradient(circle at 35% 35%, #fffbeb, #fcd34d 55%, transparent 72%); --kw-orb-glow: rgba(253, 224, 71, 0.32); --kw-fog: #cfe1ec; }
@@ -561,6 +571,30 @@ input[type="range"].range-red::-moz-range-thumb {
 }
 .kw-scene[data-tod="day"] .kw-horizonglow { opacity: 0.3; }
 .kw-scene[data-tod="night"] .kw-horizonglow { opacity: 0.4; }
+/* Ground mist: several soft blurred blobs sitting in a band roughly where
+   the ground layers fade on screen (same anchor as kw-horizonglow), slowly
+   drifting sideways. A "cheat" layer, not a geometry fix — it visually
+   breaks up whatever hard edge is left rather than removing it. */
+.kw-groundmist {
+  background-image:
+    radial-gradient(140px 42px at 20% 68%, rgba(255,255,255,0.5), transparent 70%),
+    radial-gradient(190px 50px at 58% 72%, rgba(255,255,255,0.42), transparent 72%),
+    radial-gradient(130px 38px at 84% 62%, rgba(255,255,255,0.46), transparent 70%),
+    radial-gradient(170px 46px at 40% 76%, rgba(255,255,255,0.38), transparent 72%),
+    radial-gradient(150px 40px at 70% 66%, rgba(255,255,255,0.4), transparent 70%);
+  filter: blur(3px);
+  opacity: 0.28;
+  animation: kw-mist-drift 90s ease-in-out infinite alternate;
+  transition: opacity 0.6s;
+}
+.kw-scene[data-tod="day"] .kw-groundmist { opacity: 0.16; }
+.kw-scene[data-tod="dusk"] .kw-groundmist { opacity: 0.3; }
+.kw-scene[data-tod="night"] .kw-groundmist { opacity: 0.34; }
+.kw-scene[data-weather="rain"] .kw-groundmist { opacity: 0.4; }
+@keyframes kw-mist-drift {
+  from { transform: translateX(-2.5%); }
+  to { transform: translateX(2.5%); }
+}
 /* City base skirt: the "thickness" under the ground tile, textured like
    packed soil/concrete courses so the platform reads as a block resting
    on a foundation rather than a sheet floating in space. The top of each
@@ -661,6 +695,59 @@ input[type="range"].range-red::-moz-range-thumb {
   animation: kw-twinkle 3.4s ease-in-out infinite alternate;
 }
 
+/* Fixed "sun from the south" wash: every building's south wall (kw-face-lit)
+   and east wall (kw-face-shadow) get this same overlay regardless of type,
+   so the light direction reads as one consistent system instead of each
+   palette's own gradient direction being an accident of its hand-picked
+   colours. Plain flat washes (not gradients) — they're meant to shift
+   overall brightness, not fight each palette's own internal shading.
+   Pseudo-element overlays on a leaf face div, same pattern as kw-win-lit
+   above (which already uses opacity safely here) — doesn't risk the
+   preserve-3d flattening bug, which only triggers on elements that are
+   themselves ancestors of further 3D-positioned content. */
+.kw-face-lit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(255, 247, 222, 0.16);
+}
+.kw-face-shadow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(1, 4, 14, 0.36);
+}
+/* Roofline highlight + ground-contact AO band on every wall face, on top
+   of the lit/shadow wash — a cheap way to define the top/bottom edges of
+   a flat-shaded box without real per-vertex normals. */
+.kw-face-edge {
+  box-shadow:
+    inset 0 10px 14px -10px rgba(255, 255, 255, 0.22),
+    inset 0 -16px 20px -12px rgba(0, 0, 0, 0.4);
+}
+/* Rooftops catch the same south-ish light: a soft directional highlight
+   biased toward the sunlit corner, consistent across every roof texture. */
+.kw-face-roof::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, transparent 58%);
+}
+/* Plank/coursing texture for the 6 window-less building types — a ::before
+   so it can sit alongside kw-face-lit/-shadow's own ::after on the same
+   face div. Gives those flat-painted walls some surface detail instead of
+   reading as a lower-quality asset next to the windowed towers. */
+.kw-face-plain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0 2px, transparent 2px 9px);
+}
+
 .kw-water {
   background:
     repeating-linear-gradient(115deg, rgba(186,230,253,0.35) 0 14px, rgba(56,189,248,0.15) 14px 30px),
@@ -749,6 +836,23 @@ input[type="range"].range-red::-moz-range-thumb {
   animation: kw-blink 2.4s ease-in-out infinite;
   pointer-events: none;
 }
+/* Landmark beacon: marks the seat's admin hub (zone-0 / "Pusat Bandar")
+   as deliberately the tallest zone, distinct from the ordinary red
+   aircraft-warning kw-blink every tower/skyscraper/antenna already
+   carries — gold, bigger, slower, always on (not tied to selection),
+   so the extra height reads as "this is the flagship" rather than
+   unexplained size variance between zones. */
+.kw-landmark {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 20px 6px rgb(var(--gold-rgb) / 0.55);
+  animation: kw-landmark-pulse 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes kw-landmark-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 /* Birds fade out as the stars come up — they roost at night */
 .kw-bird {
   position: absolute;
@@ -845,7 +949,7 @@ input[type="range"].range-red::-moz-range-thumb {
   .kw-boat, .kw-smoke, .kw-blink, .kw-sway,
   .kw-bird, .kw-bird::before, .kw-bird::after,
   .kw-rain, .kw-lightning, .kw-heli-orbit, .kw-heli-counter, .kw-rotor,
-  .kw-balloon, .kw-bob, .kw-tlight, .kw-spark, .kw-wave, .kw-wau { animation: none !important; }
+  .kw-balloon, .kw-bob, .kw-tlight, .kw-spark, .kw-wave, .kw-wau, .kw-groundmist, .kw-landmark { animation: none !important; }
   /* Static birds/smoke/aircraft are just floating specks — hide them */
   .kw-bird, .kw-smoke, .kw-heli-orbit, .kw-balloon { display: none; }
 }

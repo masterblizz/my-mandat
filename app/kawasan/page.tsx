@@ -383,16 +383,27 @@ function Building3D({ spec }: { spec: BSpec }) {
             <div className="absolute" style={{ left: -14, top: -9, width: spec.w + 32, height: spec.d + 22, background: "rgba(0,0,0,0.34)", filter: "blur(9px)", transform: "translateZ(0.2px)" }} />
             <div className="absolute" style={{ left: -5, top: -3, width: spec.w + 12, height: spec.d + 8, background: "rgba(0,0,0,0.55)", filter: "blur(3px)", transform: "translateZ(0.4px)" }} />
             <div className="absolute" style={{ left: 0, top: 0, width: spec.w, height: spec.d, background: "rgba(0,0,0,0.6)", filter: "blur(0.5px)", transform: "translateZ(0.55px)" }} />
-            <div className="absolute" style={{ left: 0, top: spec.d, width: spec.w, height: spec.h, transformOrigin: "top", transform: "rotateX(90deg)", background: palette.wall, transition: FACE_TRANSITION }}>
+            {/* kw-face-lit/-shadow: a fixed "sun from the south" wash layered
+                over every palette via ::after (see globals.css), so light
+                direction reads consistently across all 13 building types
+                instead of being an accident of each type's own gradient
+                choice. kw-face-edge adds a roofline highlight + ground AO
+                band on top of that. kw-face-plain adds a plank/coursing
+                texture (via ::before) to the 6 types with no window grid
+                (house/masjid/stadium/terminal/stall/warehouse) — without
+                it those read as flat-painted boxes next to the detailed
+                towers, which was the actual "different asset quality"
+                complaint, not the height variance itself. */}
+            <div className={`absolute kw-face-lit kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: 0, top: spec.d, width: spec.w, height: spec.h, transformOrigin: "top", transform: "rotateX(90deg)", background: palette.wall, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" />}
               {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45}s` }} />}
             </div>
-            <div className="absolute" style={{ left: spec.w, top: 0, width: spec.h, height: spec.d, transformOrigin: "left", transform: "rotateY(-90deg)", background: palette.side, transition: FACE_TRANSITION }}>
+            <div className={`absolute kw-face-shadow kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: spec.w, top: 0, width: spec.h, height: spec.d, transformOrigin: "left", transform: "rotateY(-90deg)", background: palette.side, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" style={{ opacity: 0.55 }} />}
               {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45 - 1.2}s` }} />}
             </div>
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 kw-face-roof"
               style={{
                 background: palette.top,
                 border: spec.glow ? "2px solid rgba(0,255,136,0.7)" : "1px solid rgba(255,255,255,0.18)",
@@ -557,9 +568,17 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, density, traits, c
   const buildings = useMemo(() => zoneBuildings(zone, density, traits), [zone, density, traits]);
   const [hovered, setHovered] = useState(false);
   const weakest = weakestStat(zone);
+  // zone-0 is always "Pusat Bandar"/Town Centre (see makeZones) — the one
+  // zone.kind==="urban" guarantees the extra skyscrapers in zoneBuildings.
+  // It ends up visibly taller than every other zone by design (it's the
+  // seat's admin hub, not a stray size accident), so it gets a persistent
+  // landmark beacon marking that on purpose — every other zone's height
+  // still only reflects its own infra/welfare/economy stats.
+  const isPrimary = zone.id === "zone-0";
   // Label floats above the tallest roof in the zone, not at a fixed height,
   // so skyscraper zones don't bury their own label under their buildings.
-  const labelZ = Math.max(30, ...buildings.map((spec) => spec.h)) + 30;
+  const tallest = Math.max(30, ...buildings.map((spec) => spec.h));
+  const labelZ = tallest + 30;
   // Twin skyscrapers side by side get a KLCC-style skybridge
   const skyscrapers = buildings.filter((spec) => spec.type === "skyscraper").sort((a, b) => a.slot - b.slot);
   const twin = skyscrapers.length >= 2 && skyscrapers[1].slot - skyscrapers[0].slot === 1 && Math.floor(skyscrapers[0].slot / 3) === Math.floor(skyscrapers[1].slot / 3) ? skyscrapers : null;
@@ -591,6 +610,13 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, density, traits, c
           </div>
         );
       })()}
+      {isPrimary && (
+        <div className="kw-3d absolute" style={{ left: PLOT / 2, top: PLOT / 2, width: 0, height: 0, transform: `translateZ(${tallest + 16}px)` }}>
+          <div className="kw-bill">
+            <span className="kw-landmark" />
+          </div>
+        </div>
+      )}
       {selected && <SelectionBeacon />}
       {celebrating > 0 && <Fireworks key={celebrating} />}
       {/* leader line + label: anchored on the road below the plot, the pole rises in true 3D
@@ -638,6 +664,15 @@ type Tod = (typeof TOD_SEQUENCE)[number];
 const TOD_LABEL: Record<Tod, [string, string, string]> = { day: ["☀", "SIANG", "DAY"], dusk: ["🌆", "SENJA", "DUSK"], night: ["🌙", "MALAM", "NIGHT"] };
 
 const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
+// Idle auto-rotate: after this long with no drag/scroll/click, the camera
+// starts a slow cinematic sweep across the same rz clamp (5-85deg) manual
+// drag already respects — it never exceeds what drag can already reach, so
+// it can't expose the un-built north/west building faces. Ping-pongs
+// between the two bounds using smoothstep easing (slow-fast-slow per leg)
+// instead of constant angular velocity, which read as robotic.
+const IDLE_MS = 4000;
+const MS_PER_DEGREE = 450;
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, densityLabel, traits, celebration, overall }: { zones: Zone[]; selectedZoneId: string; setSelectedZoneId: (id: string) => void; lang: ReturnType<typeof useLang>; density: number; densityLabel: string; traits: SeatTraits; celebration: { zoneId: string; at: number } | null; overall: number }) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
@@ -647,6 +682,8 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
   const movedRef = useRef(false);
   const [tod, setTod] = useState<Tod>("dusk");
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRotate = useRef<{ rafId: number | null; from: number; to: number; start: number; duration: number }>({ rafId: null, from: 5, to: 85, start: 0, duration: 0 });
 
   const applyCam = useCallback(() => {
     const el = sceneRef.current;
@@ -660,6 +697,42 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
     el.style.setProperty("--kw-zoom", `${c.zoom}`);
   }, []);
 
+  const stopAutoRotate = useCallback(() => {
+    if (autoRotate.current.rafId != null) {
+      cancelAnimationFrame(autoRotate.current.rafId);
+      autoRotate.current.rafId = null;
+    }
+  }, []);
+
+  const startAutoRotate = useCallback(() => {
+    if (autoRotate.current.rafId != null) return;
+    const from = cam.current.rz;
+    const to = from < 45 ? 85 : 5;
+    autoRotate.current = { rafId: null, from, to, start: performance.now(), duration: Math.max(1200, Math.abs(to - from) * MS_PER_DEGREE) };
+    const tick = (now: number) => {
+      const leg = autoRotate.current;
+      const t = Math.min(1, (now - leg.start) / leg.duration);
+      cam.current.rz = leg.from + (leg.to - leg.from) * smoothstep(t);
+      applyCam();
+      if (t >= 1) {
+        const nextTo = leg.to === 85 ? 5 : 85;
+        autoRotate.current = { rafId: null, from: leg.to, to: nextTo, start: now, duration: Math.abs(nextTo - leg.to) * MS_PER_DEGREE };
+      }
+      autoRotate.current.rafId = requestAnimationFrame(tick);
+    };
+    autoRotate.current.rafId = requestAnimationFrame(tick);
+  }, [applyCam]);
+
+  // Any deliberate camera input (drag, scroll, or a HUD button that moves
+  // the camera) cancels the auto-sweep and restarts the idle countdown —
+  // the cinematic drift is only ever for a hands-off viewer, never fights
+  // an active one.
+  const markInteraction = useCallback(() => {
+    stopAutoRotate();
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(startAutoRotate, IDLE_MS);
+  }, [stopAutoRotate, startAutoRotate]);
+
   useEffect(() => {
     const el = sceneRef.current;
     if (!el) return;
@@ -669,8 +742,10 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
     defaultZoom.current = width < 700 ? 0.55 : width < 900 ? 0.66 : width < 1150 ? 0.76 : CAM_DEFAULT.zoom;
     cam.current.zoom = defaultZoom.current;
     applyCam();
+    markInteraction();
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      markInteraction();
       cam.current.zoom *= event.deltaY > 0 ? 0.92 : 1.08;
       applyCam();
     };
@@ -684,6 +759,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
       applyCam();
     };
     const onUp = () => {
+      if (drag.current) markInteraction();
       drag.current = null;
       el.classList.remove("kw-dragging");
     };
@@ -694,8 +770,10 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
       el.removeEventListener("wheel", onWheel);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+      stopAutoRotate();
     };
-  }, [applyCam]);
+  }, [applyCam, markInteraction, stopAutoRotate]);
 
   const controlButton = "pointer-events-auto flex h-9 w-9 items-center justify-center border text-[13px] font-black";
   const controlStyle = { borderColor: "rgba(125,211,252,0.4)", background: "rgba(3,8,15,0.8)", color: "#7dd3fc" } as const;
@@ -710,6 +788,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
       style={{ background: "var(--kw-sky)", borderColor: "rgb(var(--cyan-rgb)/0.18)" }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
+        markInteraction();
         drag.current = { x: event.clientX, y: event.clientY, rz: cam.current.rz, rx: cam.current.rx };
         movedRef.current = false;
         sceneRef.current?.classList.add("kw-dragging");
@@ -912,6 +991,12 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
           mix-blend-mode/opacity layer inside the preserve-3d tree
           flattens the whole scene into roof-only rectangles. */}
       <div className="kw-horizonglow pointer-events-none absolute inset-0" />
+      {/* Ground mist "cheat": low blurred cloud blobs sitting right where the
+          worldground/farground fade happens on screen, drifting slowly.
+          Doesn't fix the geometry — it hides the seam, same trick as fog
+          over a horizon in any renderer. Screen-space (outside .kw-world)
+          for the same flattening reason as kw-horizonglow. */}
+      <div className="kw-groundmist pointer-events-none absolute inset-0" />
       {/* night dimmer + vignette over the world, under the HUD */}
       <div className="kw-tintlayer pointer-events-none absolute inset-0" />
       <div className="kw-rain" />
@@ -931,14 +1016,14 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
         ))}
       </div>
       <div className="absolute right-4 top-4 flex flex-col gap-2" onPointerDown={(event) => event.stopPropagation()}>
-        <button type="button" aria-label="Zoom in" className={controlButton} style={controlStyle} onClick={() => { cam.current.zoom *= 1.15; applyCam(); }}>+</button>
-        <button type="button" aria-label="Zoom out" className={controlButton} style={controlStyle} onClick={() => { cam.current.zoom *= 0.87; applyCam(); }}>-</button>
-        <button type="button" aria-label="Reset camera" className={controlButton} style={controlStyle} onClick={() => { cam.current = { ...CAM_DEFAULT, zoom: defaultZoom.current }; applyCam(); }}>R</button>
+        <button type="button" aria-label="Zoom in" className={controlButton} style={controlStyle} onClick={() => { markInteraction(); cam.current.zoom *= 1.15; applyCam(); }}>+</button>
+        <button type="button" aria-label="Zoom out" className={controlButton} style={controlStyle} onClick={() => { markInteraction(); cam.current.zoom *= 0.87; applyCam(); }}>-</button>
+        <button type="button" aria-label="Reset camera" className={controlButton} style={controlStyle} onClick={() => { markInteraction(); cam.current = { ...CAM_DEFAULT, zoom: defaultZoom.current }; applyCam(); }}>R</button>
         <button
           type="button"
           className="pointer-events-auto border px-2 py-2 text-[9px] font-black tracking-widest"
           style={controlStyle}
-          onClick={() => setTod((current) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(current) + 1) % TOD_SEQUENCE.length])}
+          onClick={() => { markInteraction(); setTod((current) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(current) + 1) % TOD_SEQUENCE.length]); }}
         >
           {TOD_LABEL[tod][0]} {t(lang, TOD_LABEL[tod][1], TOD_LABEL[tod][2])}
         </button>
@@ -946,7 +1031,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, density, de
           type="button"
           className="pointer-events-auto border px-2 py-2 text-[9px] font-black tracking-widest"
           style={controlStyle}
-          onClick={() => setWeather((current) => (current === "rain" ? "clear" : "rain"))}
+          onClick={() => { markInteraction(); setWeather((current) => (current === "rain" ? "clear" : "rain")); }}
         >
           {weather === "rain" ? `🌧 ${t(lang, "HUJAN", "RAIN")}` : `☀ ${t(lang, "CERAH", "CLEAR")}`}
         </button>
