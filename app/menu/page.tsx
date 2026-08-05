@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MalaysiaMap from "../components/map/MalaysiaMap";
+import Skyline from "../components/layout/Skyline";
 import { states as initialStates } from "../data/states";
+import { generateConstituencies } from "../data/constituencies";
 import { advisors } from "../data/advisors";
 import { useGameStore } from "../store/gameStore";
+import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
+import { buildDailyChallenge } from "../utils/dailyChallenge";
 import { useLang, t } from "../i18n/useLang";
 
 type MenuItemConfig = {
@@ -20,6 +24,7 @@ type MenuItem = MenuItemConfig & { label: string; sub: string };
 
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "01", labelMS: "MULA KEMPEN",        labelEN: "START CAMPAIGN",    subMS: "Mulakan kempen baharu",          subEN: "Begin new mandate run",          href: "/setup" },
+  { id: "01b", labelMS: "CABARAN HARIAN",    labelEN: "DAILY CHALLENGE",   subMS: "Senario sama untuk semua pemain hari ini", subEN: "Same scenario for every player today", href: null },
   { id: "02", labelMS: "SAMBUNG KEMPEN",      labelEN: "CONTINUE RUN",      subMS: "Kembali ke kempen aktif",        subEN: "Return to active campaign",      href: "/warroom" },
   { id: "03", labelMS: "MUAT PERMAINAN",      labelEN: "LOAD GAME",         subMS: "Buka slot kempen tersimpan",     subEN: "Open saved campaign slot",       href: "/load-game" },
   { id: "04", labelMS: "TETAPAN",             labelEN: "SETTINGS",          subMS: "Audio · paparan · kawalan",      subEN: "Audio · display · controls",     href: "/settings" },
@@ -96,9 +101,18 @@ export default function MainMenuPage() {
   const [mounted, setMounted] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
 
-  const { leader, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment } = useGameStore();
-  const projectedSeats = getTotalProjectedSeats();
-  const nationalSupport = getNationalSupport();
+  const {
+    leader, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment, settings,
+    resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate,
+  } = useGameStore();
+  const isPrn = settings.electionScope === "prn";
+  const prnState = isPrn ? initialStates.find((state) => state.id === settings.prnStateId) ?? initialStates[0] : null;
+  const seatTotal = isPrn ? (prnState?.dunSeats ?? 0) : 222;
+  const majorityTarget = isPrn ? Math.floor(seatTotal / 2) + 1 : 112;
+  const projectedSeats = isPrn ? (prnState?.projectedSeats ?? 0) : getTotalProjectedSeats();
+  const nationalSupport = isPrn && prnState
+    ? { mandat: Math.round(prnState.mandatSupport), lawan: Math.round(prnState.lawanSupport), others: Math.round(prnState.othersSupport) }
+    : getNationalSupport();
   const campaignProgress = Math.round((day / totalDays) * 100);
   const daysLeft = Math.max(0, totalDays - day + 1);
   const leadAdvisor = advisors[0];
@@ -114,11 +128,23 @@ export default function MainMenuPage() {
   const liveNewsItems = lang === "ms" ? LIVE_NEWS_MS : LIVE_NEWS_EN;
 
   const highlightedStates = useMemo(
-    () => initialStates.map((state) => ({
+    () => (isPrn && prnState ? [prnState] : initialStates).map((state) => ({
       ...state,
       status: "winning" as const,
     })),
-    []
+    [isPrn, prnState]
+  );
+
+  // PRN runs replace the two national flavor tables (registered voters,
+  // seat projection by state) with data scoped to the single negeri in
+  // play, so nothing on this screen implies other states are contested.
+  const prnDunSeats = useMemo(
+    () => (isPrn && prnState ? generateConstituencies(prnState, "dun") : []),
+    [isPrn, prnState]
+  );
+  const prnTopMarginSeats = useMemo(
+    () => [...prnDunSeats].sort((a, b) => a.margin - b.margin).slice(0, 8),
+    [prnDunSeats]
   );
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
@@ -126,9 +152,56 @@ export default function MainMenuPage() {
       setShowCredits(true);
       return;
     }
+    if (item.id === "01b") {
+      // Skips the setup wizard entirely — dataset/home state/difficulty/
+      // media bias are all seeded from today's date (see
+      // buildDailyChallenge), so every player who plays today starts from
+      // the identical scenario. Day-to-day event/opponent RNG afterward is
+      // unseeded, same as any other campaign — see dailyChallenge.ts's own
+      // comment for why that's an intentional scope cut, not an oversight.
+      const config = buildDailyChallenge();
+      const homeState = initialStates.find((state) => state.id === config.homeStateId) ?? initialStates[0];
+      const homeConstituency = generateConstituencies(homeState)[0];
+      resetGame();
+      setActiveSaveSlot(null);
+      setDataset(config.dataset);
+      setLeader({
+        homeState: homeState.id,
+        homeConstituencyId: homeConstituency?.id ?? "",
+        homeConstituencyName: homeConstituency?.name ?? "",
+      });
+      if (homeConstituency) setNomination(homeConstituency.id, { type: "leader" });
+      updateSettings({
+        electionScope: "pru",
+        difficulty: config.difficulty,
+        mediaBias: config.mediaBias,
+        oppositionStrength: config.oppositionStrength,
+      });
+      setDailyChallengeDate(config.dateKey);
+      startCampaign();
+      router.push("/kawasan");
+      return;
+    }
+    if (item.id === "02") {
+      const slots = getSavedGames();
+      const activeId = getActiveSaveSlotId();
+      const activeSlot = activeId ? slots.find((slot) => slot.id === activeId) : null;
+      const latestSlot = [...slots].sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())[0] ?? null;
+      const slotToContinue = activeSlot ?? latestSlot;
+
+      if (slotToContinue) {
+        setActiveSaveSlot(slotToContinue.id);
+        useGameStore.setState({ ...slotToContinue.state, phase: "playing" });
+        router.push("/kawasan");
+        return;
+      }
+
+      router.push("/load-game");
+      return;
+    }
     if (!item.href) return;
     router.push(item.href);
-  }, [router]);
+  }, [router, resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate]);
 
   useEffect(() => {
     setMounted(true);
@@ -259,7 +332,11 @@ export default function MainMenuPage() {
           <span className="font-bold tracking-[0.18em] text-white">MANDAT//AI</span>
           <span style={{ color: "var(--text-muted)" }}>· {t(lang, "OPS TAKTIKAL", "TACTICAL OPS")}</span>
         </div>
-        <div className="hidden md:block" style={{ color: "rgb(136 153 170 / 0.72)" }}>{t(lang, "PILIHAN RAYA UMUM · SIMULATOR ARAHAN", "GENERAL ELECTION · COMMAND SIMULATOR")}</div>
+        <div className="hidden md:block" style={{ color: "rgb(136 153 170 / 0.72)" }}>
+          {isPrn
+            ? t(lang, `PILIHAN RAYA NEGERI · ${prnState?.name?.toUpperCase() ?? ""} · SIMULATOR ARAHAN`, `STATE ELECTION · ${prnState?.name?.toUpperCase() ?? ""} · COMMAND SIMULATOR`)
+            : t(lang, "PILIHAN RAYA UMUM · SIMULATOR ARAHAN", "GENERAL ELECTION · COMMAND SIMULATOR")}
+        </div>
         <div className="flex items-center gap-3">
           <span className="font-bold tracking-[0.15em] text-white tabular-nums">{clock}</span>
           <span className="flex items-center gap-1 font-bold" style={{ color: "var(--neon-green)" }}><span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "var(--neon-green)" }} />{t(lang, "SIS DALAM TALIAN", "SYS ONLINE")}</span>
@@ -273,6 +350,11 @@ export default function MainMenuPage() {
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgba(5,8,14,0.24) 42%, rgba(5,8,14,0.78) 100%)" }} />
+        <div className="mm-radar z-[1]" style={{ left: 300 }} />
+        <div className="mm-particles z-[1]" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1]" style={{ left: 300 }}>
+          <Skyline opacity={0.5} />
+        </div>
 
         <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgba(4,8,14,0.96), rgba(4,8,14,0.88) 72%, rgba(4,8,14,0.62))" }}>
           <div className="mb-3 flex items-center gap-3">
@@ -286,7 +368,9 @@ export default function MainMenuPage() {
             </div>
           </div>
           <p className="mb-3 max-w-[395px] text-[11px] leading-5" style={{ color: "#7d91a5" }}>
-            {t(lang, "Mesin sudah hidup. Empat belas negeri dalam permainan, 112 kerusi untuk diperintah. Rakyat sedang memerhati.", "The machine is live. Fourteen states in play, 112 seats to govern. The people are watching.")}
+            {isPrn
+              ? t(lang, `Mesin sudah hidup. ${prnState?.name ?? "Negeri"} dalam permainan, ${seatTotal} kerusi DUN untuk diperintah. Rakyat sedang memerhati.`, `The machine is live. ${prnState?.name ?? "The state"} in play, ${seatTotal} DUN seats to govern. The people are watching.`)
+              : t(lang, "Mesin sudah hidup. Empat belas negeri dalam permainan, 112 kerusi untuk diperintah. Rakyat sedang memerhati.", "The machine is live. Fourteen states in play, 112 seats to govern. The people are watching.")}
           </p>
 
           <nav className="flex flex-col gap-1.5">
@@ -348,7 +432,7 @@ export default function MainMenuPage() {
           <div className="mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <div className="text-[21px] font-black" style={{ color: "var(--cyan)" }}>{mounted ? projectedSeats : 108}<span className="text-[12px]" style={{ color: "#6f8092" }}>/112</span></div>
+                <div className="text-[21px] font-black" style={{ color: "var(--cyan)" }}>{mounted ? projectedSeats : Math.round(seatTotal * 0.48)}<span className="text-[12px]" style={{ color: "#6f8092" }}>/{seatTotal}</span></div>
                 <div className="text-[10px] tracking-[0.25em]" style={{ color: "#64778b" }}>{t(lang, "KERUSI", "SEATS")}</div>
               </div>
               <div>
@@ -362,11 +446,11 @@ export default function MainMenuPage() {
             </div>
           </div>
 
-          {/* PRU Timeline */}
+          {/* Election Timeline */}
           <div className="mt-4 border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-black tracking-[0.32em]" style={{ color: "var(--gold)" }}>{t(lang, "TIMELINE PRU", "ELECTION TIMELINE")}</span>
-              <span className="text-[9px] font-bold tracking-[0.18em]" style={{ color: "var(--neon-red)" }}>GE16 · {t(lang, "AKTIF", "ACTIVE")}</span>
+              <span className="text-[10px] font-black tracking-[0.32em]" style={{ color: "var(--gold)" }}>{isPrn ? t(lang, "TIMELINE PRN", "ELECTION TIMELINE") : t(lang, "TIMELINE PRU", "ELECTION TIMELINE")}</span>
+              <span className="text-[9px] font-bold tracking-[0.18em]" style={{ color: "var(--neon-red)" }}>{isPrn ? `PRN · ${prnState?.shortName ?? ""}` : "GE16"} · {t(lang, "AKTIF", "ACTIVE")}</span>
             </div>
             <div className="flex flex-col gap-0">
               {[
@@ -405,13 +489,13 @@ export default function MainMenuPage() {
             <div className="mb-2 text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>{t(lang, "PEMERHATIAN KOALISI", "COALITION WATCH")}</div>
             <div className="flex flex-col gap-1.5">
               {(mounted ? [
-                { name: leader.partyAbbr || "MANDAT", seats: projectedSeats, color: leader.partyColor || "var(--cyan)", pct: Math.round((projectedSeats / 222) * 100) },
-                { name: "PEMBANGKANG", seats: 222 - projectedSeats - nationalSupport.others, color: "var(--neon-red)", pct: Math.round(((222 - projectedSeats - nationalSupport.others) / 222) * 100) },
-                { name: "BEBAS / LAIN", seats: nationalSupport.others, color: "#a78bfa", pct: Math.round((nationalSupport.others / 222) * 100) },
+                { name: leader.partyAbbr || "MANDAT", seats: projectedSeats, color: leader.partyColor || "var(--cyan)", pct: Math.round((projectedSeats / seatTotal) * 100) },
+                { name: "PEMBANGKANG", seats: seatTotal - projectedSeats - Math.round((seatTotal * nationalSupport.others) / 100), color: "var(--neon-red)", pct: Math.round(((seatTotal - projectedSeats - Math.round((seatTotal * nationalSupport.others) / 100)) / seatTotal) * 100) },
+                { name: "BEBAS / LAIN", seats: Math.round((seatTotal * nationalSupport.others) / 100), color: "#a78bfa", pct: Math.round(nationalSupport.others) },
               ] : [
-                { name: "MANDAT", seats: 112, color: "var(--cyan)", pct: 50 },
-                { name: "PEMBANGKANG", seats: 82, color: "var(--neon-red)", pct: 37 },
-                { name: "BEBAS / LAIN", seats: 28, color: "#a78bfa", pct: 13 },
+                { name: "MANDAT", seats: Math.round(seatTotal * 0.5), color: "var(--cyan)", pct: 50 },
+                { name: "PEMBANGKANG", seats: Math.round(seatTotal * 0.37), color: "var(--neon-red)", pct: 37 },
+                { name: "BEBAS / LAIN", seats: Math.round(seatTotal * 0.13), color: "#a78bfa", pct: 13 },
               ]).map((c, i) => (
                 <div key={i}>
                   <div className="mb-0.5 flex items-center justify-between">
@@ -424,13 +508,17 @@ export default function MainMenuPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-2 text-[8px] tracking-[0.14em]" style={{ color: "#3d5166" }}>{t(lang, "MAJORITI DIPERLUKAN · 112 KERUSI", "MAJORITY REQUIRED · 112 SEATS")}</div>
+            <div className="mt-2 text-[8px] tracking-[0.14em]" style={{ color: "#3d5166" }}>{t(lang, `MAJORITI DIPERLUKAN · ${majorityTarget} KERUSI`, `MAJORITY REQUIRED · ${majorityTarget} SEATS`)}</div>
           </div>
         </aside>
 
         <div className="pointer-events-none relative z-10 min-w-0 overflow-hidden">
           <CornerFrame />
-          <div className="absolute left-4 top-3 z-10 text-[10px] tracking-[0.34em]" style={{ color: "rgb(136 153 170 / 0.42)" }}>↳ {t(lang, "PETA TAKTIKAL — MALAYSIA · 222 KERUSI", "TACTICAL MAP — MALAYSIA · 222 SEATS")}</div>
+          <div className="absolute left-4 top-3 z-10 text-[10px] tracking-[0.34em]" style={{ color: "rgb(136 153 170 / 0.42)" }}>
+            ↳ {isPrn
+              ? t(lang, `PETA TAKTIKAL — ${prnState?.name?.toUpperCase() ?? "NEGERI"} · ${seatTotal} KERUSI`, `TACTICAL MAP — ${prnState?.name?.toUpperCase() ?? "STATE"} · ${seatTotal} SEATS`)
+              : t(lang, "PETA TAKTIKAL — MALAYSIA · 222 KERUSI", "TACTICAL MAP — MALAYSIA · 222 SEATS")}
+          </div>
 
           <div
             className="absolute left-8 right-60 top-11 z-20 flex h-9 items-center overflow-hidden border"
@@ -479,7 +567,9 @@ export default function MainMenuPage() {
           >
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[10px] font-black tracking-[0.32em]" style={{ color: "var(--gold)" }}>{t(lang, "STATUS PILIHAN RAYA", "ELECTION STATUS")}</span>
-              <span className="text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--neon-red)" }}>PRU16 · {t(lang, "PILIHAN RAYA MENGEJUT", "SNAP POLL")}</span>
+              <span className="text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--neon-red)" }}>
+                {isPrn ? `PRN · ${prnState?.shortName ?? ""}` : "PRU16"} · {t(lang, "PILIHAN RAYA MENGEJUT", "SNAP POLL")}
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
@@ -487,16 +577,16 @@ export default function MainMenuPage() {
                 <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "HARI BERBAKI", "DAYS LEFT")}</div>
               </div>
               <div>
-                <div className="text-[26px] font-black leading-none" style={{ color: "var(--cyan)" }}>222</div>
+                <div className="text-[26px] font-black leading-none" style={{ color: "var(--cyan)" }}>{seatTotal}</div>
                 <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "KERUSI", "SEATS")}</div>
               </div>
               <div>
-                <div className="text-[26px] font-black leading-none" style={{ color: "var(--neon-green)" }}>112</div>
+                <div className="text-[26px] font-black leading-none" style={{ color: "var(--neon-green)" }}>{majorityTarget}</div>
                 <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "MAJORITI", "MAJORITY")}</div>
               </div>
             </div>
             <div className="mt-4 h-1.5 overflow-hidden" style={{ background: "rgb(var(--cyan-rgb) / 0.10)" }}>
-              <div className="h-full" style={{ width: `${mounted ? campaignProgress : 0}%`, background: "linear-gradient(90deg, var(--gold), var(--cyan))", transition: "width 0.6s ease-out" }} />
+              <div className="mm-bar h-full" style={{ width: `${mounted ? campaignProgress : 0}%`, background: "linear-gradient(90deg, var(--gold), var(--cyan))", transition: "width 0.6s ease-out" }} />
             </div>
             <div className="mt-2 flex justify-between text-[8px] tracking-[0.2em]" style={{ color: "#718397" }}>
               <span>{t(lang, "TEMPOH KEMPEN", "CAMPAIGN WINDOW")}</span>
@@ -528,13 +618,18 @@ export default function MainMenuPage() {
                   <div>{t(lang, "KERUSI UNTUK MEMBENTUK KERAJAAN", "SEATS TO FORM GOVERNMENT")}</div>
                   <div>{t(lang, "DIJAMIN 0", "SECURED 0")}</div>
                 </div>
-                <div className="text-[34px] font-black leading-none" style={{ color: "var(--gold)", textShadow: "0 0 20px rgb(var(--gold-rgb) / 0.44)" }}>112</div>
+                <div className="text-[34px] font-black leading-none" style={{ color: "var(--gold)", textShadow: "0 0 20px rgb(var(--gold-rgb) / 0.44)" }}>{majorityTarget}</div>
               </div>
             </IntelPanel>
 
             <IntelPanel title={t(lang, "PENGUNDI BERDAFTAR", "REGISTERED VOTERS")}>
               <div className="space-y-1.5">
-                {[
+                {(isPrn && prnState ? [{
+                  negeri: prnState.name.toUpperCase(),
+                  juta: prnState.registeredVoters / 1_000_000,
+                  kerusi: prnState.dunSeats,
+                  max: prnState.registeredVoters / 1_000_000,
+                }] : [
                   { negeri: "SELANGOR",    juta: 3.1, kerusi: 22, max: 3.1 },
                   { negeri: "JOHOR",       juta: 2.3, kerusi: 26, max: 3.1 },
                   { negeri: "SABAH",       juta: 1.5, kerusi: 25, max: 3.1 },
@@ -548,7 +643,7 @@ export default function MainMenuPage() {
                   { negeri: "N.SEMBILAN", juta: 0.7, kerusi: 8,  max: 3.1 },
                   { negeri: "MELAKA",      juta: 0.5, kerusi: 6,  max: 3.1 },
                   { negeri: "PERLIS",      juta: 0.2, kerusi: 3,  max: 3.1 },
-                ].map((s) => (
+                ]).map((s) => (
                   <div key={s.negeri}>
                     <div className="flex items-center justify-between">
                       <span className="text-[7.5px] font-bold tracking-[0.10em]" style={{ color: "#8899aa" }}>{s.negeri}</span>
@@ -562,13 +657,22 @@ export default function MainMenuPage() {
                     </div>
                   </div>
                 ))}
-                <div className="pt-1 text-[7px] tracking-[0.14em]" style={{ color: "#2d3f52" }}>{t(lang, "JUMLAH · 15.9 JUTA PENGUNDI · SPR 2025", "TOTAL · 15.9M VOTERS · EC 2025")}</div>
+                <div className="pt-1 text-[7px] tracking-[0.14em]" style={{ color: "#2d3f52" }}>
+                  {isPrn && prnState
+                    ? t(lang, `JUMLAH · ${(prnState.registeredVoters / 1_000_000).toFixed(1)} JUTA PENGUNDI · ${prnState.name.toUpperCase()}`, `TOTAL · ${(prnState.registeredVoters / 1_000_000).toFixed(1)}M VOTERS · ${prnState.name.toUpperCase()}`)
+                    : t(lang, "JUMLAH · 15.9 JUTA PENGUNDI · SPR 2025", "TOTAL · 15.9M VOTERS · EC 2025")}
+                </div>
               </div>
             </IntelPanel>
 
             <IntelPanel title={t(lang, "UNJURAN KERUSI", "SEAT PROJECTION")} tone="gold">
               <div className="space-y-1">
-                {[
+                {(isPrn && prnState ? prnTopMarginSeats.map((c) => ({
+                  negeri: c.name,
+                  kerusi: 1,
+                  proj: c.winner === "mandat" ? 1 : 0,
+                  status: c.safety === "marginal" ? "SWING" : c.winner === "mandat" ? "WIN" : "LOSE",
+                })) : [
                   { negeri: "SARAWAK",    kerusi: 31, proj: 18, status: "WIN" },
                   { negeri: "JOHOR",      kerusi: 26, proj: 14, status: "WIN" },
                   { negeri: "SABAH",      kerusi: 25, proj: 11, status: "SWING" },
@@ -582,7 +686,7 @@ export default function MainMenuPage() {
                   { negeri: "N.SEMBILAN",kerusi: 8,  proj: 5,  status: "WIN" },
                   { negeri: "MELAKA",     kerusi: 6,  proj: 4,  status: "WIN" },
                   { negeri: "PERLIS",     kerusi: 3,  proj: 1,  status: "LOSE" },
-                ].map((s) => {
+                ]).map((s) => {
                   const statusColor = s.status === "WIN" ? "var(--neon-green)" : s.status === "LOSE" ? "var(--neon-red)" : "var(--gold)";
                   return (
                     <div key={s.negeri} className="flex items-center justify-between gap-1">
@@ -599,7 +703,7 @@ export default function MainMenuPage() {
                 })}
                 <div className="mt-1 flex items-center justify-between border-t pt-1" style={{ borderColor: "rgb(var(--gold-rgb) / 0.15)" }}>
                   <span className="text-[7px] tracking-[0.14em]" style={{ color: "#4a5e72" }}>{t(lang, "JUMLAH UNJURAN", "TOTAL PROJECTION")}</span>
-                  <span className="text-[10px] font-black" style={{ color: "var(--gold)" }}>99 / 222</span>
+                  <span className="text-[10px] font-black" style={{ color: "var(--gold)" }}>{isPrn ? `${projectedSeats} / ${seatTotal}` : "99 / 222"}</span>
                 </div>
               </div>
             </IntelPanel>

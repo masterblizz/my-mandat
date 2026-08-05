@@ -43,6 +43,21 @@ export const MINISTER_POSTS: CabinetPost[] = [
   { id: "min-rural",  titleMS: "PEMBANGUNAN LUAR BANDAR", titleEN: "RURAL DEVELOPMENT",    level: "minister", requiredSpecialty: "rural",      importance: 7,  sector: "infrastructure" },
 ];
 
+// State EXCO portfolios. Defence, home affairs and foreign affairs are federal-only
+// and deliberately absent; religion, land and local government are state matters.
+export const EXCO_POSTS: CabinetPost[] = [
+  { id: "exco-fin",     titleMS: "KEWANGAN & EKONOMI NEGERI",     titleEN: "STATE FINANCE & ECONOMY",        level: "minister", requiredSpecialty: "economic",   importance: 10, sector: "economy" },
+  { id: "exco-local",   titleMS: "KERAJAAN TEMPATAN & PERUMAHAN", titleEN: "LOCAL GOVERNMENT & HOUSING",     level: "minister", requiredSpecialty: "urban",      importance: 9,  sector: "infrastructure" },
+  { id: "exco-invest",  titleMS: "PELABURAN & PERINDUSTRIAN",     titleEN: "INVESTMENT & INDUSTRY",          level: "minister", requiredSpecialty: "economic",   importance: 9,  sector: "economy" },
+  { id: "exco-rural",   titleMS: "PERTANIAN & LUAR BANDAR",       titleEN: "AGRICULTURE & RURAL AFFAIRS",    level: "minister", requiredSpecialty: "rural",      importance: 8,  sector: "infrastructure" },
+  { id: "exco-health",  titleMS: "KESIHATAN & ALAM SEKITAR",      titleEN: "HEALTH & ENVIRONMENT",           level: "minister", requiredSpecialty: "grassroots", importance: 8,  sector: "social" },
+  { id: "exco-edu",     titleMS: "PENDIDIKAN & PEMBANGUNAN INSAN",titleEN: "EDUCATION & HUMAN CAPITAL",      level: "minister", requiredSpecialty: "youth",      importance: 8,  sector: "social" },
+  { id: "exco-land",    titleMS: "TANAH & PERANCANGAN BANDAR",    titleEN: "LAND & TOWN PLANNING",           level: "minister", requiredSpecialty: "urban",      importance: 7,  sector: "infrastructure" },
+  { id: "exco-youth",   titleMS: "BELIA, SUKAN & WANITA",         titleEN: "YOUTH, SPORTS & WOMEN",          level: "minister", requiredSpecialty: "youth",      importance: 6,  sector: "social" },
+  { id: "exco-tourism", titleMS: "PELANCONGAN & WARISAN",         titleEN: "TOURISM & HERITAGE",             level: "minister", requiredSpecialty: "media",      importance: 6,  sector: "economy" },
+  { id: "exco-religion",titleMS: "HAL EHWAL AGAMA & ADAT",        titleEN: "RELIGIOUS & CUSTOMARY AFFAIRS",  level: "minister", requiredSpecialty: "grassroots", importance: 7,  sector: "social" },
+];
+
 export const DEPUTY_POSTS: CabinetPost[] = MINISTER_POSTS.map((m) => ({
   id: `dep-${m.id.replace("min-", "")}`,
   titleMS: `TIMBALAN MENTERI ${m.titleMS}`,
@@ -88,13 +103,13 @@ export function scoreAssignment(member: PartyMember, post: CabinetPost): number 
   return Math.round(specialtyMatch + expScore + influenceScore + credScore + charismaScore);
 }
 
-export function getGrade(score: number): { grade: string; color: string; labelMS: string; labelEN: string } {
-  if (score >= 90) return { grade: "A+", color: "var(--neon-green)", labelMS: "KABINET GEMILANG",   labelEN: "STELLAR CABINET" };
-  if (score >= 80) return { grade: "A",  color: "var(--cyan)",       labelMS: "KABINET KUKUH",      labelEN: "STRONG CABINET" };
-  if (score >= 70) return { grade: "B",  color: "var(--gold)",       labelMS: "KABINET MEMUASKAN",  labelEN: "SATISFACTORY CABINET" };
-  if (score >= 60) return { grade: "C",  color: "var(--warn-orange)",labelMS: "KABINET SEDERHANA",  labelEN: "MODERATE CABINET" };
-  if (score >= 50) return { grade: "D",  color: "var(--neon-red)",   labelMS: "KABINET LEMAH",      labelEN: "WEAK CABINET" };
-  return               { grade: "F",  color: "#ff2222",          labelMS: "KABINET GAGAL",      labelEN: "FAILED CABINET" };
+export function getGrade(score: number, bodyMS = "KABINET", bodyEN = "CABINET"): { grade: string; color: string; labelMS: string; labelEN: string } {
+  if (score >= 90) return { grade: "A+", color: "var(--neon-green)", labelMS: `${bodyMS} GEMILANG`,   labelEN: `STELLAR ${bodyEN}` };
+  if (score >= 80) return { grade: "A",  color: "var(--cyan)",       labelMS: `${bodyMS} KUKUH`,      labelEN: `STRONG ${bodyEN}` };
+  if (score >= 70) return { grade: "B",  color: "var(--gold)",       labelMS: `${bodyMS} MEMUASKAN`,  labelEN: `SATISFACTORY ${bodyEN}` };
+  if (score >= 60) return { grade: "C",  color: "var(--warn-orange)",labelMS: `${bodyMS} SEDERHANA`,  labelEN: `MODERATE ${bodyEN}` };
+  if (score >= 50) return { grade: "D",  color: "var(--neon-red)",   labelMS: `${bodyMS} LEMAH`,      labelEN: `WEAK ${bodyEN}` };
+  return               { grade: "F",  color: "#ff2222",          labelMS: `${bodyMS} GAGAL`,      labelEN: `FAILED ${bodyEN}` };
 }
 
 export const FEMALE_MEMBER_IDS = new Set([

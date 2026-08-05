@@ -21,7 +21,7 @@ export default function TacticalPanel({
 
   return (
     <div
-      className={`${shadowClass} relative bg-panel ${borderClass} ${noPadding ? "" : "p-4"} ${className}`}
+      className={`${shadowClass} mm-rise relative bg-panel ${borderClass} ${noPadding ? "" : "p-4"} ${className}`}
     >
       {/* Corner marks */}
       <span className="absolute top-0 left-0 text-cyan/60 text-xs leading-none select-none" style={{ transform: "translate(-1px,-1px)" }}>┌</span>

@@ -1,18 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
-import { generateConstituencies } from "../data/constituencies";
-import type { StateData } from "../data/states";
+import { computeElectionOutcome } from "../utils/electionOutcome";
+import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
-
-const TOTAL_SEATS = 222;
-const MAJORITY = 112;
 
 type CareerAction = {
   id: string;
@@ -96,27 +93,10 @@ const CAREER_ACTIONS: CareerAction[] = [
 
 const FACTIONS: Faction[] = [
   { id: "reform", labelMS: "Reformis", labelEN: "Reformists", loyalty: 74, demandMS: "Reformasi institusi lebih cepat", demandEN: "Faster institutional reform", color: "var(--cyan)" },
-  { id: "warlord", labelMS: "Warlord Negeri", labelEN: "State Warlords", loyalty: 61, demandMS: "Dana negeri dan jawatan kabinet", demandEN: "State allocations and cabinet posts", color: "var(--warn-orange)" },
+  { id: "warlord", labelMS: "Warlord Kawasan", labelEN: "Area Warlords", loyalty: 61, demandMS: "Peruntukan kawasan dan jawatan eksekutif", demandEN: "Constituency allocations and executive posts", color: "var(--warn-orange)" },
   { id: "youth", labelMS: "Sayap Pemuda", labelEN: "Youth Wing", loyalty: 68, demandMS: "Kerja anak muda dan calon muda", demandEN: "Youth jobs and younger candidates", color: "var(--neon-green)" },
   { id: "borneo", labelMS: "Blok Borneo", labelEN: "Borneo Bloc", loyalty: 57, demandMS: "MA63 dan autonomi pembangunan", demandEN: "MA63 and development autonomy", color: "var(--gold)" },
 ];
-
-function computeMandatSeats(states: StateData[]) {
-  return states.reduce((sum, state) => {
-    const wins = generateConstituencies(state).filter((constituency, index) => {
-      const seed = constituency.id.split("").reduce((total, ch) => total + ch.charCodeAt(0), 0) + index * 13;
-      const avgRegistered = Math.max(1, Math.round(state.registeredVoters / Math.max(1, state.seats)));
-      const registeredVoters = Math.round(avgRegistered * (0.88 + (seed % 25) / 100));
-      const turnoutPct = Math.max(55, Math.min(88, state.turnoutTarget + ((seed % 17) - 8) * 0.55));
-      const votesCast = Math.round(registeredVoters * (turnoutPct / 100));
-      const mandatVotes = Math.round(votesCast * (constituency.mandat / 100));
-      const lawanVotes = Math.round(votesCast * (constituency.lawan / 100));
-      const othersVotes = Math.max(0, votesCast - mandatVotes - lawanVotes);
-      return mandatVotes >= lawanVotes && mandatVotes >= othersVotes;
-    }).length;
-    return sum + wins;
-  }, 0);
-}
 
 function clamp(value: number) {
   return Math.max(0, Math.min(100, value));
@@ -140,14 +120,17 @@ export default function CareerPage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, settings, difficulty } = useGameStore();
-  const [completed, setCompleted] = useState<string[]>(["prn-test", "shadow-or-govern"]);
-  const [term, setTerm] = useState(1);
-  const [month, setMonth] = useState(1);
+  const { states, leader, settings, difficulty, careerProgress, setCareerProgress } = useGameStore();
+  const { completed, term, month } = careerProgress;
 
-  const seatsWon = useMemo(() => computeMandatSeats(states), [states]);
-  const isGovernment = seatsWon >= MAJORITY;
-  const nationalSupport = Math.round(states.reduce((sum, state) => sum + state.mandatSupport * (state.seats / TOTAL_SEATS), 0));
+  const outcome = useMemo(
+    () => computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId }),
+    [states, settings.electionScope, settings.prnStateId]
+  );
+  const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
+  const seatsWon = outcome.seatsWon;
+  const isGovernment = seatsWon >= outcome.majorityTarget;
+  const nationalSupport = outcome.nationalSupport;
   const activeActions = CAREER_ACTIONS.filter((action) => completed.includes(action.id));
   const legacyScore = clamp(38 + Math.round(seatsWon / 4) + activeActions.reduce((sum, action) => sum + action.legacy, 0));
   const factionControl = clamp(48 + Math.round(leader.negotiation / 5) + activeActions.reduce((sum, action) => sum + action.faction, 0));
@@ -156,28 +139,27 @@ export default function CareerPage() {
   const nextPruReadiness = clamp(30 + Math.round(nationalSupport / 2) + Math.round(monthProgress / 5) + activeActions.reduce((sum, action) => sum + action.nextElection, 0));
   const prnPressure = clamp(70 - Math.round(nationalSupport / 2) + (settings.electionScope === "prn" ? 10 : 0));
   const prkRisk = clamp(22 + FACTIONS.filter((faction) => faction.loyalty < 65).length * 9 + (isGovernment ? 3 : 12));
-  const careerTitle = isGovernment ? t(lang, "Kerajaan Bertahan", "Government Survival") : t(lang, "Kebangkitan Pembangkang", "Opposition Comeback");
+  const careerTitle = isGovernment
+    ? t(lang, `${terms.governmentName} Bertahan`, `${terms.governmentName} Survival`)
+    : t(lang, "Kebangkitan Pembangkang", "Opposition Comeback");
   const yearInTerm = Math.floor((month - 1) / 12) + 1;
   const monthInYear = ((month - 1) % 12) + 1;
   const monthsToNextPru = Math.max(0, 60 - month);
   const nextPruWindow = month >= 60;
 
   function toggleAction(id: string) {
-    setCompleted((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setCareerProgress({ completed: completed.includes(id) ? completed.filter((item) => item !== id) : [...completed, id] });
   }
 
   function advanceMonth() {
-    setMonth((current) => {
-      if (current >= 60) {
-        setTerm((termValue) => termValue + 1);
-        setCompleted((items) => Array.from(new Set([...items, "next-pru"])));
-        return 1;
-      }
-      const nextMonth = current + 1;
-      if (nextMonth >= 60) {
-        setCompleted((items) => Array.from(new Set([...items, "next-pru"])));
-      }
-      return nextMonth;
+    if (month >= 60) {
+      setCareerProgress({ term: term + 1, month: 1, completed: Array.from(new Set([...completed, "next-pru"])) });
+      return;
+    }
+    const nextMonth = month + 1;
+    setCareerProgress({
+      month: nextMonth,
+      completed: nextMonth >= 60 ? Array.from(new Set([...completed, "next-pru"])) : completed,
     });
   }
 
@@ -290,11 +272,15 @@ export default function CareerPage() {
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={isGovernment ? t(lang, "MODE KERAJAAN", "GOVERNMENT MODE") : t(lang, "MODE PEMBANGKANG", "OPPOSITION MODE")}>
+            <TacticalPanel title={isGovernment ? t(lang, `MODE ${terms.governmentName}`, `${terms.governmentName} MODE`) : t(lang, "MODE PEMBANGKANG", "OPPOSITION MODE")}>
               <div className="text-[13px] leading-relaxed text-text-muted">
-                {isGovernment
-                  ? t(lang, "Pertahankan rekod kerajaan, urus PRN/PRK, kawal faction dan bina naratif untuk PRU seterusnya.", "Defend the governing record, manage PRN/by-elections, control factions and build the next GE narrative.")
-                  : t(lang, "Bina shadow cabinet, serang kelemahan kerajaan, menang PRK dan sediakan comeback untuk PRU seterusnya.", "Build a shadow cabinet, attack government weakness, win by-elections and prepare a comeback for the next GE.")}
+                {terms.isPrn
+                  ? isGovernment
+                    ? t(lang, "Pertahankan rekod kerajaan negeri, urus PRK DUN, kawal faction dan bina naratif untuk PRN seterusnya.", "Defend the state governing record, manage DUN by-elections, control factions and build the next state election narrative.")
+                    : t(lang, "Bina shadow EXCO, serang kelemahan kerajaan negeri, menang PRK DUN dan sediakan comeback untuk PRN seterusnya.", "Build a shadow EXCO, attack state government weakness, win DUN by-elections and prepare a comeback for the next state election.")
+                  : isGovernment
+                    ? t(lang, "Pertahankan rekod kerajaan, urus PRN/PRK, kawal faction dan bina naratif untuk PRU seterusnya.", "Defend the governing record, manage PRN/by-elections, control factions and build the next GE narrative.")
+                    : t(lang, "Bina shadow cabinet, serang kelemahan kerajaan, menang PRK dan sediakan comeback untuk PRU seterusnya.", "Build a shadow cabinet, attack government weakness, win by-elections and prepare a comeback for the next GE.")}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] font-bold tracking-widest">
                 <div className="border p-2" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", color: "var(--cyan)" }}>{settings.electionScope.toUpperCase()}</div>

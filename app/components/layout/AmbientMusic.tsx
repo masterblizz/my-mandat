@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "../../store/uiStore";
+import { useLang, t } from "../../i18n/useLang";
 
 const TRACKS = [
   { id: "expedition", file: "/music/expedition.mp3", label: "EXPEDITION" },
@@ -10,6 +11,7 @@ const TRACKS = [
 ];
 
 export default function AmbientMusic() {
+  const lang = useLang();
   const musicEnabled  = useUIStore((s) => s.musicEnabled);
   const musicVolume   = useUIStore((s) => s.musicVolume);
   const toggleMusic   = useUIStore((s) => s.toggleMusic);
@@ -98,14 +100,14 @@ export default function AmbientMusic() {
   };
 
   const statusLabel = error
-    ? "NO FILE"
+    ? t(lang, "TIADA FAIL", "NO FILE")
     : !ready
-    ? "LOADING"
-    : musicEnabled ? "ON" : "OFF";
+    ? t(lang, "MEMUATKAN", "LOADING")
+    : musicEnabled ? t(lang, "HIDUP", "ON") : t(lang, "MATI", "OFF");
 
   return (
     <div
-      className="fixed bottom-[104px] right-3 z-[9998] flex items-center"
+      className="fixed bottom-1 right-3 z-[60] flex items-center"
       style={{ fontFamily: "'Space Mono', monospace" }}
     >
       {/* Track switcher — only show when music is on */}
@@ -113,19 +115,19 @@ export default function AmbientMusic() {
         <>
           <button
             onClick={prevTrack}
-            className="border px-2 py-2 text-[9px] font-black transition hover:brightness-125"
+            className="border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
               background: "rgba(3,8,15,.78)",
               borderRight: "none",
             }}
-            title="Previous track"
+            title={t(lang, "Trek sebelum", "Previous track")}
           >
             ‹
           </button>
           <div
-            className="border-y px-2 py-2 text-[8px] font-black tracking-[0.16em]"
+            className="border-y px-2 py-1.5 text-[8px] font-black tracking-[0.16em]"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
@@ -138,7 +140,7 @@ export default function AmbientMusic() {
           </div>
           <button
             onClick={nextTrack}
-            className="border px-2 py-2 text-[9px] font-black transition hover:brightness-125"
+            className="border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
@@ -146,7 +148,7 @@ export default function AmbientMusic() {
               borderLeft: "none",
               borderRight: "none",
             }}
-            title="Next track"
+            title={t(lang, "Trek seterusnya", "Next track")}
           >
             ›
           </button>
@@ -171,7 +173,7 @@ export default function AmbientMusic() {
             toggleMusic();
           }
         }}
-        className="border px-3 py-2 text-[9px] font-black tracking-[0.22em] transition hover:scale-[1.03]"
+        className="border px-3 py-1.5 text-[9px] font-black tracking-[0.22em] transition hover:scale-[1.03]"
         style={{
           borderColor: musicEnabled && !error
             ? "rgb(var(--gold-rgb) / 0.45)"
@@ -182,9 +184,9 @@ export default function AmbientMusic() {
           color: musicEnabled && !error ? "var(--gold)" : "#718397",
           boxShadow: musicEnabled && !error ? "0 0 18px rgb(var(--gold-rgb) / 0.16)" : "none",
         }}
-        title="Toggle background music"
+        title={t(lang, "Togol muzik latar", "Toggle background music")}
       >
-        MUSIC {statusLabel}
+        {t(lang, "MUZIK", "MUSIC")} {statusLabel}
       </button>
     </div>
   );

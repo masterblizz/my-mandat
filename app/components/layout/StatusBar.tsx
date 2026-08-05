@@ -1,5 +1,6 @@
 "use client";
 import { useReducedMotion } from "../../hooks/useReducedMotion";
+import { useLang, t } from "../../i18n/useLang";
 
 interface StatusBarProps {
   leftText?: string;
@@ -13,14 +14,19 @@ interface StatusBarProps {
 }
 
 export default function StatusBar({
-  leftText = "» READY · AWAITING COMMAND",
-  rightText = "↑↓ NAVIGATE · ↵ SELECT",
+  leftText,
+  rightText,
   ticker = false,
 }: StatusBarProps) {
+  const lang = useLang();
+  // Defaults (used by callers that render <StatusBar /> with no props) must
+  // follow the language setting too, not just caller-supplied text.
+  const resolvedLeftText = leftText ?? t(lang, "» SEDIA · MENUNGGU ARAHAN", "» READY · AWAITING COMMAND");
+  const resolvedRightText = rightText ?? t(lang, "↑↓ NAVIGASI · ↵ PILIH", "↑↓ NAVIGATE · ↵ SELECT");
   const reducedMotion = useReducedMotion();
   const scrolling = ticker && !reducedMotion;
   // Scroll duration proportional to headline length, clamped to ~4-6s.
-  const tickerDuration = Math.min(6, Math.max(4, leftText.length * 0.045));
+  const tickerDuration = Math.min(6, Math.max(4, resolvedLeftText.length * 0.045));
 
   return (
     <footer
@@ -35,15 +41,15 @@ export default function StatusBar({
       {scrolling ? (
         <span className="text-gold text-xs tracking-wider uppercase mr-6 flex-1 min-w-0 overflow-hidden whitespace-nowrap">
           <span
-            key={leftText}
+            key={resolvedLeftText}
             className="inline-block whitespace-nowrap"
             style={{ animation: `mm-ticker-scroll ${tickerDuration}s linear infinite`, willChange: "transform" }}
           >
-            {leftText}
+            {resolvedLeftText}
           </span>
         </span>
       ) : (
-        <span className="text-gold min-w-0 truncate text-xs tracking-wider uppercase">{leftText}</span>
+        <span className="text-gold min-w-0 truncate text-xs tracking-wider uppercase">{resolvedLeftText}</span>
       )}
       {/* was shrink-0 with no truncate: on narrow viewports (long rightText,
           e.g. kawasan's "RM x,xxx,xxx · SENTIMEN xx% · PROJEK n") it never
@@ -52,7 +58,7 @@ export default function StatusBar({
           them. min-w-0 lets it actually shrink below its content size;
           truncate turns that shrink into a clean ellipsis instead of a
           raw clip/overlap. */}
-      <span className="text-gold min-w-0 shrink truncate text-xs tracking-wider uppercase">{rightText}</span>
+      <span className="text-gold min-w-0 shrink truncate text-xs tracking-wider uppercase">{resolvedRightText}</span>
     </footer>
   );
 }

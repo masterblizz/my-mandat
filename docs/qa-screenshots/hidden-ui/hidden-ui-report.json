@@ -1,0 +1,163 @@
+[
+  {
+    "route": "/",
+    "url": "http://localhost:3036/",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\root.png"
+  },
+  {
+    "route": "/menu",
+    "url": "http://localhost:3036/menu",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\menu.png"
+  },
+  {
+    "route": "/setup",
+    "url": "http://localhost:3036/setup",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\setup.png"
+  },
+  {
+    "route": "/warroom",
+    "url": "http://localhost:3036/warroom",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\warroom.png"
+  },
+  {
+    "route": "/campaign",
+    "url": "http://localhost:3036/campaign",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\campaign.png"
+  },
+  {
+    "route": "/polling",
+    "url": "http://localhost:3036/polling",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\polling.png"
+  },
+  {
+    "route": "/messaging",
+    "url": "http://localhost:3036/messaging",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\messaging.png"
+  },
+  {
+    "route": "/calendar",
+    "url": "http://localhost:3036/calendar",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\calendar.png"
+  },
+  {
+    "route": "/results",
+    "url": "http://localhost:3036/results",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\results.png"
+  },
+  {
+    "route": "/mandate",
+    "url": "http://localhost:3036/mandate",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\mandate.png"
+  },
+  {
+    "route": "/formation",
+    "url": "http://localhost:3036/formation",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\formation.png"
+  },
+  {
+    "route": "/cabinet",
+    "url": "http://localhost:3036/cabinet",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\cabinet.png"
+  },
+  {
+    "route": "/swearing-in",
+    "url": "http://localhost:3036/swearing-in",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\swearing-in.png"
+  },
+  {
+    "route": "/government",
+    "url": "http://localhost:3036/government",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\government.png"
+  },
+  {
+    "route": "/career",
+    "url": "http://localhost:3036/career",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\career.png"
+  },
+  {
+    "route": "/sandbox",
+    "url": "http://localhost:3036/sandbox",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\sandbox.png"
+  },
+  {
+    "route": "/elected",
+    "url": "http://localhost:3036/elected",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\elected.png"
+  },
+  {
+    "route": "/kawasan",
+    "url": "http://localhost:3036/kawasan",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\kawasan.png"
+  },
+  {
+    "route": "/opposition",
+    "url": "http://localhost:3036/opposition",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\opposition.png"
+  },
+  {
+    "route": "/postmortem",
+    "url": "http://localhost:3036/postmortem",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\postmortem.png"
+  },
+  {
+    "route": "/stats",
+    "url": "http://localhost:3036/stats",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\stats.png"
+  },
+  {
+    "route": "/settings",
+    "url": "http://localhost:3036/settings",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\settings.png"
+  },
+  {
+    "route": "/state/selangor",
+    "url": "http://localhost:3036/state/selangor",
+    "issues": [],
+    "error": null,
+    "screenshot": "C:\\Users\\maste\\MyMandatWeb\\my-mandat\\docs\\qa-screenshots\\hidden-ui\\state-selangor.png"
+  }
+]

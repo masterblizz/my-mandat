@@ -1,12 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import MalaysiaMap from "../components/map/MalaysiaMap";
+import StateZoomMap from "../components/map/StateZoomMap";
 import SeatDonut from "../components/charts/SeatDonut";
 import { useGameStore, readPersistedPoliticalReactions } from "../store/gameStore";
+import { saveGameSnapshot } from "../store/saveGame";
 import type { GameEvent } from "../data/events";
 import { electionFlowSteps, getElectionFlowStatus, NOMINATION_DAY, CAMPAIGN_START_DAY, CAMPAIGN_END_DAY, POLLING_DAY } from "../data/electionFlow";
 import { getLiveNewsForDay, getLatestLiveNews, newsMatchesElectionScope } from "../data/liveNews";
@@ -15,7 +18,15 @@ import { computeThreatLevel } from "../store/opponentAI";
 import type { OpponentAction } from "../store/opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
 import { usePendingNav } from "../hooks/usePendingNav";
+import { useReducedMotion } from "../hooks/useReducedMotion";
+import CountUpNumber from "../components/ui/CountUpNumber";
 import { generateConstituencies, type Constituency } from "../data/constituencies";
+import dynamic from "next/dynamic";
+
+const WarRoomLivingScene = dynamic(() => import("../components/warroom/WarRoomLivingScene"), {
+  ssr: false,
+  loading: () => <div style={{ aspectRatio: "16/6" }} />,
+});
 
 function isPoliticalReaction(news: unknown): news is PoliticalReaction {
   return typeof news === "object" && news !== null && "opponentAttack" in news && "advisorWarning" in news;
@@ -146,6 +157,40 @@ function formatFunds(n: number) {
   if (n >= 1_000_000) return `RM ${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `RM ${(n / 1_000).toFixed(0)}K`;
   return `RM ${n}`;
+}
+
+// Transient tint applied to a top-bar stat right after advanceDay: gains
+// flash the success green, ordinary drops go muted, and only a critically low
+// fund drop (below 15% of the starting fund — same threshold as
+// WarRoomLivingScene's fundsLow) earns the harsh red.
+type FlashTone = "up" | "down" | "danger";
+const FLASH_COLOR: Record<FlashTone, string> = {
+  up: "var(--neon-green)",
+  down: "var(--text-muted)",
+  danger: "var(--neon-red)",
+};
+
+// Small flip transition for the day counter: the old value slides/fades up
+// and out while the new one slides in, instead of snapping. Renders a plain
+// span under prefers-reduced-motion.
+function FlipValue({ value }: { value: string | number }) {
+  const reducedMotion = useReducedMotion();
+  if (reducedMotion) return <span>{value}</span>;
+  return (
+    <span className="inline-flex overflow-hidden">
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={String(value)}
+          initial={{ y: "-100%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: "100%", opacity: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 const FLOW_TONE: Record<string, { bg: string; border: string; color: string }> = {
@@ -380,9 +425,18 @@ export default function WarroomPage() {
   const router = useRouter();
   const { isPending: isViewingResults, navigate: navigateToResults } = usePendingNav();
   const lang = useLang();
+  const reducedMotion = useReducedMotion();
   const [advancing, setAdvancing] = useState(false);
-  const { states: gameStates, resources, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, settings } = useGameStore();
+  const [manualSaveNotice, setManualSaveNotice] = useState<string | null>(null);
+  const { states: gameStates, resources, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, settings, mediaSentiment } = useGameStore();
   const [persistedReactions, setPersistedReactions] = useState<PoliticalReaction[]>([]);
+
+  // False during the first render so the live-news list doesn't cascade in on
+  // page load; true afterwards so rows mounted by a day advance slide in.
+  const newsListMountedRef = useRef(false);
+  useEffect(() => {
+    newsListMountedRef.current = true;
+  }, []);
 
   useEffect(() => {
     const stored = readPersistedPoliticalReactions();
@@ -404,16 +458,49 @@ export default function WarroomPage() {
 
   const projectedSeats = getTotalProjectedSeats();
   const nationalSupport = getNationalSupport();
+  // PARTY SUPPORT stat (top bar, living-scene glow, day-over-day flash) must
+  // read the scoped negeri number in PRN mode, not the all-Malaysia weighted
+  // average — otherwise a PRN run shows support for states outside the race.
+  const partySupportPct = electionScope === "prn" && prnState ? Math.round(prnState.mandatSupport) : nationalSupport.mandat;
+
+  // Presentation-only flash tints for the top-bar stats. Snapshot of the
+  // previous day's values lives in a ref; when `day` changes (advanceDay
+  // resolved) each stat is compared against it and briefly tinted. No store
+  // values are recomputed here — this only reacts to what advanceDay already
+  // wrote.
+  const [statFlash, setStatFlash] = useState<{ funds?: FlashTone; manpower?: FlashTone; support?: FlashTone }>({});
+  const prevStatsRef = useRef({ day, funds: resources.funds, manpower: resources.manpower, support: partySupportPct });
+  useEffect(() => {
+    const prev = prevStatsRef.current;
+    if (day === prev.day) return;
+    const next = { day, funds: resources.funds, manpower: resources.manpower, support: partySupportPct };
+    prevStatsRef.current = next;
+    if (reducedMotion || day < prev.day) return; // no flash on reset/new game
+    const tone = (before: number, after: number): FlashTone | undefined =>
+      after > before ? "up" : after < before ? "down" : undefined;
+    const fundsCriticallyLow = next.funds < prev.funds && next.funds < settings.startingFund * 0.15;
+    setStatFlash({
+      funds: fundsCriticallyLow ? "danger" : tone(prev.funds, next.funds),
+      manpower: tone(prev.manpower, next.manpower),
+      support: tone(prev.support, next.support),
+    });
+    const timer = setTimeout(() => setStatFlash({}), 900);
+    return () => clearTimeout(timer);
+    // Compare-and-flash runs once per day tick; the other values are read
+    // from the same store update that changed `day`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
+
   const flowStatus = getElectionFlowStatus(day, totalDays);
   const daysLeft = flowStatus.daysLeft;
-  const dayLabel = flowStatus.campaignDay ? `CAMPAIGN ${flowStatus.campaignDay}/14` : `DAY ${day}/${totalDays}`;
-  const electionModeLabel = electionScope === "prn" ? `PRN ${prnState?.name ?? "NEGERI"}` : "PRU16 NASIONAL";
+  const dayLabel = flowStatus.campaignDay ? t(lang, `KEMPEN ${flowStatus.campaignDay}/14`, `CAMPAIGN ${flowStatus.campaignDay}/14`) : t(lang, `HARI ${day}/${totalDays}`, `DAY ${day}/${totalDays}`);
+  const electionModeLabel = electionScope === "prn" ? `PRN ${prnState?.name ?? "NEGERI"}` : t(lang, "PRU16 NASIONAL", "GE16 NATIONAL");
   const electionModeTitle = electionScope === "prn"
     ? t(lang, `TIMELINE PRN — PILIHAN RAYA NEGERI ${prnState?.name?.toUpperCase() ?? ""}`, `STATE ELECTION TIMELINE — ${prnState?.name?.toUpperCase() ?? ""}`)
     : t(lang, "TIMELINE PRU16 — JADUAL PILIHAN RAYA UMUM", "GE16 TIMELINE — ELECTION SCHEDULE");
   const mapTitle = electionScope === "prn"
     ? t(lang, `PETA PRN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}`, `STATE ELECTION MAP — ${prnState?.name?.toUpperCase() ?? "STATE"}`)
-    : "ELECTORAL MAP — MALAYSIA";
+    : t(lang, "PETA PILIHAN RAYA — MALAYSIA", "ELECTORAL MAP — MALAYSIA");
 
   function handleAdvanceDay() {
     setAdvancing(true);
@@ -421,23 +508,42 @@ export default function WarroomPage() {
     setTimeout(() => setAdvancing(false), 700);
   }
 
+  function handleManualSave() {
+    const currentState = useGameStore.getState();
+    if (currentState.phase !== "playing" && currentState.phase !== "ended") {
+      useGameStore.setState({ phase: "playing" });
+    }
+    const saved = saveGameSnapshot(useGameStore.getState());
+    if (saved) {
+      setManualSaveNotice(t(lang, `GAME SAVED · SLOT ${saved.slotNumber.toString().padStart(2, "0")} · DAY ${saved.state.day}/${saved.state.totalDays}`, `GAME SAVED · SLOT ${saved.slotNumber.toString().padStart(2, "0")} · DAY ${saved.state.day}/${saved.state.totalDays}`));
+    } else {
+      setManualSaveNotice(t(lang, "SAVE FAILED · TIADA KEMPEN AKTIF", "SAVE FAILED · NO ACTIVE CAMPAIGN"));
+    }
+  }
+
+  useEffect(() => {
+    if (!manualSaveNotice) return;
+    const timer = setTimeout(() => setManualSaveNotice(null), 2600);
+    return () => clearTimeout(timer);
+  }, [manualSaveNotice]);
+
   const seatScopeStates = electionScope === "prn" && prnState ? [prnState] : gameStates;
-  const daerahList: Constituency[] = electionScope === "prn" && prnState ? generateConstituencies(prnState) : [];
+  const daerahList: Constituency[] = electionScope === "prn" && prnState ? generateConstituencies(prnState, "dun") : [];
   const daerahSafetyColor = (safety: Constituency["safety"]) =>
     safety === "safe" ? "var(--neon-green)" : safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
   const daerahWinnerColor = (winner: Constituency["winner"]) =>
     winner === "mandat" ? "var(--cyan)" : winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
   const daerahWinnerLabel = (winner: Constituency["winner"]) =>
-    winner === "mandat" ? "KITA" : winner === "lawan" ? "LAWAN" : "OTHERS";
+    t(lang, winner === "mandat" ? "KITA" : winner === "lawan" ? "LAWAN" : "LAIN-LAIN", winner === "mandat" ? "WE LEAD" : winner === "lawan" ? "LAWAN" : "OTHERS");
   const safeSeats = seatScopeStates.filter((s) => s.status === "winning").reduce((sum, s) => sum + s.projectedSeats, 0);
   const trailingSeats = seatScopeStates.filter((s) => s.status === "losing").reduce((sum, s) => sum + s.projectedSeats, 0);
   const contestedSeats = seatScopeStates.filter((s) => s.status === "contested").reduce((sum, s) => sum + s.projectedSeats, 0);
 
   function getStatusBadge(status: string) {
     switch (status) {
-      case "winning":  return { label: "WIN",   bg: "rgb(var(--cyan-rgb) / 0.13)", color: "var(--cyan)", border: "rgb(var(--cyan-rgb) / 0.27)" };
-      case "losing":   return { label: "LOSS",  bg: "rgb(255 68 68 / 0.13)", color: "var(--neon-red)", border: "rgb(255 68 68 / 0.27)" };
-      case "contested":return { label: "FIGHT", bg: "rgb(var(--gold-rgb) / 0.13)", color: "var(--gold)", border: "rgb(var(--gold-rgb) / 0.27)" };
+      case "winning":  return { label: t(lang, "MENANG", "WIN"),   bg: "rgb(var(--cyan-rgb) / 0.13)", color: "var(--cyan)", border: "rgb(var(--cyan-rgb) / 0.27)" };
+      case "losing":   return { label: t(lang, "KALAH", "LOSS"),  bg: "rgb(255 68 68 / 0.13)", color: "var(--neon-red)", border: "rgb(255 68 68 / 0.27)" };
+      case "contested":return { label: t(lang, "BERTANDING", "FIGHT"), bg: "rgb(var(--gold-rgb) / 0.13)", color: "var(--gold)", border: "rgb(var(--gold-rgb) / 0.27)" };
       default:         return { label: "—",     bg: "transparent", color: "var(--text-muted)", border: "transparent" };
     }
   }
@@ -488,18 +594,45 @@ export default function WarroomPage() {
       ),
       label: t(lang, "KALENDAR", "CALENDAR"), path: "/calendar",
     },
+    {
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="6.5" cy="4.5" r="3" /><path d="M2 12c.6-2.4 2.4-3.5 4.5-3.5S10.4 9.6 11 12" />
+          <path d="M5.5 4.5h2M6.5 3.5v2" />
+        </svg>
+      ),
+      label: t(lang, "PENASIHAT AI", "AI ADVISOR"), path: "/advisor",
+    },
   ];
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {lastEvent && <EventModal event={lastEvent} onAck={clearLastEvent} />}
       <Header />
+      {manualSaveNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-6 top-[108px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.22em] uppercase"
+          style={{
+            borderColor: manualSaveNotice.startsWith("SAVE FAILED") ? "rgb(255 68 68 / 0.55)" : "rgb(var(--gold-rgb) / 0.65)",
+            background: manualSaveNotice.startsWith("SAVE FAILED")
+              ? "linear-gradient(135deg, rgba(255,68,68,0.18), rgba(3,8,15,0.94))"
+              : "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.18), rgba(3,8,15,0.94))",
+            color: manualSaveNotice.startsWith("SAVE FAILED") ? "var(--neon-red)" : "var(--gold)",
+            boxShadow: manualSaveNotice.startsWith("SAVE FAILED") ? "0 0 26px rgb(255 68 68 / 0.18)" : "0 0 26px rgb(var(--gold-rgb) / 0.22)",
+            fontFamily: "Space Mono, monospace",
+          }}
+        >
+          ✓ {manualSaveNotice}
+        </div>
+      )}
 
       {/* Top Stats Bar */}
       <div
         className="fixed top-[40px] left-0 right-0 z-40 flex items-stretch"
         style={{
-          height: "60px",
+          height: "72px",
           background: "var(--panel)",
           borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)",
         }}
@@ -507,35 +640,40 @@ export default function WarroomPage() {
         {[
           {
             icon: "🏛",
-            value: electionScope === "prn" ? `${prnState?.projectedSeats ?? 0}/${prnState?.dunSeats ?? 0}` : `${projectedSeats}/222`,
+            value: electionScope === "prn"
+              ? <CountUpNumber value={prnState?.projectedSeats ?? 0} duration={700} animateOnChange format={(n) => `${n}/${prnState?.dunSeats ?? 0}`} />
+              : <CountUpNumber value={projectedSeats} duration={700} animateOnChange format={(n) => `${n}/222`} />,
             label: electionScope === "prn" ? "PRN STATE SEATS" : "SEATS PROJECTED",
             color: "var(--cyan)",
           },
           {
             icon: "👥",
-            value: `${nationalSupport.mandat}%`,
+            value: <CountUpNumber value={partySupportPct} duration={700} animateOnChange format={(n) => `${n}%`} />,
             suffix: nationalSupportDelta !== 0 ? `${nationalSupportDelta > 0 ? "+" : ""}${nationalSupportDelta.toFixed(1)}%` : undefined,
             suffixColor: nationalSupportDelta >= 0 ? "var(--neon-green)" : "var(--neon-red)",
             label: "PARTY SUPPORT",
             color: "var(--text-primary)",
+            flash: statFlash.support,
           },
           {
             icon: "💰",
-            value: formatFunds(resources.funds),
+            value: <CountUpNumber value={resources.funds} duration={700} animateOnChange format={formatFunds} />,
             label: "CAMPAIGN FUND",
             color: "var(--gold)",
+            flash: statFlash.funds,
           },
           {
             icon: "📅",
-            value: `${daysLeft}`,
+            value: <FlipValue value={daysLeft} />,
             label: "DAYS TO POLL",
             color: "var(--text-primary)",
           },
           {
             icon: "💪",
-            value: `${resources.manpower}`,
+            value: <CountUpNumber value={resources.manpower} duration={700} animateOnChange />,
             label: "GROUND STRENGTH",
             color: "var(--text-primary)",
+            flash: statFlash.manpower,
           },
         ].map((item, i) => (
           <div
@@ -549,7 +687,14 @@ export default function WarroomPage() {
               <>
                 <div className="flex items-center gap-1.5">
                   {item.icon && <span className="text-sm">{item.icon}</span>}
-                  <span className="text-sm font-bold" style={{ color: item.color, fontFamily: "Space Mono, monospace" }}>
+                  <span
+                    className="text-sm font-bold"
+                    style={{
+                      color: item.flash ? FLASH_COLOR[item.flash] : item.color,
+                      transition: "color 0.3s ease",
+                      fontFamily: "Space Mono, monospace",
+                    }}
+                  >
                     {item.value}
                   </span>
                   {item.suffix && (
@@ -564,71 +709,119 @@ export default function WarroomPage() {
           </div>
         ))}
 
-        {/* ADVANCE DAY button */}
+        {/* ADVANCE DAY / MANUAL SAVE controls */}
         <div
-          className="flex flex-col items-center justify-center px-4 shrink-0"
+          className="flex w-[370px] shrink-0 flex-col items-center justify-center gap-1 px-3"
           style={{ borderLeft: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}
         >
-          {day < totalDays ? (
+          <div className="flex w-full items-center justify-center gap-2">
             <button
-              onClick={handleAdvanceDay}
-              disabled={advancing}
-              className="px-5 py-2 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => router.push("/kawasan")}
+              title={t(lang, "Pergi ke kawasan anda", "Go to your constituency")}
+              className="flex-1 px-2 py-2 text-[10px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-[0.97]"
               style={{
-                background: advancing ? "rgb(var(--gold-rgb) / 0.12)" : "rgb(var(--cyan-rgb) / 0.12)",
-                border: `1px solid ${advancing ? "rgb(var(--gold-rgb) / 0.5)" : "rgb(var(--cyan-rgb) / 0.5)"}`,
-                color: advancing ? "var(--gold)" : "var(--cyan)",
+                background: "rgb(var(--cyan-rgb) / 0.10)",
+                border: "1px solid rgb(var(--cyan-rgb) / 0.48)",
+                color: "var(--cyan)",
                 fontFamily: "Space Mono, monospace",
-                boxShadow: advancing ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "0 0 12px rgb(var(--cyan-rgb) / 0.2)",
-                minWidth: "120px",
+                boxShadow: "0 0 10px rgb(var(--cyan-rgb) / 0.14)",
               }}
             >
-              {advancing ? "⟳ PROCESSING" : "» NEXT DAY"}
+              {t(lang, "🏘 KAWASAN", "🏘 SEAT")}
             </button>
-          ) : (
             <button
-              onClick={() => navigateToResults("/results")}
-              disabled={isViewingResults}
-              className="px-5 py-2 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-95 animate-pulse disabled:opacity-50 disabled:cursor-wait"
+              onClick={handleManualSave}
+              className="flex-1 px-2 py-2 text-[10px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-[0.97]"
               style={{
-                background: "rgb(255 68 68 / 0.12)",
-                border: "1px solid rgb(255 68 68 / 0.6)",
-                color: "var(--neon-red)",
+                background: "rgb(var(--gold-rgb) / 0.10)",
+                border: "1px solid rgb(var(--gold-rgb) / 0.48)",
+                color: "var(--gold)",
                 fontFamily: "Space Mono, monospace",
-                boxShadow: "0 0 12px rgb(255 68 68 / 0.2)",
-                minWidth: "120px",
+                boxShadow: "0 0 10px rgb(var(--gold-rgb) / 0.14)",
               }}
             >
-              {isViewingResults ? "⟳ LOADING..." : "◇ VIEW RESULTS"}
+              {t(lang, "💾 SIMPAN", "💾 SAVE")}
             </button>
-          )}
-          <div className="text-[11px] text-text-muted tracking-wider mt-1">{dayLabel}</div>
+            {day < totalDays ? (
+              <button
+                onClick={handleAdvanceDay}
+                disabled={advancing}
+                className="flex-1 px-2 py-2 text-[10px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: advancing ? "rgb(var(--gold-rgb) / 0.12)" : "rgb(var(--cyan-rgb) / 0.12)",
+                  border: `1px solid ${advancing ? "rgb(var(--gold-rgb) / 0.5)" : "rgb(var(--cyan-rgb) / 0.5)"}`,
+                  color: advancing ? "var(--gold)" : "var(--cyan)",
+                  fontFamily: "Space Mono, monospace",
+                  boxShadow: advancing ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "0 0 12px rgb(var(--cyan-rgb) / 0.2)",
+                }}
+              >
+                {advancing ? "⟳ PROCESS" : "» NEXT DAY"}
+              </button>
+            ) : (
+              <button
+                onClick={() => navigateToResults("/results")}
+                disabled={isViewingResults}
+                className="flex-1 px-2 py-2 text-[10px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-95 animate-pulse disabled:opacity-50 disabled:cursor-wait"
+                style={{
+                  background: "rgb(255 68 68 / 0.12)",
+                  border: "1px solid rgb(255 68 68 / 0.6)",
+                  color: "var(--neon-red)",
+                  fontFamily: "Space Mono, monospace",
+                  boxShadow: "0 0 12px rgb(255 68 68 / 0.2)",
+                }}
+              >
+                {isViewingResults ? "⟳ LOADING" : "◇ RESULTS"}
+              </button>
+            )}
+          </div>
+          <div className="text-[11px] text-text-muted tracking-wider mt-1"><FlipValue value={dayLabel} /></div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="pt-[152px] pb-[56px] px-6">
+      <main className="pt-[164px] pb-[56px] px-6">
         <div className="flex flex-col gap-4 w-full">
 
-          <TacticalPanel title={electionScope === "prn" ? "PRN COMMAND BRIEFING" : "PRU COMMAND BRIEFING"}>
+          <TacticalPanel title={electionScope === "prn" ? t(lang, "TAKLIMAT ARAHAN PRN", "PRN COMMAND BRIEFING") : t(lang, "TAKLIMAT ARAHAN PRU", "PRU COMMAND BRIEFING")}>
             <div className="grid gap-3 md:grid-cols-4">
               <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.32)", background: "rgb(var(--gold-rgb) / 0.06)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">MODE</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "MOD", "MODE")}</div>
                 <div className="mt-1 text-lg font-black tracking-widest" style={{ color: "var(--gold)" }}>{electionModeLabel}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">BATTLEFIELD</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "MEDAN PERANG", "BATTLEFIELD")}</div>
                 <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? prnState?.name : "Malaysia"}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">TARGET</div>
-                <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? "Form state government / MB mandate" : "Form federal government / PM mandate"}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "SASARAN", "TARGET")}</div>
+                <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? t(lang, "Bentuk kerajaan negeri / mandat MB", "Form state government / MB mandate") : t(lang, "Bentuk kerajaan persekutuan / mandat PM", "Form federal government / PM mandate")}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">ISSUES</div>
-                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" ? "Local services · MB candidate · state swing seats" : "National mandate · coalitions · federal policy"}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "ISU", "ISSUES")}</div>
+                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" ? t(lang, "Perkhidmatan tempatan · calon MB · kerusi goyang negeri", "Local services · MB candidate · state swing seats") : t(lang, "Mandat nasional · gabungan · dasar persekutuan", "National mandate · coalitions · federal policy")}</div>
               </div>
             </div>
+          </TacticalPanel>
+
+          {/* Living War Room ambient scene — every hotspot color below is derived
+              from real store state (opponent threat, media sentiment, support
+              trend, resource levels), never randomized. */}
+          <TacticalPanel title={t(lang, "BILIK GERAKAN HIDUP", "LIVING WAR ROOM")} noPadding>
+            <WarRoomLivingScene
+              lang={lang}
+              opponentLog={opponentLog}
+              mediaSentiment={mediaSentiment}
+              nationalSupportDelta={nationalSupportDelta}
+              nationalSupportMandat={partySupportPct}
+              resources={resources}
+              startingFund={settings.startingFund}
+              daysLeft={flowStatus.daysLeft}
+              mediaWallHeadline={
+                lang === "ms"
+                  ? (todaysNews[0]?.headline ?? (electionScope === "prn" ? `Memantau ${prnState?.name ?? "negeri"}` : "Memantau wayar nasional"))
+                  : (todaysNews[0]?.headlineEN ?? (electionScope === "prn" ? `Monitoring ${prnState?.name ?? "state"} wires` : "Monitoring national wires"))
+              }
+            />
           </TacticalPanel>
 
           {/* PRU Timeline — atas peta supaya terus kelihatan */}
@@ -689,12 +882,17 @@ export default function WarroomPage() {
 
           {/* Full-width Map Panel */}
           <TacticalPanel title={mapTitle} noPadding>
-            <div style={{ minHeight: "420px" }}>
-              <MalaysiaMap
-                states={mapStates}
-                onStateClick={electionScope === "prn" ? undefined : (id) => router.push(`/state/${id}`)}
-                showLabels
-              />
+            <div className="relative" style={{ minHeight: "420px" }}>
+              {electionScope === "prn" && prnState ? (
+                <StateZoomMap state={prnState} />
+              ) : (
+                <MalaysiaMap
+                  states={mapStates}
+                  onStateClick={(id) => router.push(`/state/${id}`)}
+                  showLabels
+                />
+              )}
+              <div className="mm-radar" />
             </div>
             {/* Map Summary */}
             <div className="grid grid-cols-3 gap-0 border-t border-cyan/20">
@@ -719,7 +917,7 @@ export default function WarroomPage() {
 
           {/* Persistent Navigation Buttons */}
           <div
-            className="fixed left-0 right-0 top-[100px] z-40 grid grid-cols-5 gap-2 px-6 py-2"
+            className="fixed left-0 right-0 top-[112px] z-40 grid grid-cols-5 gap-2 px-6 py-2"
             style={{
               background: "linear-gradient(180deg, var(--bg), rgba(8,12,20,0.90))",
               borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.18)",
@@ -749,13 +947,13 @@ export default function WarroomPage() {
           <div className="flex gap-4">
             {/* State / Daerah Summary Table */}
             <div style={{ flex: "0 0 42%" }}>
-              <TacticalPanel title={electionScope === "prn" ? `DAERAH — ${prnState?.name?.toUpperCase() ?? "NEGERI"}` : "STATE SUMMARY"} noPadding>
+              <TacticalPanel title={electionScope === "prn" ? `DUN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}` : t(lang, "RINGKASAN NEGERI", "STATE SUMMARY")} noPadding>
                 <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
                   {electionScope === "prn" ? (
                     <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
-                          {["DAERAH", "LEADING", "MARGIN", "SAFETY"].map((h) => (
+                          {["DUN", t(lang, "MENDAHULUI", "LEADING"), t(lang, "MARGIN", "MARGIN"), t(lang, "KESELAMATAN", "SAFETY")].map((h) => (
                             <th key={h} className="text-left py-2 px-3 text-text-muted tracking-wider font-normal text-[11px]">
                               {h}
                             </th>
@@ -777,7 +975,7 @@ export default function WarroomPage() {
                                   border: `1px solid ${daerahSafetyColor(c.safety)}55`,
                                 }}
                               >
-                                {c.safety}
+                                {t(lang, c.safety === "safe" ? "SELAMAT" : c.safety === "marginal" ? "MARJIN" : "BAHAYA", c.safety)}
                               </span>
                             </td>
                           </tr>
@@ -788,7 +986,7 @@ export default function WarroomPage() {
                     <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
-                          {["STATE", "SEATS", "SUPPORT", "TREND", "STATUS"].map((h) => (
+                          {[t(lang, "NEGERI", "STATE"), t(lang, "KERUSI", "SEATS"), t(lang, "SOKONGAN", "SUPPORT"), t(lang, "TREND", "TREND"), t(lang, "STATUS", "STATUS")].map((h) => (
                             <th
                               key={h}
                               className="text-left py-2 px-3 text-text-muted tracking-wider font-normal text-[11px]"
@@ -845,7 +1043,7 @@ export default function WarroomPage() {
             {/* Seat Distribution */}
             <div style={{ flex: "0 0 20%" }}>
               {electionScope === "prn" && prnState ? (
-                <TacticalPanel title={`SEAT DISTRIBUTION — ${prnState.dunSeats} TOTAL`}>
+                <TacticalPanel title={t(lang, `PENGAGIHAN KERUSI — ${prnState.dunSeats} JUMLAH`, `SEAT DISTRIBUTION — ${prnState.dunSeats} TOTAL`)}>
                   <SeatDonut
                     mandat={prnState.projectedSeats}
                     lawan={Math.max(0, prnState.dunSeats - prnState.projectedSeats - Math.round(prnState.dunSeats * 0.126))}
@@ -857,7 +1055,7 @@ export default function WarroomPage() {
                   />
                 </TacticalPanel>
               ) : (
-                <TacticalPanel title="SEAT DISTRIBUTION — 222 TOTAL">
+                <TacticalPanel title={t(lang, "PENGAGIHAN KERUSI — 222 JUMLAH", "SEAT DISTRIBUTION — 222 TOTAL")}>
                   <SeatDonut
                     mandat={projectedSeats}
                     lawan={222 - projectedSeats - 28}
@@ -888,7 +1086,16 @@ export default function WarroomPage() {
                     const newsHeadline = lang === "ms" ? news.headline : news.headlineEN;
                     const newsSummary = lang === "ms" ? news.summary : news.summaryEN;
                     return (
-                      <div key={news.id} className="py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <motion.div
+                        key={news.id}
+                        className="py-2.5"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+                        // Rows present on page load render statically; only rows
+                        // mounted later (a new day's news) slide in from the top.
+                        initial={newsListMountedRef.current && !reducedMotion ? { opacity: 0, y: -10 } : false}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                      >
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-[10px] font-bold tracking-widest" style={{ color: toneColor }}>{news.time}</span>
                           <span className="text-[8px] font-bold tracking-[0.16em]" style={{ color: "#718397" }}>{news.outlet.toUpperCase()}</span>
@@ -909,7 +1116,7 @@ export default function WarroomPage() {
                           <span className="text-[8px] tracking-widest" style={{ color: "#718397" }}>{news.state ?? (electionScope === "prn" ? (prnState?.name ?? (lang === "ms" ? "NEGERI" : "STATE")) : (lang === "ms" ? "NASIONAL" : "NATIONAL"))}</span>
                           <span className="text-[8px] font-bold tracking-widest" style={{ color: toneColor }}>{news.impact}</span>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                   <div className="pt-2">
@@ -936,6 +1143,7 @@ export default function WarroomPage() {
             : (todaysNews[0]?.headlineEN ?? (electionScope === "prn" ? `War room monitoring ${prnState?.name ?? "state"} wires` : "War room monitoring national wires"))
         }`}
         rightText={`LATEST: ${todaysNews[0]?.impact ?? "No impact"}`}
+        ticker
       />
     </div>
   );

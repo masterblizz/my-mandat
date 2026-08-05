@@ -33,6 +33,7 @@ export interface LeaderProfile {
   homeConstituencyId: string;
   homeConstituencyName: string;
   ideology: { economic: number; social: number };
+  manifesto: string;
 }
 
 export interface Resources {
@@ -53,6 +54,23 @@ export interface Operation {
   manpowerCost: number;
   fundsCost: number;
   supportGain: number;
+}
+
+export interface CareerProgress {
+  completed: string[];
+  term: number;
+  month: number;
+}
+
+export interface GovernmentProgress {
+  activePolicies: string[];
+  crisisIndex: number;
+  crisisDeltas: { approval: number; stability: number; trust: number };
+}
+
+export interface SandboxProgress {
+  activeLevers: string[];
+  simulationTick: number;
 }
 
 export interface GameState {
@@ -80,6 +98,24 @@ export interface GameState {
   // resetGame(), and is per-save (see saveGame.ts SavedGameSnapshot), not
   // a global one-time unlock — a new campaign starts locked again.
   hasWonElection: boolean;
+  // Set only when the run was launched via /menu's "Daily Challenge" —
+  // the dateKey (YYYY-MM-DD, player's local calendar day) it was seeded
+  // from. Lets /results brand the run distinctly and label the share
+  // card so players compare "today's" run specifically, without needing
+  // a real backend leaderboard (see GAME_DESIGN_DOCUMENT.md section 10 —
+  // sharing is the informal comparison mechanism here).
+  dailyChallengeDate: string | null;
+  // Career/Government/Sandbox meta-game progress — previously page-local
+  // useState with no connection to the store at all, so it reset on every
+  // navigate-away-and-back and was absent from SavedGameSnapshot entirely
+  // (see saveGame.ts). Living here means it survives route changes within
+  // a session and gets captured/restored by the normal save-slot flow like
+  // every other run-scoped field. (Kawasan's zone/project progress already
+  // has its own localStorage persistence keyed per home seat — see
+  // /kawasan's storageKey — so it's intentionally not duplicated here.)
+  careerProgress: CareerProgress;
+  governmentProgress: GovernmentProgress;
+  sandboxProgress: SandboxProgress;
   settings: {
     campaignLength: "full" | "short" | "custom";
     electionScope: "pru" | "prn";
@@ -95,6 +131,10 @@ export interface GameState {
 
   // Actions
   setHasWonElection: (won: boolean) => void;
+  setDailyChallengeDate: (dateKey: string | null) => void;
+  setCareerProgress: (patch: Partial<CareerProgress>) => void;
+  setGovernmentProgress: (patch: Partial<GovernmentProgress>) => void;
+  setSandboxProgress: (patch: Partial<SandboxProgress>) => void;
   setPhase: (phase: GameState["phase"]) => void;
   setDataset: (dataset: DatasetKind) => void;
   setNomination: (constituencyId: string, entry: NominationEntry | null) => void;
@@ -135,6 +175,7 @@ const defaultLeader: LeaderProfile = {
   homeConstituencyId: defaultHomeConstituency.id,
   homeConstituencyName: defaultHomeConstituency.name,
   ideology: { economic: 45, social: 40 },
+  manifesto: "",
 };
 
 const POLITICAL_REACTIONS_KEY = "mymandat-political-reactions";
@@ -191,6 +232,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   opponentLog: [],
   politicalReactions: [],
   hasWonElection: false,
+  dailyChallengeDate: null,
+  careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
+  governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
+  sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
   settings: {
     campaignLength: "full",
     electionScope: "pru",
@@ -205,6 +250,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setHasWonElection: (won) => set({ hasWonElection: won }),
+  setDailyChallengeDate: (dateKey) => set({ dailyChallengeDate: dateKey }),
+  setCareerProgress: (patch) => set((state) => ({ careerProgress: { ...state.careerProgress, ...patch } })),
+  setGovernmentProgress: (patch) => set((state) => ({ governmentProgress: { ...state.governmentProgress, ...patch } })),
+  setSandboxProgress: (patch) => set((state) => ({ sandboxProgress: { ...state.sandboxProgress, ...patch } })),
 
   setPhase: (phase) => set({ phase }),
 
@@ -313,6 +362,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       opponentLog: [],
       politicalReactions: [],
       hasWonElection: false,
+      dailyChallengeDate: null,
+      careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
+      governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
+      sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
       settings: {
         campaignLength: "full",
         electionScope: "pru",

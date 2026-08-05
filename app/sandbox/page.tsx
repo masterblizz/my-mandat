@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -156,9 +156,8 @@ function Metric({ label, value, color }: { label: string; value: number; color: 
 export default function SandboxPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, resources, leader, settings, difficulty } = useGameStore();
-  const [activeLevers, setActiveLevers] = useState<LeverId[]>(["ma63", "antiCorruption", "foreignInvestment"]);
-  const [simulationTick, setSimulationTick] = useState(1);
+  const { states, resources, leader, settings, difficulty, sandboxProgress, setSandboxProgress } = useGameStore();
+  const { activeLevers, simulationTick } = sandboxProgress;
 
   const selectedLevers = LEVERS.filter((lever) => activeLevers.includes(lever.id));
   const federalBase = Math.round(states.reduce((sum, state) => sum + state.mandatSupport, 0) / Math.max(1, states.length));
@@ -179,11 +178,11 @@ export default function SandboxPage() {
   const pressureStates = useMemo(() => [...states].sort((a, b) => a.mandatSupport - b.mandatSupport).slice(0, 4), [states]);
 
   function toggleLever(id: LeverId) {
-    setActiveLevers((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setSandboxProgress({ activeLevers: activeLevers.includes(id) ? activeLevers.filter((item) => item !== id) : [...activeLevers, id] });
   }
 
   function runScenario() {
-    setSimulationTick((current) => current + 1);
+    setSandboxProgress({ simulationTick: simulationTick + 1 });
   }
 
   return (

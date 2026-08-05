@@ -4,6 +4,7 @@ import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
+import { useLang, t, type Lang } from "../i18n/useLang";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,80 @@ interface CalendarEvent {
 // ─── Dummy Data ───────────────────────────────────────────────────────────────
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const DAYS_MS = ["ISN", "SEL", "RAB", "KHA", "JUM", "SAB", "AHD"];
 const DAY_DATES = ["16 JUN", "17 JUN", "18 JUN", "19 JUN", "20 JUN", "21 JUN", "22 JUN"];
+
+// Titles are kept as stable English keys (used to match events across the
+// week/month/list views and the click-to-open lookup) — translate only at
+// render time via eventTitle()/EVENT_TITLE_MS below.
+const EVENT_TITLE_MS: Record<string, string> = {
+  "JOHOR RALLY": "PERHIMPUNAN JOHOR",
+  "KL CERAMAH": "CERAMAH KL",
+  "PRESS CONF": "SIDANG AKHBAR",
+  "PAHANG TOUR": "LAWATAN PAHANG",
+  "SELANGOR RALLY": "PERHIMPUNAN SELANGOR",
+  "JOHOR MEGA RALLY": "PERHIMPUNAN MEGA JOHOR",
+  "REST DAY": "HARI REHAT",
+  "TV3 INTERVIEW": "TEMU BUAL TV3",
+  "RADIO RTM": "RADIO RTM",
+  "ASTRO AWANI": "ASTRO AWANI",
+  "LIVE STREAM": "SIARAN LANGSUNG",
+  "DOOR TO DOOR": "RUMAH KE RUMAH",
+  "YOUTH OUTREACH": "JANGKAUAN BELIA",
+  "RURAL ENGAGEMENT": "PENGLIBATAN LUAR BANDAR",
+  "CERAMAH MEGA": "CERAMAH MEGA",
+  "ALL TEAMS": "SEMUA PASUKAN",
+  "CERAMAH JOHOR": "CERAMAH JOHOR",
+  "CANVASSING OPS": "OPERASI PUJUKAN",
+  "RTM INTERVIEW": "TEMU BUAL RTM",
+  "PAHANG RALLY": "PERHIMPUNAN PAHANG",
+  "DIGITAL PUSH": "TOLAKAN DIGITAL",
+  "KEDAH TOUR": "LAWATAN KEDAH",
+  "TV3 SEGMENT": "SEGMEN TV3",
+  "PERAK CERAMAH": "CERAMAH PERAK",
+  "GROUND OPS": "OPERASI LAPANGAN",
+  "REST & DEBRIEF": "REHAT & TAKLIMAT",
+  "SABAH TOUR": "LAWATAN SABAH",
+  "RADIO INTERVIEW": "TEMU BUAL RADIO",
+  "SARAWAK CERAMAH": "CERAMAH SARAWAK",
+  "MEGA RALLY KL": "PERHIMPUNAN MEGA KL",
+  "TV3 SPECIAL": "KHAS TV3",
+  "DIGITAL BLITZ": "SERANGAN DIGITAL",
+  "FINAL CANVASS": "PUJUKAN TERAKHIR",
+  "MEDIA BLITZ": "SERANGAN MEDIA",
+  "DIGITAL CAMPAIGN": "KEMPEN DIGITAL",
+};
+
+function eventTitle(lang: Lang, title: string): string {
+  return t(lang, EVENT_TITLE_MS[title] ?? title, title);
+}
+
+const EVENT_DESC_MS: Record<string, string> = {
+  e1: "Perhimpunan awam utama menyasarkan kerusi Johor. Dijangka 25,000 hadirin.",
+  e2: "Ceramah bandar utama menyasarkan pengundi WP.",
+  e3: "Pengumuman dasar mengenai kos sara hidup.",
+  e4: "Lawatan pelbagai kawasan merentasi Pahang.",
+  e5: "Perhimpunan unggulan Selangor. Unjuran 50,000 hadirin.",
+  e6: "Acara tunggal terbesar minggu kempen ini.",
+  e7: "Rehat berjadual dan taklimat dalaman.",
+  m1: "Temu bual waktu perdana secara langsung. Fokus dasar ekonomi & perumahan.",
+  m2: "Segmen radio pagi, capaian kebangsaan.",
+  m3: "Liputan berita waktu perdana tentang kemajuan kempen.",
+  m4: "Segmen TV sarapan pagi.",
+  m5: "Liputan tengah hari mengenai perhimpunan Selangor.",
+  m6: "Siaran langsung penuh Perhimpunan Mega Johor.",
+  o1: "Pujukan rumah ke rumah disasarkan di kerusi goyah.",
+  o2: "Program penglibatan pengundi kali pertama.",
+  o3: "Tolakan iklan digital menyasarkan media sosial.",
+  o4: "Penglibatan komuniti luar bandar di kawasan utama.",
+  o5: "Pujukan susulan selepas Lawatan Pahang.",
+  o6: "Operasi lapangan untuk Ceramah Mega Selangor.",
+  o7: "Penempatan penuh — semua pasukan operasi aktif untuk Perhimpunan Mega.",
+};
+
+function eventDescription(lang: Lang, ev: CalendarEvent): string {
+  return t(lang, EVENT_DESC_MS[ev.id] ?? ev.description, ev.description);
+}
 
 const calendarEvents: CalendarEvent[] = [
   // Events
@@ -122,13 +196,21 @@ function typeBadgeBg(type: EventType) {
   return "#00280a";
 }
 
+function typeLabel(lang: Lang, type: EventType) {
+  if (type === "event") return t(lang, "PERISTIWA", "EVENT");
+  if (type === "media") return t(lang, "MEDIA", "MEDIA");
+  return t(lang, "OPERASI", "OPERATION");
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function EventChip({
   ev,
+  lang,
   onClick,
 }: {
   ev: CalendarEvent;
+  lang: Lang;
   onClick: (ev: CalendarEvent) => void;
 }) {
   const s = chipStyle(ev.type);
@@ -144,16 +226,18 @@ function EventChip({
         ...s,
       }}
     >
-      {ev.title}
+      {eventTitle(lang, ev.title)}
     </button>
   );
 }
 
 function DetailPanel({
   ev,
+  lang,
   onClose,
 }: {
   ev: CalendarEvent;
+  lang: Lang;
   onClose: () => void;
 }) {
   const color = typeBadgeColor(ev.type);
@@ -168,13 +252,13 @@ function DetailPanel({
         className="flex items-center justify-between px-4 py-3"
         style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}
       >
-        <span className="panel-header" style={{ fontSize: "12px" }}>EVENT DETAIL</span>
+        <span className="panel-header" style={{ fontSize: "12px" }}>{t(lang, "BUTIRAN PERISTIWA", "EVENT DETAIL")}</span>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-cyan text-xs"
           style={{ fontFamily: "'Space Mono', monospace" }}
         >
-          [CLOSE]
+          [{t(lang, "TUTUP", "CLOSE")}]
         </button>
       </div>
 
@@ -191,7 +275,7 @@ function DetailPanel({
               fontFamily: "'Space Mono', monospace",
             }}
           >
-            {ev.type}
+            {typeLabel(lang, ev.type)}
           </span>
           <span
             className="text-xs px-2 py-0.5 rounded uppercase tracking-wider"
@@ -203,7 +287,7 @@ function DetailPanel({
               fontFamily: "'Space Mono', monospace",
             }}
           >
-            {ev.status}
+            {t(lang, ev.status === "CONFIRMED" ? "DISAHKAN" : "BELUM PASTI", ev.status)}
           </span>
         </div>
 
@@ -213,17 +297,17 @@ function DetailPanel({
             className="text-white font-bold uppercase tracking-wider"
             style={{ fontSize: "19px", fontFamily: "'Space Mono', monospace" }}
           >
-            {ev.title}
+            {eventTitle(lang, ev.title)}
           </div>
         </div>
 
         {/* Info rows */}
         <div className="space-y-2">
           {[
-            ["DATE", ev.date],
-            ["TIME", ev.time],
-            ["LOCATION", ev.location],
-            ["OPERATIVES", ev.operatives > 0 ? `${ev.operatives} DEPLOYED` : "—"],
+            [t(lang, "TARIKH", "DATE"), ev.date],
+            [t(lang, "MASA", "TIME"), ev.time],
+            [t(lang, "LOKASI", "LOCATION"), ev.location],
+            [t(lang, "OPERATIF", "OPERATIVES"), ev.operatives > 0 ? t(lang, `${ev.operatives} DIGERAKKAN`, `${ev.operatives} DEPLOYED`) : "—"],
           ].map(([label, val]) => (
             <div key={label} className="flex gap-2">
               <span
@@ -254,13 +338,13 @@ function DetailPanel({
             className="text-text-muted mb-1 uppercase"
             style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.1em" }}
           >
-            BRIEFING
+            {t(lang, "TAKLIMAT", "BRIEFING")}
           </div>
           <div
             className="text-white"
             style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", lineHeight: "1.6" }}
           >
-            {ev.description}
+            {eventDescription(lang, ev)}
           </div>
         </div>
       </div>
@@ -271,6 +355,7 @@ function DetailPanel({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
+  const lang = useLang();
   const [view, setView] = useState<ViewMode>("WEEK");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -290,7 +375,9 @@ export default function CalendarPage() {
       date: `${DAY_DATES[idx % 7]} 2025`,
       time: "All Day",
       location: op.location.toUpperCase(),
-      description: `${op.type.toUpperCase()} operation. ${op.stateIds.length} state(s) targeted. Support gain: +${op.supportGain}%`,
+      description: t(lang,
+        `Operasi ${op.type.toUpperCase()}. ${op.stateIds.length} negeri disasarkan. Peningkatan sokongan: +${op.supportGain}%`,
+        `${op.type.toUpperCase()} operation. ${op.stateIds.length} state(s) targeted. Support gain: +${op.supportGain}%`),
       operatives: op.manpowerCost,
       status: (op.status === "active" ? "CONFIRMED" : op.status === "planned" ? "PENDING" : "CONFIRMED") as "CONFIRMED" | "PENDING",
     }));
@@ -306,10 +393,10 @@ export default function CalendarPage() {
     weekOffset === 0 ? allEvents.filter((e) => e.type === type && e.day === dayIdx) : [];
 
   // Row labels
-  const ROWS: { label: string; type: EventType }[] = [
-    { label: "EVENTS", type: "event" },
-    { label: "MEDIA", type: "media" },
-    { label: "OPERATIONS", type: "operation" },
+  const ROWS: { labelMS: string; labelEN: string; type: EventType }[] = [
+    { labelMS: "PERISTIWA", labelEN: "EVENTS", type: "event" },
+    { labelMS: "MEDIA", labelEN: "MEDIA", type: "media" },
+    { labelMS: "OPERASI", labelEN: "OPERATIONS", type: "operation" },
   ];
 
   // Stat totals
@@ -317,6 +404,9 @@ export default function CalendarPage() {
   const totalMedia = allEvents.filter((e) => e.type === "media").length;
   const totalOps = liveOpEvents.length;
   const totalOperatives = allEvents.reduce((sum, e) => sum + e.operatives, 0);
+
+  const viewLabel = (v: ViewMode) => t(lang, v === "WEEK" ? "MINGGU" : v === "MONTH" ? "BULAN" : "SENARAI", v);
+  const dayLabels = lang === "ms" ? DAYS_MS : DAYS;
 
   return (
     <div
@@ -340,7 +430,7 @@ export default function CalendarPage() {
           className="text-gold font-bold uppercase tracking-widest"
           style={{ fontSize: "13px" }}
         >
-          CALENDAR &amp; SCHEDULE &mdash; PLAN. EXECUTE. WIN.
+          {t(lang, "KALENDAR & JADUAL — RANCANG. LAKSANA. MENANG.", "CALENDAR & SCHEDULE — PLAN. EXECUTE. WIN.")}
         </div>
 
         {/* Controls */}
@@ -363,7 +453,7 @@ export default function CalendarPage() {
                   transition: "all 0.15s",
                 }}
               >
-                {v}
+                {viewLabel(v)}
               </button>
             ))}
           </div>
@@ -374,7 +464,7 @@ export default function CalendarPage() {
             style={{ padding: "4px 12px", fontSize: "12px", opacity: weekOffset === 0 ? 0.5 : 1 }}
             onClick={() => setWeekOffset(0)}
           >
-            TODAY
+            {t(lang, "HARI INI", "TODAY")}
           </button>
 
           {/* Nav arrows */}
@@ -394,7 +484,7 @@ export default function CalendarPage() {
                 const base = new Date(2025, 5, 16 + weekOffset * 7);
                 const end = new Date(2025, 5, 22 + weekOffset * 7);
                 const fmt = (d: Date) => `${d.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]}`;
-                return `WK ${23 + weekOffset} · ${fmt(base)}-${fmt(end)}`;
+                return t(lang, `MG ${23 + weekOffset} · ${fmt(base)}-${fmt(end)}`, `WK ${23 + weekOffset} · ${fmt(base)}-${fmt(end)}`);
               })()}
             </span>
             <button
@@ -423,7 +513,7 @@ export default function CalendarPage() {
           <div className="flex flex-col gap-0 flex-1">
             {/* Day header row */}
             <div className="flex" style={{ marginLeft: "80px", marginBottom: "4px" }}>
-              {DAYS.map((d, i) => (
+              {dayLabels.map((d, i) => (
                 <div
                   key={d}
                   className="flex-1 text-center text-text-muted uppercase"
@@ -471,7 +561,7 @@ export default function CalendarPage() {
                         transform: "rotate(180deg)",
                       }}
                     >
-                      {row.label}
+                      {t(lang, row.labelMS, row.labelEN)}
                     </span>
                   </div>
 
@@ -488,7 +578,7 @@ export default function CalendarPage() {
                         }}
                       >
                         {cellEvents.map((ev) => (
-                          <EventChip key={ev.id} ev={ev} onClick={setSelectedEvent} />
+                          <EventChip key={ev.id} ev={ev} lang={lang} onClick={setSelectedEvent} />
                         ))}
                       </div>
                     );
@@ -501,10 +591,10 @@ export default function CalendarPage() {
 
         {/* ─── MONTH VIEW ─────────────────────────────────────── */}
         {view === "MONTH" && (
-          <TacticalPanel title="JUNE 2025" className="flex-1">
+          <TacticalPanel title={t(lang, "JUN 2025", "JUNE 2025")} className="flex-1">
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-2">
-              {DAYS.map((d) => (
+              {dayLabels.map((d) => (
                 <div
                   key={d}
                   className="text-center text-text-muted uppercase"
@@ -554,7 +644,7 @@ export default function CalendarPage() {
                         {date}
                       </span>
                       {isToday && (
-                        <span style={{ fontSize: "8px", fontFamily: "'Space Mono', monospace", color: "var(--cyan)", letterSpacing: "0.1em" }}>TODAY</span>
+                        <span style={{ fontSize: "8px", fontFamily: "'Space Mono', monospace", color: "var(--cyan)", letterSpacing: "0.1em" }}>{t(lang, "HARI INI", "TODAY")}</span>
                       )}
                     </div>
                     {/* Event chips */}
@@ -575,13 +665,13 @@ export default function CalendarPage() {
                             if (match) setSelectedEvent(match);
                           }}
                         >
-                          {ev.title}
+                          {eventTitle(lang, ev.title)}
                         </div>
                       );
                     })}
                     {overflow > 0 && (
                       <div style={{ fontSize: "9px", fontFamily: "'Space Mono', monospace", color: "#4a5e72", paddingLeft: "2px" }}>
-                        +{overflow} lagi
+                        {t(lang, `+${overflow} lagi`, `+${overflow} more`)}
                       </div>
                     )}
                   </div>
@@ -591,14 +681,14 @@ export default function CalendarPage() {
             {/* Legend */}
             <div className="flex gap-4 mt-4 pt-4" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
               {[
-                { label: "EVENTS", color: "var(--gold)" },
-                { label: "MEDIA", color: "var(--cyan)" },
-                { label: "OPERATIONS", color: "var(--neon-green)" },
-              ].map(({ label, color }) => (
-                <div key={label} className="flex items-center gap-2">
+                { labelMS: "PERISTIWA", labelEN: "EVENTS", color: "var(--gold)" },
+                { labelMS: "MEDIA", labelEN: "MEDIA", color: "var(--cyan)" },
+                { labelMS: "OPERASI", labelEN: "OPERATIONS", color: "var(--neon-green)" },
+              ].map(({ labelMS, labelEN, color }) => (
+                <div key={labelEN} className="flex items-center gap-2">
                   <span className="rounded-full" style={{ width: "8px", height: "8px", background: color, display: "inline-block" }} />
                   <span className="text-text-muted uppercase" style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace" }}>
-                    {label}
+                    {t(lang, labelMS, labelEN)}
                   </span>
                 </div>
               ))}
@@ -607,7 +697,7 @@ export default function CalendarPage() {
                   className="rounded px-2 py-0.5"
                   style={{ background: "rgb(var(--gold-rgb) / 0.08)", border: "1px solid rgb(var(--gold-rgb) / 0.25)", color: "var(--gold)", fontSize: "11px", fontFamily: "'Space Mono', monospace" }}
                 >
-                  CURRENT WEEK
+                  {t(lang, "MINGGU SEMASA", "CURRENT WEEK")}
                 </span>
               </div>
             </div>
@@ -616,7 +706,7 @@ export default function CalendarPage() {
 
         {/* ─── LIST VIEW ──────────────────────────────────────── */}
         {view === "LIST" && (
-          <TacticalPanel title="ALL SCHEDULED EVENTS" noPadding className="flex-1">
+          <TacticalPanel title={t(lang, "SEMUA PERISTIWA DIJADUALKAN", "ALL SCHEDULED EVENTS")} noPadding className="flex-1">
             <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
               {/* Table header */}
               <div
@@ -628,7 +718,7 @@ export default function CalendarPage() {
                   borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)",
                 }}
               >
-                {["DATE", "TYPE", "TITLE", "LOCATION", "STATUS"].map((h) => (
+                {[t(lang, "TARIKH", "DATE"), t(lang, "JENIS", "TYPE"), t(lang, "TAJUK", "TITLE"), t(lang, "LOKASI", "LOCATION"), t(lang, "STATUS", "STATUS")].map((h) => (
                   <span
                     key={h}
                     className="text-text-muted uppercase"
@@ -663,10 +753,10 @@ export default function CalendarPage() {
                       className="text-xs px-1.5 py-0.5 rounded self-start"
                       style={{ background: bg, color, border: `1px solid ${color}`, fontSize: "11px" }}
                     >
-                      {ev.type.toUpperCase()}
+                      {typeLabel(lang, ev.type)}
                     </span>
                     <span className="text-white uppercase font-bold" style={{ fontSize: "13px" }}>
-                      {ev.title}
+                      {eventTitle(lang, ev.title)}
                     </span>
                     <span className="text-text-muted" style={{ fontSize: "12px" }}>
                       {ev.location}
@@ -678,7 +768,7 @@ export default function CalendarPage() {
                         color: ev.status === "CONFIRMED" ? "var(--neon-green)" : "var(--warn-orange)",
                       }}
                     >
-                      {ev.status}
+                      {t(lang, ev.status === "CONFIRMED" ? "DISAHKAN" : "BELUM PASTI", ev.status)}
                     </span>
                   </button>
                 );
@@ -701,12 +791,12 @@ export default function CalendarPage() {
         }}
       >
         {[
-          { value: totalEvents, label: "EVENTS" },
-          { value: totalMedia, label: "MEDIA APPEARANCES" },
-          { value: totalOps, label: "OPERATIONS" },
-          { value: totalOperatives, label: "OPERATIVES DEPLOYED" },
-        ].map(({ value, label }, i, arr) => (
-          <div key={label} className="flex items-center">
+          { value: totalEvents, labelMS: "PERISTIWA", labelEN: "EVENTS" },
+          { value: totalMedia, labelMS: "PENAMPILAN MEDIA", labelEN: "MEDIA APPEARANCES" },
+          { value: totalOps, labelMS: "OPERASI", labelEN: "OPERATIONS" },
+          { value: totalOperatives, labelMS: "OPERATIF DIGERAKKAN", labelEN: "OPERATIVES DEPLOYED" },
+        ].map(({ value, labelMS, labelEN }, i, arr) => (
+          <div key={labelEN} className="flex items-center">
             <div className="flex items-center gap-2 px-6">
               <span
                 className="text-gold font-bold"
@@ -718,7 +808,7 @@ export default function CalendarPage() {
                 className="text-text-muted uppercase"
                 style={{ fontSize: "12px", letterSpacing: "0.1em" }}
               >
-                {label}
+                {t(lang, labelMS, labelEN)}
               </span>
             </div>
             {i < arr.length - 1 && (
@@ -730,12 +820,12 @@ export default function CalendarPage() {
 
       {/* ─── Detail Panel ─────────────────────────────────────── */}
       {selectedEvent && (
-        <DetailPanel ev={selectedEvent} onClose={() => setSelectedEvent(null)} />
+        <DetailPanel ev={selectedEvent} lang={lang} onClose={() => setSelectedEvent(null)} />
       )}
 
       <StatusBar
-        leftText={`CALENDAR & SCHEDULE · DAY ${gameDay}/${totalDays} · ${totalDays - gameDay} DAYS TO ELECTION`}
-        rightText="CLICK EVENT FOR DETAILS · ESC TO CLOSE"
+        leftText={t(lang, `KALENDAR & JADUAL · HARI ${gameDay}/${totalDays} · ${totalDays - gameDay} HARI KE PILIHAN RAYA`, `CALENDAR & SCHEDULE · DAY ${gameDay}/${totalDays} · ${totalDays - gameDay} DAYS TO ELECTION`)}
+        rightText={t(lang, "KLIK PERISTIWA UNTUK BUTIRAN · ESC UNTUK TUTUP", "CLICK EVENT FOR DETAILS · ESC TO CLOSE")}
       />
     </div>
   );

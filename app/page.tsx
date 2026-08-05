@@ -13,19 +13,15 @@ export default function Home() {
   useEffect(() => {
     const hasSeenOpening = window.sessionStorage.getItem(OPENING_SEEN_KEY) === "1";
     if (hasSeenOpening) {
-      router.replace("/kawasan");
+      router.replace("/menu");
       return;
     }
     setShowOpening(true);
   }, [router]);
 
-  // /kawasan is the landing screen — it renders fine on pure defaults (no
-  // leader/campaign yet) and now carries its own start/continue/load/
-  // settings hub bar (see app/kawasan/page.tsx) covering what /menu used
-  // to be the only way to reach.
   const enterLanding = () => {
     window.sessionStorage.setItem(OPENING_SEEN_KEY, "1");
-    router.replace("/kawasan");
+    router.replace("/menu");
   };
 
   if (!showOpening) {

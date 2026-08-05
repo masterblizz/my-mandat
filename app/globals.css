@@ -529,11 +529,6 @@ input[type="range"].range-red::-moz-range-thumb {
   opacity: max(var(--kw-dim, 0), var(--kw-storm, 0));
   transition: opacity 0.6s, background 0.6s;
 }
-.kw-orb {
-  background: var(--kw-orb);
-  box-shadow: 0 0 46px 14px var(--kw-orb-glow, transparent);
-  transition: background 0.6s, box-shadow 0.6s;
-}
 /* Depth fog: stronger toward the top of the frame (the world's far edge
    under this camera tilt) fading to nothing near the bottom (foreground),
    tinted per time-of-day so distant geometry blends into the horizon
@@ -754,14 +749,74 @@ input[type="range"].range-red::-moz-range-thumb {
     linear-gradient(135deg, #0ea5e9, #075985);
   background-size: 220% 220%, 100% 100%;
   animation: kw-flow 7s linear infinite;
+  /* Soft rim-light where water meets land, instead of a hard flat edge */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
+}
+/* Sunlight-glint shimmer — a separate pseudo-element/keyframe from the
+   window-lighting kw-twinkle (that one is tied to --kw-lit, which is 0 in
+   daylight; water sparkle should read strongest in daylight, the opposite
+   bias). Both background-position shifts below are exact multiples of
+   their own layer's background-size, so the loop wraps seamlessly. */
+.kw-water::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.9) 0 1.5px, transparent 1.5px),
+    radial-gradient(circle, rgba(255,255,255,0.7) 0 1px, transparent 1px);
+  background-size: 46px 38px, 30px 26px;
+  background-position: 6px 4px, 20px 16px;
+  animation: kw-shimmer 5s linear infinite;
 }
 
 .kw-road-x { background: linear-gradient(180deg, #253046, #141b2c); box-shadow: inset 0 0 0 2px rgba(148,163,184,0.14); }
 .kw-road-y { background: linear-gradient(90deg, #253046, #141b2c); box-shadow: inset 0 0 0 2px rgba(148,163,184,0.14); }
-.kw-lane-x { background-image: repeating-linear-gradient(90deg, rgba(250,204,21,0.55) 0 14px, transparent 14px 34px); height: 2px; }
-.kw-lane-y { background-image: repeating-linear-gradient(0deg, rgba(250,204,21,0.55) 0 14px, transparent 14px 34px); width: 2px; }
+/* Lane markings (dashed direction lines + dense-metro's solid median) are
+   composed as extra background-image layers directly on the road div via
+   the laneBg() helper in page.tsx, not separate child-div classes — see
+   its comment for why (DOM-node cost on a big metro grid). */
 
-.kw-car { position: absolute; border-radius: 3px; animation: kw-drive-x var(--kw-car-dur, 12s) linear infinite; }
+/* LRT/MRT viaduct deck: sleeper ties over a concrete slab, same flat-
+   translateZ'd-cap technique as the road bridge decks rather than a full
+   extruded box. Edge rails are a border (not extra child divs) — one deck
+   div per pylon crossing already adds up on a big metro grid, no need to
+   double that with per-segment accent children for a two-pixel highlight.
+   Two orientations (route now runs east-west then north-south around a
+   town-centre bend, not a single straight margin run): -v ties run
+   perpendicular to a vertical run (horizontal bands, left/right rail
+   border); -h ties run perpendicular to a horizontal run (vertical bands,
+   top/bottom rail border) — same rule, axis of everything swapped. */
+.kw-lrt-deck-v {
+  background:
+    repeating-linear-gradient(0deg, rgba(15,23,42,0.4) 0 3px, transparent 3px 22px),
+    linear-gradient(90deg, #64748b, #334155, #64748b);
+  border-left: 3px solid #7dd3fc;
+  border-right: 3px solid #7dd3fc;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -6px 10px -6px rgba(0,0,0,0.55),
+    0 12px 20px -10px rgba(0,0,0,0.55),
+    0 0 10px rgba(56,189,248,0.35);
+  border-radius: 2px;
+}
+.kw-lrt-deck-h {
+  background:
+    repeating-linear-gradient(90deg, rgba(15,23,42,0.4) 0 3px, transparent 3px 22px),
+    linear-gradient(0deg, #64748b, #334155, #64748b);
+  border-top: 3px solid #7dd3fc;
+  border-bottom: 3px solid #7dd3fc;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -6px 10px -6px rgba(0,0,0,0.55),
+    0 12px 20px -10px rgba(0,0,0,0.55),
+    0 0 10px rgba(56,189,248,0.35);
+  border-radius: 2px;
+}
+.kw-train-path { position: absolute; transform-style: preserve-3d; animation: kw-drive-l 24s linear infinite; will-change: transform; }
+.kw-train-path-rev { animation-name: kw-drive-l-rev; }
+
+.kw-car { position: absolute; transform-style: preserve-3d; animation: kw-drive-x var(--kw-car-dur, 12s) linear infinite; will-change: transform; }
 /* Headlight halo, fades in with the street lamps */
 .kw-car::before {
   content: "";
@@ -771,6 +826,7 @@ input[type="range"].range-red::-moz-range-thumb {
   background: radial-gradient(circle, rgba(255, 214, 130, 0.55), transparent 70%);
   opacity: calc(var(--kw-lamp, 0) * var(--kw-mood-lamp, 1));
   transition: opacity 0.6s;
+  pointer-events: none;
 }
 .kw-car-rev { animation-name: kw-drive-x-rev; }
 .kw-car-v { animation-name: kw-drive-y; }
@@ -811,11 +867,20 @@ input[type="range"].range-red::-moz-range-thumb {
    animation ever lands on a preserve-3d ancestor. */
 .kw-boat {
   position: absolute;
-  border-radius: 45% 45% 40% 40%;
-  box-shadow: inset 0 0 0 2px rgba(255, 247, 237, 0.35), 0 0 6px rgba(0, 0, 0, 0.45);
   animation: kw-drive-y 36s linear infinite;
+  will-change: transform;
 }
 .kw-boat.kw-rev { animation-name: kw-drive-y-rev; }
+/* Bobbing lives on a nested child — the parent .kw-boat already owns the
+   translateY drive-along-the-river animation, and CSS can't compose two
+   separate `transform` animations on one element. */
+.kw-boat-bob { animation: kw-bob-boat 2.6s ease-in-out infinite alternate; }
+.kw-boat-hull { box-shadow: inset 0 0 0 2px rgba(255, 247, 237, 0.35), 0 0 6px rgba(0, 0, 0, 0.45); }
+.kw-boat-wake {
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.6), transparent 70%);
+  animation: kw-boat-wake 1.8s ease-out infinite;
+}
 .kw-smoke {
   position: absolute;
   left: -7px;
@@ -913,10 +978,35 @@ input[type="range"].range-red::-moz-range-thumb {
 
 @keyframes kw-flow { from { background-position: 0 0, 0 0; } to { background-position: 440px 220px, 0 0; } }
 @keyframes kw-twinkle { from { opacity: calc(var(--kw-lit) * 0.55); } to { opacity: var(--kw-lit); } }
-@keyframes kw-drive-x { from { transform: translateX(-50px); } to { transform: translateX(930px); } }
-@keyframes kw-drive-x-rev { from { transform: translateX(930px); } to { transform: translateX(-50px); } }
-@keyframes kw-drive-y { from { transform: translateY(-50px); } to { transform: translateY(930px); } }
-@keyframes kw-drive-y-rev { from { transform: translateY(930px); } to { transform: translateY(-50px); } }
+@keyframes kw-shimmer {
+  0% { background-position: 6px 4px, 20px 16px; opacity: 0.26; }
+  50% { opacity: 0.6; }
+  100% { background-position: 52px 42px, 50px 42px; opacity: 0.26; }
+}
+/* --kw-drive-len (set once on .kw-world, see its JSX comment) is the real
+   travel distance for the current grid size — the 930px fallback only
+   matters if a vehicle somehow renders outside .kw-world's inheritance. */
+@keyframes kw-drive-x { from { transform: translateX(-50px); } to { transform: translateX(var(--kw-drive-len, 930px)); } }
+@keyframes kw-drive-x-rev { from { transform: translateX(var(--kw-drive-len, 930px)); } to { transform: translateX(-50px); } }
+@keyframes kw-drive-y { from { transform: translateY(-50px); } to { transform: translateY(var(--kw-drive-len, 930px)); } }
+@keyframes kw-drive-y-rev { from { transform: translateY(var(--kw-drive-len, 930px)); } to { transform: translateY(-50px); } }
+/* LRT/MRT route: 4 waypoints (west entry, chamfer start, chamfer end,
+   north exit — see ROUTE_P0..P3 in page.tsx), each a translate(x,y) read
+   from --kw-lrt-xN/yN set once on .kw-world. Each leg between waypoints is
+   a straight line, so plain linear keyframe interpolation between them
+   draws the route exactly — no path/offset-path support needed. */
+@keyframes kw-drive-l {
+  0% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)); }
+  40% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)); }
+  60% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)); }
+  100% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)); }
+}
+@keyframes kw-drive-l-rev {
+  0% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)); }
+  40% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)); }
+  60% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)); }
+  100% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)); }
+}
 @keyframes kw-rise { from { transform: scaleZ(0.02); } to { transform: scaleZ(1); } }
 @keyframes kw-beacon { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.35; } }
 @keyframes kw-ring { from { transform: translateZ(2px) scale(0.5); opacity: 0.9; } to { transform: translateZ(2px) scale(1.35); opacity: 0; } }
@@ -934,6 +1024,8 @@ input[type="range"].range-red::-moz-range-thumb {
 @keyframes kw-rotor { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
 @keyframes kw-drift { from { transform: translate3d(120px, 740px, 200px); } 50% { transform: translate3d(430px, 420px, 235px); } to { transform: translate3d(750px, 140px, 205px); } }
 @keyframes kw-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+@keyframes kw-bob-boat { from { transform: translateY(0); } to { transform: translateY(2.5px); } }
+@keyframes kw-boat-wake { 0% { opacity: 0.6; transform: scale(0.6); } 100% { opacity: 0; transform: scale(1.8); } }
 @keyframes kw-tlight {
   0%, 100% { background: #f87171; box-shadow: 0 0 6px 1px rgba(248, 113, 113, 0.8); }
   45% { background: #4ade80; box-shadow: 0 0 6px 1px rgba(74, 222, 128, 0.8); }
@@ -945,11 +1037,14 @@ input[type="range"].range-red::-moz-range-thumb {
 @keyframes kw-tip-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .kw-car, .kw-water, .kw-win-lit, .kw-beacon-plane, .kw-ring, .kw-cloud, .kw-rise,
-  .kw-boat, .kw-smoke, .kw-blink, .kw-sway,
+  .kw-car, .kw-water, .kw-water::after, .kw-win-lit, .kw-beacon-plane, .kw-ring, .kw-cloud, .kw-rise,
+  .kw-boat, .kw-boat-bob, .kw-boat-wake, .kw-train-path, .kw-smoke, .kw-blink, .kw-sway,
   .kw-bird, .kw-bird::before, .kw-bird::after,
   .kw-rain, .kw-lightning, .kw-heli-orbit, .kw-heli-counter, .kw-rotor,
   .kw-balloon, .kw-bob, .kw-tlight, .kw-spark, .kw-wave, .kw-wau, .kw-groundmist, .kw-landmark { animation: none !important; }
+  /* Wake ripples are pure motion — with animation frozen they'd otherwise
+     sit as a permanent white smudge behind every boat. */
+  .kw-boat-wake { display: none; }
   /* Static birds/smoke/aircraft are just floating specks — hide them */
   .kw-bird, .kw-smoke, .kw-heli-orbit, .kw-balloon { display: none; }
 }

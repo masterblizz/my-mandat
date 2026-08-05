@@ -41,8 +41,11 @@ export interface DatasetStateProjection {
 export interface GameDataset {
   id: DatasetKind;
   label: string;
+  labelMS?: string;
   description: string;
+  descriptionMS?: string;
   dataNote: string;
+  dataNoteMS?: string;
   parties: DatasetParty[];
   politicians: DatasetPolitician[];
   stateProjections: DatasetStateProjection[];
@@ -51,8 +54,11 @@ export interface GameDataset {
 export const dummyDataset: GameDataset = {
   id: "dummy",
   label: "Dummy / Fictional Campaign Dataset",
+  labelMS: "Set Data Kempen Rekaan / Fiksyen",
   description: "A fully fictional dataset for testing gameplay without using real political identities.",
+  descriptionMS: "Set data sepenuhnya fiksyen untuk menguji permainan tanpa menggunakan identiti politik sebenar.",
   dataNote: "All party and politician names in this dataset are fictional placeholders.",
+  dataNoteMS: "Semua nama parti dan ahli politik dalam set data ini adalah rekaan semata-mata.",
   parties: [
     {
       id: "mandat",
@@ -284,8 +290,11 @@ export const dummyDataset: GameDataset = {
 export const realMalaysiaDataset: GameDataset = {
   id: "real-malaysia",
   label: "Real Malaysia Political Names Dataset",
+  labelMS: "Set Data Nama Politik Malaysia Sebenar",
   description: "A dataset using real Malaysian party and politician names for realistic scenario mode.",
+  descriptionMS: "Set data menggunakan nama parti dan ahli politik Malaysia sebenar untuk mod senario yang lebih realistik.",
   dataNote: "Uses real public political names, but support percentages, projected seats, attributes, and scenario values are fictional gameplay numbers — not polling data or election predictions.",
+  dataNoteMS: "Menggunakan nama politik awam sebenar, tetapi peratusan sokongan, unjuran kerusi, atribut dan nilai senario adalah angka gameplay rekaan — bukan data tinjauan atau ramalan pilihan raya sebenar.",
   parties: [
     {
       id: "umno",

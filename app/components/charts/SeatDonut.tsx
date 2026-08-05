@@ -1,5 +1,6 @@
 "use client";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { useLang, t } from "../../i18n/useLang";
 
 interface SeatDonutProps {
   mandat: number;
@@ -12,10 +13,13 @@ interface SeatDonutProps {
 }
 
 export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size = "md", partyName = "MANDAT", partyColor = "var(--cyan)" }: SeatDonutProps) {
+  const lang = useLang();
+  const othersLabel = t(lang, "LAIN-LAIN", "OTHERS");
+  const seatsWord = t(lang, "kerusi", "seats");
   const data = [
     { name: partyName, value: mandat, color: partyColor },
     { name: "PARTI LAWAN", value: lawan, color: "var(--warn-orange)" },
-    { name: "OTHERS", value: others, color: "#4a5568" },
+    { name: othersLabel, value: others, color: "#4a5568" },
   ];
 
   const heights: Record<string, number> = { sm: 140, md: 180, lg: 220 };
@@ -45,7 +49,7 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
             </Pie>
             <Tooltip
               contentStyle={{ background: "var(--panel)", border: "1px solid rgb(var(--cyan-rgb) / 0.27)", fontFamily: "'Space Mono',monospace", fontSize: "12px" }}
-              formatter={(value) => [`${value} seats`, ""]}
+              formatter={(value) => [`${value} ${seatsWord}`, ""]}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -53,8 +57,8 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
 
       {/* Center overlay text */}
       <div className="-mt-2 text-center">
-        <div className="text-xs text-gold font-bold tracking-widest">{winTarget} SEATS</div>
-        <div className="text-[11px] text-text-muted tracking-wider">TO GOVERN</div>
+        <div className="text-xs text-gold font-bold tracking-widest">{winTarget} {t(lang, "KERUSI", "SEATS")}</div>
+        <div className="text-[11px] text-text-muted tracking-wider">{t(lang, "UNTUK MEMERINTAH", "TO GOVERN")}</div>
       </div>
 
       {/* Legend */}

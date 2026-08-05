@@ -210,36 +210,40 @@ export function buildCabinetReaction(input: {
   ministryTitle: string;
   score: number;
   partyAbbr: string;
+  isPrn?: boolean;
+  stateName?: string;
 }): PoliticalReaction {
   const strong = input.score >= 78;
   const tone: LiveNewsTone = strong ? "positive" : input.score >= 62 ? "neutral" : "warning";
+  const body = input.isPrn ? "EXCO" : "Cabinet";
+  const seat = input.isPrn ? (input.stateName ?? "Negeri") : "Putrajaya";
   const effects = strong
-    ? ["Public confidence +2", "Cabinet credibility +2", "Opposition attack risk -1"]
+    ? ["Public confidence +2", `${body} credibility +2`, "Opposition attack risk -1"]
     : input.score >= 62
-      ? ["Cabinet stability +1", "Public confidence neutral", "Portfolio scrutiny +1"]
+      ? [`${body} stability +1`, "Public confidence neutral", "Portfolio scrutiny +1"]
       : ["Portfolio scrutiny +3", "Public confidence -1", "Opposition attack risk +2"];
 
   return {
     id: `reaction-cabinet-${input.ministryTitle}-${Date.now()}`,
     day: input.day,
     time: clockTime(),
-    outlet: "Putrajaya Watch",
+    outlet: `${seat} Watch`,
     headline: `${input.partyAbbr} namakan ${input.ministerName} untuk portfolio ${input.ministryTitle}`,
     headlineEN: `${input.partyAbbr} names ${input.ministerName} to ${input.ministryTitle} portfolio`,
     summary: strong
-      ? `Pelantikan dilihat sepadan dengan keperluan kementerian dan memberi isyarat kompetensi.`
+      ? `Pelantikan dilihat sepadan dengan keperluan portfolio dan memberi isyarat kompetensi.`
       : `Penganalisis menilai sama ada pelantikan ini cukup kuat untuk mengurus portfolio penting.`,
     summaryEN: strong
-      ? `The appointment is seen as fitting the ministry's needs and signalling competence.`
+      ? `The appointment is seen as fitting the portfolio's needs and signalling competence.`
       : `Analysts question whether the appointment is strong enough to manage a key portfolio.`,
     tone,
-    state: "Putrajaya",
+    state: seat,
     impact: effects.join(" · "),
     actionType: "cabinet",
-    opponentAttack: strong ? "Lawan sukar menyerang rekod kompetensi pelantikan ini." : "Lawan persoal kelayakan dan keseimbangan kabinet.",
-    opponentAttackEN: strong ? "Opponent struggles to attack the appointment's competence record." : "Opponent questions qualifications and cabinet balance.",
-    socialReaction: strong ? "Penyokong puji kabinet teknokratik dan stabil." : "Netizen mula bandingkan kelayakan dengan tokoh lain.",
-    socialReactionEN: strong ? "Supporters praise a technocratic and stable cabinet." : "Netizens compare the appointment against alternative figures.",
+    opponentAttack: strong ? "Lawan sukar menyerang rekod kompetensi pelantikan ini." : `Lawan persoal kelayakan dan keseimbangan ${input.isPrn ? "EXCO" : "kabinet"}.`,
+    opponentAttackEN: strong ? "Opponent struggles to attack the appointment's competence record." : `Opponent questions qualifications and ${body} balance.`,
+    socialReaction: strong ? `Penyokong puji ${input.isPrn ? "barisan EXCO" : "kabinet"} teknokratik dan stabil.` : "Netizen mula bandingkan kelayakan dengan tokoh lain.",
+    socialReactionEN: strong ? `Supporters praise a technocratic and stable ${body}.` : "Netizens compare the appointment against alternative figures.",
     advisorWarning: strong ? "Gunakan pelantikan ini sebagai naratif kestabilan kerajaan." : "Sediakan talking points untuk pertahan portfolio ini.",
     advisorWarningEN: strong ? "Use this appointment as a government stability narrative." : "Prepare talking points to defend this portfolio.",
     effects,

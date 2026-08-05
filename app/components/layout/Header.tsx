@@ -66,7 +66,7 @@ export default function Header() {
     >
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
-        <span className="tracking-wider text-text-muted">- TACTICAL OPS</span>
+        <span className="tracking-wider text-text-muted">{t(lang, "- OPS TAKTIKAL", "- TACTICAL OPS")}</span>
 
         {showWarRoomHome && (
           <Link
@@ -113,7 +113,7 @@ export default function Header() {
         <span className="font-bold tracking-widest text-white tabular-nums">{time}</span>
         <span className="flex items-center gap-1 text-neon-green">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neon-green" />
-          SYS ONLINE
+          {t(lang, "SISTEM DALAM TALIAN", "SYS ONLINE")}
         </span>
       </div>
     </header>

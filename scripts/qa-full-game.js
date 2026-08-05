@@ -35,6 +35,7 @@ const COLD_ROUTES = [
   { name: "Polling", path: "/polling" },
   { name: "Stats", path: "/stats" },
   { name: "Results", path: "/results" },
+  { name: "Elected", path: "/elected" },
   { name: "Mandate", path: "/mandate" },
   { name: "Formation", path: "/formation" },
   { name: "Cabinet", path: "/cabinet" },
@@ -107,6 +108,13 @@ async function gotoAndCheck(page, url, results, name, checks) {
   return { status, detail, consoleErrors };
 }
 
+// Client transitions (usePendingNav) can take longer than a fixed short wait
+// under a slow first render/compile — poll for the URL to actually change
+// rather than assuming a fixed delay is enough.
+async function waitForNavAway(page, prevUrl, timeout = 10000) {
+  await page.waitForFunction((prev) => window.location.href !== prev, prevUrl, { timeout }).catch(() => {});
+}
+
 async function clickFirstMatch(page, patterns, { timeout = 5000 } = {}) {
   for (const p of patterns) {
     const loc = page.locator("button", { hasText: p }).first();
@@ -165,20 +173,28 @@ async function runPlaythrough(context, playResults) {
     await page.locator("button", { hasText: "NEXT" }).first().click();
     await page.waitForTimeout(300);
 
-    // Step 2: campaign settings
-    await shot("setup-02-campaign-settings");
+    // Step 2: nomination
+    await shot("setup-02-nomination");
     await page.locator("button", { hasText: "NEXT" }).first().click();
     await page.waitForTimeout(300);
 
-    // Step 3: difficulty
-    await shot("setup-03-difficulty");
+    // Step 3: campaign settings
+    await shot("setup-03-campaign-settings");
     await page.locator("button", { hasText: "NEXT" }).first().click();
     await page.waitForTimeout(300);
 
-    // Step 4: confirm + launch
-    await shot("setup-04-confirm");
+    // Step 4: difficulty
+    await shot("setup-04-difficulty");
+    await page.locator("button", { hasText: "NEXT" }).first().click();
+    await page.waitForTimeout(300);
+
+    // Step 5: confirm + launch
+    await shot("setup-05-confirm");
     await page.locator("button", { hasText: "LAUNCH" }).first().click();
-    await page.waitForTimeout(1200);
+    // First navigation to /warroom triggers an on-demand dev compile, which can
+    // take longer than a fixed short wait — poll for the URL change instead.
+    await page.waitForURL("**/warroom", { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(300);
 
     const atWarRoom = page.url().includes("/warroom");
     step("Launch campaign -> War Room", atWarRoom, `URL: ${page.url()}`);
@@ -221,7 +237,8 @@ async function runPlaythrough(context, playResults) {
     const viewResultsBtn = page.locator("button", { hasText: /RESULT/i });
     if (await viewResultsBtn.count() > 0) {
       await viewResultsBtn.first().click();
-      await page.waitForTimeout(1000);
+      await page.waitForURL("**/results", { timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(300);
     }
     const atResults = page.url().includes("/results");
     step("Reach Results screen", atResults, `URL: ${page.url()}`);
@@ -229,10 +246,19 @@ async function runPlaythrough(context, playResults) {
 
     if (!atResults) throw new Error("Did not reach /results — aborting playthrough");
 
-    // ── Results -> Mandate ───────────────────────────────────────
+    // ── Results -> Mandate (or -> Elected -> Mandate if the leader won their own seat) ──
     const clickedMandate = await clickFirstMatch(page, [/MANDAT/i]);
-    await page.waitForTimeout(800);
-    step("Results -> Mandate", page.url().includes("/mandate"), `clicked "${clickedMandate}", URL: ${page.url()}`);
+    const _prevUrl_clickedMandate = page.url();
+    await waitForNavAway(page, _prevUrl_clickedMandate);
+    step("Results -> Mandate/Elected", page.url().includes("/mandate") || page.url().includes("/elected"), `clicked "${clickedMandate}", URL: ${page.url()}`);
+
+    if (page.url().includes("/elected")) {
+      await shot("elected");
+      const clickedElected = await clickFirstMatch(page, [/MANDAT/i]);
+      const _prevUrlElected = page.url();
+      await waitForNavAway(page, _prevUrlElected);
+      step("Elected -> Mandate", page.url().includes("/mandate"), `clicked "${clickedElected}", URL: ${page.url()}`);
+    }
     await shot("mandate");
 
     if (page.url().includes("/mandate")) {
@@ -243,14 +269,16 @@ async function runPlaythrough(context, playResults) {
         /BENTUK SHADOW CABINET|FORM SHADOW CABINET/i,
         /POST-MORTEM PARTI|PARTY POST-MORTEM/i,
       ]);
-      await page.waitForTimeout(800);
+      const _prevUrl_clicked = page.url();
+      await waitForNavAway(page, _prevUrl_clicked);
       const branch = page.url().replace(BASE, "");
       step("Mandate -> outcome branch", ["/formation", "/opposition", "/postmortem"].includes(branch), `clicked "${clicked}", branch: ${branch}`);
       await shot(`mandate-branch-${branch.replace("/", "")}`);
 
       if (branch === "/formation") {
         const clicked2 = await clickFirstMatch(page, [/BENTUK KABINET|FORM CABINET/i, /JADI PEMBANGKANG|ENTER OPPOSITION/i]);
-        await page.waitForTimeout(800);
+        const _prevUrl_clicked2 = page.url();
+        await waitForNavAway(page, _prevUrl_clicked2);
         const b2 = page.url().replace(BASE, "");
         step("Formation -> Cabinet/Opposition", ["/cabinet", "/opposition"].includes(b2), `clicked "${clicked2}", branch: ${b2}`);
         await shot(`formation-branch-${b2.replace("/", "")}`);
@@ -262,26 +290,30 @@ async function runPlaythrough(context, playResults) {
           step("Cabinet: swearing-in button state", exists, disabled ? "disabled (coalition short of majority — expected if hung)" : "enabled");
           await shot("cabinet");
           if (exists && !disabled) {
+            const _prevUrlSwearing = page.url();
             await swearingBtn.click();
-            await page.waitForTimeout(800);
+            await waitForNavAway(page, _prevUrlSwearing);
             step("Cabinet -> Swearing-in", page.url().includes("/swearing-in"), `URL: ${page.url()}`);
             await shot("swearing-in");
 
             if (page.url().includes("/swearing-in")) {
               const clicked3 = await clickFirstMatch(page, [/MULA 100 HARI PERTAMA|START FIRST 100 DAYS/i]);
-              await page.waitForTimeout(800);
+              const _prevUrl_clicked3 = page.url();
+              await waitForNavAway(page, _prevUrl_clicked3);
               step("Swearing-in -> Government", page.url().includes("/government"), `clicked "${clicked3}", URL: ${page.url()}`);
               await shot("government");
 
               if (page.url().includes("/government")) {
                 const clicked4 = await clickFirstMatch(page, [/URUS PENGGAL|MANAGE TERM/i]);
-                await page.waitForTimeout(800);
+                const _prevUrl_clicked4 = page.url();
+                await waitForNavAway(page, _prevUrl_clicked4);
                 step("Government -> Career", page.url().includes("/career"), `clicked "${clicked4}", URL: ${page.url()}`);
                 await shot("career");
 
                 if (page.url().includes("/career")) {
                   const clicked5 = await clickFirstMatch(page, [/SIMULASI NEGARA|NATIONAL SIMULATION/i]);
-                  await page.waitForTimeout(800);
+                  const _prevUrl_clicked5 = page.url();
+                  await waitForNavAway(page, _prevUrl_clicked5);
                   step("Career -> Sandbox", page.url().includes("/sandbox"), `clicked "${clicked5}", URL: ${page.url()}`);
                   await shot("sandbox");
                 }
@@ -290,18 +322,21 @@ async function runPlaythrough(context, playResults) {
           }
         } else if (b2 === "/opposition") {
           const clicked3 = await clickFirstMatch(page, [/URUS PENGGAL PEMBANGKANG|MANAGE OPPOSITION TERM/i]);
-          await page.waitForTimeout(800);
+          const _prevUrl_clicked3 = page.url();
+          await waitForNavAway(page, _prevUrl_clicked3);
           step("Opposition -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
           await shot("career-from-opposition");
         }
       } else if (branch === "/opposition") {
         const clicked3 = await clickFirstMatch(page, [/URUS PENGGAL PEMBANGKANG|MANAGE OPPOSITION TERM/i]);
-        await page.waitForTimeout(800);
+        const _prevUrl_clicked3 = page.url();
+        await waitForNavAway(page, _prevUrl_clicked3);
         step("Opposition -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
         await shot("career-from-opposition");
       } else if (branch === "/postmortem") {
         const clicked3 = await clickFirstMatch(page, [/TERUSKAN SURVIVAL|CONTINUE SURVIVAL/i]);
-        await page.waitForTimeout(800);
+        const _prevUrl_clicked3 = page.url();
+        await waitForNavAway(page, _prevUrl_clicked3);
         step("Postmortem -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
         await shot("career-from-postmortem");
       }

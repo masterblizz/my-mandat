@@ -46,7 +46,7 @@ export default function StatBar({
       </span>
       <div className={`flex-1 ${barHeight} bg-bar-empty relative overflow-hidden`}>
         <div
-          className={`absolute left-0 top-0 ${barHeight} transition-all duration-[1500ms] ease-out`}
+          className={`mm-bar absolute left-0 top-0 ${barHeight} transition-all duration-[1500ms] ease-out`}
           style={{ width: `${width}%`, background: color }}
         />
       </div>
