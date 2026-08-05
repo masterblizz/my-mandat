@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Pages reachable without a session — everything else requires one.
-const PUBLIC_AUTH_PATHS = ['/login', '/register']
+const PUBLIC_AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password']
 
 export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

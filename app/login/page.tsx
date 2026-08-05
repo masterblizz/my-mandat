@@ -107,6 +107,12 @@ export default function LoginPage() {
           {loading ? t(lang, "MENGESAHKAN…", "VERIFYING…") : t(lang, "LOG MASUK »", "LOG IN »")}
         </button>
 
+        <p className="text-center text-[10px] tracking-[0.08em]">
+          <a href="/forgot-password" className="font-bold" style={{ color: "var(--cyan)" }}>
+            {t(lang, "Lupa kata laluan?", "Forgot password?")}
+          </a>
+        </p>
+
         <p className="pt-1 text-center text-[10px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>
           {t(lang, "Belum ada akaun? ", "Don't have an account? ")}
           <a href="/register" className="font-bold" style={{ color: "var(--cyan)" }}>
