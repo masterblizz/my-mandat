@@ -18,6 +18,7 @@
   --text-primary: #ffffff;
   --text-muted: #8899aa;
   --neon-red-rgb: 255 68 68;
+  --neon-green-rgb: 0 255 136;
   --neon-green: #00ff88;
   --neon-red: #ff4444;
   --warn-orange: #ff8800;
@@ -36,6 +37,7 @@
   --gold-rgb: 161 106 0;
   --text-primary: #0f172a;
   --text-muted: #64748b;
+  --neon-green-rgb: 21 128 61;
   --neon-green: #15803d;
   --neon-red: #dc2626;
   --warn-orange: #c2410c;
@@ -535,22 +537,26 @@ input[type="range"].range-red::-moz-range-thumb {
    instead of stopping abruptly. Screen-space, so it never touches the
    preserve-3d tree. */
 .kw-fog {
-  background: linear-gradient(180deg, var(--kw-fog, #14203a) 0%, rgba(0,0,0,0) 58%);
-  opacity: 0.5;
+  /* Fades out by 42% of the frame height instead of 58%, and at lower
+     peak opacity — distant zones (school/industrial blocks toward the
+     back of a big metro grid) were reading as washed-out grey silhouettes
+     rather than actually visible buildings. */
+  background: linear-gradient(180deg, var(--kw-fog, #14203a) 0%, rgba(0,0,0,0) 42%);
+  opacity: 0.32;
   mix-blend-mode: normal;
   transition: background 0.6s, opacity 0.6s;
 }
 /* Dusk's fog is a warm haze — screen-blending it adds glow without the
    washed-out look screen gives a dark night sky. */
-.kw-scene[data-tod="dusk"] .kw-fog { mix-blend-mode: screen; opacity: 0.58; }
-.kw-scene[data-tod="night"] .kw-fog { opacity: 0.36; }
+.kw-scene[data-tod="dusk"] .kw-fog { mix-blend-mode: screen; opacity: 0.38; }
+.kw-scene[data-tod="night"] .kw-fog { opacity: 0.24; }
 /* Distant terrain ring beyond the city's own ground tile; same palette as
    the near ground so the two read as one continuous world. Its mask now
    finishes fading within the default camera framing (see the JSX inset),
    so the void around the tile reads as "ground receding to a horizon"
    rather than a hard edge into blackness. */
-.kw-farground { opacity: 0.85; }
-.kw-scene[data-tod="day"] .kw-farground { opacity: 0.55; }
+.kw-farground { opacity: 0.6; }
+.kw-scene[data-tod="day"] .kw-farground { opacity: 0.4; }
 /* Horizon glow ring: screen-space (see JSX comment for why — this must
    never live inside .kw-world), centred on the world's fixed anchor
    point (50%/53% of the scene, same spot .kw-world rotates around) so it
@@ -632,8 +638,24 @@ input[type="range"].range-red::-moz-range-thumb {
   /* Lifted off the ground plane: coplanar elements z-fight in 3D
      hit-testing and the world container can swallow zone clicks. */
   transform: translateZ(0.6px);
-  border: 1px solid rgb(var(--cyan-rgb) / 0.28);
+  /* Base border/glow tint comes from the zone's score (set inline per-
+     instance as --kw-zone-score/-glow, matching metricColor()'s BAIK/
+     SEDERHANA/KRITIKAL legend) instead of a fixed cyan, so the ground
+     tile reads zone health at a glance. Falls back to the old cyan when
+     unset. :hover/.kw-zone-sel below have higher specificity and still
+     win over this for interaction feedback. */
+  border: 1px solid var(--kw-zone-score, rgb(var(--cyan-rgb) / 0.28));
+  box-shadow: inset 0 0 20px var(--kw-zone-score-glow, transparent);
   transition: box-shadow 0.25s, border-color 0.25s;
+}
+/* Critical zones (score < 54) pulse a red glow so they read as needing
+   attention even at a glance / when zoomed out past the label threshold. */
+.kw-zone-critical {
+  animation: kw-critical-pulse 1.8s ease-in-out infinite;
+}
+@keyframes kw-critical-pulse {
+  0%, 100% { box-shadow: inset 0 0 20px rgb(var(--neon-red-rgb) / 0.22), 0 0 16px 2px rgb(var(--neon-red-rgb) / 0.4); }
+  50% { box-shadow: inset 0 0 8px rgb(var(--neon-red-rgb) / 0.08), 0 0 4px rgb(var(--neon-red-rgb) / 0.12); }
 }
 /* Grass speckle texture, tinted per time-of-day via --kw-grass */
 .kw-grassy::after {
@@ -992,20 +1014,32 @@ input[type="range"].range-red::-moz-range-thumb {
 @keyframes kw-drive-y-rev { from { transform: translateY(var(--kw-drive-len, 930px)); } to { transform: translateY(-50px); } }
 /* LRT/MRT route: 4 waypoints (west entry, chamfer start, chamfer end,
    north exit — see ROUTE_P0..P3 in page.tsx), each a translate(x,y) read
-   from --kw-lrt-xN/yN set once on .kw-world. Each leg between waypoints is
-   a straight line, so plain linear keyframe interpolation between them
-   draws the route exactly — no path/offset-path support needed. */
+   from --kw-lrt-xN/yN, PLUS a rotate() from --kw-lrt-rN so the train visibly
+   turns through the chamfer instead of sliding sideways with a fixed
+   heading. rN holds the FORWARD heading at that waypoint (see the rotation
+   derivation comment on FWD_ROUTE/rotFor() in page.tsx); the -rev variant
+   reuses the exact same rN values plus a constant +180deg per stop rather
+   than needing its own separate set — reversing direction always means
+   "the opposite heading at the same spot", so one set of 4 numbers drives
+   both directions. transform order matters here: rotate() is listed after
+   translate() so it composes rotate-then-translate (rotate the box around
+   its own centre first, then move the already-rotated box to the
+   waypoint) — the order a naive read would get backwards. Each leg between
+   waypoints is a straight line and each waypoint's heading is constant
+   across the leg it starts, so plain linear keyframe interpolation for
+   both position and rotation draws the route (and the turn) exactly — no
+   path/offset-path or extra JS tweening needed. */
 @keyframes kw-drive-l {
-  0% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)); }
-  40% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)); }
-  60% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)); }
-  100% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)); }
+  0% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)) rotate(var(--kw-lrt-r0, 0deg)); }
+  40% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)) rotate(var(--kw-lrt-r1, 0deg)); }
+  60% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)) rotate(var(--kw-lrt-r2, 0deg)); }
+  100% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)) rotate(var(--kw-lrt-r3, 0deg)); }
 }
 @keyframes kw-drive-l-rev {
-  0% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)); }
-  40% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)); }
-  60% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)); }
-  100% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)); }
+  0% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)) rotate(calc(var(--kw-lrt-r3, 0deg) + 180deg)); }
+  40% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)) rotate(calc(var(--kw-lrt-r2, 0deg) + 180deg)); }
+  60% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)) rotate(calc(var(--kw-lrt-r1, 0deg) + 180deg)); }
+  100% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)) rotate(calc(var(--kw-lrt-r0, 0deg) + 180deg)); }
 }
 @keyframes kw-rise { from { transform: scaleZ(0.02); } to { transform: scaleZ(1); } }
 @keyframes kw-beacon { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.35; } }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, MutableRefObject, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -167,6 +167,25 @@ function metricColor(value: number) {
   if (value >= 74) return "var(--neon-green)";
   if (value >= 54) return "var(--gold)";
   return "var(--neon-red)";
+}
+
+// Smooth (non-hard-cutoff) red->gold->green interpolation for zone ground
+// tiles + building roof accents, so a zone at 73 vs 75 reads as nearly
+// identical instead of snapping orange->green at metricColor()'s bands.
+// Hardcoded RGB anchors rather than the CSS theme vars metricColor() uses:
+// matches the scene's existing convention of fixed decorative colours
+// (train livery, glows, contact shadows, etc.) that don't shift with the
+// app's light/dark theme toggle, and lets this interpolate as plain numbers.
+const SCORE_TINT_RED: [number, number, number] = [255, 68, 68];
+const SCORE_TINT_GOLD: [number, number, number] = [240, 165, 0];
+const SCORE_TINT_GREEN: [number, number, number] = [0, 255, 136];
+function scoreTintRGB(value: number): string {
+  const v = clamp(value);
+  const [from, to, t] = v <= 54 ? [SCORE_TINT_RED, SCORE_TINT_GOLD, v / 54] : [SCORE_TINT_GOLD, SCORE_TINT_GREEN, (v - 54) / 46];
+  const r = Math.round(from[0] + (to[0] - from[0]) * t);
+  const g = Math.round(from[1] + (to[1] - from[1]) * t);
+  const b = Math.round(from[2] + (to[2] - from[2]) * t);
+  return `${r},${g},${b}`;
 }
 
 // Legend bands mirror metricColor's cutoffs — keep the two in step.
@@ -470,7 +489,7 @@ const STILT_H = 14;
 // window-light tint too, which reads as broken rather than varied.
 const VARIABLE_TINT_TYPES = new Set<BType>(["house", "kampung", "terrace", "shophouse", "shop", "stall"]);
 
-function Building3D({ spec }: { spec: BSpec }) {
+const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec; scoreColor?: string }) {
   const { x, y } = slotPos(spec.slot);
   const palette = PALETTES[spec.type];
   const flat = FLAT_TYPES.includes(spec.type);
@@ -528,11 +547,11 @@ function Building3D({ spec }: { spec: BSpec }) {
                 it those read as flat-painted boxes next to the detailed
                 towers, which was the actual "different asset quality"
                 complaint, not the height variance itself. */}
-            <div className={`absolute kw-face-lit kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: 0, top: spec.d, width: spec.w, height: spec.h, transformOrigin: "top", transform: `translateZ(${stiltH}px) rotateX(90deg)`, background: palette.wall, filter: tintFilter, transition: FACE_TRANSITION }}>
+            <div className={`absolute kw-face-lit kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: 0, top: spec.d, width: spec.w, height: spec.h, transformOrigin: "top", transform: `translateZ(${stiltH}px) rotateX(90deg)`, background: palette.wall, filter: tintFilter, borderRadius: spec.type === "stadium" ? "45% 45% 0 0" : undefined, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" />}
               {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45}s` }} />}
             </div>
-            <div className={`absolute kw-face-shadow kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: spec.w, top: 0, width: spec.h, height: spec.d, transformOrigin: "left", transform: `translateZ(${stiltH}px) rotateY(-90deg)`, background: palette.side, filter: tintFilter, transition: FACE_TRANSITION }}>
+            <div className={`absolute kw-face-shadow kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: spec.w, top: 0, width: spec.h, height: spec.d, transformOrigin: "left", transform: `translateZ(${stiltH}px) rotateY(-90deg)`, background: palette.side, filter: tintFilter, borderRadius: spec.type === "stadium" ? "45% 45% 0 0" : undefined, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" style={{ opacity: 0.55 }} />}
               {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45 - 1.2}s` }} />}
             </div>
@@ -540,8 +559,22 @@ function Building3D({ spec }: { spec: BSpec }) {
               className="absolute inset-0 kw-face-roof"
               style={{
                 background: palette.top,
-                border: spec.glow ? "2px solid rgba(0,255,136,0.7)" : "1px solid rgba(255,255,255,0.18)",
-                boxShadow: spec.glow ? "0 0 20px rgba(0,255,136,0.35)" : undefined,
+                // Roof accent reads the zone's live sentiment score (smooth
+                // red->gold->green, see scoreTintRGB) so building colour
+                // maps to zone health without touching the type-based wall
+                // palette above (which stays the readability cue for what
+                // a building IS). spec.glow buildings (flags/facilities)
+                // keep their own fixed green "new project" marker instead.
+                border: spec.glow ? "2px solid rgba(0,255,136,0.7)" : scoreColor ? `2px solid rgba(${scoreColor},0.65)` : "1px solid rgba(255,255,255,0.18)",
+                boxShadow: spec.glow ? "0 0 20px rgba(0,255,136,0.35)" : scoreColor ? `0 0 12px rgba(${scoreColor},0.3)` : undefined,
+                // Stadium's roof texture is already an elliptical pitch
+                // gradient (see PALETTES.stadium) — it was sitting inside a
+                // sharp-cornered rectangular cap, which cut the ellipse off
+                // at the corners instead of reading as an actual oval bowl.
+                // Rounding the cap itself (plus the wall tops above, for a
+                // matching silhouette) turns that into a real oval footprint
+                // without needing curved-wall-segment geometry.
+                borderRadius: spec.type === "stadium" ? "50%" : undefined,
                 transform: `translateZ(${stiltH + spec.h}px)`,
                 filter: tintFilter,
                 transition: FACE_TRANSITION,
@@ -612,7 +645,7 @@ function Building3D({ spec }: { spec: BSpec }) {
       )}
     </div>
   );
-}
+});
 
 // A few tropical-green shade variants so a tree line doesn't read as
 // identical clones stamped out at different scales — same idea as the car
@@ -791,7 +824,7 @@ const VEHICLE_DIMS: Record<VehicleKind, { w: number; d: number; bodyH: number; c
 // along-axis. Reuses the exact same body/cabin/wheel/light markup as a
 // moving car — parked traffic filling out empty kerb space shouldn't look
 // like a cheaper asset than the cars actually driving past it.
-function Car({ vertical, lane, dur, delay, rev, colorIdx = 0, kind = "car", parkedAt }: { vertical?: boolean; lane: number; dur?: number; delay?: number; rev?: boolean; colorIdx?: number; kind?: VehicleKind; parkedAt?: number }) {
+const Car = memo(function Car({ vertical, lane, dur, delay, rev, colorIdx = 0, kind = "car", parkedAt }: { vertical?: boolean; lane: number; dur?: number; delay?: number; rev?: boolean; colorIdx?: number; kind?: VehicleKind; parkedAt?: number }) {
   const isParked = parkedAt !== undefined;
   const dims = VEHICLE_DIMS[kind];
   const p = kind === "bus" ? BUS_PALETTES[colorIdx % BUS_PALETTES.length] : CAR_PALETTES[colorIdx % CAR_PALETTES.length];
@@ -869,14 +902,14 @@ function Car({ vertical, lane, dur, delay, rev, colorIdx = 0, kind = "car", park
       </div>
     </div>
   );
-}
+});
 
 // River boats sit at translateZ(1px) — below the bridge deck's translateZ(4px)
 // — so a boat passing under a bridge is correctly occluded by the deck. The
 // bob/wake animate on a nested child so they don't fight the outer .kw-boat's
 // own translateY drive-along-the-river animation (two `transform` animations
 // on the same element don't compose — the later one just wins each frame).
-function Boat({ x, w, h, hullTop, hullBottom, dur, delay, rev }: { x: number; w: number; h: number; hullTop: string; hullBottom: string; dur: string; delay: string; rev?: boolean }) {
+const Boat = memo(function Boat({ x, w, h, hullTop, hullBottom, dur, delay, rev }: { x: number; w: number; h: number; hullTop: string; hullBottom: string; dur: string; delay: string; rev?: boolean }) {
   const hullClip = rev
     ? "polygon(50% 0%, 100% 22%, 100% 85%, 50% 100%, 0% 85%, 0% 22%)"
     : "polygon(50% 100%, 100% 78%, 100% 15%, 50% 0%, 0% 15%, 0% 78%)";
@@ -892,14 +925,17 @@ function Boat({ x, w, h, hullTop, hullBottom, dur, delay, rev }: { x: number; w:
       </div>
     </div>
   );
-}
+});
 
 // LRT/MRT train following the west-entry-to-north-exit route (see the
 // ROUTE_P0..P3 waypoints in City3DMap). Position is driven entirely by the
-// kw-drive-l/-l-rev keyframes, which read the 8 --kw-lrt-x/y0..3 custom
-// properties set once on .kw-world — translate(x,y) at each of the 4
-// waypoints, CSS linearly interpolating in between, which is exactly the
-// straight line each leg/chamfer already is. The animated element
+// kw-drive-l/-l-rev keyframes, which read 8 --kw-lrt-x/y0..3 custom
+// properties — translate(x,y) at each of the 4 waypoints, CSS linearly
+// interpolating in between, which is exactly the straight line each leg/
+// chamfer already is. Each train instance sets its OWN copy of those 8
+// properties inline on its outer wrapper (shadowing whatever .kw-world
+// declares), which is what gives the two directions their own parallel
+// lane — see FWD_ROUTE/REV_ROUTE in City3DMap. The animated element
 // (.kw-train-path) must not directly parent the rotateX/rotateY face divs —
 // same "animating transform on an element that's itself an ancestor of
 // further 3D-positioned content" flattening bug noted on .kw-world above.
@@ -909,44 +945,109 @@ function Boat({ x, w, h, hullTop, hullBottom, dur, delay, rev }: { x: number; w:
 // than rotating to face the current leg — a deliberate scope cut, not a bug.
 const TRAIN_CAR_COUNT = 3;
 const TRAIN_CAR_LEN = 19;
-const TRAIN_CAR_GAP = 2;
-const TRAIN_W = 18;
+const TRAIN_CAR_GAP = 3;
+const TRAIN_W = 14;
+// Wall height was 10px against a 14x19 footprint — visibly squatter than
+// its width, which read as a flat slab ("leper") rather than a boxy train
+// car once the roof cap dominated the silhouette. Bumped closer to the
+// width for a proper box cross-section, matching real LRT rolling stock's
+// roughly-square profile.
+const TRAIN_WALL_H = 15;
 // Total consist length spans all carriages + the gaps between them — this
 // is the moving element's own footprint, so the path animation carries the
 // whole consist as one rigid body (all carriages share the single outer
 // transform; only their positions within it are fixed offsets).
 const TRAIN_LEN = TRAIN_CAR_COUNT * TRAIN_CAR_LEN + (TRAIN_CAR_COUNT - 1) * TRAIN_CAR_GAP;
 
-function TransitTrain({ z, dur, delay, rev }: { z: number; dur: string; delay?: string; rev?: boolean }) {
+interface RoutePoint { x: number; y: number }
+interface TransitRoute { p0: RoutePoint; p1: RoutePoint; p2: RoutePoint; p3: RoutePoint }
+
+// Forward heading (CSS rotate() degrees) at each of the 4 waypoints — see
+// the kw-drive-l/-l-rev comment in globals.css for the full derivation and
+// why the -rev keyframe can reuse these same 4 numbers (+180deg) instead of
+// needing its own set. Defaults to "never turns" (straight route, e.g.
+// Line 2) so callers that don't pass `rot` keep the old fixed-heading
+// behaviour rather than silently rotating to 0.
+const NO_TURN: [number, number, number, number] = [0, 0, 0, 0];
+
+const TransitTrain = memo(function TransitTrain({ z, dur, delay, rev, route, rot = NO_TURN }: { z: number; dur: string; delay?: string; rev?: boolean; route: TransitRoute; rot?: [number, number, number, number] }) {
+  const routeVars = {
+    ["--kw-lrt-x0" as string]: `${route.p0.x}px`, ["--kw-lrt-y0" as string]: `${route.p0.y}px`,
+    ["--kw-lrt-x1" as string]: `${route.p1.x}px`, ["--kw-lrt-y1" as string]: `${route.p1.y}px`,
+    ["--kw-lrt-x2" as string]: `${route.p2.x}px`, ["--kw-lrt-y2" as string]: `${route.p2.y}px`,
+    ["--kw-lrt-x3" as string]: `${route.p3.x}px`, ["--kw-lrt-y3" as string]: `${route.p3.y}px`,
+    ["--kw-lrt-r0" as string]: `${rot[0]}deg`, ["--kw-lrt-r1" as string]: `${rot[1]}deg`,
+    ["--kw-lrt-r2" as string]: `${rot[2]}deg`, ["--kw-lrt-r3" as string]: `${rot[3]}deg`,
+  };
   return (
-    <div className="kw-3d absolute" style={{ left: 0, top: 0, transform: `translateZ(${z}px)`, pointerEvents: "none" }}>
+    <div className="kw-3d absolute" style={{ left: 0, top: 0, transform: `translateZ(${z}px)`, pointerEvents: "none", ...routeVars }}>
       <div className={`kw-train-path ${rev ? "kw-train-path-rev" : ""}`} style={{ width: TRAIN_W, height: TRAIN_LEN, animationDuration: dur, animationDelay: delay }}>
         <div className="kw-3d absolute" style={{ left: 0, top: 0, width: TRAIN_W, height: TRAIN_LEN, transformStyle: "preserve-3d" }}>
           {/* Contact glow: a soft cyan halo under the whole consist, always
               on (not gated to night like street lamps) — a plain small box
               this size otherwise reads as random city clutter rather than
               "this is the transit line" at a glance. */}
-          <div className="absolute" style={{ left: -8, top: -8, width: TRAIN_W + 16, height: TRAIN_LEN + 16, borderRadius: 6, background: "radial-gradient(ellipse, rgba(56,189,248,0.5), transparent 70%)", filter: "blur(2px)" }} />
+          <div className="absolute" style={{ left: -12, top: -12, width: TRAIN_W + 24, height: TRAIN_LEN + 24, borderRadius: 8, background: "radial-gradient(ellipse, rgba(56,189,248,0.75), transparent 72%)", filter: "blur(2px)" }} />
           {Array.from({ length: TRAIN_CAR_COUNT }, (_, i) => {
             const carTop = i * (TRAIN_CAR_LEN + TRAIN_CAR_GAP);
-            // Leading carriage (front in the direction of travel) gets a
-            // brighter cab tint so the consist reads as having a front, not
-            // just 3 identical repeated boxes.
+            // Real LRT rolling stock (Kelana Jaya/Ampang line included) runs
+            // bidirectionally with a driving cab at BOTH ends of the
+            // consist — so both end carriages get the tapered cab-window
+            // treatment, not just whichever end happens to be leading right
+            // now. isLead only decides which cab's headlight is lit.
+            const isCabEnd = i === 0 || i === TRAIN_CAR_COUNT - 1;
             const isLead = rev ? i === TRAIN_CAR_COUNT - 1 : i === 0;
             const frontY = rev ? carTop : carTop + TRAIN_CAR_LEN;
             return (
-              <div key={i} className="absolute" style={{ left: 0, top: carTop, width: TRAIN_W, height: TRAIN_CAR_LEN }}>
-                <div className="absolute kw-face-lit" style={{ left: 0, top: TRAIN_CAR_LEN, width: TRAIN_W, height: 7, transformOrigin: "top", transform: "rotateX(90deg)", background: "#0ea5e9", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25)" }} />
-                <div className="absolute kw-face-shadow" style={{ left: TRAIN_W, top: 0, width: 7, height: TRAIN_CAR_LEN, transformOrigin: "left", transform: "rotateY(-90deg)", background: "#0369a1" }} />
-                <div className="absolute" style={{ left: 0, top: 0, width: TRAIN_W, height: TRAIN_CAR_LEN, background: isLead ? "linear-gradient(180deg, #f8fdff, #93e0fb)" : "linear-gradient(180deg, #e0f2fe, #38bdf8)", border: "1px solid rgba(255,255,255,0.35)", transform: "translateZ(7px)" }}>
-                  <div className="absolute" style={{ inset: "8% 8%", background: "repeating-linear-gradient(0deg, rgba(2,6,23,0.55) 0 4px, rgba(224,242,254,0.85) 4px 9px)", borderRadius: 1 }} />
-                  {/* roof stripe: a thin livery band running the length of each
-                      carriage, breaking up the flat window-band tile texture */}
-                  <div className="absolute" style={{ left: "10%", right: "10%", top: 2, height: 2, background: "rgba(3,105,161,0.85)" }} />
+              // kw-3d (transform-style: preserve-3d) is required here, not just
+              // "absolute" — without it this per-car wrapper defaults to "flat"
+              // and flattens every rotateX/rotateY/translateZ face below onto
+              // its own 2D plane before the camera's 3D transform ever sees it,
+              // which is exactly what made the whole consist render as a flat
+              // glowing sliver instead of a boxy carriage.
+              <div key={i} className="kw-3d absolute" style={{ left: 0, top: carTop, width: TRAIN_W, height: TRAIN_CAR_LEN }}>
+                {/* south end-cap: a plain coupler face between cars, or a
+                    tapered windshield (clip-path wedge) on the 2 true ends —
+                    this is what gives the consist an actual nose instead of
+                    every carriage reading as an identical repeated box. */}
+                <div
+                  className="absolute kw-face-lit"
+                  style={{
+                    left: 0, top: TRAIN_CAR_LEN, width: TRAIN_W, height: TRAIN_WALL_H,
+                    transformOrigin: "top", transform: "rotateX(90deg)",
+                    background: isCabEnd ? "linear-gradient(180deg, #0c4a6e, #082f49)" : "#0ea5e9",
+                    clipPath: isCabEnd ? "polygon(18% 0, 82% 0, 100% 100%, 0 100%)" : undefined,
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.2)",
+                  }}
+                />
+                {/* east long side: the primary window+livery face — this was
+                    previously a flat solid colour with the window texture
+                    misapplied to the roof cap instead (barely visible at
+                    this camera's angle), which is why the train read as a
+                    featureless box. A 2-tone livery (silver body, dark
+                    window band, gold seam) matches how the RapidKL LRT
+                    lines actually look while reusing the app's own gold
+                    accent instead of a random brand colour. */}
+                <div className="absolute kw-face-shadow" style={{ left: TRAIN_W, top: 0, width: TRAIN_WALL_H, height: TRAIN_CAR_LEN, transformOrigin: "left", transform: "rotateY(-90deg)", background: "#0ea5e9", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.4)" }}>
+                  <div className="absolute" style={{ left: 0, right: 0, top: "8%", height: "40%", background: "repeating-linear-gradient(90deg, rgba(8,47,73,0.95) 0 4px, rgba(186,230,253,0.7) 4px 4.8px, rgba(8,47,73,0.95) 4.8px 8px)" }} />
+                  <div className="absolute" style={{ left: 0, right: 0, top: "50%", height: 2, background: "var(--gold, #f0a500)", boxShadow: "0 0 3px rgba(240,165,0,0.8)" }} />
+                  <div className="absolute" style={{ left: 0, right: 0, top: "57%", bottom: 0, background: "linear-gradient(180deg, #38bdf8, #0369a1)" }} />
                 </div>
-                {/* headlight: only on the lead carriage's true front edge, so
-                    the consist visibly has a front instead of glowing from
-                    every corner regardless of travel direction */}
+                {/* roof: plain cap, not the focus — the side livery band above is.
+                    Kept the same saturated cyan as the body (not white/silver)
+                    so the whole consist stays visually distinct from nearby
+                    buildings that already use pale grey/white walls — a light
+                    silver train blended straight into them. */}
+                <div className="absolute" style={{ left: 0, top: 0, width: TRAIN_W, height: TRAIN_CAR_LEN, background: "linear-gradient(180deg, #7dd3fc, #0284c7)", transform: `translateZ(${TRAIN_WALL_H}px)` }} />
+                {/* coupler: a short dark connector bridging the gap to the
+                    next carriage, so the gap reads as a mechanical joint
+                    instead of a random slice missing out of the consist. */}
+                {i < TRAIN_CAR_COUNT - 1 && (
+                  <div className="absolute" style={{ left: TRAIN_W * 0.3, top: TRAIN_CAR_LEN, width: TRAIN_W * 0.4, height: TRAIN_CAR_GAP, background: "#1e293b", transform: `translateZ(${TRAIN_WALL_H * 0.4}px)` }} />
+                )}
+                {/* headlight: only on the currently-leading cab, so the
+                    consist visibly has a direction instead of both ends
+                    glowing regardless of travel. */}
                 {isLead && (
                   <div
                     className="absolute kw-blink"
@@ -969,23 +1070,23 @@ function TransitTrain({ z, dur, delay, rev }: { z: number; dur: string; delay?: 
       </div>
     </div>
   );
-}
+});
 
 // A single elevated-viaduct support column: true-3D wall-hinge (south+east
 // face) convention, same as building walls and the road bridge piers.
-function TransitPylon({ left, top, deckZ }: { left: number; top: number; deckZ: number }) {
+const TransitPylon = memo(function TransitPylon({ left, top, deckZ }: { left: number; top: number; deckZ: number }) {
   return (
     <div className="kw-3d absolute" style={{ left, top, width: 10, height: 10 }}>
       <div className="absolute kw-face-lit" style={{ left: 0, top: 10, width: 10, height: deckZ - 2, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, #64748b, #334155)" }} />
       <div className="absolute kw-face-shadow" style={{ left: 10, top: 0, width: deckZ - 2, height: 10, transformOrigin: "left", transform: "rotateY(-90deg)", background: "linear-gradient(90deg, #334155, #1e293b)" }} />
     </div>
   );
-}
+});
 
 // An LRT/MRT platform: low slab + 2-pole canopy + a name-tag billboard,
 // centred on (x, y) so it can sit beside either a horizontal or vertical
 // deck run without needing an axis-specific variant.
-function TransitStation({ x, y, deckZ, tag }: { x: number; y: number; deckZ: number; tag: string }) {
+const TransitStation = memo(function TransitStation({ x, y, deckZ, tag }: { x: number; y: number; deckZ: number; tag: string }) {
   return (
     <div className="kw-3d absolute" style={{ left: x - 27, top: y - 15, width: 54, height: 30 }}>
       <div className="absolute kw-face-lit" style={{ left: 0, top: 30, width: 54, height: 9, transformOrigin: "top", transform: `translateZ(${deckZ}px) rotateX(90deg)`, background: "linear-gradient(180deg, #cbd5e1, #64748b)" }} />
@@ -1002,21 +1103,27 @@ function TransitStation({ x, y, deckZ, tag }: { x: number; y: number; deckZ: num
       </div>
     </div>
   );
-}
+});
 
 // A surveyed-but-undeveloped grid cell: flat ground with just a faint plot
 // outline, no building/stats/click handler — visually distinct from an
 // actual Zone without pulling in the full ZonePlot machinery.
-function EmptyPlot({ col, row, gridSize }: { col: number; row: number; gridSize: number }) {
+const EmptyPlot = memo(function EmptyPlot({ col, row, gridSize }: { col: number; row: number; gridSize: number }) {
   const PLOT_XY = plotXY(gridSize);
   return (
     <div className="kw-3d absolute" style={{ left: PLOT_XY[col], top: PLOT_XY[row], width: PLOT, height: PLOT, pointerEvents: "none" }}>
       <div className="absolute" style={{ inset: 18, border: "1px dashed rgba(148,163,184,0.16)" }} />
     </div>
   );
-}
+});
 
-function ZonePlot({ zone, selected, onSelect, lang, col, row, gridSize, density, traits, celebrating }: { zone: Zone; selected: boolean; onSelect: () => void; lang: ReturnType<typeof useLang>; col: number; row: number; gridSize: number; density: number; traits: SeatTraits; celebrating: number }) {
+// memo() below relies on every prop here being referentially stable across
+// unrelated re-renders of the parent (tod/weather toggles, hover on a
+// different zone, etc.) so this only actually re-renders when something
+// about THIS zone changed: onSelect is the raw setSelectedZoneId setter
+// (not a fresh per-zone closure) and movedRef is a stable ref, both from
+// City3DMap; zone/traits/lang are themselves stable/memoized upstream.
+const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, lang, col, row, gridSize, density, traits, celebrating }: { zone: Zone; selected: boolean; onSelect: (id: string) => void; movedRef: MutableRefObject<boolean>; lang: ReturnType<typeof useLang>; col: number; row: number; gridSize: number; density: number; traits: SeatTraits; celebrating: number }) {
   const PLOT_XY = plotXY(gridSize);
   const buildings = useMemo(() => zoneBuildings(zone, density, traits), [zone, density, traits]);
   const [hovered, setHovered] = useState(false);
@@ -1035,16 +1142,25 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, gridSize, density,
   // Twin skyscrapers side by side get a KLCC-style skybridge
   const skyscrapers = buildings.filter((spec) => spec.type === "skyscraper").sort((a, b) => a.slot - b.slot);
   const twin = skyscrapers.length >= 2 && skyscrapers[1].slot - skyscrapers[0].slot === 1 && Math.floor(skyscrapers[0].slot / 3) === Math.floor(skyscrapers[1].slot / 3) ? skyscrapers : null;
+  // Smooth score tint shared by the ground tile border/glow and every
+  // building's roof accent in this zone — computed once per zone here
+  // rather than per building, since it only depends on zone.sentiment.
+  const scoreRgb = scoreTintRGB(zone.sentiment);
+  const critical = zone.sentiment < 54;
   return (
     <div className="kw-3d absolute" style={{ left: PLOT_XY[col], top: PLOT_XY[row], width: PLOT, height: PLOT }}>
       <button
         type="button"
-        onClick={onSelect}
+        onClick={() => { if (!movedRef.current) onSelect(zone.id); }}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
         aria-label={t(lang, zone.nameMS, zone.nameEN)}
-        className={`kw-zone kw-grassy ${selected ? "kw-zone-sel" : ""} ${hovered ? "kw-zone-hov" : ""}`}
-        style={{ background: zoneGround(zone.kind) }}
+        className={`kw-zone kw-grassy ${selected ? "kw-zone-sel" : ""} ${hovered ? "kw-zone-hov" : ""} ${critical ? "kw-zone-critical" : ""}`}
+        style={{
+          background: zoneGround(zone.kind),
+          "--kw-zone-score": `rgba(${scoreRgb},0.5)`,
+          "--kw-zone-score-glow": `rgba(${scoreRgb},0.16)`,
+        } as CSSProperties}
       >
         <span className="absolute left-0 right-0 block" style={{ top: PLOT / 2 - 6, height: 12, background: "rgba(148,163,184,0.15)" }} />
         <span className="absolute bottom-0 top-0 block" style={{ left: PLOT / 2 - 6, width: 12, background: "rgba(148,163,184,0.15)" }} />
@@ -1059,7 +1175,7 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, gridSize, density,
         <span className="absolute top-0 bottom-0 right-0 block" style={{ width: 5, background: "linear-gradient(90deg, rgba(226,232,240,0.45), rgba(148,163,184,0.25))" }} />
         {zone.kind === "river" && <span className="kw-water absolute block" style={{ left: -1, right: -1, top: "40%", height: 34, opacity: 0.9 }} />}
       </button>
-      {buildings.map((spec, index) => <Building3D key={`${zone.id}-${spec.slot}-${spec.type}-${index}`} spec={spec} />)}
+      {buildings.map((spec, index) => <Building3D key={`${zone.id}-${spec.slot}-${spec.type}-${index}`} spec={spec} scoreColor={scoreRgb} />)}
       {twin && (() => {
         const left = slotPos(twin[0].slot).x + twin[0].w;
         const width = slotPos(twin[1].slot).x - left;
@@ -1086,18 +1202,25 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, gridSize, density,
           of sitting at ground level, where rotation lets nearer buildings slide over it */}
       <div className="kw-3d absolute" style={{ left: PLOT / 2 - 1, top: PLOT + 16, width: 2, height: labelZ, transformOrigin: "top", transform: "rotateX(90deg)", background: `linear-gradient(180deg, transparent, ${selected ? "rgba(250,204,21,0.65)" : "rgba(125,211,252,0.5)"})`, transition: FACE_TRANSITION }} />
       <div className="kw-3d absolute" style={{ left: PLOT / 2 - 3, top: PLOT + 16 - 3, width: 6, height: 6, borderRadius: "50%", transform: "translateZ(2px)", background: selected ? "var(--gold)" : "#7dd3fc", boxShadow: `0 0 6px ${selected ? "rgba(250,204,21,0.8)" : "rgba(125,211,252,0.8)"}` }} />
-      <div className="kw-3d absolute" style={{ left: PLOT / 2, top: PLOT + 16, width: 0, height: 0, transform: `translateZ(${labelZ}px)`, transition: FACE_TRANSITION }}>
-        <div className="kw-bill">
-          <div className="flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5" style={{ background: "rgba(3,8,15,0.9)", borderColor: selected ? "var(--gold)" : "rgba(56,189,248,0.3)" }}>
-            <div>
-              <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: selected ? "var(--gold)" : "#7dd3fc" }}>{zoneIcon(zone.kind)} {t(lang, zone.nameMS, zone.nameEN)}</div>
-              <div className="mt-0.5 text-[7px] font-bold tracking-wider" style={{ color: "rgba(148,163,184,0.85)" }}>INF {zone.infra} · RKT {zone.welfare} · EKO {zone.economy}</div>
+      {/* Name+stats label only renders for the selected zone now — every
+          zone showing its card at once (regardless of zoom) buried the map
+          under 9+ overlapping labels. Click-gated instead of the old
+          zoom-based opacity fade, so it needs no CSS var wiring: it simply
+          isn't in the tree until this zone is selected. */}
+      {selected && (
+        <div className="kw-3d absolute" style={{ left: PLOT / 2, top: PLOT + 16, width: 0, height: 0, transform: `translateZ(${labelZ}px)` }}>
+          <div className="kw-bill">
+            <div className="flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5" style={{ background: "rgba(3,8,15,0.9)", borderColor: "var(--gold)" }}>
+              <div>
+                <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: "var(--gold)" }}>{zoneIcon(zone.kind)} {t(lang, zone.nameMS, zone.nameEN)}</div>
+                <div className="mt-0.5 text-[7px] font-bold tracking-wider" style={{ color: "rgba(148,163,184,0.85)" }}>INF {zone.infra} · RKT {zone.welfare} · EKO {zone.economy}</div>
+              </div>
+              <div className="text-base font-black leading-none" style={{ color: metricColor(zone.sentiment) }}>{zone.sentiment}</div>
+              {zone.projects.length > 0 && <div className="rounded-full border px-1 py-0.5 text-[7px] font-black" style={{ borderColor: "rgba(0,255,136,0.5)", color: "#4ade80", background: "rgba(0,255,136,0.1)" }}>LV{zone.projects.length + 1}</div>}
             </div>
-            <div className="text-base font-black leading-none" style={{ color: metricColor(zone.sentiment) }}>{zone.sentiment}</div>
-            {zone.projects.length > 0 && <div className="rounded-full border px-1 py-0.5 text-[7px] font-black" style={{ borderColor: "rgba(0,255,136,0.5)", color: "#4ade80", background: "rgba(0,255,136,0.1)" }}>LV{zone.projects.length + 1}</div>}
           </div>
         </div>
-      </div>
+      )}
       {/* hover tooltip: anchored on the north edge so it never stacks on the
           persistent label, which hangs off the south edge of the same plot */}
       {hovered && (
@@ -1119,7 +1242,7 @@ function ZonePlot({ zone, selected, onSelect, lang, col, row, gridSize, density,
       )}
     </div>
   );
-}
+});
 
 const TOD_SEQUENCE = ["dusk", "night", "day"] as const;
 type Tod = (typeof TOD_SEQUENCE)[number];
@@ -1136,6 +1259,7 @@ function todFromClientHour(hour: number): Tod {
 }
 
 const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
+const MINIMAP_CELL = 12;
 
 function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, density, densityLabel, traits, celebration, overall }: { zones: Zone[]; selectedZoneId: string; setSelectedZoneId: (id: string) => void; lang: ReturnType<typeof useLang>; gridSize: number; density: number; densityLabel: string; traits: SeatTraits; celebration: { zoneId: string; at: number } | null; overall: number }) {
   const PLOT_XY = plotXY(gridSize);
@@ -1169,13 +1293,31 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   // 45deg chamfer rather than a sharp right angle, reading as a curve
   // without needing real arc geometry.
   const showTransit = density >= 0.62;
-  const TRACK_W = 24;
+  // Widened from the original 24 — a single centreline was fine for the
+  // deck/pylons, but the two train directions need enough room either side
+  // of it for their own offset lane (see FWD_ROUTE/REV_ROUTE below) without
+  // poking past the deck edge.
+  const TRACK_W = 34;
   const TRACK_DECK_Z = 58;
   const ROUTE_Y = ROADS_H[Math.floor(ROADS_H.length / 2)];
   const ROUTE_X = ROADS_V[Math.floor(ROADS_V.length / 2)];
-  // Corner radius clamped so the chamfer stays inside the grid even on a
-  // small (but still >=0.62-density) city.
-  const CORNER_R = Math.max(30, Math.min(90, ROUTE_X - 20, ROUTE_Y - 20));
+  // Corner radius: MUST stay within the road's own half-width (TRACK_W/2)
+  // or the chamfer cuts diagonally across the block it's turning at — and
+  // that block is guaranteed to be downtown ("Pusat Bandar", always seated
+  // at the grid centre, right where ROUTE_X/ROUTE_Y put this bend) with the
+  // seat's tallest buildings. The deck sits at a fixed, modest TRACK_DECK_Z
+  // (58px) — far below what a skyscraper can grow to (150 + economy*1.2,
+  // 250px+) — so with no real depth buffer, a chamfer that strays past the
+  // road into that plot doesn't clip *behind* the tower, it paints straight
+  // through it (DOM order puts the transit layer after zones specifically
+  // so it's visible over low buildings — see that render-site comment —
+  // which backfires the moment the deck's own path leaves the road). A
+  // radius previously up to 90px (rounding up toward the block's own 240px
+  // plot) guaranteed this collision; keeping it inside TRACK_W/2 minus a
+  // safety margin keeps the whole curve — including the bend — physically
+  // over the road at every point, the one place no building ever occupies,
+  // regardless of building height.
+  const CORNER_R = Math.max(8, TRACK_W / 2 - 3);
   const ROUTE_P0 = { x: -40, y: ROUTE_Y };
   const ROUTE_P1 = { x: ROUTE_X - CORNER_R, y: ROUTE_Y };
   const ROUTE_P2 = { x: ROUTE_X, y: ROUTE_Y - CORNER_R };
@@ -1185,6 +1327,44 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   // a single spanning div.
   const LEG1_BOUNDS = [ROUTE_P0.x, ...ROADS_V.filter((x) => x > ROUTE_P0.x && x < ROUTE_P1.x), ROUTE_P1.x];
   const LEG2_BOUNDS = [ROUTE_P2.y, ...ROADS_H.filter((y) => y < ROUTE_P2.y && y > ROUTE_P3.y).sort((a, b) => b - a), ROUTE_P3.y];
+  // Dual-track offset: the deck/pylons/stations stay on the ROUTE_P0..P3
+  // centreline (one shared elevated structure, like a real viaduct), but
+  // each direction of travel gets its own parallel lane a few px either
+  // side of it — without this, both trains shared the literal same path
+  // and would visually merge into one shape whenever their timing
+  // coincided. Offset is perpendicular to whichever leg the point belongs
+  // to (y-offset on the horizontal leg, x-offset on the vertical leg); the
+  // diagonal chamfer point takes whichever offset its neighbouring leg
+  // uses, which reads as parallel enough at this scale.
+  const LANE_OFFSET = 6;
+  const FWD_ROUTE = {
+    p0: { x: ROUTE_P0.x, y: ROUTE_P0.y - LANE_OFFSET },
+    p1: { x: ROUTE_P1.x, y: ROUTE_P1.y - LANE_OFFSET },
+    p2: { x: ROUTE_P2.x - LANE_OFFSET, y: ROUTE_P2.y },
+    p3: { x: ROUTE_P3.x - LANE_OFFSET, y: ROUTE_P3.y },
+  };
+  const REV_ROUTE = {
+    p0: { x: ROUTE_P0.x, y: ROUTE_P0.y + LANE_OFFSET },
+    p1: { x: ROUTE_P1.x, y: ROUTE_P1.y + LANE_OFFSET },
+    p2: { x: ROUTE_P2.x + LANE_OFFSET, y: ROUTE_P2.y },
+    p3: { x: ROUTE_P3.x + LANE_OFFSET, y: ROUTE_P3.y },
+  };
+  // Forward heading at each waypoint, in CSS rotate() degrees — the train's
+  // un-rotated box already "points" along +Y (south) by construction (see
+  // TRAIN_W/TRAIN_LEN), which is the baseline every heading below is
+  // relative to (heading - 90deg, since CSS rotate() is clockwise and
+  // atan2 here uses the same y-down screen convention):
+  //   leg1 (P0->P1, heading east, dx=1 dy=0): atan2(0,1)=0deg -> -90deg
+  //   chamfer (heading NE, dx=1 dy=-1): atan2(-1,1)=-45deg -> -135deg
+  //   leg2 (P2->P3, heading north, dx=0 dy=-1): atan2(-1,0)=-90deg -> -180deg
+  // Stored per-waypoint (not per-leg) so linear keyframe interpolation
+  // between r1 (-90, end of leg1) and r2 (-180, end of chamfer) sweeps the
+  // turn smoothly across the chamfer's own 40%-60% keyframe window — the
+  // exact same trick FWD_ROUTE/REV_ROUTE already uses for position. Reused
+  // by both the fwd and rev train instances; see the -rev keyframe comment
+  // in globals.css for why reversed direction only needs +180deg on top of
+  // these same 4 numbers rather than its own set.
+  const LINE1_ROT: [number, number, number, number] = [-90, -90, -180, -180];
   // Train pace: unlike Car/Boat's fixed "-50..930" keyframe distance (a
   // holdover from the original 3x3 grid, which is why THEY need `sc()`'s
   // k-multiplier to catch the duration up to var(--kw-drive-len)), the
@@ -1198,6 +1378,43 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   const TRAIN_ROUTE_LEN = (ROUTE_P1.x - ROUTE_P0.x) + Math.hypot(ROUTE_P2.x - ROUTE_P1.x, ROUTE_P2.y - ROUTE_P1.y) + (ROUTE_P2.y - ROUTE_P3.y);
   const TRAIN_SPEED_PX_S = 95;
   const trainDur = Math.max(14, TRAIN_ROUTE_LEN / TRAIN_SPEED_PX_S);
+  // Second line: a plain straight north-south run crossing Line 1's east-
+  // west leg, giving only the densest metro seats (0.8, stricter than Line
+  // 1's 0.62) a proper interchange instead of one isolated route — real
+  // Malaysian cities only grow a second rapid-transit line once they're
+  // genuinely large. No chamfer needed since it's already straight; it
+  // still gets the same per-crossing deck segmentation and dual-lane
+  // offset treatment as Line 1. Stacked at a different deck height
+  // (LINE2_DECK_Z) so the two viaducts don't collide where they cross —
+  // same reasoning real elevated interchanges use a level change, not two
+  // decks occupying the same space.
+  const showLine2 = density >= 0.8;
+  const LINE2_X = ROADS_V[Math.max(1, Math.floor(ROADS_V.length * 0.25))];
+  const LINE2_DECK_Z = TRACK_DECK_Z + 34;
+  const LINE2_TOP = { x: LINE2_X, y: -40 };
+  const LINE2_BOTTOM = { x: LINE2_X, y: WORLD + 40 };
+  const LINE2_MID1 = { x: LINE2_X, y: LINE2_TOP.y + (LINE2_BOTTOM.y - LINE2_TOP.y) * 0.4 };
+  const LINE2_MID2 = { x: LINE2_X, y: LINE2_TOP.y + (LINE2_BOTTOM.y - LINE2_TOP.y) * 0.6 };
+  const LINE2_BOUNDS = [LINE2_TOP.y, ...ROADS_H.filter((y) => y > LINE2_TOP.y && y < LINE2_BOTTOM.y), LINE2_BOTTOM.y];
+  const LINE2_FWD_ROUTE = {
+    p0: { x: LINE2_TOP.x - LANE_OFFSET, y: LINE2_TOP.y },
+    p1: { x: LINE2_MID1.x - LANE_OFFSET, y: LINE2_MID1.y },
+    p2: { x: LINE2_MID2.x - LANE_OFFSET, y: LINE2_MID2.y },
+    p3: { x: LINE2_BOTTOM.x - LANE_OFFSET, y: LINE2_BOTTOM.y },
+  };
+  const LINE2_REV_ROUTE = {
+    p0: { x: LINE2_TOP.x + LANE_OFFSET, y: LINE2_TOP.y },
+    p1: { x: LINE2_MID1.x + LANE_OFFSET, y: LINE2_MID1.y },
+    p2: { x: LINE2_MID2.x + LANE_OFFSET, y: LINE2_MID2.y },
+    p3: { x: LINE2_BOTTOM.x + LANE_OFFSET, y: LINE2_BOTTOM.y },
+  };
+  const line2Dur = Math.max(14, (LINE2_BOTTOM.y - LINE2_TOP.y) / TRAIN_SPEED_PX_S);
+  // Interchange: where LINE2_X crosses Line 1's east-west leg. Valid
+  // whenever LINE2_X (fixed at ~25% of grid width) sits before Line 1's
+  // bend (~50% width minus CORNER_R) — true for every grid size showLine2
+  // can trigger on (density >=0.8 only ever yields the two biggest grid
+  // tiers, see kawasanGridSize).
+  const INTERCHANGE = { x: LINE2_X, y: ROUTE_Y };
   // Lane markings scale with density rather than the road's physical width:
   // PLOT (240) and ROAD_GAP (280) leave zero slack between adjacent zone
   // tiles, so widening the actual asphalt strip would mean reflowing every
@@ -1244,21 +1461,36 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   const junctions = interiorX.flatMap((jx, xi) => interiorY.map((jy, yi) => ({ jx, jy, xi, yi })));
   // Traffic road count scales with density instead of a flat cap for every
   // seat: a rural seat stays quiet (2 busy interior roads, the original
-  // cap), while metro/dense-metro read as visibly congested — more roads
-  // carrying moving traffic, matching how empty-vs-jammed a real small town
-  // and a real city centre actually look, not just building density.
-  const carRoadCap = density >= 0.85 ? 5 : density >= 0.62 ? 4 : 2;
+  // cap), while dense-metro puts traffic on essentially every interior road
+  // (capped at 10 to bound DOM/animation cost on a big grid) — matching how
+  // empty-vs-jammed a real small town and a real city centre actually look,
+  // not just building density.
+  const carRoadCap = density >= 0.85 ? Math.min(interiorY.length, interiorX.length, 10) : density >= 0.62 ? 5 : 2;
   const carRoadsY = interiorY.slice(0, carRoadCap);
   const carRoadsX = interiorX.slice(0, carRoadCap);
+  // Dense-metro also queues extra cars behind the regular 2 on its busiest
+  // roads — short, fixed delay gaps behind the lead car (not a random
+  // stagger) read as nose-to-tail congestion, not just "more roads have
+  // traffic". Capped to 4 roads per axis, 2 queued cars each, to bound the
+  // extra DOM/animation cost this adds on an already-busy dense-metro scene.
+  const jamLanes = density >= 0.85;
+  const JAM_ROAD_COUNT = 4;
+  const JAM_QUEUE = 2;
   // zones[] only holds the DEVELOPED cells (see kawasanDevelopedCount) — this
   // maps each one back onto its grid (col,row), centre-outward, and
   // zoneKindByCell lets the zebra-crossing check ask "what's at this cell?"
   // in O(1) instead of assuming a dense row*gridSize+col layout.
   const zonePositions = assignZonePositions(gridSize, zones.length);
   const zoneKindByCell = new Map<string, ZoneKind>();
+  // (col,row) -> zone, reused by the minimap below so it doesn't need its
+  // own O(gridSize^2 * zones.length) lookup pass.
+  const zoneByCell = new Map<string, Zone>();
   zonePositions.forEach((pos, i) => {
-    const kind = zones[i]?.kind;
-    if (kind) zoneKindByCell.set(`${pos.col},${pos.row}`, kind);
+    const zone = zones[i];
+    if (zone) {
+      zoneKindByCell.set(`${pos.col},${pos.row}`, zone.kind);
+      zoneByCell.set(`${pos.col},${pos.row}`, zone);
+    }
   });
   const occupiedCells = new Set(zonePositions.map((pos) => `${pos.col},${pos.row}`));
   const emptyCells: { col: number; row: number }[] = [];
@@ -1569,10 +1801,20 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
         {carRoadsY.flatMap((y, ri) => [
           <Car key={`car-h-${ri}-0`} lane={y + 8} dur={(13 + ri * 2) * k} delay={(-3 - ri) * k} colorIdx={ri * 2} kind={ri === 0 ? "bus" : "car"} />,
           <Car key={`car-h-${ri}-1`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k} rev colorIdx={ri * 2 + 1} kind={ri === 1 ? "motorcycle" : "car"} />,
+          ...(jamLanes && ri < JAM_ROAD_COUNT
+            ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
+                <Car key={`car-h-${ri}-q${qi}`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k + (qi + 1) * 3.2} rev colorIdx={(ri + qi + 3) % 5} />
+              ))
+            : []),
         ])}
         {carRoadsX.flatMap((x, ri) => [
           <Car key={`car-v-${ri}-0`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k} colorIdx={(ri * 2 + 4) % 5} kind={ri === 0 ? "motorcycle" : "car"} />,
           <Car key={`car-v-${ri}-1`} vertical lane={x + 22} dur={(12 + ri) * k} delay={(-8 - ri) * k} rev colorIdx={(ri * 2 + 5) % 5} kind={ri === 1 ? "bus" : "car"} />,
+          ...(jamLanes && ri < JAM_ROAD_COUNT
+            ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
+                <Car key={`car-v-${ri}-q${qi}`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k + (qi + 1) * 3.5} colorIdx={(ri + qi + 1) % 5} />
+              ))
+            : []),
         ])}
         {/* Parked traffic: a couple of static cars at the kerb on the first
             busy road each axis, filling the empty edge next to the new
@@ -1618,7 +1860,8 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
             key={zone.id}
             zone={zone}
             selected={zone.id === selectedZoneId}
-            onSelect={() => { if (!movedRef.current) setSelectedZoneId(zone.id); }}
+            onSelect={setSelectedZoneId}
+            movedRef={movedRef}
             lang={lang}
             col={zonePositions[index]?.col ?? 0}
             row={zonePositions[index]?.row ?? 0}
@@ -1673,8 +1916,36 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
             ))}
             <TransitStation x={(ROUTE_P0.x + ROUTE_P1.x) / 2} y={ROUTE_Y} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
             <TransitStation x={ROUTE_X} y={(ROUTE_P2.y + ROUTE_P3.y) / 2} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
-            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} />
-            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev />
+            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} route={FWD_ROUTE} rot={LINE1_ROT} />
+            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev route={REV_ROUTE} rot={LINE1_ROT} />
+          </>
+        )}
+        {/* Line 2: a second, straight north-south route stacked above Line 1
+            (dense-metro seats only) crossing it at INTERCHANGE — see the
+            constants above for why a plain straight line needs no chamfer
+            and why it's stacked at a different deck height. */}
+        {showTransit && showLine2 && (
+          <>
+            {LINE2_BOUNDS.slice(0, -1).map((segY, i) => (
+              <div key={`deck2-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: LINE2_X - TRACK_W / 2, top: segY, width: TRACK_W, height: LINE2_BOUNDS[i + 1] - segY, transform: `translateZ(${LINE2_DECK_Z}px)` }} />
+            ))}
+            {ROADS_H.filter((y) => y > LINE2_TOP.y && y < LINE2_BOTTOM.y).map((y) => (
+              <TransitPylon key={`pylon2-${y}`} left={LINE2_X - 5} top={y - 5} deckZ={LINE2_DECK_Z} />
+            ))}
+            <TransitStation x={LINE2_X} y={(LINE2_TOP.y + ROUTE_Y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
+            <TransitStation x={LINE2_X} y={(ROUTE_Y + LINE2_BOTTOM.y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
+            <TransitTrain z={LINE2_DECK_Z + 3} dur={`${line2Dur.toFixed(1)}s`} route={LINE2_FWD_ROUTE} />
+            <TransitTrain z={LINE2_DECK_Z + 3} dur={`${(line2Dur * 1.1).toFixed(1)}s`} delay={`${(-line2Dur * 0.5).toFixed(1)}s`} rev route={LINE2_REV_ROUTE} />
+            {/* Interchange complex: both lines' platforms plus a vertical
+                connector shaft tying the two deck levels together, so the
+                crossing reads as one deliberate interchange station rather
+                than two unrelated lines that happen to overlap in plan. */}
+            <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={TRACK_DECK_Z} tag="INTERCHANGE" />
+            <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={LINE2_DECK_Z} tag="INTERCHANGE" />
+            <div className="kw-3d absolute" style={{ left: INTERCHANGE.x - 3, top: INTERCHANGE.y - 3, width: 6, height: 6 }}>
+              <div className="absolute kw-face-lit" style={{ left: 0, top: 6, width: 6, height: LINE2_DECK_Z - TRACK_DECK_Z, transformOrigin: "top", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateX(90deg)`, background: "linear-gradient(180deg, #7dd3fc, #0369a1)" }} />
+              <div className="absolute kw-face-shadow" style={{ left: 6, top: 0, width: LINE2_DECK_Z - TRACK_DECK_Z, height: 6, transformOrigin: "left", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateY(-90deg)`, background: "linear-gradient(90deg, #0369a1, #0c4a6e)" }} />
+            </div>
           </>
         )}
         {/* helicopter patrol: anchor orbits the world centre, counter-spin keeps the billboard steady */}
@@ -1786,6 +2057,45 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
       <div className="pointer-events-none absolute bottom-3 left-4 right-4 flex flex-wrap justify-between gap-x-4 gap-y-1 text-[9px] font-bold tracking-[0.18em]" style={{ color: "rgba(148,163,184,0.95)" }}>
         <span>{t(lang, "SERET · PUTAR PETA", "DRAG · ROTATE MAP")} / {t(lang, "SKROL · ZUM", "SCROLL · ZOOM")}</span>
         <span>{t(lang, "KLIK ZON UNTUK PILIH PROJEK", "CLICK A ZONE TO PICK A PROJECT")}</span>
+      </div>
+      {/* Minimap: top-down grid readout, screen-space (sibling of .kw-world,
+          not inside its preserve-3d tree). The compass wedge reads --kw-rz
+          straight off this element via CSS var() — --kw-rz is set
+          imperatively on the .kw-scene root (this component's own outer
+          div) every frame during drag/zoom (see applyCam above), and CSS
+          custom properties inherit to every descendant for free, so the
+          wedge tracks the live camera angle without any extra per-frame
+          JS write or React state of its own. This orbit camera has no pan,
+          only rotate+tilt+zoom, so "camera position" here is really just
+          the orbit angle — the wedge direction is the honest equivalent of
+          a position dot. */}
+      <div className="pointer-events-none absolute bottom-16 right-4 border p-1.5" style={{ borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.8)" }}>
+        <div className="mb-1 text-center text-[7px] font-black tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "PETA", "MAP")}</div>
+        <div className="relative" style={{ width: gridSize * MINIMAP_CELL, height: gridSize * MINIMAP_CELL }}>
+          {Array.from({ length: gridSize * gridSize }, (_, index) => {
+            const col = index % gridSize;
+            const row = Math.floor(index / gridSize);
+            const zone = zoneByCell.get(`${col},${row}`);
+            const isSelected = !!zone && zone.id === selectedZoneId;
+            return (
+              <div
+                key={`mm-${col}-${row}`}
+                className="absolute"
+                style={{
+                  left: col * MINIMAP_CELL,
+                  top: row * MINIMAP_CELL,
+                  width: MINIMAP_CELL - 1,
+                  height: MINIMAP_CELL - 1,
+                  background: zone ? `rgba(${scoreTintRGB(zone.sentiment)},0.85)` : "rgba(148,163,184,0.12)",
+                  outline: isSelected ? "1px solid var(--gold)" : undefined,
+                }}
+              />
+            );
+          })}
+          <div className="absolute" style={{ left: "50%", top: "50%", width: 0, height: 0, transform: "translate(-50%,-50%) rotate(var(--kw-rz, 45deg))" }}>
+            <div style={{ width: 0, height: 0, marginTop: -gridSize * MINIMAP_CELL * 0.5, borderLeft: "3.5px solid transparent", borderRight: "3.5px solid transparent", borderBottom: "8px solid #facc15", filter: "drop-shadow(0 0 2px rgba(250,204,21,0.8))" }} />
+          </div>
+        </div>
       </div>
     </div>
   );
