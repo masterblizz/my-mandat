@@ -43,6 +43,10 @@ export default function RegisterPage() {
       password,
       options: {
         data: { username },
+        // Without this, Supabase sends the confirmation link to whatever
+        // "Site URL" is set in the dashboard (defaults to localhost:3000),
+        // which would break the flow on every non-local deployment.
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     });
 

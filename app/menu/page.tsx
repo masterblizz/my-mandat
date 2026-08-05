@@ -11,6 +11,7 @@ import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
 import { buildDailyChallenge } from "../utils/dailyChallenge";
 import { useLang, t } from "../i18n/useLang";
+import { createClient } from "../utils/supabase/client";
 
 type MenuItemConfig = {
   id: string;
@@ -148,6 +149,11 @@ export default function MainMenuPage() {
   );
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
+    if (item.id === "07") {
+      const supabase = createClient();
+      supabase.auth.signOut().finally(() => router.push("/login"));
+      return;
+    }
     if (item.id === "06") {
       setShowCredits(true);
       return;
@@ -197,10 +203,6 @@ export default function MainMenuPage() {
       }
 
       router.push("/load-game");
-      return;
-    }
-    if (item.id === "07") {
-      router.push("/login");
       return;
     }
     if (!item.href) return;
