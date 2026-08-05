@@ -670,7 +670,7 @@ function PlantShadow({ width, scale }: { width: number; scale: number }) {
   return <div className="absolute" style={{ left: (30 * scale - width) / 2 - 4, bottom: -3, width: width + 8, height: 7 * scale, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(0,0,0,0.4), transparent 72%)" }} />;
 }
 
-function Tree({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale?: number; variant?: number }) {
+const Tree = memo(function Tree({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale?: number; variant?: number }) {
   const canopy = TREE_CANOPY[variant % TREE_CANOPY.length];
   return (
     <div className="kw-3d absolute" style={{ left: x, top: y, width: 0, height: 0 }}>
@@ -689,9 +689,9 @@ function Tree({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale?: 
       </div>
     </div>
   );
-}
+});
 
-function Palm({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
+const Palm = memo(function Palm({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
     <div className="kw-3d absolute" style={{ left: x, top: y, width: 0, height: 0 }}>
       <div className="kw-bill" style={{ width: 34 * scale }}>
@@ -707,9 +707,9 @@ function Palm({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
       </div>
     </div>
   );
-}
+});
 
-function Conifer({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale?: number; variant?: number }) {
+const Conifer = memo(function Conifer({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale?: number; variant?: number }) {
   const canopy = CONIFER_CANOPY[variant % CONIFER_CANOPY.length];
   return (
     <div className="kw-3d absolute" style={{ left: x, top: y, width: 0, height: 0 }}>
@@ -722,12 +722,12 @@ function Conifer({ x, y, scale = 1, variant = 0 }: { x: number; y: number; scale
       </div>
     </div>
   );
-}
+});
 
 const BUNTING_COLORS = ["#dc2626", "#facc15", "#2563eb", "#f8fafc", "#16a34a"];
 
 // Election bunting: string of triangle flags between two poles
-function Bunting({ x, y, delay }: { x: number; y: number; delay: number }) {
+const Bunting = memo(function Bunting({ x, y, delay }: { x: number; y: number; delay: number }) {
   return (
     <div className="kw-3d absolute" style={{ left: x, top: y, width: 0, height: 0 }}>
       <div className="kw-bill">
@@ -744,7 +744,7 @@ function Bunting({ x, y, delay }: { x: number; y: number; delay: number }) {
       </div>
     </div>
   );
-}
+});
 
 function Fireworks() {
   const bursts = [
@@ -1453,20 +1453,43 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   }
   const LANE_OFFSETS = density >= 0.85 ? [10, 20, 30] : density >= 0.62 ? [13, 27] : density >= 0.3 ? [19] : [];
   const LANE_MEDIAN_INDEX = density >= 0.85 ? 1 : -1;
-  const laneBgX = laneBg(LANE_OFFSETS, LANE_MEDIAN_INDEX, "x");
-  const laneBgY = laneBg(LANE_OFFSETS, LANE_MEDIAN_INDEX, "y");
+  // Everything below this comment through emptyCells is memoized: all of it
+  // is a pure function of gridSize/density/zones, but was previously being
+  // rebuilt from scratch (sorts, Map/Set builds, O(gridSize^2) loops) on
+  // every City3DMap re-render — including ones triggered by nothing more
+  // than clicking a different zone to inspect it, which changes none of
+  // this world geometry. On a dense-metro grid (gridSize 12, ~110
+  // junctions) that redundant work ran on every single zone click.
+  // LANE_OFFSETS/LANE_MEDIAN_INDEX/interiorX/interiorY are deliberately left
+  // out of these deps: they're plain consts recomputed fresh every render
+  // (new array identity each time) but always equal in value for a given
+  // gridSize/density, which is what's actually listed — including them
+  // would make the array reference "change" every render and defeat the
+  // memo entirely.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const laneBgX = useMemo(() => laneBg(LANE_OFFSETS, LANE_MEDIAN_INDEX, "x"), [density]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const laneBgY = useMemo(() => laneBg(LANE_OFFSETS, LANE_MEDIAN_INDEX, "y"), [density]);
   const interiorX = ROADS_V.slice(1);
   const interiorY = ROADS_H.slice(1, -1);
-  const junctions = interiorX.flatMap((jx, xi) => interiorY.map((jy, yi) => ({ jx, jy, xi, yi })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const junctions = useMemo(() => interiorX.flatMap((jx, xi) => interiorY.map((jy, yi) => ({ jx, jy, xi, yi }))), [gridSize]);
   // Traffic road count scales with density instead of a flat cap for every
   // seat: a rural seat stays quiet (2 busy interior roads, the original
   // cap), while dense-metro puts traffic on essentially every interior road
   // (capped at 10 to bound DOM/animation cost on a big grid) — matching how
   // empty-vs-jammed a real small town and a real city centre actually look,
   // not just building density.
-  const carRoadCap = density >= 0.85 ? Math.min(interiorY.length, interiorX.length, 10) : density >= 0.62 ? 5 : 2;
-  const carRoadsY = interiorY.slice(0, carRoadCap);
-  const carRoadsX = interiorX.slice(0, carRoadCap);
+  const carRoadsY = useMemo(() => {
+    const carRoadCap = density >= 0.85 ? Math.min(interiorY.length, interiorX.length, 10) : density >= 0.62 ? 5 : 2;
+    return interiorY.slice(0, carRoadCap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridSize, density]);
+  const carRoadsX = useMemo(() => {
+    const carRoadCap = density >= 0.85 ? Math.min(interiorY.length, interiorX.length, 10) : density >= 0.62 ? 5 : 2;
+    return interiorX.slice(0, carRoadCap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridSize, density]);
   // Dense-metro also queues extra cars behind the regular 2 on its busiest
   // roads — short, fixed delay gaps behind the lead car (not a random
   // stagger) read as nose-to-tail congestion, not just "more roads have
@@ -1479,25 +1502,31 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   // maps each one back onto its grid (col,row), centre-outward, and
   // zoneKindByCell lets the zebra-crossing check ask "what's at this cell?"
   // in O(1) instead of assuming a dense row*gridSize+col layout.
-  const zonePositions = assignZonePositions(gridSize, zones.length);
-  const zoneKindByCell = new Map<string, ZoneKind>();
+  const zonePositions = useMemo(() => assignZonePositions(gridSize, zones.length), [gridSize, zones.length]);
   // (col,row) -> zone, reused by the minimap below so it doesn't need its
   // own O(gridSize^2 * zones.length) lookup pass.
-  const zoneByCell = new Map<string, Zone>();
-  zonePositions.forEach((pos, i) => {
-    const zone = zones[i];
-    if (zone) {
-      zoneKindByCell.set(`${pos.col},${pos.row}`, zone.kind);
-      zoneByCell.set(`${pos.col},${pos.row}`, zone);
+  const { zoneKindByCell, zoneByCell } = useMemo(() => {
+    const kindByCell = new Map<string, ZoneKind>();
+    const byCell = new Map<string, Zone>();
+    zonePositions.forEach((pos, i) => {
+      const zone = zones[i];
+      if (zone) {
+        kindByCell.set(`${pos.col},${pos.row}`, zone.kind);
+        byCell.set(`${pos.col},${pos.row}`, zone);
+      }
+    });
+    return { zoneKindByCell: kindByCell, zoneByCell: byCell };
+  }, [zonePositions, zones]);
+  const emptyCells = useMemo(() => {
+    const occupiedCells = new Set(zonePositions.map((pos) => `${pos.col},${pos.row}`));
+    const cells: { col: number; row: number }[] = [];
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        if (!occupiedCells.has(`${col},${row}`)) cells.push({ col, row });
+      }
     }
-  });
-  const occupiedCells = new Set(zonePositions.map((pos) => `${pos.col},${pos.row}`));
-  const emptyCells: { col: number; row: number }[] = [];
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      if (!occupiedCells.has(`${col},${row}`)) emptyCells.push({ col, row });
-    }
-  }
+    return cells;
+  }, [gridSize, zonePositions]);
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const cam = useRef({ ...CAM_DEFAULT });
   const defaultZoom = useRef(CAM_DEFAULT.zoom);
@@ -1604,6 +1633,337 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
   const controlButton = "pointer-events-auto flex h-9 w-9 items-center justify-center border text-[13px] font-black";
   const controlStyle = { borderColor: "rgba(125,211,252,0.4)", background: "rgba(3,8,15,0.8)", color: "#7dd3fc" } as const;
 
+  // worldDecorPre/worldDecorPost: the static roads/junctions/traffic/trees/
+  // transit-line dressing that surrounds the zone grid. None of it depends
+  // on selectedZoneId or celebration, but City3DMap re-renders on both
+  // (clicking a zone to inspect it is the single most frequent interaction
+  // on this screen). Without this memo boundary, React would re-create and
+  // reconcile this entire subtree — hundreds of elements on a dense-metro
+  // grid (junctions, lamps, cars, traffic lights, transit deck segments) —
+  // on every zone click even though not one pixel of it actually changed.
+  // Memoizing the JSX itself (not just the data feeding it) means React
+  // sees the same element reference and bails out of that subtree entirely
+  // instead of re-diffing it. Split in two (pre/post) only so ZonePlot's
+  // own zones.map — which DOES need the live selectedZoneId — can sit
+  // between them without being swallowed into the memo.
+  const worldDecorPre = useMemo(() => (
+    <>
+      {/* Distant terrain: far larger than the city block and mask-faded at
+          its own outer edge, so the horizon dissolves into the sky instead
+          of cutting off — this is what makes the city read as sitting
+          *in* a world instead of floating on a cropped tile. */}
+      <div
+        className="kw-farground absolute"
+        style={{
+          inset: -340,
+          pointerEvents: "none",
+          transform: "translateZ(-6px)",
+          // Soft sheen layered over the ground colour: a low-alpha highlight
+          // (not a mirror image — this is a flat plane, not a real
+          // reflection) that reads as damp/reflective ground catching the
+          // sky's light, so the terrain doesn't look like flat matte paint.
+          background:
+            "radial-gradient(ellipse 380px 160px at 50% 36%, rgba(255,255,255,0.08), transparent 72%), var(--kw-ground, linear-gradient(135deg, #1d3326, #12211a))",
+          maskImage: "radial-gradient(circle at 50% 50%, black 30%, black 46%, transparent 82%)",
+          WebkitMaskImage: "radial-gradient(circle at 50% 50%, black 30%, black 46%, transparent 82%)",
+        }}
+      />
+      {/* pointer-events none: coplanar with the zone buttons, so it can steal their clicks in 3D hit-testing.
+          kw-worldground masks this layer's own hard rectangle edge (see globals.css) so its grass
+          texture fades into kw-farground below instead of stopping in a crisp square seam — that
+          seam, not the (already-soft) farground, was the real source of the "cake platter" look.
+          The extra radial-gradient blotches are fixed, hand-placed light/dark patches faking gentle
+          elevation — a real per-vertex heightmap isn't practical on a flat CSS plane, and moving
+          actual geometry here risks the preserve-3d flattening bug (see kw-horizonglow above). */}
+      <div
+        className="kw-grassy kw-worldground absolute"
+        style={{
+          inset: -70,
+          pointerEvents: "none",
+          background: "var(--kw-ground, linear-gradient(135deg, #1d3326, #12211a))",
+          backgroundImage:
+            "radial-gradient(220px 140px at 18% 74%, rgba(255,255,255,0.05), transparent 70%), radial-gradient(260px 160px at 82% 20%, rgba(0,0,0,0.14), transparent 72%), radial-gradient(200px 130px at 70% 86%, rgba(255,255,255,0.04), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 60px), repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 60px)",
+        }}
+      />
+      {/* City base: thick concrete/soil skirt around the immediate ground
+          tile so it reads as a block resting on a foundation, not a flat
+          sliced plane. Tilted a few degrees short of vertical (rotateX 74
+          instead of 90) so the ground-to-wall corner reads as a shallow
+          batter/embankment rather than a table edge. Only the south + east
+          faces are ever camera-facing (see the building-wall convention
+          above). */}
+      <div className="kw-3d absolute kw-slab-wall" style={{ left: -70, top: WORLD + 70, width: WORLD + 140, height: 78, transformOrigin: "top", transform: "rotateX(74deg)" }} />
+      <div className="kw-3d absolute kw-slab-wall kw-slab-wall-side" style={{ left: WORLD + 70, top: -70, width: 78, height: WORLD + 140, transformOrigin: "left", transform: "rotateY(-74deg)" }} />
+      {ROADS_H.map((y) => (
+        <div key={`rh-${y}`} className="kw-road-x absolute" style={{ left: 0, top: y, width: RIVER_X, height: 40, ...laneBgX }} />
+      ))}
+      {ROADS_V.map((x) => (
+        <div key={`rv-${x}`} className="kw-road-y absolute" style={{ left: x, top: 0, width: 40, height: WORLD, ...laneBgY }} />
+      ))}
+      {/* coastal seats face open sea with a beach + jetty; inland seats get the river and bridges */}
+      {traits.coastal && <div className="absolute" style={{ left: RIVER_X - 14, top: -70, width: 14, height: WORLD + 140, background: "repeating-linear-gradient(0deg, #fde68a 0 12px, #fcd34d 12px 24px)", opacity: 0.85 }} />}
+      <div className="kw-water absolute" style={{ left: RIVER_X, top: -70, width: traits.coastal ? 110 : 40, height: WORLD + 140 }} />
+      {/* Bridge deck sits at translateZ(4px) — above the boats' translateZ(1px)
+          water plane — so a boat passing underneath is correctly occluded by
+          the deck instead of floating on top of it. Two piers per crossing
+          (true 3D wall-hinge, same convention as building walls) stand from
+          the water up to the deck so it reads as supported, not floating. */}
+      {!traits.coastal && ROADS_H.map((y) => (
+        <div key={`bridge-${y}`}>
+          <div className="absolute" style={{ left: RIVER_X + 4, top: y + 42, width: 5, height: 9, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
+          <div className="absolute" style={{ left: RIVER_X + 34, top: y + 42, width: 5, height: 9, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
+          <div className="absolute" style={{ left: RIVER_X - 4, top: y - 2, width: 48, height: 44, background: "linear-gradient(180deg, #3b4a63, #232f45)", border: "2px solid rgba(148,163,184,0.35)", transform: "translateZ(4px)" }} />
+        </div>
+      ))}
+      {traits.coastal && (
+        <>
+          {/* Jetty: was hardcoded at top:420, a value with no relation to
+              ROADS_H — it read as a disconnected, off-grid ramp. Snapped
+              onto a middle ROADS_H entry so it's the literal continuation
+              of that street across the coastline (ROADS_H now varies with
+              gridSize, so the middle index is picked at render time rather
+              than a fixed [2]), and its width is clamped so it ends exactly
+              at WORLD's edge instead of overshooting into the margin unclamped. */}
+          <div className="absolute" style={{ left: RIVER_X - 6, top: ROADS_H[Math.floor(ROADS_H.length / 2)] + 14, width: WORLD - (RIVER_X - 6), height: 12, transform: "translateZ(3px)", background: "repeating-linear-gradient(90deg, #92400e 0 6px, #78350f 6px 8px)", border: "1px solid rgba(69,26,3,0.9)" }} />
+          <Boat x={RIVER_X + 62} w={11} h={24} hullTop="#0ea5e9" hullBottom="#075985" dur={sc(52)} delay={sc(-31)} />
+        </>
+      )}
+      {/* highland seats: hill backdrop along the north edge. Each entry is a
+          layered stack (back mound + shaded main mound + front mound
+          overlapping the ground) rather than one flat silhouette, so the
+          skyline reads as elevation, not just tall buildings on flat ground.
+          The main mound's shading is a fixed off-centre highlight/shadow
+          pair (not the world-rotation-driven lit/shadow faces buildings use)
+          since billboards always face the camera and have no true side. */}
+      {traits.hilly && HILL_POSITIONS.map(([x, y, s, zNudge], index) => (
+        <div key={`hill-${index}`} className="kw-3d absolute" style={{ left: x * k, top: y * k, width: 0, height: 0, transform: `translateZ(${zNudge}px)` }}>
+          <div className="kw-bill" style={{ width: 210 * s, height: 82 * s }}>
+            <div style={{ position: "absolute", left: 22 * s, top: -16 * s, width: 168 * s, height: 58 * s, borderRadius: "50% 50% 0 0", background: "linear-gradient(180deg, #052e16, #021a0c)", opacity: 0.85 }} />
+            <div
+              style={{
+                position: "absolute",
+                width: 210 * s,
+                height: 82 * s,
+                borderRadius: "50% 50% 0 0",
+                background:
+                  "radial-gradient(55% 50% at 30% 18%, rgba(163,230,53,0.32), transparent 62%), " +
+                  "radial-gradient(65% 55% at 74% 88%, rgba(2,6,15,0.5), transparent 68%), " +
+                  "linear-gradient(180deg, #14532d, #052e16)",
+                opacity: 0.94,
+              }}
+            />
+            <div style={{ position: "absolute", left: -16 * s, bottom: -8 * s, width: 118 * s, height: 38 * s, borderRadius: "50% 50% 0 0", background: "linear-gradient(180deg, #1a7a3d, #14532d)", opacity: 0.9 }} />
+          </div>
+        </div>
+      ))}
+      {/* Forested slopes: small conifer specks scattered along each hill's
+          front mound so it reads as a vegetated hillside instead of a bare
+          green dome. Reuses the same Conifer component at a tiny scale. */}
+      {traits.hilly && HILL_POSITIONS.flatMap(([x, y, s], hillIndex) => (
+        [-42, -14, 16, 42].map((dx, speckIndex) => (
+          <Conifer
+            key={`hill-tree-${hillIndex}-${speckIndex}`}
+            x={x * k + dx * s}
+            y={(y + 58) * k}
+            scale={0.3 * s}
+            variant={(hillIndex + speckIndex) % CONIFER_CANOPY.length}
+          />
+        ))
+      ))}
+      {/* rice-bowl seats: paddy plots in the world margins */}
+      {traits.paddy && [[-64, 180], [-60, 470], [-66, 720], [180, 898], [520, 902]].map(([x, y], index) => (
+        <div key={`padi-${index}`} className="absolute" style={{ left: x * k, top: y * k, width: 48, height: 42, transform: "translateZ(1px)", background: flatTile("sawah"), border: "1px solid rgba(163,230,53,0.25)", borderRadius: 3 }} />
+      ))}
+      {junctions.map(({ jx, jy }) => <div key={`lamp-${jx}-${jy}`} className="kw-lamp" style={{ left: jx + 20 - 36, top: jy + 20 - 36 }} />)}
+      <Boat x={RIVER_X + 6} w={12} h={26} hullTop="#d97706" hullBottom="#7c2d12" dur={sc(38)} delay={sc(-9)} />
+      <Boat x={RIVER_X + 23} w={10} h={22} hullTop="#e2e8f0" hullBottom="#64748b" dur={sc(47)} delay={sc(-22)} rev />
+      {/* Traffic mix: mostly cars with the occasional bus/motorcycle
+          (index-derived, not random — must stay stable across renders
+          like every other seeded value in this scene) instead of every
+          vehicle being the same generic car. */}
+      {carRoadsY.flatMap((y, ri) => [
+        <Car key={`car-h-${ri}-0`} lane={y + 8} dur={(13 + ri * 2) * k} delay={(-3 - ri) * k} colorIdx={ri * 2} kind={ri === 0 ? "bus" : "car"} />,
+        <Car key={`car-h-${ri}-1`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k} rev colorIdx={ri * 2 + 1} kind={ri === 1 ? "motorcycle" : "car"} />,
+        ...(jamLanes && ri < JAM_ROAD_COUNT
+          ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
+              <Car key={`car-h-${ri}-q${qi}`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k + (qi + 1) * 3.2} rev colorIdx={(ri + qi + 3) % 5} />
+            ))
+          : []),
+      ])}
+      {carRoadsX.flatMap((x, ri) => [
+        <Car key={`car-v-${ri}-0`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k} colorIdx={(ri * 2 + 4) % 5} kind={ri === 0 ? "motorcycle" : "car"} />,
+        <Car key={`car-v-${ri}-1`} vertical lane={x + 22} dur={(12 + ri) * k} delay={(-8 - ri) * k} rev colorIdx={(ri * 2 + 5) % 5} kind={ri === 1 ? "bus" : "car"} />,
+        ...(jamLanes && ri < JAM_ROAD_COUNT
+          ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
+              <Car key={`car-v-${ri}-q${qi}`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k + (qi + 1) * 3.5} colorIdx={(ri + qi + 1) % 5} />
+            ))
+          : []),
+      ])}
+      {/* Parked traffic: a couple of static cars at the kerb on the first
+          busy road each axis, filling the empty edge next to the new
+          sidewalk strip. Fixed offsets (not random) at the curb-side lane
+          (y/x + 33, right against the sidewalk added to ZonePlot above),
+          kept to 2 per axis to bound the DOM-node cost this adds. */}
+      {carRoadsY.slice(0, 1).flatMap((y) => [
+        <Car key="park-h-0" lane={y + 29} parkedAt={80} colorIdx={2} />,
+        <Car key="park-h-1" lane={y + 29} parkedAt={ROAD_GAP * 1.55} colorIdx={4} />,
+      ])}
+      {carRoadsX.slice(0, 1).flatMap((x) => [
+        <Car key="park-v-0" vertical lane={x + 29} parkedAt={90} colorIdx={1} />,
+        <Car key="park-v-1" vertical lane={x + 29} parkedAt={ROAD_GAP * 1.6} colorIdx={3} />,
+      ])}
+      {junctions.map(({ jx, jy, xi, yi }) => (
+        <div key={`tl-${jx}-${jy}`} className="kw-3d absolute" style={{ left: jx - 7, top: jy - 7, width: 0, height: 0 }}>
+          <div className="kw-bill">
+            <div className="mx-auto flex h-[11px] w-[9px] items-center justify-center rounded-sm" style={{ background: "#1e293b", border: "1px solid rgba(148,163,184,0.5)" }}>
+              <span className="kw-tlight" style={{ animationDelay: `${(xi * 2 + yi) * -2.2}s` }} />
+            </div>
+            <div className="mx-auto" style={{ width: 2, height: 14, background: "#475569" }} />
+          </div>
+        </div>
+      ))}
+      {/* Zebra crossings: only painted at junctions bordering a school or
+          clinic zone (education/community kind), not every junction, so
+          they read as a deliberate safety marking rather than decoration. */}
+      {junctions.flatMap(({ jx, jy, xi, yi }) => {
+        const cols = [xi, xi + 1];
+        const rows = [yi, yi + 1];
+        const hasSchoolOrClinic = rows.some((row) => cols.some((col) => {
+          const kind = zoneKindByCell.get(`${col},${row}`);
+          return kind === "education" || kind === "community";
+        }));
+        if (!hasSchoolOrClinic) return [];
+        return [
+          <div key={`zebra-h-${jx}-${jy}`} className="absolute" style={{ left: jx - 34, top: jy, width: 24, height: 40, backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.8) 0 4px, transparent 4px 9px)" }} />,
+          <div key={`zebra-v-${jx}-${jy}`} className="absolute" style={{ left: jx, top: jy - 34, width: 40, height: 24, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.8) 0 4px, transparent 4px 9px)" }} />,
+        ];
+      })}
+    </>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [gridSize, density, traits, WORLD, RIVER_X, k, junctions, carRoadsY, carRoadsX, jamLanes, laneBgX, laneBgY, zoneKindByCell]);
+
+  const worldDecorPost = useMemo(() => (
+    <>
+      {/* Metro/dense-metro seats only: an elevated LRT/MRT viaduct along the
+          west margin, mirroring how the river owns the east edge. Painted
+          after the zone grid (like the perimeter vegetation below) rather
+          than before it — this scene has no real depth buffer, so a west-
+          margin structure has to come later in paint order than the
+          buildings to actually read as in front of them, the same reason
+          the tree line below is ordered where it is. Piers use the same
+          true-3D wall-hinge (south+east face) convention as buildings/
+          bridge piers; the deck itself stays a flat translateZ'd cap like
+          the road bridges above rather than a full extruded box —
+          proportionally too thin over this length to need real side walls. */}
+      {showTransit && (
+        <>
+          {/* One deck div per block (matching the pylon/bridge spacing) rather
+              than a single span across the whole route: a lone primitive
+              that long has a far corner extreme enough to fall outside this
+              camera's valid perspective range, and gets culled wholesale —
+              not clipped, just invisible — the same reason bridge decks are
+              already built one-per-crossing instead of one long deck. */}
+          {LEG1_BOUNDS.slice(0, -1).map((segX, i) => (
+            <div key={`deck-h-${segX}`} className="kw-3d absolute kw-lrt-deck-h" style={{ left: segX, top: ROUTE_Y - TRACK_W / 2, width: LEG1_BOUNDS[i + 1] - segX, height: TRACK_W, transform: `translateZ(${TRACK_DECK_Z}px)` }} />
+          ))}
+          {/* Chamfer: one diagonal deck segment softening the turn from the
+              east-west leg into the north-south leg into a 45deg curve
+              instead of a sharp corner — length is the straight-line
+              distance between the two leg ends, rotated to match. */}
+          <div className="kw-3d absolute kw-lrt-deck-h" style={{ left: ROUTE_P1.x, top: ROUTE_Y - TRACK_W / 2, width: Math.round(Math.hypot(ROUTE_P2.x - ROUTE_P1.x, ROUTE_P2.y - ROUTE_P1.y)), height: TRACK_W, transformOrigin: "0 50%", transform: `translateZ(${TRACK_DECK_Z}px) rotate(-45deg)` }} />
+          {LEG2_BOUNDS.slice(0, -1).map((segY, i) => (
+            <div key={`deck-v-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: ROUTE_X - TRACK_W / 2, top: LEG2_BOUNDS[i + 1], width: TRACK_W, height: segY - LEG2_BOUNDS[i + 1], transform: `translateZ(${TRACK_DECK_Z}px)` }} />
+          ))}
+          {ROADS_V.filter((x) => x > ROUTE_P0.x && x <= ROUTE_P1.x).map((x) => (
+            <TransitPylon key={`pylon-h-${x}`} left={x - 5} top={ROUTE_Y - 5} deckZ={TRACK_DECK_Z} />
+          ))}
+          {ROADS_H.filter((y) => y <= ROUTE_P2.y && y >= ROUTE_P3.y).map((y) => (
+            <TransitPylon key={`pylon-v-${y}`} left={ROUTE_X - 5} top={y - 5} deckZ={TRACK_DECK_Z} />
+          ))}
+          <TransitStation x={(ROUTE_P0.x + ROUTE_P1.x) / 2} y={ROUTE_Y} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
+          <TransitStation x={ROUTE_X} y={(ROUTE_P2.y + ROUTE_P3.y) / 2} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
+          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} route={FWD_ROUTE} rot={LINE1_ROT} />
+          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev route={REV_ROUTE} rot={LINE1_ROT} />
+        </>
+      )}
+      {/* Line 2: a second, straight north-south route stacked above Line 1
+          (dense-metro seats only) crossing it at INTERCHANGE — see the
+          constants above for why a plain straight line needs no chamfer
+          and why it's stacked at a different deck height. */}
+      {showTransit && showLine2 && (
+        <>
+          {LINE2_BOUNDS.slice(0, -1).map((segY, i) => (
+            <div key={`deck2-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: LINE2_X - TRACK_W / 2, top: segY, width: TRACK_W, height: LINE2_BOUNDS[i + 1] - segY, transform: `translateZ(${LINE2_DECK_Z}px)` }} />
+          ))}
+          {ROADS_H.filter((y) => y > LINE2_TOP.y && y < LINE2_BOTTOM.y).map((y) => (
+            <TransitPylon key={`pylon2-${y}`} left={LINE2_X - 5} top={y - 5} deckZ={LINE2_DECK_Z} />
+          ))}
+          <TransitStation x={LINE2_X} y={(LINE2_TOP.y + ROUTE_Y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
+          <TransitStation x={LINE2_X} y={(ROUTE_Y + LINE2_BOTTOM.y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
+          <TransitTrain z={LINE2_DECK_Z + 3} dur={`${line2Dur.toFixed(1)}s`} route={LINE2_FWD_ROUTE} />
+          <TransitTrain z={LINE2_DECK_Z + 3} dur={`${(line2Dur * 1.1).toFixed(1)}s`} delay={`${(-line2Dur * 0.5).toFixed(1)}s`} rev route={LINE2_REV_ROUTE} />
+          {/* Interchange complex: both lines' platforms plus a vertical
+              connector shaft tying the two deck levels together, so the
+              crossing reads as one deliberate interchange station rather
+              than two unrelated lines that happen to overlap in plan. */}
+          <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={TRACK_DECK_Z} tag="INTERCHANGE" />
+          <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={LINE2_DECK_Z} tag="INTERCHANGE" />
+          <div className="kw-3d absolute" style={{ left: INTERCHANGE.x - 3, top: INTERCHANGE.y - 3, width: 6, height: 6 }}>
+            <div className="absolute kw-face-lit" style={{ left: 0, top: 6, width: 6, height: LINE2_DECK_Z - TRACK_DECK_Z, transformOrigin: "top", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateX(90deg)`, background: "linear-gradient(180deg, #7dd3fc, #0369a1)" }} />
+            <div className="absolute kw-face-shadow" style={{ left: 6, top: 0, width: LINE2_DECK_Z - TRACK_DECK_Z, height: 6, transformOrigin: "left", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateY(-90deg)`, background: "linear-gradient(90deg, #0369a1, #0c4a6e)" }} />
+          </div>
+        </>
+      )}
+      {/* helicopter patrol: anchor orbits the world centre, counter-spin keeps the billboard steady */}
+      <div className="kw-3d kw-heli-orbit absolute" style={{ left: WORLD / 2, top: WORLD / 2, width: 0, height: 0 }}>
+        <div className="kw-3d absolute" style={{ left: 396 * k, top: 0, width: 0, height: 0, transform: "translateZ(195px)" }}>
+          <div className="kw-3d kw-heli-counter absolute" style={{ width: 0, height: 0 }}>
+            <div className="kw-bill">
+              <div className="relative" style={{ width: 34, height: 16 }}>
+                <div className="kw-rotor absolute" style={{ left: 3, top: 0, width: 28, height: 2, borderRadius: 2, background: "rgba(226,232,240,0.8)" }} />
+                <div className="absolute" style={{ left: 6, top: 4, width: 16, height: 9, borderRadius: "45% 55% 50% 50%", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
+                <div className="absolute" style={{ left: 20, top: 6, width: 12, height: 3, background: "linear-gradient(180deg, #475569, #1e293b)" }} />
+                <span className="kw-blink absolute" style={{ left: 29, top: 3 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* hot-air balloon: drifts across the valley, grounded at night and in rain */}
+      <div className="kw-3d kw-balloon absolute" style={{ left: 0, top: 0, width: 0, height: 0 }}>
+        <div className="kw-bill">
+          <div className="kw-balloon-body">
+            <div className="kw-bob">
+              <div className="mx-auto" style={{ width: 26, height: 30, borderRadius: "50% 50% 44% 44%", background: "repeating-linear-gradient(90deg, #f87171 0 5px, #fbbf24 5px 10px, #34d399 10px 15px, #60a5fa 15px 20px)", boxShadow: "inset -4px -6px 10px rgba(0,0,0,0.25)" }} />
+              <div className="mx-auto" style={{ width: 2, height: 5, background: "rgba(148,163,184,0.8)" }} />
+              <div className="mx-auto" style={{ width: 9, height: 6, borderRadius: 2, background: "linear-gradient(180deg, #92400e, #451a03)" }} />
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Perimeter vegetation: 3 shapes (round leafy / conifer / palm) instead
+          of just 1, each nudged off its base coordinate by a small
+          index-derived (deterministic, not Math.random — must stay stable
+          across renders) jitter so the tree line doesn't read as
+          grid-snapped. */}
+      {[[-32, 130], [-40, 410], [-30, 690], [905, 190], [912, 480], [120, -34], [430, -40], [700, -32], [-30, 905], [340, 905], [640, 908]].map(([x, y], index) => {
+        const jx = x * k + ((index * 37) % 11) - 5;
+        const jy = y * k + ((index * 53) % 9) - 4;
+        const scale = 0.8 + (index % 3) * 0.18;
+        if (index % 3 === 0) return <Palm key={`tree-${index}`} x={jx} y={jy} scale={scale} />;
+        if (index % 3 === 1) return <Conifer key={`tree-${index}`} x={jx} y={jy} scale={scale} variant={index % CONIFER_CANOPY.length} />;
+        return <Tree key={`tree-${index}`} x={jx} y={jy} scale={scale} variant={index % TREE_CANOPY.length} />;
+      })}
+      {traits.coastal && [[-22, 120], [-24, 360], [-20, 640]].map(([x, y], index) => (
+        <Palm key={`beach-palm-${index}`} x={RIVER_X + x} y={y * k} scale={0.9 + (index % 2) * 0.25} />
+      ))}
+      {[[300, 150], [580, 430], [300, 700], [580, 130]].map(([x, y], index) => (
+        <Bunting key={`bunting-${index}`} x={x * k} y={y * k} delay={index * -1.3} />
+      ))}
+    </>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [gridSize, density, traits, WORLD, RIVER_X, k, showTransit, showLine2]);
+
   return (
     <div
       ref={sceneRef}
@@ -1664,196 +2024,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
           ["--kw-lrt-y3" as string]: `${ROUTE_P3.y}px`,
         }}
       >
-        {/* Distant terrain: far larger than the city block and mask-faded at
-            its own outer edge, so the horizon dissolves into the sky instead
-            of cutting off — this is what makes the city read as sitting
-            *in* a world instead of floating on a cropped tile. */}
-        <div
-          className="kw-farground absolute"
-          style={{
-            inset: -340,
-            pointerEvents: "none",
-            transform: "translateZ(-6px)",
-            // Soft sheen layered over the ground colour: a low-alpha highlight
-            // (not a mirror image — this is a flat plane, not a real
-            // reflection) that reads as damp/reflective ground catching the
-            // sky's light, so the terrain doesn't look like flat matte paint.
-            background:
-              "radial-gradient(ellipse 380px 160px at 50% 36%, rgba(255,255,255,0.08), transparent 72%), var(--kw-ground, linear-gradient(135deg, #1d3326, #12211a))",
-            maskImage: "radial-gradient(circle at 50% 50%, black 30%, black 46%, transparent 82%)",
-            WebkitMaskImage: "radial-gradient(circle at 50% 50%, black 30%, black 46%, transparent 82%)",
-          }}
-        />
-        {/* pointer-events none: coplanar with the zone buttons, so it can steal their clicks in 3D hit-testing.
-            kw-worldground masks this layer's own hard rectangle edge (see globals.css) so its grass
-            texture fades into kw-farground below instead of stopping in a crisp square seam — that
-            seam, not the (already-soft) farground, was the real source of the "cake platter" look.
-            The extra radial-gradient blotches are fixed, hand-placed light/dark patches faking gentle
-            elevation — a real per-vertex heightmap isn't practical on a flat CSS plane, and moving
-            actual geometry here risks the preserve-3d flattening bug (see kw-horizonglow above). */}
-        <div
-          className="kw-grassy kw-worldground absolute"
-          style={{
-            inset: -70,
-            pointerEvents: "none",
-            background: "var(--kw-ground, linear-gradient(135deg, #1d3326, #12211a))",
-            backgroundImage:
-              "radial-gradient(220px 140px at 18% 74%, rgba(255,255,255,0.05), transparent 70%), radial-gradient(260px 160px at 82% 20%, rgba(0,0,0,0.14), transparent 72%), radial-gradient(200px 130px at 70% 86%, rgba(255,255,255,0.04), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 60px), repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 60px)",
-          }}
-        />
-        {/* City base: thick concrete/soil skirt around the immediate ground
-            tile so it reads as a block resting on a foundation, not a flat
-            sliced plane. Tilted a few degrees short of vertical (rotateX 74
-            instead of 90) so the ground-to-wall corner reads as a shallow
-            batter/embankment rather than a table edge. Only the south + east
-            faces are ever camera-facing (see the building-wall convention
-            above). */}
-        <div className="kw-3d absolute kw-slab-wall" style={{ left: -70, top: WORLD + 70, width: WORLD + 140, height: 78, transformOrigin: "top", transform: "rotateX(74deg)" }} />
-        <div className="kw-3d absolute kw-slab-wall kw-slab-wall-side" style={{ left: WORLD + 70, top: -70, width: 78, height: WORLD + 140, transformOrigin: "left", transform: "rotateY(-74deg)" }} />
-        {ROADS_H.map((y) => (
-          <div key={`rh-${y}`} className="kw-road-x absolute" style={{ left: 0, top: y, width: RIVER_X, height: 40, ...laneBgX }} />
-        ))}
-        {ROADS_V.map((x) => (
-          <div key={`rv-${x}`} className="kw-road-y absolute" style={{ left: x, top: 0, width: 40, height: WORLD, ...laneBgY }} />
-        ))}
-        {/* coastal seats face open sea with a beach + jetty; inland seats get the river and bridges */}
-        {traits.coastal && <div className="absolute" style={{ left: RIVER_X - 14, top: -70, width: 14, height: WORLD + 140, background: "repeating-linear-gradient(0deg, #fde68a 0 12px, #fcd34d 12px 24px)", opacity: 0.85 }} />}
-        <div className="kw-water absolute" style={{ left: RIVER_X, top: -70, width: traits.coastal ? 110 : 40, height: WORLD + 140 }} />
-        {/* Bridge deck sits at translateZ(4px) — above the boats' translateZ(1px)
-            water plane — so a boat passing underneath is correctly occluded by
-            the deck instead of floating on top of it. Two piers per crossing
-            (true 3D wall-hinge, same convention as building walls) stand from
-            the water up to the deck so it reads as supported, not floating. */}
-        {!traits.coastal && ROADS_H.map((y) => (
-          <div key={`bridge-${y}`}>
-            <div className="absolute" style={{ left: RIVER_X + 4, top: y + 42, width: 5, height: 9, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
-            <div className="absolute" style={{ left: RIVER_X + 34, top: y + 42, width: 5, height: 9, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
-            <div className="absolute" style={{ left: RIVER_X - 4, top: y - 2, width: 48, height: 44, background: "linear-gradient(180deg, #3b4a63, #232f45)", border: "2px solid rgba(148,163,184,0.35)", transform: "translateZ(4px)" }} />
-          </div>
-        ))}
-        {traits.coastal && (
-          <>
-            {/* Jetty: was hardcoded at top:420, a value with no relation to
-                ROADS_H — it read as a disconnected, off-grid ramp. Snapped
-                onto a middle ROADS_H entry so it's the literal continuation
-                of that street across the coastline (ROADS_H now varies with
-                gridSize, so the middle index is picked at render time rather
-                than a fixed [2]), and its width is clamped so it ends exactly
-                at WORLD's edge instead of overshooting into the margin unclamped. */}
-            <div className="absolute" style={{ left: RIVER_X - 6, top: ROADS_H[Math.floor(ROADS_H.length / 2)] + 14, width: WORLD - (RIVER_X - 6), height: 12, transform: "translateZ(3px)", background: "repeating-linear-gradient(90deg, #92400e 0 6px, #78350f 6px 8px)", border: "1px solid rgba(69,26,3,0.9)" }} />
-            <Boat x={RIVER_X + 62} w={11} h={24} hullTop="#0ea5e9" hullBottom="#075985" dur={sc(52)} delay={sc(-31)} />
-          </>
-        )}
-        {/* highland seats: hill backdrop along the north edge. Each entry is a
-            layered stack (back mound + shaded main mound + front mound
-            overlapping the ground) rather than one flat silhouette, so the
-            skyline reads as elevation, not just tall buildings on flat ground.
-            The main mound's shading is a fixed off-centre highlight/shadow
-            pair (not the world-rotation-driven lit/shadow faces buildings use)
-            since billboards always face the camera and have no true side. */}
-        {traits.hilly && HILL_POSITIONS.map(([x, y, s, zNudge], index) => (
-          <div key={`hill-${index}`} className="kw-3d absolute" style={{ left: x * k, top: y * k, width: 0, height: 0, transform: `translateZ(${zNudge}px)` }}>
-            <div className="kw-bill" style={{ width: 210 * s, height: 82 * s }}>
-              <div style={{ position: "absolute", left: 22 * s, top: -16 * s, width: 168 * s, height: 58 * s, borderRadius: "50% 50% 0 0", background: "linear-gradient(180deg, #052e16, #021a0c)", opacity: 0.85 }} />
-              <div
-                style={{
-                  position: "absolute",
-                  width: 210 * s,
-                  height: 82 * s,
-                  borderRadius: "50% 50% 0 0",
-                  background:
-                    "radial-gradient(55% 50% at 30% 18%, rgba(163,230,53,0.32), transparent 62%), " +
-                    "radial-gradient(65% 55% at 74% 88%, rgba(2,6,15,0.5), transparent 68%), " +
-                    "linear-gradient(180deg, #14532d, #052e16)",
-                  opacity: 0.94,
-                }}
-              />
-              <div style={{ position: "absolute", left: -16 * s, bottom: -8 * s, width: 118 * s, height: 38 * s, borderRadius: "50% 50% 0 0", background: "linear-gradient(180deg, #1a7a3d, #14532d)", opacity: 0.9 }} />
-            </div>
-          </div>
-        ))}
-        {/* Forested slopes: small conifer specks scattered along each hill's
-            front mound so it reads as a vegetated hillside instead of a bare
-            green dome. Reuses the same Conifer component at a tiny scale. */}
-        {traits.hilly && HILL_POSITIONS.flatMap(([x, y, s], hillIndex) => (
-          [-42, -14, 16, 42].map((dx, speckIndex) => (
-            <Conifer
-              key={`hill-tree-${hillIndex}-${speckIndex}`}
-              x={x * k + dx * s}
-              y={(y + 58) * k}
-              scale={0.3 * s}
-              variant={(hillIndex + speckIndex) % CONIFER_CANOPY.length}
-            />
-          ))
-        ))}
-        {/* rice-bowl seats: paddy plots in the world margins */}
-        {traits.paddy && [[-64, 180], [-60, 470], [-66, 720], [180, 898], [520, 902]].map(([x, y], index) => (
-          <div key={`padi-${index}`} className="absolute" style={{ left: x * k, top: y * k, width: 48, height: 42, transform: "translateZ(1px)", background: flatTile("sawah"), border: "1px solid rgba(163,230,53,0.25)", borderRadius: 3 }} />
-        ))}
-        {junctions.map(({ jx, jy }) => <div key={`lamp-${jx}-${jy}`} className="kw-lamp" style={{ left: jx + 20 - 36, top: jy + 20 - 36 }} />)}
-        <Boat x={RIVER_X + 6} w={12} h={26} hullTop="#d97706" hullBottom="#7c2d12" dur={sc(38)} delay={sc(-9)} />
-        <Boat x={RIVER_X + 23} w={10} h={22} hullTop="#e2e8f0" hullBottom="#64748b" dur={sc(47)} delay={sc(-22)} rev />
-        {/* Traffic mix: mostly cars with the occasional bus/motorcycle
-            (index-derived, not random — must stay stable across renders
-            like every other seeded value in this scene) instead of every
-            vehicle being the same generic car. */}
-        {carRoadsY.flatMap((y, ri) => [
-          <Car key={`car-h-${ri}-0`} lane={y + 8} dur={(13 + ri * 2) * k} delay={(-3 - ri) * k} colorIdx={ri * 2} kind={ri === 0 ? "bus" : "car"} />,
-          <Car key={`car-h-${ri}-1`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k} rev colorIdx={ri * 2 + 1} kind={ri === 1 ? "motorcycle" : "car"} />,
-          ...(jamLanes && ri < JAM_ROAD_COUNT
-            ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
-                <Car key={`car-h-${ri}-q${qi}`} lane={y + 22} dur={(17 + ri * 2) * k} delay={(-9 - ri) * k + (qi + 1) * 3.2} rev colorIdx={(ri + qi + 3) % 5} />
-              ))
-            : []),
-        ])}
-        {carRoadsX.flatMap((x, ri) => [
-          <Car key={`car-v-${ri}-0`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k} colorIdx={(ri * 2 + 4) % 5} kind={ri === 0 ? "motorcycle" : "car"} />,
-          <Car key={`car-v-${ri}-1`} vertical lane={x + 22} dur={(12 + ri) * k} delay={(-8 - ri) * k} rev colorIdx={(ri * 2 + 5) % 5} kind={ri === 1 ? "bus" : "car"} />,
-          ...(jamLanes && ri < JAM_ROAD_COUNT
-            ? Array.from({ length: JAM_QUEUE }, (_, qi) => (
-                <Car key={`car-v-${ri}-q${qi}`} vertical lane={x + 8} dur={(16 - ri) * k} delay={(-5 - ri) * k + (qi + 1) * 3.5} colorIdx={(ri + qi + 1) % 5} />
-              ))
-            : []),
-        ])}
-        {/* Parked traffic: a couple of static cars at the kerb on the first
-            busy road each axis, filling the empty edge next to the new
-            sidewalk strip. Fixed offsets (not random) at the curb-side lane
-            (y/x + 33, right against the sidewalk added to ZonePlot above),
-            kept to 2 per axis to bound the DOM-node cost this adds. */}
-        {carRoadsY.slice(0, 1).flatMap((y) => [
-          <Car key="park-h-0" lane={y + 29} parkedAt={80} colorIdx={2} />,
-          <Car key="park-h-1" lane={y + 29} parkedAt={ROAD_GAP * 1.55} colorIdx={4} />,
-        ])}
-        {carRoadsX.slice(0, 1).flatMap((x) => [
-          <Car key="park-v-0" vertical lane={x + 29} parkedAt={90} colorIdx={1} />,
-          <Car key="park-v-1" vertical lane={x + 29} parkedAt={ROAD_GAP * 1.6} colorIdx={3} />,
-        ])}
-        {junctions.map(({ jx, jy, xi, yi }) => (
-          <div key={`tl-${jx}-${jy}`} className="kw-3d absolute" style={{ left: jx - 7, top: jy - 7, width: 0, height: 0 }}>
-            <div className="kw-bill">
-              <div className="mx-auto flex h-[11px] w-[9px] items-center justify-center rounded-sm" style={{ background: "#1e293b", border: "1px solid rgba(148,163,184,0.5)" }}>
-                <span className="kw-tlight" style={{ animationDelay: `${(xi * 2 + yi) * -2.2}s` }} />
-              </div>
-              <div className="mx-auto" style={{ width: 2, height: 14, background: "#475569" }} />
-            </div>
-          </div>
-        ))}
-        {/* Zebra crossings: only painted at junctions bordering a school or
-            clinic zone (education/community kind), not every junction, so
-            they read as a deliberate safety marking rather than decoration. */}
-        {junctions.flatMap(({ jx, jy, xi, yi }) => {
-          const cols = [xi, xi + 1];
-          const rows = [yi, yi + 1];
-          const hasSchoolOrClinic = rows.some((row) => cols.some((col) => {
-            const kind = zoneKindByCell.get(`${col},${row}`);
-            return kind === "education" || kind === "community";
-          }));
-          if (!hasSchoolOrClinic) return [];
-          return [
-            <div key={`zebra-h-${jx}-${jy}`} className="absolute" style={{ left: jx - 34, top: jy, width: 24, height: 40, backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.8) 0 4px, transparent 4px 9px)" }} />,
-            <div key={`zebra-v-${jx}-${jy}`} className="absolute" style={{ left: jx, top: jy - 34, width: 40, height: 24, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.8) 0 4px, transparent 4px 9px)" }} />,
-          ];
-        })}
+        {worldDecorPre}
         {zones.map((zone, index) => (
           <ZonePlot
             key={zone.id}
@@ -1877,122 +2048,7 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
         {emptyCells.map(({ col, row }) => (
           <EmptyPlot key={`empty-${col}-${row}`} col={col} row={row} gridSize={gridSize} />
         ))}
-        {/* Metro/dense-metro seats only: an elevated LRT/MRT viaduct along the
-            west margin, mirroring how the river owns the east edge. Painted
-            after the zone grid (like the perimeter vegetation below) rather
-            than before it — this scene has no real depth buffer, so a west-
-            margin structure has to come later in paint order than the
-            buildings to actually read as in front of them, the same reason
-            the tree line below is ordered where it is. Piers use the same
-            true-3D wall-hinge (south+east face) convention as buildings/
-            bridge piers; the deck itself stays a flat translateZ'd cap like
-            the road bridges above rather than a full extruded box —
-            proportionally too thin over this length to need real side walls. */}
-        {showTransit && (
-          <>
-            {/* One deck div per block (matching the pylon/bridge spacing) rather
-                than a single span across the whole route: a lone primitive
-                that long has a far corner extreme enough to fall outside this
-                camera's valid perspective range, and gets culled wholesale —
-                not clipped, just invisible — the same reason bridge decks are
-                already built one-per-crossing instead of one long deck. */}
-            {LEG1_BOUNDS.slice(0, -1).map((segX, i) => (
-              <div key={`deck-h-${segX}`} className="kw-3d absolute kw-lrt-deck-h" style={{ left: segX, top: ROUTE_Y - TRACK_W / 2, width: LEG1_BOUNDS[i + 1] - segX, height: TRACK_W, transform: `translateZ(${TRACK_DECK_Z}px)` }} />
-            ))}
-            {/* Chamfer: one diagonal deck segment softening the turn from the
-                east-west leg into the north-south leg into a 45deg curve
-                instead of a sharp corner — length is the straight-line
-                distance between the two leg ends, rotated to match. */}
-            <div className="kw-3d absolute kw-lrt-deck-h" style={{ left: ROUTE_P1.x, top: ROUTE_Y - TRACK_W / 2, width: Math.round(Math.hypot(ROUTE_P2.x - ROUTE_P1.x, ROUTE_P2.y - ROUTE_P1.y)), height: TRACK_W, transformOrigin: "0 50%", transform: `translateZ(${TRACK_DECK_Z}px) rotate(-45deg)` }} />
-            {LEG2_BOUNDS.slice(0, -1).map((segY, i) => (
-              <div key={`deck-v-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: ROUTE_X - TRACK_W / 2, top: LEG2_BOUNDS[i + 1], width: TRACK_W, height: segY - LEG2_BOUNDS[i + 1], transform: `translateZ(${TRACK_DECK_Z}px)` }} />
-            ))}
-            {ROADS_V.filter((x) => x > ROUTE_P0.x && x <= ROUTE_P1.x).map((x) => (
-              <TransitPylon key={`pylon-h-${x}`} left={x - 5} top={ROUTE_Y - 5} deckZ={TRACK_DECK_Z} />
-            ))}
-            {ROADS_H.filter((y) => y <= ROUTE_P2.y && y >= ROUTE_P3.y).map((y) => (
-              <TransitPylon key={`pylon-v-${y}`} left={ROUTE_X - 5} top={y - 5} deckZ={TRACK_DECK_Z} />
-            ))}
-            <TransitStation x={(ROUTE_P0.x + ROUTE_P1.x) / 2} y={ROUTE_Y} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
-            <TransitStation x={ROUTE_X} y={(ROUTE_P2.y + ROUTE_P3.y) / 2} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
-            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} route={FWD_ROUTE} rot={LINE1_ROT} />
-            <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev route={REV_ROUTE} rot={LINE1_ROT} />
-          </>
-        )}
-        {/* Line 2: a second, straight north-south route stacked above Line 1
-            (dense-metro seats only) crossing it at INTERCHANGE — see the
-            constants above for why a plain straight line needs no chamfer
-            and why it's stacked at a different deck height. */}
-        {showTransit && showLine2 && (
-          <>
-            {LINE2_BOUNDS.slice(0, -1).map((segY, i) => (
-              <div key={`deck2-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: LINE2_X - TRACK_W / 2, top: segY, width: TRACK_W, height: LINE2_BOUNDS[i + 1] - segY, transform: `translateZ(${LINE2_DECK_Z}px)` }} />
-            ))}
-            {ROADS_H.filter((y) => y > LINE2_TOP.y && y < LINE2_BOTTOM.y).map((y) => (
-              <TransitPylon key={`pylon2-${y}`} left={LINE2_X - 5} top={y - 5} deckZ={LINE2_DECK_Z} />
-            ))}
-            <TransitStation x={LINE2_X} y={(LINE2_TOP.y + ROUTE_Y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
-            <TransitStation x={LINE2_X} y={(ROUTE_Y + LINE2_BOTTOM.y) / 2} deckZ={LINE2_DECK_Z} tag="LRT 2" />
-            <TransitTrain z={LINE2_DECK_Z + 3} dur={`${line2Dur.toFixed(1)}s`} route={LINE2_FWD_ROUTE} />
-            <TransitTrain z={LINE2_DECK_Z + 3} dur={`${(line2Dur * 1.1).toFixed(1)}s`} delay={`${(-line2Dur * 0.5).toFixed(1)}s`} rev route={LINE2_REV_ROUTE} />
-            {/* Interchange complex: both lines' platforms plus a vertical
-                connector shaft tying the two deck levels together, so the
-                crossing reads as one deliberate interchange station rather
-                than two unrelated lines that happen to overlap in plan. */}
-            <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={TRACK_DECK_Z} tag="INTERCHANGE" />
-            <TransitStation x={INTERCHANGE.x} y={INTERCHANGE.y} deckZ={LINE2_DECK_Z} tag="INTERCHANGE" />
-            <div className="kw-3d absolute" style={{ left: INTERCHANGE.x - 3, top: INTERCHANGE.y - 3, width: 6, height: 6 }}>
-              <div className="absolute kw-face-lit" style={{ left: 0, top: 6, width: 6, height: LINE2_DECK_Z - TRACK_DECK_Z, transformOrigin: "top", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateX(90deg)`, background: "linear-gradient(180deg, #7dd3fc, #0369a1)" }} />
-              <div className="absolute kw-face-shadow" style={{ left: 6, top: 0, width: LINE2_DECK_Z - TRACK_DECK_Z, height: 6, transformOrigin: "left", transform: `translateZ(${TRACK_DECK_Z + 9}px) rotateY(-90deg)`, background: "linear-gradient(90deg, #0369a1, #0c4a6e)" }} />
-            </div>
-          </>
-        )}
-        {/* helicopter patrol: anchor orbits the world centre, counter-spin keeps the billboard steady */}
-        <div className="kw-3d kw-heli-orbit absolute" style={{ left: WORLD / 2, top: WORLD / 2, width: 0, height: 0 }}>
-          <div className="kw-3d absolute" style={{ left: 396 * k, top: 0, width: 0, height: 0, transform: "translateZ(195px)" }}>
-            <div className="kw-3d kw-heli-counter absolute" style={{ width: 0, height: 0 }}>
-              <div className="kw-bill">
-                <div className="relative" style={{ width: 34, height: 16 }}>
-                  <div className="kw-rotor absolute" style={{ left: 3, top: 0, width: 28, height: 2, borderRadius: 2, background: "rgba(226,232,240,0.8)" }} />
-                  <div className="absolute" style={{ left: 6, top: 4, width: 16, height: 9, borderRadius: "45% 55% 50% 50%", background: "linear-gradient(180deg, #64748b, #1e293b)" }} />
-                  <div className="absolute" style={{ left: 20, top: 6, width: 12, height: 3, background: "linear-gradient(180deg, #475569, #1e293b)" }} />
-                  <span className="kw-blink absolute" style={{ left: 29, top: 3 }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* hot-air balloon: drifts across the valley, grounded at night and in rain */}
-        <div className="kw-3d kw-balloon absolute" style={{ left: 0, top: 0, width: 0, height: 0 }}>
-          <div className="kw-bill">
-            <div className="kw-balloon-body">
-              <div className="kw-bob">
-                <div className="mx-auto" style={{ width: 26, height: 30, borderRadius: "50% 50% 44% 44%", background: "repeating-linear-gradient(90deg, #f87171 0 5px, #fbbf24 5px 10px, #34d399 10px 15px, #60a5fa 15px 20px)", boxShadow: "inset -4px -6px 10px rgba(0,0,0,0.25)" }} />
-                <div className="mx-auto" style={{ width: 2, height: 5, background: "rgba(148,163,184,0.8)" }} />
-                <div className="mx-auto" style={{ width: 9, height: 6, borderRadius: 2, background: "linear-gradient(180deg, #92400e, #451a03)" }} />
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Perimeter vegetation: 3 shapes (round leafy / conifer / palm) instead
-            of just 1, each nudged off its base coordinate by a small
-            index-derived (deterministic, not Math.random — must stay stable
-            across renders) jitter so the tree line doesn't read as
-            grid-snapped. */}
-        {[[-32, 130], [-40, 410], [-30, 690], [905, 190], [912, 480], [120, -34], [430, -40], [700, -32], [-30, 905], [340, 905], [640, 908]].map(([x, y], index) => {
-          const jx = x * k + ((index * 37) % 11) - 5;
-          const jy = y * k + ((index * 53) % 9) - 4;
-          const scale = 0.8 + (index % 3) * 0.18;
-          if (index % 3 === 0) return <Palm key={`tree-${index}`} x={jx} y={jy} scale={scale} />;
-          if (index % 3 === 1) return <Conifer key={`tree-${index}`} x={jx} y={jy} scale={scale} variant={index % CONIFER_CANOPY.length} />;
-          return <Tree key={`tree-${index}`} x={jx} y={jy} scale={scale} variant={index % TREE_CANOPY.length} />;
-        })}
-        {traits.coastal && [[-22, 120], [-24, 360], [-20, 640]].map(([x, y], index) => (
-          <Palm key={`beach-palm-${index}`} x={RIVER_X + x} y={y * k} scale={0.9 + (index % 2) * 0.25} />
-        ))}
-        {[[300, 150], [580, 430], [300, 700], [580, 130]].map(([x, y], index) => (
-          <Bunting key={`bunting-${index}`} x={x * k} y={y * k} delay={index * -1.3} />
-        ))}
+        {worldDecorPost}
       </div>
 
       {/* Screen-space depth fog: fades the far/upper part of the frame toward
