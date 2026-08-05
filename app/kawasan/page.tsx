@@ -1262,7 +1262,6 @@ const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
 const MINIMAP_CELL = 12;
 
 function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, density, densityLabel, traits, celebration, overall }: { zones: Zone[]; selectedZoneId: string; setSelectedZoneId: (id: string) => void; lang: ReturnType<typeof useLang>; gridSize: number; density: number; densityLabel: string; traits: SeatTraits; celebration: { zoneId: string; at: number } | null; overall: number }) {
-  const PLOT_XY = plotXY(gridSize);
   const ROADS_V = roadsV(gridSize);
   const ROADS_H = roadsH(gridSize);
   const WORLD = gridSize * ROAD_GAP + 40;
