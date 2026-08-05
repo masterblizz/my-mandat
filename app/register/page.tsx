@@ -1,98 +1,181 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/app/utils/supabase/client'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/app/utils/supabase/client";
+import AuthShell from "../components/auth/AuthShell";
+import { useLang, t } from "../i18n/useLang";
 
 export default function RegisterPage() {
-  const router = useRouter()
-  const supabase = createClient()
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const lang = useLang();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  // Set once signUp succeeds but Supabase requires email confirmation
+  // before a session exists — the player isn't logged in yet, so there's
+  // nowhere authenticated to route them; show the "check your inbox" state
+  // in place of the form instead.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    // Created on submit, not at module/render scope — see the matching
+    // comment in /login: createClient() throws synchronously when
+    // Supabase isn't configured, which would otherwise crash this page's
+    // render instead of just failing the submit with a readable message.
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setLoading(false);
+      setError(t(lang, "Pendaftaran belum dikonfigurasi untuk deployment ini.", "Registration isn't configured for this deployment yet."));
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { username },
       },
-    })
+    });
 
-    setLoading(false)
+    setLoading(false);
 
     if (error) {
-      setError(error.message)
-      return
+      setError(error.message);
+      return;
     }
 
-    router.push('/kawasan')
-    router.refresh()
+    if (!data.session) {
+      setAwaitingConfirmation(true);
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
+  };
+
+  if (awaitingConfirmation) {
+    return (
+      <AuthShell
+        title={t(lang, "SEMAK EMEL ANDA", "CHECK YOUR EMAIL")}
+        subtitle={t(lang, "Satu langkah lagi sebelum kempen anda bermula.", "One more step before your campaign begins.")}
+      >
+        <div className="space-y-4 text-center">
+          <p className="text-[12px] leading-6" style={{ color: "#d7e7f5" }}>
+            {t(
+              lang,
+              `Pautan pengesahan telah dihantar ke ${email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.`,
+              `A confirmation link was sent to ${email}. Verify it, then log in to start your campaign.`
+            )}
+          </p>
+          <a
+            href="/login"
+            className="inline-block w-full border py-2.5 text-[12px] font-black tracking-[0.24em]"
+            style={{
+              borderColor: "rgb(var(--gold-rgb) / 0.9)",
+              background: "linear-gradient(90deg, #ffb42f, #f7a81f)",
+              color: "#05080e",
+              boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
+            }}
+          >
+            {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
+          </a>
+        </div>
+      </AuthShell>
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      <form onSubmit={handleRegister} className="w-full max-w-sm space-y-4 p-6 border border-cyan-500/30 rounded-lg">
-        <h1 className="text-xl font-bold text-cyan-400">Daftar Akaun</h1>
-
+    <AuthShell
+      title={t(lang, "DAFTAR OPERASI BAHARU", "REGISTER NEW OPERATIVE")}
+      subtitle={t(lang, "Cipta akaun untuk mula kempen pilihan raya anda.", "Create an account to launch your election campaign.")}
+      footNote={t(lang, "Data kempen disimpan pada akaun anda merentasi peranti.", "Campaign data is tied to your account across devices.")}
+    >
+      <form onSubmit={handleRegister} className="space-y-4">
         {error && (
-          <p className="text-red-400 text-sm bg-red-950/50 p-2 rounded">{error}</p>
+          <p
+            className="border px-3 py-2 text-[11px] leading-5"
+            style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.4)", background: "rgb(var(--neon-red-rgb) / 0.08)", color: "var(--neon-red)" }}
+          >
+            {error}
+          </p>
         )}
 
         <div>
-          <label className="text-sm text-gray-400">Nama Pengguna</label>
+          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "NAMA PENGGUNA", "USERNAME")}
+          </label>
           <input
             type="text"
             required
+            autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full mt-1 p-2 bg-gray-900 border border-gray-700 rounded"
+            className="w-full"
           />
         </div>
 
         <div>
-          <label className="text-sm text-gray-400">Emel</label>
+          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "EMEL", "EMAIL")}
+          </label>
           <input
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full mt-1 p-2 bg-gray-900 border border-gray-700 rounded"
+            className="w-full"
           />
         </div>
 
         <div>
-          <label className="text-sm text-gray-400">Kata Laluan</label>
+          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "KATA LALUAN", "PASSWORD")}
+          </label>
           <input
             type="password"
             required
             minLength={6}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full mt-1 p-2 bg-gray-900 border border-gray-700 rounded"
+            className="w-full"
           />
+          <div className="mt-1 text-[9px] tracking-[0.06em]" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "Minimum 6 aksara.", "Minimum 6 characters.")}
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full p-2 bg-cyan-500 text-black font-semibold rounded hover:bg-cyan-400 disabled:opacity-50"
+          className="mt-2 w-full border py-2.5 text-[12px] font-black tracking-[0.24em] transition-all disabled:opacity-50"
+          style={{
+            borderColor: "rgb(var(--gold-rgb) / 0.9)",
+            background: "linear-gradient(90deg, #ffb42f, #f7a81f)",
+            color: "#05080e",
+            boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
+          }}
         >
-          {loading ? 'Mendaftar...' : 'Daftar'}
+          {loading ? t(lang, "MENDAFTAR…", "REGISTERING…") : t(lang, "DAFTAR »", "REGISTER »")}
         </button>
 
-        <p className="text-sm text-gray-400 text-center">
-          Dah ada akaun?{' '}
-          <a href="/login" className="text-cyan-400 hover:underline">Log Masuk</a>
+        <p className="pt-1 text-center text-[10px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>
+          {t(lang, "Dah ada akaun? ", "Already have an account? ")}
+          <a href="/login" className="font-bold" style={{ color: "var(--cyan)" }}>
+            {t(lang, "Log masuk di sini", "Log in here")}
+          </a>
         </p>
       </form>
-    </div>
-  )
+    </AuthShell>
+  );
 }

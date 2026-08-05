@@ -199,6 +199,10 @@ export default function MainMenuPage() {
       router.push("/load-game");
       return;
     }
+    if (item.id === "07") {
+      router.push("/login");
+      return;
+    }
     if (!item.href) return;
     router.push(item.href);
   }, [router, resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate]);
