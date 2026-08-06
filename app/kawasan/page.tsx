@@ -519,14 +519,17 @@ const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec;
           />
         ) : (
           <>
-            {/* three-layer contact shadow: a near-black seam right at the
-                footprint so the wall visibly presses into the ground, a
-                tight dark core around that, and a wider soft falloff —
-                stacked tightest-to-widest so the base reads as
-                weighted/grounded instead of pasted on top of the tile */}
-            <div className="absolute" style={{ left: -14, top: -9, width: spec.w + 32, height: spec.d + 22, background: "rgba(0,0,0,0.34)", filter: "blur(9px)", transform: "translateZ(0.2px)" }} />
-            <div className="absolute" style={{ left: -5, top: -3, width: spec.w + 12, height: spec.d + 8, background: "rgba(0,0,0,0.55)", filter: "blur(3px)", transform: "translateZ(0.4px)" }} />
-            <div className="absolute" style={{ left: 0, top: 0, width: spec.w, height: spec.d, background: "rgba(0,0,0,0.6)", filter: "blur(0.5px)", transform: "translateZ(0.55px)" }} />
+            {/* Contact shadow: was 3 stacked filter:blur() layers (near-black
+                seam + tight core + soft falloff) so the wall read as pressed
+                into the ground rather than pasted on. filter:blur forces its
+                own compositor layer per element — with up to ~9 buildings
+                per zone across a big grid that was hundreds of blurred
+                layers, a real GPU compositing cost (see the FPS-optimization
+                pass this comment is from). A single radial-gradient with a
+                built-in soft edge gets the same grounded look — same trick
+                already used for Car/Tree/Palm/Conifer contact shadows below
+                — with zero filter cost. */}
+            <div className="absolute" style={{ left: -14, top: -9, width: spec.w + 32, height: spec.d + 22, background: "radial-gradient(ellipse, rgba(0,0,0,0.55), rgba(0,0,0,0.22) 55%, transparent 75%)", transform: "translateZ(0.3px)" }} />
             {/* Stilt platform: open timber understructure the house tier
                 (below) sits on, inset a little from the house footprint so
                 it reads as a base rather than a second identical wall. */}
@@ -1261,7 +1264,16 @@ function todFromClientHour(hour: number): Tod {
 const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
 const MINIMAP_CELL = 12;
 
-function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, density, densityLabel, traits, celebration, overall }: { zones: Zone[]; selectedZoneId: string; setSelectedZoneId: (id: string) => void; lang: ReturnType<typeof useLang>; gridSize: number; density: number; densityLabel: string; traits: SeatTraits; celebration: { zoneId: string; at: number } | null; overall: number }) {
+// memo()'d because KawasanDevelopmentPage re-renders on unrelated local
+// state (manifesto textarea keystrokes, the notice toast, etc.) — every
+// prop below is stable/value-equal across those (zones/gridSize/density/
+// traits derive from the fixed seat, lang is a stable string from the
+// uiStore selector, setSelectedZoneId is the raw setState fn), so memo
+// lets City3DMap bail out of that entirely instead of re-running its full
+// body (which recreates the JSX for every zone, junction, car, etc.) and
+// re-diffing ~144 ZonePlot children on every keystroke elsewhere on the
+// page.
+const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, density, densityLabel, traits, celebration, overall }: { zones: Zone[]; selectedZoneId: string; setSelectedZoneId: (id: string) => void; lang: ReturnType<typeof useLang>; gridSize: number; density: number; densityLabel: string; traits: SeatTraits; celebration: { zoneId: string; at: number } | null; overall: number }) {
   const ROADS_V = roadsV(gridSize);
   const ROADS_H = roadsH(gridSize);
   const WORLD = gridSize * ROAD_GAP + 40;
@@ -2154,7 +2166,8 @@ function City3DMap({ zones, selectedZoneId, setSelectedZoneId, lang, gridSize, d
       </div>
     </div>
   );
-}
+});
+
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
