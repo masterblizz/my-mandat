@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -63,7 +62,6 @@ export default function SetupPage() {
   const { isPending: isLaunching, navigate } = usePendingNav();
   const { setLeader, setNomination, setPhase, updateSettings, setDataset, setSelectedState, resetGame, settings } = useGameStore();
   const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
-  const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
 
   // /api/checkout's cancel_url sends the user back here with ?purchase=
@@ -75,7 +73,12 @@ export default function SetupPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("purchase") === "cancelled") {
       setNotice(t(lang, "Pembelian dibatalkan.", "Purchase cancelled."));
-      router.replace("/setup");
+      // Plain History API, NOT router.replace(): router.replace() re-enters
+      // Next's App Router and was re-rendering this page in the same tick,
+      // wiping the setNotice() call above before it ever painted — the
+      // toast never appeared. history.replaceState only rewrites the
+      // visible URL, no navigation/re-render involved.
+      window.history.replaceState(null, "", "/setup");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
