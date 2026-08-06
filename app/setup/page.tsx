@@ -5,6 +5,7 @@ import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import StatBar from "../components/ui/StatBar";
 import Toggle from "../components/ui/Toggle";
+import UpgradeButton from "../components/ui/UpgradeButton";
 
 import { useGameStore } from "../store/gameStore";
 import { setActiveSaveSlot } from "../store/saveGame";
@@ -12,7 +13,9 @@ import { states } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
 import { type DatasetKind, availableDatasets, getDatasetById } from "../data/datasets";
 import { usePendingNav } from "../hooks/usePendingNav";
+import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { useLang, t } from "../i18n/useLang";
+import { PREMIUM_PRICE_IDS } from "../config/premiumProducts";
 
 const POSITIONS = [
   { id: "PRESIDENT", ms: "PRESIDEN", en: "PRESIDENT" },
@@ -58,6 +61,7 @@ export default function SetupPage() {
   const lang = useLang();
   const { isPending: isLaunching, navigate } = usePendingNav();
   const { setLeader, setNomination, setPhase, updateSettings, setDataset, setSelectedState, resetGame, settings } = useGameStore();
+  const { hasPremium } = usePremiumStatus();
 
   const [step, setStep] = useState(0);
 
@@ -715,27 +719,46 @@ export default function SetupPage() {
               <TacticalPanel title={t(lang, "MOD PILIHAN RAYA — PRU / PRN", "ELECTION MODE — PRU / PRN")}>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: "pru" as const, titleMS: "PRU — PILIHAN RAYA UMUM", titleEN: "PRU — PILIHAN RAYA UMUM", subMS: "Kempen parlimen kebangsaan · semua kerusi Malaysia · bentuk kerajaan persekutuan", subEN: "National parliamentary campaign · all Malaysia seats · form federal government" },
-                    { id: "prn" as const, titleMS: "PRN — PILIHAN RAYA NEGERI", titleEN: "PRN — PILIHAN RAYA NEGERI", subMS: "Kempen pilihan raya negeri · fokus satu negeri · naratif MB/kerajaan negeri", subEN: "State election campaign · focus one negeri · MB/state-government narrative" },
+                    { id: "pru" as const, titleMS: "PRU — PILIHAN RAYA UMUM", titleEN: "PRU — PILIHAN RAYA UMUM", subMS: "Kempen parlimen kebangsaan · semua kerusi Malaysia · bentuk kerajaan persekutuan", subEN: "National parliamentary campaign · all Malaysia seats · form federal government", locked: false },
+                    { id: "prn" as const, titleMS: "PRN — PILIHAN RAYA NEGERI", titleEN: "PRN — PILIHAN RAYA NEGERI", subMS: "Kempen pilihan raya negeri · fokus satu negeri · naratif MB/kerajaan negeri", subEN: "State election campaign · focus one negeri · MB/state-government narrative", locked: !hasPremium },
                   ].map((mode) => {
                     const active = electionScope === mode.id;
                     return (
                       <button
                         key={mode.id}
-                        onClick={() => setElectionScope(mode.id)}
-                        className="p-4 text-left transition-all"
+                        onClick={() => { if (!mode.locked) setElectionScope(mode.id); }}
+                        disabled={mode.locked}
+                        className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
                         style={{
                           border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
                           background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.025)",
                           boxShadow: active ? "0 0 16px rgb(var(--gold-rgb) / 0.18)" : "none",
+                          opacity: mode.locked ? 0.55 : 1,
                         }}
                       >
+                        {mode.locked && (
+                          <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
+                            🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                          </span>
+                        )}
                         <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{t(lang, mode.titleMS, mode.titleEN)}</div>
                         <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(lang, mode.subMS, mode.subEN)}</div>
                       </button>
                     );
                   })}
                 </div>
+                {!hasPremium && (
+                  <div className="mt-3 flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
+                    <div className="text-[11px] leading-relaxed text-text-muted">
+                      {t(lang, "Mod PRN adalah ciri Premium — beli sekali untuk buka selamanya.", "PRN mode is a Premium feature — buy once to unlock it permanently.")}
+                    </div>
+                    <UpgradeButton
+                      priceId={PREMIUM_PRICE_IDS.prnMode}
+                      mode="payment"
+                      label={t(lang, "BUKA MOD PRN", "UNLOCK PRN MODE")}
+                    />
+                  </div>
+                )}
                 {electionScope === "prn" && (
                   <div className="mt-4 rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
                     <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "PILIH NEGERI PRN", "SELECT PRN STATE")}</div>
@@ -774,37 +797,59 @@ export default function SetupPage() {
           {step === 4 && (
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-3">
-                {DIFFICULTIES.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => handleDifficultySelect(d)}
-                    className="relative p-4 text-left transition-all"
-                    style={{
-                      background: difficulty === d.id ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
-                      border: difficulty === d.id ? "1px solid var(--gold)" : "1px solid var(--bar-empty)",
-                      boxShadow: difficulty === d.id ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "none",
-                    }}
-                  >
-                    <div
-                      className="text-sm font-bold tracking-widest mb-2"
-                      style={{ color: difficulty === d.id ? "var(--gold)" : "#ffffff" }}
+                {DIFFICULTIES.map((d) => {
+                  const locked = d.id === "nightmare" && !hasPremium;
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => { if (!locked) handleDifficultySelect(d); }}
+                      disabled={locked}
+                      className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
+                      style={{
+                        background: difficulty === d.id ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
+                        border: difficulty === d.id ? "1px solid var(--gold)" : "1px solid var(--bar-empty)",
+                        boxShadow: difficulty === d.id ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "none",
+                        opacity: locked ? 0.55 : 1,
+                      }}
                     >
-                      {t(lang, d.labelMS, d.labelEN)}
-                    </div>
-                    <div className="text-[12px] text-text-muted mb-3 leading-relaxed">{t(lang, d.descMS, d.descEN)}</div>
-                    <div className="space-y-1.5">
-                      <div>
-                        <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "KEKUATAN PEMBANGKANG", "OPPOSITION STR.")}</div>
-                        <StatBar label="" value={d.opp} color="var(--neon-red)" animate={false} size="sm" />
+                      {locked && (
+                        <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
+                          🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                        </span>
+                      )}
+                      <div
+                        className="text-sm font-bold tracking-widest mb-2"
+                        style={{ color: difficulty === d.id ? "var(--gold)" : "#ffffff" }}
+                      >
+                        {t(lang, d.labelMS, d.labelEN)}
                       </div>
-                      <div>
-                        <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "CABARAN MEDIA", "MEDIA CHALLENGE")}</div>
-                        <StatBar label="" value={d.media} color="var(--warn-orange)" animate={false} size="sm" />
+                      <div className="text-[12px] text-text-muted mb-3 leading-relaxed">{t(lang, d.descMS, d.descEN)}</div>
+                      <div className="space-y-1.5">
+                        <div>
+                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "KEKUATAN PEMBANGKANG", "OPPOSITION STR.")}</div>
+                          <StatBar label="" value={d.opp} color="var(--neon-red)" animate={false} size="sm" />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "CABARAN MEDIA", "MEDIA CHALLENGE")}</div>
+                          <StatBar label="" value={d.media} color="var(--warn-orange)" animate={false} size="sm" />
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
+              {!hasPremium && (
+                <div className="flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
+                  <div className="text-[11px] leading-relaxed text-text-muted">
+                    {t(lang, "Kesukaran Mimpi Ngeri adalah ciri Premium.", "Nightmare difficulty is a Premium feature.")}
+                  </div>
+                  <UpgradeButton
+                    priceId={PREMIUM_PRICE_IDS.premiumMonthly}
+                    mode="subscription"
+                    label={t(lang, "DAPATKAN PREMIUM", "GET PREMIUM")}
+                  />
+                </div>
+              )}
 
               <TacticalPanel title={t(lang, "PENALAAN HALUS", "FINE TUNING")}>
                 <div className="space-y-4">

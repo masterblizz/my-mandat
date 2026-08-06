@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
+    "@stripe/stripe-js": "^9.13.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.1",
     "@vercel/analytics": "^2.0.1",
@@ -20,6 +21,7 @@
     "react-dom": "^18",
     "react-simple-maps": "^3.0.0",
     "recharts": "^3.9.0",
+    "stripe": "^22.4.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
