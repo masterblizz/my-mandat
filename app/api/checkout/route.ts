@@ -5,6 +5,20 @@ import { createClient } from "../../utils/supabase/server";
 interface CheckoutRequestBody {
   priceId?: string;
   mode?: "payment" | "subscription";
+  // Where to send the user back if they abandon Stripe Checkout — the page
+  // they clicked "Unlock" from (e.g. /setup), not a fixed page, so
+  // cancelling doesn't strand them somewhere unrelated. Optional; defaults
+  // to /settings below.
+  cancelPath?: string;
+}
+
+// Only ever used as `${origin}${cancelPath}` (origin is fixed server-side,
+// see below) — but guard against a caller passing a protocol-relative path
+// ("//evil.com/x") or anything not starting with a single "/", so this
+// can't be turned into an open redirect off this app's own domain.
+function sanitizeCancelPath(path: string | undefined): string {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/settings";
+  return path;
 }
 
 export async function POST(request: NextRequest) {
@@ -15,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { priceId, mode } = body;
+  const { priceId, mode, cancelPath } = body;
   if (!priceId || (mode !== "payment" && mode !== "subscription")) {
     return NextResponse.json(
       { error: "priceId and a valid mode ('payment' or 'subscription') are required" },
@@ -55,8 +69,11 @@ export async function POST(request: NextRequest) {
       // Only set customer_email when there's no existing Stripe customer —
       // passing both customer and customer_email is a Stripe API error.
       customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
-      success_url: `${origin}/settings?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/settings?purchase=cancelled`,
+      // Stripe replaces {CHECKOUT_SESSION_ID} with the real session id —
+      // /purchase-confirmation polls /api/purchase-status with it to find
+      // out whether the webhook has finished granting premium yet.
+      success_url: `${origin}/purchase-confirmation?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}${sanitizeCancelPath(cancelPath)}?purchase=cancelled`,
       // This is how the webhook later identifies which Supabase user paid —
       // never rely on email matching, see the webhook route's comments.
       metadata: { supabase_user_id: user.id },

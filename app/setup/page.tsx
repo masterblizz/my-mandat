@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -61,7 +62,29 @@ export default function SetupPage() {
   const lang = useLang();
   const { isPending: isLaunching, navigate } = usePendingNav();
   const { setLeader, setNomination, setPhase, updateSettings, setDataset, setSelectedState, resetGame, settings } = useGameStore();
-  const { hasPremium } = usePremiumStatus();
+  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
+  const router = useRouter();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // /api/checkout's cancel_url sends the user back here with ?purchase=
+  // cancelled if they abandoned Stripe Checkout — read via window.location
+  // rather than useSearchParams() so this doesn't need to wrap the entire
+  // (already large) page in a Suspense boundary just for one query param.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("purchase") === "cancelled") {
+      setNotice(t(lang, "Pembelian dibatalkan.", "Purchase cancelled."));
+      router.replace("/setup");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const [step, setStep] = useState(0);
 
@@ -232,6 +255,11 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
+      {notice && (
+        <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--cyan-rgb)/0.45)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.14), rgba(3,8,15,0.96))", color: "var(--cyan)", fontFamily: "Space Mono, monospace" }}>
+          {notice}
+        </div>
+      )}
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
         <div className="w-full max-w-[1100px] mt-6">
           {/* Step Indicator */}
@@ -719,26 +747,38 @@ export default function SetupPage() {
               <TacticalPanel title={t(lang, "MOD PILIHAN RAYA — PRU / PRN", "ELECTION MODE — PRU / PRN")}>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: "pru" as const, titleMS: "PRU — PILIHAN RAYA UMUM", titleEN: "PRU — PILIHAN RAYA UMUM", subMS: "Kempen parlimen kebangsaan · semua kerusi Malaysia · bentuk kerajaan persekutuan", subEN: "National parliamentary campaign · all Malaysia seats · form federal government", locked: false },
-                    { id: "prn" as const, titleMS: "PRN — PILIHAN RAYA NEGERI", titleEN: "PRN — PILIHAN RAYA NEGERI", subMS: "Kempen pilihan raya negeri · fokus satu negeri · naratif MB/kerajaan negeri", subEN: "State election campaign · focus one negeri · MB/state-government narrative", locked: !hasPremium },
+                    { id: "pru" as const, titleMS: "PRU — PILIHAN RAYA UMUM", titleEN: "PRU — PILIHAN RAYA UMUM", subMS: "Kempen parlimen kebangsaan · semua kerusi Malaysia · bentuk kerajaan persekutuan", subEN: "National parliamentary campaign · all Malaysia seats · form federal government", state: "unlocked" as const },
+                    // "checking" while usePremiumStatus() is still loading —
+                    // deliberately distinct from "locked" so this card
+                    // doesn't flash 🔒 PREMIUM for an instant before
+                    // possibly flipping to unlocked once the real answer
+                    // comes back (see the constraint about not flashing the
+                    // wrong state).
+                    { id: "prn" as const, titleMS: "PRN — PILIHAN RAYA NEGERI", titleEN: "PRN — PILIHAN RAYA NEGERI", subMS: "Kempen pilihan raya negeri · fokus satu negeri · naratif MB/kerajaan negeri", subEN: "State election campaign · focus one negeri · MB/state-government narrative", state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
                   ].map((mode) => {
                     const active = electionScope === mode.id;
+                    const interactive = mode.state === "unlocked";
                     return (
                       <button
                         key={mode.id}
-                        onClick={() => { if (!mode.locked) setElectionScope(mode.id); }}
-                        disabled={mode.locked}
+                        onClick={() => { if (interactive) setElectionScope(mode.id); }}
+                        disabled={!interactive}
                         className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
                         style={{
                           border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
                           background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.025)",
                           boxShadow: active ? "0 0 16px rgb(var(--gold-rgb) / 0.18)" : "none",
-                          opacity: mode.locked ? 0.55 : 1,
+                          opacity: mode.state === "locked" ? 0.55 : mode.state === "checking" ? 0.75 : 1,
                         }}
                       >
-                        {mode.locked && (
+                        {mode.state === "locked" && (
                           <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
                             🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                          </span>
+                        )}
+                        {mode.id === "prn" && mode.state === "unlocked" && (
+                          <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
+                            ✓ {t(lang, "DIBUKA", "UNLOCKED")}
                           </span>
                         )}
                         <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{t(lang, mode.titleMS, mode.titleEN)}</div>
@@ -747,7 +787,7 @@ export default function SetupPage() {
                     );
                   })}
                 </div>
-                {!hasPremium && (
+                {!premiumLoading && !hasPremium && (
                   <div className="mt-3 flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
                     <div className="text-[11px] leading-relaxed text-text-muted">
                       {t(lang, "Mod PRN adalah ciri Premium — beli sekali untuk buka selamanya.", "PRN mode is a Premium feature — buy once to unlock it permanently.")}
@@ -798,23 +838,30 @@ export default function SetupPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-3">
                 {DIFFICULTIES.map((d) => {
-                  const locked = d.id === "nightmare" && !hasPremium;
+                  const isNightmare = d.id === "nightmare";
+                  const state = !isNightmare ? "unlocked" : premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked";
+                  const interactive = state === "unlocked";
                   return (
                     <button
                       key={d.id}
-                      onClick={() => { if (!locked) handleDifficultySelect(d); }}
-                      disabled={locked}
+                      onClick={() => { if (interactive) handleDifficultySelect(d); }}
+                      disabled={!interactive}
                       className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
                       style={{
                         background: difficulty === d.id ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
                         border: difficulty === d.id ? "1px solid var(--gold)" : "1px solid var(--bar-empty)",
                         boxShadow: difficulty === d.id ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "none",
-                        opacity: locked ? 0.55 : 1,
+                        opacity: state === "locked" ? 0.55 : state === "checking" ? 0.75 : 1,
                       }}
                     >
-                      {locked && (
+                      {state === "locked" && (
                         <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
                           🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                        </span>
+                      )}
+                      {isNightmare && state === "unlocked" && (
+                        <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
+                          ✓ {t(lang, "DIBUKA", "UNLOCKED")}
                         </span>
                       )}
                       <div
@@ -838,7 +885,7 @@ export default function SetupPage() {
                   );
                 })}
               </div>
-              {!hasPremium && (
+              {!premiumLoading && !hasPremium && (
                 <div className="flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
                   <div className="text-[11px] leading-relaxed text-text-muted">
                     {t(lang, "Kesukaran Mimpi Ngeri adalah ciri Premium.", "Nightmare difficulty is a Premium feature.")}

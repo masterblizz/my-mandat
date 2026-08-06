@@ -21,7 +21,7 @@ type MenuItemConfig = {
   danger?: boolean;
 };
 
-type MenuItem = MenuItemConfig & { label: string; sub: string };
+type MenuItem = MenuItemConfig & { label: string; sub: string; disabled?: boolean };
 
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "01", labelMS: "MULA KEMPEN",        labelEN: "START CAMPAIGN",    subMS: "Mulakan kempen baharu",          subEN: "Begin new mandate run",          href: "/setup" },
@@ -101,6 +101,11 @@ export default function MainMenuPage() {
   const [clock, setClock] = useState("--:--:--");
   const [mounted, setMounted] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  // Save slots live in localStorage, so this can only be known post-mount
+  // (see the `mounted` flag pattern used elsewhere on this page) — defaults
+  // to false, the safe "nothing to continue" assumption, until the mount
+  // effect below checks for real.
+  const [hasSave, setHasSave] = useState(false);
 
   const {
     leader, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment, settings,
@@ -122,7 +127,8 @@ export default function MainMenuPage() {
   const menuItems: MenuItem[] = MENU_ITEMS_CONFIG.map((item) => ({
     ...item,
     label: t(lang, item.labelMS, item.labelEN),
-    sub: t(lang, item.subMS, item.subEN),
+    sub: item.id === "02" && !hasSave ? t(lang, "Tiada kempen tersimpan", "No saved campaign") : t(lang, item.subMS, item.subEN),
+    disabled: item.id === "02" && !hasSave,
   }));
 
   const statusRows = lang === "ms" ? STATUS_ROWS_MS : STATUS_ROWS_EN;
@@ -190,6 +196,12 @@ export default function MainMenuPage() {
     }
     if (item.id === "02") {
       const slots = getSavedGames();
+      // No save slot at all: this item renders disabled (see menuItems
+      // above) and shouldn't do anything if still reached via keyboard
+      // Enter — no more falling back to /load-game, which had nothing
+      // useful to show anyway with zero slots.
+      if (slots.length === 0) return;
+
       const activeId = getActiveSaveSlotId();
       const activeSlot = activeId ? slots.find((slot) => slot.id === activeId) : null;
       const latestSlot = [...slots].sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())[0] ?? null;
@@ -199,10 +211,7 @@ export default function MainMenuPage() {
         setActiveSaveSlot(slotToContinue.id);
         useGameStore.setState({ ...slotToContinue.state, phase: "playing" });
         router.push("/kawasan");
-        return;
       }
-
-      router.push("/load-game");
       return;
     }
     if (!item.href) return;
@@ -211,6 +220,7 @@ export default function MainMenuPage() {
 
   useEffect(() => {
     setMounted(true);
+    setHasSave(getSavedGames().length > 0);
     const update = () => setClock(new Date().toLocaleTimeString("en-GB", { hour12: false }));
     update();
     const timer = setInterval(update, 1000);
@@ -356,7 +366,6 @@ export default function MainMenuPage() {
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgba(5,8,14,0.24) 42%, rgba(5,8,14,0.78) 100%)" }} />
-        <div className="mm-radar z-[1]" style={{ left: 300 }} />
         <div className="mm-particles z-[1]" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1]" style={{ left: 300 }}>
           <Skyline opacity={0.5} />
@@ -381,20 +390,24 @@ export default function MainMenuPage() {
 
           <nav className="flex flex-col gap-1.5">
             {menuItems.map((item, index) => {
-              const isSelected = index === selected;
+              const isSelected = index === selected && !item.disabled;
               const color = item.danger ? "var(--neon-red)" : isSelected ? "#05080e" : "var(--text-primary)";
               return (
                 <button
                   key={item.id}
-                  className="group flex h-8 items-center justify-between border px-5 text-left transition-all duration-150"
+                  disabled={item.disabled}
+                  title={item.disabled ? item.sub : undefined}
+                  className="group flex h-8 items-center justify-between border px-5 text-left transition-all duration-150 disabled:cursor-not-allowed"
                   style={{
                     borderColor: item.danger ? "rgb(255 68 68 / 0.24)" : isSelected ? "rgb(var(--gold-rgb) / 0.92)" : "rgb(var(--cyan-rgb) / 0.16)",
                     background: isSelected ? "linear-gradient(90deg, #ffb42f, #f7a81f)" : item.danger ? "rgb(255 68 68 / 0.035)" : "rgba(4, 12, 19, 0.66)",
                     color,
                     boxShadow: isSelected ? "0 0 28px rgb(var(--gold-rgb) / 0.33)" : "none",
+                    opacity: item.disabled ? 0.4 : 1,
                   }}
-                  onMouseEnter={() => setSelected(index)}
+                  onMouseEnter={() => { if (!item.disabled) setSelected(index); }}
                   onClick={() => {
+                    if (item.disabled) return;
                     setSelected(index);
                     navigateMenuItem(item);
                   }}
@@ -402,6 +415,7 @@ export default function MainMenuPage() {
                   <span className="flex items-center gap-3">
                     <span className="text-[11px] font-bold opacity-55">{item.id}</span>
                     <span className="text-[15px] font-black tracking-[0.18em]">{item.label}</span>
+                    {item.disabled && <span className="text-[9px] font-bold tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>{t(lang, "· TIADA SIMPANAN", "· NO SAVE")}</span>}
                   </span>
                   {isSelected && <span className="text-[18px] font-black">»</span>}
                 </button>
@@ -555,6 +569,16 @@ export default function MainMenuPage() {
 
           <div className="pointer-events-none absolute left-[10%] top-[5%] h-[78vh] w-[78vh] rounded-full border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.035)" }} />
           <div className="pointer-events-none absolute left-[20%] top-[18%] h-[50vh] w-[50vh] rounded-full border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.04)" }} />
+          {/* Blue/cyan radar sweep — same left-[38%] top-[47%] pivot as the
+              red radar group below, so both rotations share one visual
+              centre. Previously `.mm-radar` lived in the outer <section>
+              with an ad hoc `left: 300` override, which put its own
+              (unrelated) 50%/50% self-centering at a different point on
+              screen than this red group's pivot — hence the two radars
+              sweeping from different spots. Explicit left/top/right/
+              bottom/width/height here fully replace the class's `inset: 0`
+              default instead of only partially overriding it. */}
+          <div className="mm-radar z-[6]" style={{ left: "38%", top: "47%", right: "auto", bottom: "auto", width: "62vw", height: "62vw", transform: "translate(-50%, -50%)" }} />
           <div className="pointer-events-none absolute left-[38%] top-[47%] z-[8] h-[62vw] w-[62vw] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ animation: "mymandat-radar-pulse 3.8s ease-in-out infinite" }}>
             <div className="absolute inset-0 rounded-full border-2" style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.75)", boxShadow: "0 0 18px rgb(var(--neon-red-rgb) / 0.5), inset 0 0 18px rgb(var(--neon-red-rgb) / 0.2)" }} />
             <div className="absolute left-1/2 top-1/2 h-[72%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2" style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.55)" }} />
@@ -562,7 +586,12 @@ export default function MainMenuPage() {
             <div className="absolute left-1/2 top-1/2 h-[8px] w-[8px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: "var(--neon-red)", boxShadow: "0 0 18px var(--neon-red)" }} />
             <div className="absolute inset-0 origin-center rounded-full" style={{ animation: "mymandat-radar-sweep 4.8s linear infinite", background: "conic-gradient(from 0deg, rgb(var(--neon-red-rgb) / 0.45), rgb(var(--neon-red-rgb) / 0.18) 14deg, transparent 46deg, transparent 360deg)", mixBlendMode: "screen" }} />
           </div>
-          <div className="pointer-events-none absolute left-[38%] top-[47%] z-[7] h-[68vw] w-[68vw] rounded-full border-2" style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.45)", animation: "mymandat-radar-ping 2.8s ease-out infinite" }} />
+          {/* Was missing -translate-x-1/2 -translate-y-1/2 — every other
+              element sharing this left-[38%] top-[47%] pivot centers itself
+              on it via that transform; without it this ring's top-left
+              corner sat on the pivot instead, offsetting it by half its own
+              68vw/68vh size from the others. */}
+          <div className="pointer-events-none absolute left-[38%] top-[47%] z-[7] h-[68vw] w-[68vw] -translate-x-1/2 -translate-y-1/2 rounded-full border-2" style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.45)", animation: "mymandat-radar-ping 2.8s ease-out infinite" }} />
           <div
             className="absolute bottom-32 left-8 z-10 w-[360px] border px-5 py-4"
             style={{

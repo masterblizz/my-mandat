@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 
 interface UpgradeButtonProps {
@@ -16,6 +17,7 @@ interface UpgradeButtonProps {
 // Checkout is hosted by Stripe.
 export default function UpgradeButton({ priceId, mode, label, className, style }: UpgradeButtonProps) {
   const lang = useLang();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +40,7 @@ export default function UpgradeButton({ priceId, mode, label, className, style }
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId, mode }),
+        body: JSON.stringify({ priceId, mode, cancelPath: pathname }),
       });
       const data = await res.json();
 

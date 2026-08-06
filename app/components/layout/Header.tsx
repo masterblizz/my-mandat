@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
+import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 
 const WAR_ROOM_FLOW_ROUTES = [
   "/calendar",
@@ -42,6 +43,7 @@ export default function Header() {
   const router = useRouter();
   const lang = useLang();
   const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
+  const { hasPremium } = usePremiumStatus();
 
   const isHome = pathname === "/warroom";
   const showWarRoomHome = isWarRoomFlowRoute(pathname);
@@ -79,6 +81,19 @@ export default function Header() {
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
         <span className="tracking-wider text-text-muted">{t(lang, "- OPS TAKTIKAL", "- TACTICAL OPS")}</span>
+
+        {/* Only rendered once hasPremium is confirmed true — nothing shows
+            while usePremiumStatus() is still loading or if the user isn't
+            premium, so there's no "not premium" flash for premium users on
+            every page load while the check is in flight. */}
+        {hasPremium && (
+          <span
+            className="px-2 py-0.5 text-[11px] font-bold tracking-[0.16em]"
+            style={{ color: "var(--gold)", border: "1px solid rgb(var(--gold-rgb) / 0.45)", background: "rgb(var(--gold-rgb) / 0.08)" }}
+          >
+            ⭐ {t(lang, "PREMIUM", "PREMIUM")}
+          </span>
+        )}
 
         {showGenericBack && (
           <button
