@@ -237,3 +237,31 @@ export function deleteSavedGame(id?: string) {
   writeSlots(slots);
   if (getActiveSaveSlotId() === id) setActiveSaveSlot(null);
 }
+
+// /kawasan keeps its own per-seat dev progress cache outside this file (see
+// its STORAGE_PREFIX) — mirrored here as a literal string since importing a
+// page module for one constant isn't worth it. Bump/add a prefix here if
+// that key ever changes.
+const KAWASAN_DEV_KEY_PREFIXES = ["mymandat-kawasan-development-v2:", "mymandat-kawasan-development-v1:"];
+
+// Every other flat localStorage key this app writes outside gameStore/
+// historyStore's own persistence (those two are cleared separately by the
+// caller via resetGame()/clearHistory()) — kept together so a "wipe this
+// browser's game memory" caller (see /register) doesn't have to know about
+// each one individually.
+const OTHER_SAVE_RELATED_KEYS = ["mymandat-game-settings"];
+
+// Clears every save-related localStorage key this app owns: save slots,
+// legacy autosave, settings cache, and every seat's kawasan dev progress —
+// used when a fresh account should start with zero leftover game memory
+// from whoever last played on this browser (see /register's handleRegister).
+// Does NOT touch gameStore/historyStore in-memory state or their own
+// persistence — call resetGame()/clearHistory() alongside this.
+export function clearAllSavedGameData() {
+  if (!isBrowser()) return;
+  deleteSavedGame();
+  OTHER_SAVE_RELATED_KEYS.forEach((key) => localStorage.removeItem(key));
+  Object.keys(localStorage)
+    .filter((key) => KAWASAN_DEV_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
+    .forEach((key) => localStorage.removeItem(key));
+}

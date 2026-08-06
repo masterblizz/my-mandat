@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
 
@@ -16,6 +17,59 @@ function CornerFrame() {
       <span className="pointer-events-none absolute bottom-0 left-0 h-5 w-5 border-b border-l" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.4)" }} />
       <span className="pointer-events-none absolute bottom-0 right-0 h-5 w-5 border-b border-r" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.4)" }} />
     </>
+  );
+}
+
+// Scattered "live signal" blips, echoing the pulsing hotspot dots on the
+// /menu map — reads as a faint operations map ticking along behind the
+// login panel instead of empty space. Positions avoid the centred panel;
+// each dot gets its own animation-delay so they don't blink in lockstep.
+const HOTSPOTS: { left: string; top: string; color: "cyan" | "gold"; delay: string }[] = [
+  { left: "10%", top: "18%", color: "cyan", delay: "0s" },
+  { left: "88%", top: "14%", color: "gold", delay: "0.6s" },
+  { left: "15%", top: "78%", color: "gold", delay: "1.1s" },
+  { left: "92%", top: "70%", color: "cyan", delay: "1.7s" },
+  { left: "6%", top: "48%", color: "cyan", delay: "0.3s" },
+  { left: "94%", top: "42%", color: "gold", delay: "1.4s" },
+];
+
+function AmbientBackground() {
+  return (
+    <>
+      <div className="mm-particles" />
+      <div className="mm-radar" />
+      {HOTSPOTS.map((spot, i) => {
+        const rgbVar = spot.color === "cyan" ? "var(--cyan-rgb)" : "var(--gold-rgb)";
+        return (
+          <span
+            key={i}
+            className="mm-blip pointer-events-none absolute h-1.5 w-1.5 rounded-full"
+            style={{
+              left: spot.left,
+              top: spot.top,
+              background: `rgb(${rgbVar})`,
+              boxShadow: `0 0 8px 2px rgb(${rgbVar} / 0.7)`,
+              animationDelay: spot.delay,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function BackButton() {
+  const lang = useLang();
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => router.back()}
+      className="absolute left-5 top-5 z-20 border px-2 py-1 text-[9px] font-black tracking-[0.18em] transition-all hover:bg-cyan/10"
+      style={{ borderColor: "rgb(var(--cyan-rgb) / 0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / 0.06)" }}
+    >
+      ← {t(lang, "KEMBALI", "BACK")}
+    </button>
   );
 }
 
@@ -51,7 +105,7 @@ function LangToggle() {
 // scanline/grid overlay, MY MANDAT wordmark and bordered panel used
 // everywhere else in the app (see /menu). Only the panel's title/subtitle
 // and form body differ per page.
-export default function AuthShell({ title, subtitle, children, footNote }: { title: string; subtitle: string; children: ReactNode; footNote?: ReactNode }) {
+export default function AuthShell({ title, subtitle, children, footNote, showBack = true }: { title: string; subtitle: string; children: ReactNode; footNote?: ReactNode; showBack?: boolean }) {
   const lang = useLang();
   return (
     <main
@@ -64,11 +118,13 @@ export default function AuthShell({ title, subtitle, children, footNote }: { tit
     >
       <div className="pointer-events-none absolute inset-0 opacity-[0.24]" style={{ backgroundImage: "linear-gradient(rgb(var(--cyan-rgb) / 0.08) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.06) 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
       <div className="pointer-events-none absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.016), rgba(255,255,255,0.016) 1px, transparent 1px, transparent 4px)" }} />
+      <AmbientBackground />
 
+      {showBack && <BackButton />}
       <LangToggle />
 
       <div className="relative z-10 w-full max-w-[420px]">
-        <div className="mb-6 flex items-center justify-center gap-3">
+        <div className="mb-6 flex items-center justify-center gap-3 mm-rise" style={{ ["--mm-i" as string]: 0 }}>
           <img src="/logo-peti-undi.png" alt="My Mandat" width={48} height={48} style={{ filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
           <div className="leading-none">
             <div className="whitespace-nowrap">
@@ -82,8 +138,9 @@ export default function AuthShell({ title, subtitle, children, footNote }: { tit
         </div>
 
         <section
-          className="relative overflow-hidden border"
+          className="relative overflow-hidden border mm-rise"
           style={{
+            ["--mm-i" as string]: 1,
             borderColor: "rgb(var(--cyan-rgb) / 0.28)",
             background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.05), rgba(3,8,15,0.86))",
             boxShadow: "0 0 40px rgb(var(--cyan-rgb) / 0.1), inset 0 0 40px rgb(var(--cyan-rgb) / 0.03)",

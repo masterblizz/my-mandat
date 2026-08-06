@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
 
@@ -19,6 +19,15 @@ const WAR_ROOM_FLOW_ROUTES = [
 
 const GOVERNING_ROUTES = ["/swearing-in", "/government", "/career", "/sandbox", "/opposition", "/postmortem"];
 
+// Routes with no dedicated back/hub nav of their own (not part of the war
+// room flow, not one of the governing-flow pages with their own "back to
+// previous stage" button) — these get a plain browser-back button instead.
+const GENERIC_BACK_ROUTES = ["/advisor", "/stats", "/settings", "/setup"];
+
+// Routes that should jump straight to /menu rather than browser-back —
+// kawasan is a top-level hub reached from the menu, not a step in a flow.
+const MENU_BACK_ROUTES = ["/kawasan"];
+
 function isWarRoomFlowRoute(pathname: string): boolean {
   return WAR_ROOM_FLOW_ROUTES.includes(pathname) || pathname.startsWith("/state/");
 }
@@ -30,12 +39,15 @@ function isGoverningRoute(pathname: string): boolean {
 export default function Header() {
   const [time, setTime] = useState("");
   const pathname = usePathname();
+  const router = useRouter();
   const lang = useLang();
   const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
 
   const isHome = pathname === "/warroom";
   const showWarRoomHome = isWarRoomFlowRoute(pathname);
   const governingRoute = isGoverningRoute(pathname);
+  const showGenericBack = GENERIC_BACK_ROUTES.includes(pathname);
+  const showMenuBack = MENU_BACK_ROUTES.includes(pathname);
 
   useEffect(() => {
     const update = () => {
@@ -67,6 +79,33 @@ export default function Header() {
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
         <span className="tracking-wider text-text-muted">{t(lang, "- OPS TAKTIKAL", "- TACTICAL OPS")}</span>
+
+        {showGenericBack && (
+          <button
+            onClick={() => router.back()}
+            className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] transition-all hover:bg-cyan/10"
+            style={{
+              color: "var(--cyan)",
+              border: "1px solid rgb(var(--cyan-rgb) / 0.32)",
+              background: "rgb(var(--cyan-rgb) / 0.06)",
+            }}
+          >
+            ← {t(lang, "KEMBALI", "BACK")}
+          </button>
+        )}
+
+        {showMenuBack && (
+          <Link
+            href="/menu"
+            className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] transition-all"
+            style={{
+              color: "var(--text-muted)",
+              border: "1px solid rgb(var(--cyan-rgb) / 0.25)",
+            }}
+          >
+            ← {t(lang, "MENU UTAMA", "MAIN MENU")}
+          </Link>
+        )}
 
         {showWarRoomHome && (
           <Link

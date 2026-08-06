@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import { states as initialStates } from "../data/states";
@@ -252,6 +253,7 @@ function Flash({ show }: { show: boolean }) {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
 export default function TrailerPage() {
+  const router = useRouter();
   const [time, setTime] = useState(-1);
   const [running, setRunning] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -336,7 +338,13 @@ export default function TrailerPage() {
 
   if (time < 0) {
     return (
-      <div style={{ minHeight: "100svh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", ...F }}>
+      <div style={{ minHeight: "100svh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", ...F }}>
+        <button
+          onClick={() => router.back()}
+          style={{ position: "absolute", left: 20, top: 20, border: "1px solid rgb(var(--cyan-rgb) / 0.32)", background: "rgb(var(--cyan-rgb) / 0.06)", color: "var(--cyan)", padding: "6px 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", cursor: "pointer", ...F }}
+        >
+          ← BACK
+        </button>
         <div style={{ textAlign: "center", maxWidth: 380, padding: "0 24px" }}>
           <div style={{ fontSize: 11, color: "var(--cyan)", letterSpacing: "0.45em", marginBottom: 14 }}>{"// GAME TRAILER · TIKTOK EDITION"}</div>
           <div style={{ fontSize: 58, fontWeight: 700, letterSpacing: "0.08em", marginBottom: 6 }}>

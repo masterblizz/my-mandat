@@ -2331,18 +2331,24 @@ export default function KawasanDevelopmentPage() {
     if (!homeState) return;
     const template = OP_TEMPLATES[type];
     if (resources.funds < template.fundsCost || resources.manpower < template.manpowerCost) return;
+    // Display name only — the operation still scopes its actual support gain
+    // to the whole state via stateIds below, but the label/notice should
+    // name the seat the player is personally contesting (e.g. "Petaling
+    // Jaya"), not just the state, since this launch is triggered from the
+    // player's own kawasan screen.
+    const seatLabel = ownSeat ? `${ownSeat.name}, ${homeState.name}` : homeState.name;
     addOperation({
       id: `op-kawasan-${Date.now()}`,
       name: t(lang, template.labelMS, template.labelEN),
       type,
-      location: homeState.name,
+      location: seatLabel,
       stateIds: [homeState.id],
       status: "active",
       manpowerCost: template.manpowerCost,
       fundsCost: template.fundsCost,
       supportGain: template.supportGain,
     });
-    setNotice(t(lang, `${template.labelMS} dilancarkan di ${homeState.name}`, `${template.labelEN} launched in ${homeState.name}`));
+    setNotice(t(lang, `${template.labelMS} dilancarkan di ${ownSeat?.name ?? homeState.name}`, `${template.labelEN} launched in ${ownSeat?.name ?? homeState.name}`));
   }
 
   function saveManifesto() {
