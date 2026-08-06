@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { StateData } from "../../data/states";
 import { formatNumber, formatPercent } from "../../utils/format";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
 interface Props {
   states: StateData[];
@@ -201,10 +202,10 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
   if (pathData.length === 0) {
     return (
       <div
-        className="flex items-center justify-center text-text-muted"
-        style={{ height: compact ? 380 : 280, fontSize: 12, fontFamily: "Space Mono, monospace" }}
+        className="flex items-center justify-center"
+        style={{ height: compact ? 380 : 280 }}
       >
-        {"// LOADING MAP..."}
+        <LoadingSpinner label="// LOADING MAP..." />
       </div>
     );
   }

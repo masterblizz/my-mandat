@@ -22,10 +22,15 @@ import { useReducedMotion } from "../hooks/useReducedMotion";
 import CountUpNumber from "../components/ui/CountUpNumber";
 import { generateConstituencies, type Constituency } from "../data/constituencies";
 import dynamic from "next/dynamic";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const WarRoomLivingScene = dynamic(() => import("../components/warroom/WarRoomLivingScene"), {
   ssr: false,
-  loading: () => <div style={{ aspectRatio: "16/6" }} />,
+  loading: () => (
+    <div className="flex items-center justify-center" style={{ aspectRatio: "16/6" }}>
+      <LoadingSpinner />
+    </div>
+  ),
 });
 
 function isPoliticalReaction(news: unknown): news is PoliticalReaction {

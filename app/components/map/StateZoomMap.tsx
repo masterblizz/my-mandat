@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StateData } from "../../data/states";
 import { generateConstituencies, type Constituency } from "../../data/constituencies";
 import { useLang, t } from "../../i18n/useLang";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
 interface Props {
   state: StateData;
@@ -110,11 +111,8 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
 
   if (!pathD) {
     return (
-      <div
-        className="flex items-center justify-center text-text-muted"
-        style={{ height: 380, fontSize: 12, fontFamily: "Space Mono, monospace" }}
-      >
-        {t(lang, "// MEMUATKAN PETA...", "// LOADING MAP...")}
+      <div className="flex items-center justify-center" style={{ height: 380 }}>
+        <LoadingSpinner label={t(lang, "// MEMUATKAN PETA...", "// LOADING MAP...")} />
       </div>
     );
   }
