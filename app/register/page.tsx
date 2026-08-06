@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
 import AuthShell from "../components/auth/AuthShell";
 import { useLang, t } from "../i18n/useLang";
+import { useGameStore } from "../store/gameStore";
+import { useHistoryStore } from "../store/historyStore";
+import { clearAllSavedGameData } from "../store/saveGame";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -56,6 +59,17 @@ export default function RegisterPage() {
       setError(error.message);
       return;
     }
+
+    // A brand-new account must start with zero leftover game memory —
+    // otherwise whoever last played on this browser/device (game in
+    // progress, save slots, win/loss history) would bleed into the new
+    // player's account, since saves currently live in this browser's
+    // localStorage rather than a per-account backend. Wipe unconditionally
+    // once signUp has actually succeeded, regardless of whether email
+    // confirmation is still pending.
+    useGameStore.getState().resetGame();
+    useHistoryStore.getState().clearHistory();
+    clearAllSavedGameData();
 
     if (!data.session) {
       setAwaitingConfirmation(true);
