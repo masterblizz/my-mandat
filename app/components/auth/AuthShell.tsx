@@ -79,7 +79,7 @@ function LangToggle() {
   const setLanguage = useUIStore((s) => s.setLanguage);
   const codes: Lang[] = ["ms", "en"];
   return (
-    <div className="absolute right-5 top-5 z-20 flex gap-1">
+    <div className="flex gap-1">
       {codes.map((code) => {
         const active = lang === code;
         return (
@@ -95,6 +95,38 @@ function LangToggle() {
             }}
           >
             {code.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ThemeToggle() {
+  const lang = useLang();
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
+  const options: { id: "dark" | "light"; labelMS: string; labelEN: string }[] = [
+    { id: "dark", labelMS: "GELAP", labelEN: "DARK" },
+    { id: "light", labelMS: "CERAH", labelEN: "LIGHT" },
+  ];
+  return (
+    <div className="flex gap-1">
+      {options.map((opt) => {
+        const active = theme === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setTheme(opt.id)}
+            className="border px-2 py-1 text-[9px] font-black tracking-[0.18em]"
+            style={{
+              borderColor: active ? "rgb(var(--gold-rgb) / 0.7)" : "rgb(var(--cyan-rgb) / 0.2)",
+              color: active ? "var(--gold)" : "var(--text-muted)",
+              background: active ? "rgb(var(--gold-rgb) / 0.08)" : "transparent",
+            }}
+          >
+            {t(lang, opt.labelMS, opt.labelEN)}
           </button>
         );
       })}
@@ -123,7 +155,11 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
       <Skyline opacity={0.32} />
 
       {showBack && <BackButton />}
-      <LangToggle />
+      <div className="absolute right-5 top-5 z-20 flex items-center gap-2">
+        <ThemeToggle />
+        <span className="h-3.5 w-px" style={{ background: "rgb(var(--cyan-rgb) / 0.2)" }} />
+        <LangToggle />
+      </div>
 
       <div className="relative z-10 w-full max-w-[420px]">
         <div className="mb-6 flex items-center justify-center gap-3 mm-rise" style={{ ["--mm-i" as string]: 0 }}>
@@ -144,7 +180,7 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
           style={{
             ["--mm-i" as string]: 1,
             borderColor: "rgb(var(--cyan-rgb) / 0.28)",
-            background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.05), rgba(3,8,15,0.86))",
+            background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.08), var(--panel-dark))",
             boxShadow: "0 0 40px rgb(var(--cyan-rgb) / 0.1), inset 0 0 40px rgb(var(--cyan-rgb) / 0.03)",
           }}
         >
