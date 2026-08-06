@@ -134,12 +134,19 @@ export default function MainMenuPage() {
   const statusRows = lang === "ms" ? STATUS_ROWS_MS : STATUS_ROWS_EN;
   const liveNewsItems = lang === "ms" ? LIVE_NEWS_MS : LIVE_NEWS_EN;
 
+  // Always the full 14-state map, even in PRN mode — this is the ambient
+  // "state of the nation" backdrop, not literally the player's campaign
+  // scope, so it shouldn't shrink down to a single negeri's outline just
+  // because the current run is a PRN contest. Hovering any state still
+  // shows that state's own reference info via MalaysiaMap's
+  // tooltipPlacement="menu-static" (see the "SELANGOR ONLY" bug report
+  // this was fixed from — the map used to render just [prnState] here).
   const highlightedStates = useMemo(
-    () => (isPrn && prnState ? [prnState] : initialStates).map((state) => ({
+    () => initialStates.map((state) => ({
       ...state,
       status: "winning" as const,
     })),
-    [isPrn, prnState]
+    []
   );
 
   // PRN runs replace the two national flavor tables (registered voters,
