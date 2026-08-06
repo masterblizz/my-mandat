@@ -4,6 +4,8 @@ import ThemeProvider from "./components/layout/ThemeProvider";
 import StoreHydrator from "./components/layout/StoreHydrator";
 import AutoSave from "./components/layout/AutoSave";
 import AmbientMusic from "./components/layout/AmbientMusic";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "MY MANDAT — Malaysian Political Campaign Simulator",
@@ -23,6 +25,8 @@ export default function RootLayout({
         <AutoSave />
         <AmbientMusic />
         {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
