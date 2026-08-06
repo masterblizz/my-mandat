@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
+import Skyline from "../layout/Skyline";
 
 // Same corner-bracket motif as the /menu CornerFrame — kept local (not
 // imported from menu/page.tsx, which doesn't export it) since it's a
@@ -119,6 +120,7 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
       <div className="pointer-events-none absolute inset-0 opacity-[0.24]" style={{ backgroundImage: "linear-gradient(rgb(var(--cyan-rgb) / 0.08) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.06) 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
       <div className="pointer-events-none absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.016), rgba(255,255,255,0.016) 1px, transparent 1px, transparent 4px)" }} />
       <AmbientBackground />
+      <Skyline opacity={0.32} />
 
       {showBack && <BackButton />}
       <LangToggle />

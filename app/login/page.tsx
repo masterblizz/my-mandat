@@ -54,6 +54,7 @@ export default function LoginPage() {
       title={t(lang, "LOG MASUK OPERASI", "OPERATOR LOGIN")}
       subtitle={t(lang, "Sahkan identiti untuk sambung kempen anda.", "Verify identity to resume your campaign.")}
       footNote={t(lang, "Data kempen disimpan pada akaun anda merentasi peranti.", "Campaign data is tied to your account across devices.")}
+      showBack={false}
     >
       <form onSubmit={handleLogin} className="space-y-4">
         {error && (
