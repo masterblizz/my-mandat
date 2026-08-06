@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "../../utils/stripe";
+import { getStripe } from "../../utils/stripe";
 import { createClient } from "../../utils/supabase/server";
 
 interface CheckoutRequestBody {
@@ -38,6 +38,14 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   const origin = request.headers.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin;
+
+  let stripe;
+  try {
+    stripe = getStripe();
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Payments are not configured on this deployment" }, { status: 500 });
+  }
 
   try {
     const session = await stripe.checkout.sessions.create({

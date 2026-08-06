@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "../../../utils/stripe";
+import { getStripe } from "../../../utils/stripe";
 import { createServiceClient } from "../../../utils/supabase/service";
 import { PREMIUM_PRICE_IDS } from "../../../config/premiumProducts";
 
@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
 
   if (!signature || !webhookSecret) {
     console.error("Stripe webhook hit without a signature header or STRIPE_WEBHOOK_SECRET configured.");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
+  let stripe;
+  try {
+    stripe = getStripe();
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
