@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
-import AuthShell from "../components/auth/AuthShell";
+import PosterShell, { oswald, INK, RED, RED_DARK, MUTED, POSTER_INPUT_CLASS } from "../components/auth/PosterShell";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -82,53 +82,71 @@ export default function RegisterPage() {
 
   if (awaitingConfirmation) {
     return (
-      <AuthShell
-        title={t(lang, "SEMAK EMEL ANDA", "CHECK YOUR EMAIL")}
-        subtitle={t(lang, "Satu langkah lagi sebelum kempen anda bermula.", "One more step before your campaign begins.")}
-      >
-        <div className="space-y-4 text-center">
-          <p className="text-[12px] leading-6" style={{ color: "#d7e7f5" }}>
-            {t(
-              lang,
-              `Pautan pengesahan telah dihantar ke ${email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.`,
-              `A confirmation link was sent to ${email}. Verify it, then log in to start your campaign.`
-            )}
-          </p>
-          <a
-            href="/login"
-            className="inline-block w-full border py-2.5 text-[12px] font-black tracking-[0.24em]"
-            style={{
-              borderColor: "rgb(var(--gold-rgb) / 0.9)",
-              background: "linear-gradient(90deg, #ffb42f, #f7a81f)",
-              color: "#05080e",
-              boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
-            }}
-          >
-            {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
-          </a>
-        </div>
-      </AuthShell>
+      <PosterShell heading={t(lang, "SEMAK EMEL ANDA", "CHECK YOUR EMAIL")}>
+        <p className={oswald.className} style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 22 }}>
+          {t(
+            lang,
+            `Pautan pengesahan telah dihantar ke ${email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.`,
+            `A confirmation link was sent to ${email}. Verify it, then log in to start your campaign.`
+          )}
+        </p>
+        <a
+          href="/login"
+          className={oswald.className}
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "center",
+            background: RED,
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 15,
+            letterSpacing: "0.2em",
+            padding: "14px 0",
+            boxShadow: `6px 6px 0 ${RED_DARK}`,
+          }}
+        >
+          {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
+        </a>
+      </PosterShell>
     );
   }
 
   return (
-    <AuthShell
-      title={t(lang, "DAFTAR OPERASI BAHARU", "REGISTER NEW OPERATIVE")}
-      subtitle={t(lang, "Cipta akaun untuk mula kempen pilihan raya anda.", "Create an account to launch your election campaign.")}
-      footNote={t(lang, "Data kempen disimpan pada akaun anda merentasi peranti.", "Campaign data is tied to your account across devices.")}
+    <PosterShell
+      heading={t(lang, "DAFTAR OPERASI", "REGISTER")}
+      footNote={
+        <>
+          {t(lang, "Dah ada akaun? ", "Already have an account? ")}
+          <a href="/login" style={{ color: RED, fontWeight: 700, textDecoration: "underline" }}>
+            {t(lang, "Log masuk di sini", "Log in here")}
+          </a>
+        </>
+      }
     >
-      <form onSubmit={handleRegister} className="space-y-4">
+      <form onSubmit={handleRegister}>
         {error && (
           <p
-            className="border px-3 py-2 text-[11px] leading-5"
-            style={{ borderColor: "rgb(var(--neon-red-rgb) / 0.4)", background: "rgb(var(--neon-red-rgb) / 0.08)", color: "var(--neon-red)" }}
+            className={oswald.className}
+            style={{
+              marginBottom: 16,
+              padding: "10px 12px",
+              fontSize: 12,
+              lineHeight: 1.5,
+              border: `1.5px solid ${RED}`,
+              background: "rgba(193,31,44,0.08)",
+              color: RED_DARK,
+            }}
           >
             {error}
           </p>
         )}
 
-        <div>
-          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+        <div className="mb-5">
+          <label
+            className={oswald.className}
+            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
+          >
             {t(lang, "NAMA PENGGUNA", "USERNAME")}
           </label>
           <input
@@ -137,12 +155,25 @@ export default function RegisterPage() {
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full"
+            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              borderBottom: `2px solid ${MUTED}`,
+              borderRadius: 0,
+              padding: "6px 2px",
+              fontSize: 15,
+              color: INK,
+            }}
           />
         </div>
 
-        <div>
-          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+        <div className="mb-5">
+          <label
+            className={oswald.className}
+            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
+          >
             {t(lang, "EMEL", "EMAIL")}
           </label>
           <input
@@ -151,12 +182,25 @@ export default function RegisterPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full"
+            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              borderBottom: `2px solid ${MUTED}`,
+              borderRadius: 0,
+              padding: "6px 2px",
+              fontSize: 15,
+              color: INK,
+            }}
           />
         </div>
 
-        <div>
-          <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
+        <div className="mb-7">
+          <label
+            className={oswald.className}
+            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
+          >
             {t(lang, "KATA LALUAN", "PASSWORD")}
           </label>
           <input
@@ -166,9 +210,19 @@ export default function RegisterPage() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full"
+            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              borderBottom: `2px solid ${MUTED}`,
+              borderRadius: 0,
+              padding: "6px 2px",
+              fontSize: 15,
+              color: INK,
+            }}
           />
-          <div className="mt-1 text-[9px] tracking-[0.06em]" style={{ color: "var(--text-muted)" }}>
+          <div className={oswald.className} style={{ marginTop: 6, fontSize: 10, letterSpacing: "0.06em", color: MUTED }}>
             {t(lang, "Minimum 6 aksara.", "Minimum 6 characters.")}
           </div>
         </div>
@@ -176,24 +230,26 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 w-full border py-2.5 text-[12px] font-black tracking-[0.24em] transition-all disabled:opacity-50"
+          className={oswald.className}
           style={{
-            borderColor: "rgb(var(--gold-rgb) / 0.9)",
-            background: "linear-gradient(90deg, #ffb42f, #f7a81f)",
-            color: "#05080e",
-            boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
+            width: "100%",
+            border: "none",
+            background: RED,
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 15,
+            letterSpacing: "0.2em",
+            padding: "14px 0",
+            boxShadow: loading ? "none" : `6px 6px 0 ${RED_DARK}`,
+            transform: loading ? "translate(6px, 6px)" : "none",
+            opacity: loading ? 0.75 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "transform 0.1s, box-shadow 0.1s, opacity 0.1s",
           }}
         >
           {loading ? t(lang, "MENDAFTAR…", "REGISTERING…") : t(lang, "DAFTAR »", "REGISTER »")}
         </button>
-
-        <p className="pt-1 text-center text-[10px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>
-          {t(lang, "Dah ada akaun? ", "Already have an account? ")}
-          <a href="/login" className="font-bold" style={{ color: "var(--cyan)" }}>
-            {t(lang, "Log masuk di sini", "Log in here")}
-          </a>
-        </p>
       </form>
-    </AuthShell>
+    </PosterShell>
   );
 }
