@@ -27,6 +27,20 @@ function tierForPrice(priceId: string | null | undefined): string {
   return "premium";
 }
 
+// Supabase-js query builders resolve to { data, error } and never throw on
+// their own — a failed write (wrong column, missing table, RLS rejection,
+// etc.) would otherwise be silently swallowed here while this whole
+// handler still returns 200 "received: true" to Stripe, which is exactly
+// what happened when the purchases/profiles tables didn't exist yet: the
+// webhook reported success on every delivery while writing nothing. This
+// turns any write error into a real thrown exception so the outer
+// try/catch further down actually logs it (and returns a failing status,
+// which makes Stripe retry instead of considering it delivered).
+async function assertOk(query: PromiseLike<{ error: { message: string } | null }>): Promise<void> {
+  const { error } = await query;
+  if (error) throw new Error(error.message);
+}
+
 // Subscription events carry the Stripe customer id but metadata is only
 // reliably present when the subscription was created through our own
 // /api/checkout (see subscription_data.metadata there). Fall back to
@@ -93,10 +107,19 @@ export async function POST(request: NextRequest) {
 
         // Persist the Stripe customer id for reuse on the next checkout —
         // see /api/checkout's stripe_customer_id lookup — regardless of mode.
+        // A plain update, not upsert: the profiles row is guaranteed to
+        // already exist by now (created at signup by the migration's
+        // trigger, or backfilled for pre-existing accounts), and upsert's
+        // insert path would need to satisfy this project's own unrelated
+        // NOT NULL columns (e.g. username) that this webhook has no
+        // business knowing about.
         if (session.customer) {
-          await supabase
-            .from("profiles")
-            .upsert({ id: userId, stripe_customer_id: String(session.customer) }, { onConflict: "id" });
+          await assertOk(
+            supabase
+              .from("profiles")
+              .update({ stripe_customer_id: String(session.customer) })
+              .eq("id", userId)
+          );
         }
 
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
@@ -110,20 +133,24 @@ export async function POST(request: NextRequest) {
             typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
           const productName = lineItems.data[0]?.description || "One-time purchase";
 
-          await supabase.from("purchases").insert({
-            user_id: userId,
-            stripe_session_id: session.id,
-            stripe_payment_intent_id: paymentIntentId,
-            product_name: productName,
-            amount: session.amount_total,
-            currency: session.currency,
-            status: "completed",
-          });
+          await assertOk(
+            supabase.from("purchases").insert({
+              user_id: userId,
+              stripe_session_id: session.id,
+              stripe_payment_intent_id: paymentIntentId,
+              product_name: productName,
+              amount: session.amount_total,
+              currency: session.currency,
+              status: "completed",
+            })
+          );
 
-          await supabase
-            .from("profiles")
-            .update({ premium_tier: tierForPrice(priceId), premium_expires_at: null })
-            .eq("id", userId);
+          await assertOk(
+            supabase
+              .from("profiles")
+              .update({ premium_tier: tierForPrice(priceId), premium_expires_at: null })
+              .eq("id", userId)
+          );
         } else if (session.mode === "subscription") {
           // Subscription: grant the tier immediately for a snappy unlock —
           // don't make the user wait on a second webhook round-trip that in
@@ -132,10 +159,12 @@ export async function POST(request: NextRequest) {
           // (handled right below, and always fired for a brand-new
           // subscription alongside this event) is the single source of
           // truth for the actual expiry date, so it isn't duplicated here.
-          await supabase
-            .from("profiles")
-            .update({ premium_tier: tierForPrice(priceId) })
-            .eq("id", userId);
+          await assertOk(
+            supabase
+              .from("profiles")
+              .update({ premium_tier: tierForPrice(priceId) })
+              .eq("id", userId)
+          );
         }
         break;
       }
@@ -159,13 +188,15 @@ export async function POST(request: NextRequest) {
         const priceId = item?.price?.id ?? null;
         const isActive = subscription.status === "active" || subscription.status === "trialing";
 
-        await supabase
-          .from("profiles")
-          .update({
-            premium_tier: isActive ? tierForPrice(priceId) : null,
-            premium_expires_at: item ? new Date(item.current_period_end * 1000).toISOString() : null,
-          })
-          .eq("id", userId);
+        await assertOk(
+          supabase
+            .from("profiles")
+            .update({
+              premium_tier: isActive ? tierForPrice(priceId) : null,
+              premium_expires_at: item ? new Date(item.current_period_end * 1000).toISOString() : null,
+            })
+            .eq("id", userId)
+        );
         break;
       }
 
@@ -178,10 +209,12 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        await supabase
-          .from("profiles")
-          .update({ premium_tier: null, premium_expires_at: null })
-          .eq("id", userId);
+        await assertOk(
+          supabase
+            .from("profiles")
+            .update({ premium_tier: null, premium_expires_at: null })
+            .eq("id", userId)
+        );
         break;
       }
 
