@@ -20,6 +20,17 @@ export default function UpgradeButton({ priceId, mode, label, className, style }
   const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
+    // priceId comes from NEXT_PUBLIC_STRIPE_PRICE_* (see
+    // app/config/premiumProducts.ts) — empty here means that env var isn't
+    // set on this deployment (or was added after the last build; Next.js
+    // bakes NEXT_PUBLIC_ vars in at build time, so it needs a redeploy to
+    // pick up a newly-added one). Say so directly instead of sending an
+    // empty priceId to /api/checkout and surfacing its generic 400.
+    if (!priceId) {
+      setError(t(lang, "Produk ini belum dikonfigurasi (Price ID hilang).", "This product isn't configured yet (missing Price ID)."));
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
