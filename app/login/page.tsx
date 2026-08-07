@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const lang = useLang();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +36,32 @@ export default function LoginPage() {
       setLoading(false);
       setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
       return;
+    }
+
+    // Accept either a username or an email: signInWithPassword only takes
+    // an email, so a plain username needs resolving to its account's real
+    // email first (server-side — see /api/auth/resolve-login, profiles.
+    // username isn't readable client-side for anyone but yourself).
+    let email = identifier;
+    if (!identifier.includes("@")) {
+      try {
+        const res = await fetch("/api/auth/resolve-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier }),
+        });
+        const data: { email?: string | null } = await res.json();
+        if (!data.email) {
+          setLoading(false);
+          setError(t(lang, "ID pengguna atau kata laluan tidak sah.", "Invalid user ID or password."));
+          return;
+        }
+        email = data.email;
+      } catch {
+        setLoading(false);
+        setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
+        return;
+      }
     }
 
     // "Ingat saya" (remember me) — Supabase's own session already persists
@@ -88,7 +114,7 @@ export default function LoginPage() {
   return (
     <TacticalAuthShell
       eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
-      heading={t(lang, "Log Masuk ke Mandat", "Log In to Mandat")}
+      heading={t(lang, "Log Masuk ke MyMandat", "Log In to MyMandat")}
     >
       {error && (
         <p
@@ -105,12 +131,12 @@ export default function LoginPage() {
             {t(lang, "ID PENGGUNA / EMEL", "USER ID / EMAIL")}
           </label>
           <input
-            type="email"
+            type="text"
             required
-            autoComplete="email"
-            placeholder={t(lang, "cth. operator01", "e.g. operator01")}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            placeholder={t(lang, "cth. operator01 atau emel", "e.g. operator01 or email")}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className={plexMono.className}
             style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />

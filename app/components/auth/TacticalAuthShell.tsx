@@ -1,21 +1,19 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
 import AuthBackground from "./AuthBackground";
 import { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN } from "./theme";
+import { plexMono, inter } from "./fonts";
 
 // Shared chrome for /login and /register: "tactical map + centered card" —
 // ported from the Claude Design canvas "Login Page.dc.html", variant 5a
 // ("Peta taktikal + kad tengah"), the app's native dark cyan/gold/red HUD
 // look — radar dial, breaking-news ticker, glowing map backdrop (see
 // AuthBackground), corner-bracketed card.
-export const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
-export const inter = Inter({ subsets: ["latin"], weight: ["400", "600", "700", "800"] });
-
 export { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN };
+export { plexMono, inter };
 
 // Ticker separator/timestamp tone — distinct from TEXT_FAINT, used only here.
 const TICKER_MUTED = "#3d4656";

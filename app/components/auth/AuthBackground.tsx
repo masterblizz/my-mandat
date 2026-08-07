@@ -1,25 +1,117 @@
-import { RED, CYAN, GOLD } from "./theme";
+"use client";
+
+import { useEffect, useState } from "react";
+import { RED, CYAN, GOLD, TEXT_DIM, TEXT_FAINT, PANEL, BORDER } from "./theme";
+import { plexMono } from "./fonts";
+import { useLang, t } from "../../i18n/useLang";
+import { states } from "../../data/states";
+import { formatNumber } from "../../utils/format";
 
 // Full-bleed decorative backdrop for /login and /register — ported from the
 // Claude Design canvas "Login Page.dc.html", variant 5a ("Peta taktikal +
-// kad tengah"): a radial cyan/gold wash, two zoomed/cropped copies of the
-// real /malaysia.svg recolored cyan via a black-then-hue-rotate filter
-// (Peninsular clipped to the left 60%, Borneo full-bleed on the right) as
-// an atmospheric map glow, a drifting grid, faint scanlines, a spinning
-// radar dial, and four pulsing activity blips. Pure CSS/SVG — no fetch, no
-// client state — the animations are the only motion, all disabled under
-// prefers-reduced-motion via the mm-auth- classes in globals.css.
-const MAP_RECOLOR_FILTER =
-  "brightness(0) saturate(100%) invert(70%) sepia(85%) saturate(1200%) hue-rotate(155deg) brightness(1.4) drop-shadow(0 0 24px rgba(0,212,255,0.25))";
+// kad tengah"): a radial cyan/gold wash, the real /malaysia.svg state
+// outlines (fetched and parsed the same way MalaysiaMap.tsx does — see
+// SVG_TO_GAME below — so this needs no per-capital coordinate calibration
+// at all, unlike the point-marker version this replaced), a drifting
+// grid, faint scanlines, and a spinning radar dial. Hovering a state
+// highlights it and shows its real facts (area, seats, population) in a
+// cursor-following tooltip. Animations are the only motion on the
+// non-interactive layers — all disabled under prefers-reduced-motion via
+// the mm-auth- classes in globals.css.
 
-const BLIPS: { left: string; top: string; size: number; color: string; delay: string }[] = [
-  { left: "12.2%", top: "60.9%", size: 8, color: CYAN, delay: "0s" },
-  { left: "95%", top: "35.6%", size: 8, color: GOLD, delay: "0.6s" },
-  { left: "20.6%", top: "84.1%", size: 6, color: GOLD, delay: "1.2s" },
-  { left: "80%", top: "78%", size: 6, color: CYAN, delay: "1.8s" },
+// SVG path id → game state id (same mapping as MalaysiaMap.tsx).
+const SVG_TO_GAME: Record<string, string> = {
+  MY01: "johor", MY02: "kedah", MY03: "kelantan", MY04: "melaka",
+  MY05: "ns", MY06: "pahang", MY07: "penang", MY08: "perak",
+  MY09: "perlis", MY10: "selangor", MY11: "terengganu",
+  MY12: "sabah", MY13: "sarawak", MY14: "wp",
+};
+
+// East Malaysia states shifted left by EM_SHIFT to close the sea gap —
+// same trick and same value MalaysiaMap.tsx uses, so both maps agree on
+// what "closed up" Malaysia looks like.
+const EAST_MALAYSIA = new Set(["sabah", "sarawak"]);
+const EM_SHIFT = -230;
+
+const STATE_CAPITALS: Record<string, string> = {
+  perlis: "Kangar", kedah: "Alor Setar", penang: "George Town", perak: "Ipoh",
+  kelantan: "Kota Bharu", terengganu: "Kuala Terengganu", selangor: "Shah Alam",
+  wp: "Kuala Lumpur", ns: "Seremban", pahang: "Kuantan", melaka: "Melaka",
+  johor: "Johor Bahru", sabah: "Kota Kinabalu", sarawak: "Kuching",
+};
+
+// Same center as MalaysiaMap.tsx's own viewBox (x:40,y:30,w:700,h:280),
+// zoomed out to 60% of its original on-screen scale (50% smaller, then
+// bumped back up 20%) — a smaller, less dominant map accent rather than
+// filling the whole backdrop edge-to-edge.
+const MAP_VIEWBOX = { x: -193, y: -63, width: 1167, height: 467 };
+
+// Idle "scanning" order for the auto-highlight cycle — starts Sabah →
+// Sarawak → Johor → Melaka per request, then sweeps the rest of the
+// peninsula before looping back to Sabah.
+const AUTO_CYCLE_ORDER = [
+  "sabah", "sarawak", "johor", "melaka", "ns", "selangor", "wp",
+  "perak", "penang", "kedah", "perlis", "kelantan", "terengganu", "pahang",
 ];
+const AUTO_CYCLE_MS = 2200;
+
+interface PathData {
+  svgId: string;
+  gameId: string;
+  d: string;
+}
+
+const stateById = Object.fromEntries(states.map((s) => [s.id, s]));
 
 export default function AuthBackground() {
+  const lang = useLang();
+  const [pathData, setPathData] = useState<PathData[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [autoIndex, setAutoIndex] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const interval = setInterval(() => {
+      setAutoIndex((i) => (i + 1) % AUTO_CYCLE_ORDER.length);
+    }, AUTO_CYCLE_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetch("/malaysia.svg")
+      .then((r) => r.text())
+      .then((text) => {
+        const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+        const paths: PathData[] = [];
+        doc.querySelectorAll("path").forEach((el) => {
+          const svgId = el.getAttribute("id") || "";
+          const gameId = SVG_TO_GAME[svgId];
+          const d = el.getAttribute("d") || "";
+          if (gameId && d.length > 10) paths.push({ svgId, gameId, d });
+        });
+        setPathData(paths);
+      })
+      .catch(() => setPathData([]));
+  }, []);
+
+  const peninsularPaths = pathData.filter((p) => !EAST_MALAYSIA.has(p.gameId));
+  const eastMalaysiaPaths = pathData.filter((p) => EAST_MALAYSIA.has(p.gameId));
+
+  const handleEnter = (gameId: string, e: React.MouseEvent) => {
+    setHoveredId(gameId);
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+  };
+  const handleMove = (e: React.MouseEvent) => setTooltipPos({ x: e.clientX, y: e.clientY });
+  const handleLeave = () => setHoveredId(null);
+
+  // Manual hover always wins over the ambient auto-cycle; tooltip only
+  // ever shows for an actual hover, never for the auto-highlight alone.
+  const activeId = hoveredId ?? AUTO_CYCLE_ORDER[autoIndex];
+  const hoveredState = hoveredId ? stateById[hoveredId] : null;
+  const openLeft = tooltipPos.x > (typeof window !== "undefined" ? window.innerWidth : 1440) - 230;
+  const openUp = tooltipPos.y > (typeof window !== "undefined" ? window.innerHeight : 900) - 210;
+
   return (
     <>
       <div
@@ -30,36 +122,56 @@ export default function AuthBackground() {
         }}
       />
 
-      {/* Peninsular Malaysia, faded out past the left ~55% so it doesn't overlap Borneo */}
-      <div
-        className="mm-auth-map-glow pointer-events-none absolute inset-0"
-        style={{
-          WebkitMaskImage: "linear-gradient(to right, black 0%, black 52%, transparent 68%)",
-          maskImage: "linear-gradient(to right, black 0%, black 52%, transparent 68%)",
-          backgroundImage: "url(/malaysia.svg)",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "2400px auto",
-          backgroundPosition: "-172px 128px",
-          opacity: 0.15,
-          filter: MAP_RECOLOR_FILTER,
-          mixBlendMode: "screen",
-        }}
-      />
-      {/* East Malaysia (Sabah/Sarawak), faded in from the left so it doesn't overlap Peninsular */}
-      <div
-        className="mm-auth-map-glow pointer-events-none absolute inset-0"
-        style={{
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%)",
-          maskImage: "linear-gradient(to right, transparent 0%, black 14%)",
-          backgroundImage: "url(/malaysia.svg)",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "2400px auto",
-          backgroundPosition: "-433px 128px",
-          opacity: 0.15,
-          filter: MAP_RECOLOR_FILTER,
-          mixBlendMode: "screen",
-        }}
-      />
+      <svg
+        className="absolute inset-0"
+        style={{ pointerEvents: pathData.length ? "auto" : "none" }}
+        width="100%"
+        height="100%"
+        viewBox={`${MAP_VIEWBOX.x} ${MAP_VIEWBOX.y} ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <filter id="mm-auth-state-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <g>
+          {peninsularPaths.map(({ svgId, gameId, d }) => (
+            <path
+              key={svgId}
+              d={d}
+              fill={activeId === gameId ? "rgba(85,220,255,0.22)" : "rgba(85,220,255,0.06)"}
+              stroke={activeId === gameId ? CYAN : "rgba(85,220,255,0.22)"}
+              strokeWidth={activeId === gameId ? 1.2 : 0.6}
+              filter={activeId === gameId ? "url(#mm-auth-state-glow)" : undefined}
+              style={{ cursor: "pointer", transition: "fill 0.2s, stroke 0.2s" }}
+              onMouseEnter={(e) => handleEnter(gameId, e)}
+              onMouseMove={handleMove}
+              onMouseLeave={handleLeave}
+            />
+          ))}
+        </g>
+        <g transform={`translate(${EM_SHIFT}, 0)`}>
+          {eastMalaysiaPaths.map(({ svgId, gameId, d }) => (
+            <path
+              key={svgId}
+              d={d}
+              fill={activeId === gameId ? "rgba(85,220,255,0.22)" : "rgba(85,220,255,0.06)"}
+              stroke={activeId === gameId ? CYAN : "rgba(85,220,255,0.22)"}
+              strokeWidth={activeId === gameId ? 1.2 : 0.6}
+              filter={activeId === gameId ? "url(#mm-auth-state-glow)" : undefined}
+              style={{ cursor: "pointer", transition: "fill 0.2s, stroke 0.2s" }}
+              onMouseEnter={(e) => handleEnter(gameId, e)}
+              onMouseMove={handleMove}
+              onMouseLeave={handleLeave}
+            />
+          ))}
+        </g>
+      </svg>
 
       <div
         className="mm-auth-grid-drift pointer-events-none absolute inset-0"
@@ -93,21 +205,61 @@ export default function AuthBackground() {
         <path d="M 380 380 L 380 30 A 350 350 0 0 1 627 133 Z" fill="rgba(193,31,44,0.12)" />
       </svg>
 
-      {BLIPS.map((blip, i) => (
+      {hoveredState && (
         <div
-          key={i}
-          className="mm-auth-blip pointer-events-none absolute rounded-full"
+          className={`${plexMono.className} pointer-events-none fixed z-20`}
           style={{
-            left: blip.left,
-            top: blip.top,
-            width: blip.size,
-            height: blip.size,
-            background: blip.color,
-            boxShadow: `0 0 ${blip.size * 1.5}px ${blip.size / 2}px ${blip.color}b3`,
-            animationDelay: blip.delay,
+            left: openLeft ? "auto" : tooltipPos.x + 16,
+            right: openLeft ? window.innerWidth - tooltipPos.x + 16 : "auto",
+            top: openUp ? "auto" : tooltipPos.y + 16,
+            bottom: openUp ? window.innerHeight - tooltipPos.y + 16 : "auto",
+            width: 205,
+            background: PANEL,
+            backdropFilter: "blur(6px)",
+            border: `1px solid ${BORDER}`,
+            borderLeft: `2px solid ${CYAN}`,
+            padding: "10px 12px",
+            boxShadow: "0 0 24px rgba(0,0,0,0.5)",
           }}
-        />
-      ))}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#f2f4f8", marginBottom: 2 }}>
+            {STATE_CAPITALS[hoveredState.id] ?? hoveredState.name}
+          </div>
+          <div style={{ fontSize: 9, color: GOLD, letterSpacing: 1, marginBottom: 8 }}>
+            {t(lang, "IBU NEGERI ", "STATE CAPITAL OF ").toUpperCase()}
+            {hoveredState.name.toUpperCase()}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: CYAN }}>
+                {formatNumber(hoveredState.population / 1000000)}M
+              </div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "PENDUDUK", "POPULATION")}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: GOLD }}>{hoveredState.seats}</div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "KERUSI PARLIMEN", "PARL. SEATS")}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_DIM }}>
+                {hoveredState.dunSeats > 0 ? hoveredState.dunSeats : "—"}
+              </div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "KERUSI DUN", "DUN SEATS")}</div>
+            </div>
+          </div>
+          <div style={{ paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
+            <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginBottom: 4 }}>
+              {t(lang, "PECAHAN KAUM", "ETHNIC BREAKDOWN")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 3, fontSize: 9, color: TEXT_DIM }}>
+              <span>{t(lang, "Melayu", "Malay")} {hoveredState.demographics.malay}%</span>
+              <span>{t(lang, "Cina", "Chinese")} {hoveredState.demographics.chinese}%</span>
+              <span>{t(lang, "India", "Indian")} {hoveredState.demographics.indian}%</span>
+              <span>{t(lang, "Lain-lain", "Others")} {hoveredState.demographics.others}%</span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
