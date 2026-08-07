@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
+import AuthBackground from "./AuthBackground";
 
 // Shared chrome for /login and /register: "tactical map + centered card" —
 // Design Canvas variant 5a, the app's native dark cyan/gold/red HUD look.
@@ -85,18 +86,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
         }}
       />
 
-      <svg
-        className="pointer-events-none absolute"
-        style={{ right: 40, top: 40, opacity: 0.3 }}
-        width="560"
-        height="560"
-        viewBox="0 0 700 700"
-      >
-        <circle cx="350" cy="350" r="320" fill="none" stroke={RED} strokeWidth="1" />
-        <circle cx="350" cy="350" r="200" fill="none" stroke={RED} strokeWidth="1" />
-        <line x1="350" y1="30" x2="350" y2="670" stroke={RED} strokeWidth="1" />
-        <line x1="30" y1="350" x2="670" y2="350" stroke={RED} strokeWidth="1" />
-      </svg>
+      <AuthBackground />
 
       <div className="absolute left-8 top-6 z-10 flex items-center gap-2.5">
         <img
