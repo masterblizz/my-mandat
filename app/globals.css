@@ -437,6 +437,50 @@ input[type="range"].range-red::-moz-range-thumb {
   }
 }
 
+/* /login & /register tactical HUD backdrop (TacticalAuthShell,
+   AuthBackground) — mm-auth- prefix. */
+@keyframes mm-auth-radar-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes mm-auth-blip-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.6); }
+}
+@keyframes mm-auth-ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes mm-auth-map-glow {
+  0%, 100% { opacity: 0.12; }
+  50%      { opacity: 0.2; }
+}
+@keyframes mm-auth-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 40px 40px, -40px 40px; }
+}
+@keyframes mm-auth-card-glow {
+  0%, 100% { box-shadow: 0 0 80px rgba(0,212,255,0.08), 0 20px 60px rgba(0,0,0,0.6); }
+  50%      { box-shadow: 0 0 110px rgba(0,212,255,0.16), 0 20px 60px rgba(0,0,0,0.6); }
+}
+@keyframes mm-auth-live-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.15; }
+}
+.mm-auth-radar-spin  { animation: mm-auth-radar-spin 10s linear infinite; }
+.mm-auth-blip        { animation: mm-auth-blip-pulse 2.4s ease-in-out infinite; }
+.mm-auth-ticker-track{ animation: mm-auth-ticker 18s linear infinite; }
+.mm-auth-map-glow     { animation: mm-auth-map-glow 6s ease-in-out infinite; }
+.mm-auth-grid-drift   { animation: mm-auth-grid-drift 14s linear infinite; }
+.mm-auth-card-glow    { animation: mm-auth-card-glow 5s ease-in-out infinite; }
+.mm-auth-live-blink   { animation: mm-auth-live-blink 1.1s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mm-auth-radar-spin, .mm-auth-blip, .mm-auth-ticker-track, .mm-auth-map-glow,
+  .mm-auth-grid-drift, .mm-auth-card-glow, .mm-auth-live-blink {
+    animation: none !important;
+  }
+}
+
 /* ============================================================
    Kawasan 3D interactive city (app/kawasan) — kw- prefix.
    Camera state lives in CSS vars (--kw-rz rotate, --kw-rx tilt,
