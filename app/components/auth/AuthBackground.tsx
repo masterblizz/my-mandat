@@ -48,10 +48,11 @@ export default function AuthBackground() {
       <div
         className="mm-auth-map-glow pointer-events-none absolute inset-0"
         style={{
+          clipPath: "inset(0 0 0 8%)",
           backgroundImage: "url(/malaysia.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "2400px auto",
-          backgroundPosition: "-720px 128px",
+          backgroundPosition: "-171px 128px",
           opacity: 0.15,
           filter: MAP_RECOLOR_FILTER,
           mixBlendMode: "screen",
