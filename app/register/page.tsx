@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
-import PosterShell, { oswald, INK, RED, RED_DARK, MUTED, POSTER_INPUT_CLASS } from "../components/auth/PosterShell";
+import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED } from "../components/auth/TacticalAuthShell";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -82,8 +82,11 @@ export default function RegisterPage() {
 
   if (awaitingConfirmation) {
     return (
-      <PosterShell heading={t(lang, "SEMAK EMEL ANDA", "CHECK YOUR EMAIL")}>
-        <p className={oswald.className} style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 22 }}>
+      <TacticalAuthShell
+        eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
+        heading={t(lang, "Semak Emel Anda", "Check Your Email")}
+      >
+        <p className={plexMono.className} style={{ fontSize: 12, lineHeight: 1.7, color: TEXT_DIM, marginBottom: 22 }}>
           {t(
             lang,
             `Pautan pengesahan telah dihantar ke ${email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.`,
@@ -92,89 +95,59 @@ export default function RegisterPage() {
         </p>
         <a
           href="/login"
-          className={oswald.className}
+          className={plexMono.className}
           style={{
             display: "block",
             width: "100%",
             textAlign: "center",
-            background: RED,
-            color: "#fff",
+            background: GOLD,
+            color: "#1a1204",
             fontWeight: 700,
-            fontSize: 15,
-            letterSpacing: "0.2em",
-            padding: "14px 0",
-            boxShadow: `6px 6px 0 ${RED_DARK}`,
+            fontSize: 13,
+            letterSpacing: 1,
+            padding: 13,
           }}
         >
           {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
         </a>
-      </PosterShell>
+      </TacticalAuthShell>
     );
   }
 
   return (
-    <PosterShell
-      heading={t(lang, "DAFTAR OPERASI", "REGISTER")}
-      footNote={
-        <>
-          {t(lang, "Dah ada akaun? ", "Already have an account? ")}
-          <a href="/login" style={{ color: RED, fontWeight: 700, textDecoration: "underline" }}>
-            {t(lang, "Log masuk di sini", "Log in here")}
-          </a>
-        </>
-      }
+    <TacticalAuthShell
+      eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
+      heading={t(lang, "Daftar Operator Baharu", "Register New Operator")}
     >
-      <form onSubmit={handleRegister}>
-        {error && (
-          <p
-            className={oswald.className}
-            style={{
-              marginBottom: 16,
-              padding: "10px 12px",
-              fontSize: 12,
-              lineHeight: 1.5,
-              border: `1.5px solid ${RED}`,
-              background: "rgba(193,31,44,0.08)",
-              color: RED_DARK,
-            }}
-          >
-            {error}
-          </p>
-        )}
+      {error && (
+        <p
+          className={plexMono.className}
+          style={{ marginBottom: 16, padding: "10px 12px", fontSize: 11, lineHeight: 1.6, border: `1px solid ${RED}`, background: "rgba(193,31,44,0.1)", color: "#ff8a93" }}
+        >
+          {error}
+        </p>
+      )}
 
-        <div className="mb-5">
-          <label
-            className={oswald.className}
-            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
-          >
+      <form onSubmit={handleRegister}>
+        <div className="mb-4 flex flex-col gap-1.5">
+          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
             {t(lang, "NAMA PENGGUNA", "USERNAME")}
           </label>
           <input
             type="text"
             required
             autoComplete="username"
+            placeholder={t(lang, "cth. operator01", "e.g. operator01")}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              borderBottom: `2px solid ${MUTED}`,
-              borderRadius: 0,
-              padding: "6px 2px",
-              fontSize: 15,
-              color: INK,
-            }}
+            className={plexMono.className}
+            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
         </div>
 
-        <div className="mb-5">
-          <label
-            className={oswald.className}
-            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
-          >
-            {t(lang, "EMEL", "EMAIL")}
+        <div className="mb-4 flex flex-col gap-1.5">
+          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
+            {t(lang, "ID PENGGUNA / EMEL", "USER ID / EMAIL")}
           </label>
           <input
             type="email"
@@ -182,25 +155,13 @@ export default function RegisterPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              borderBottom: `2px solid ${MUTED}`,
-              borderRadius: 0,
-              padding: "6px 2px",
-              fontSize: 15,
-              color: INK,
-            }}
+            className={plexMono.className}
+            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
         </div>
 
-        <div className="mb-7">
-          <label
-            className={oswald.className}
-            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
-          >
+        <div className="mb-5 flex flex-col gap-1.5">
+          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
             {t(lang, "KATA LALUAN", "PASSWORD")}
           </label>
           <input
@@ -208,21 +169,13 @@ export default function RegisterPage() {
             required
             minLength={6}
             autoComplete="new-password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              borderBottom: `2px solid ${MUTED}`,
-              borderRadius: 0,
-              padding: "6px 2px",
-              fontSize: 15,
-              color: INK,
-            }}
+            className={plexMono.className}
+            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
-          <div className={oswald.className} style={{ marginTop: 6, fontSize: 10, letterSpacing: "0.06em", color: MUTED }}>
+          <div className={plexMono.className} style={{ fontSize: 10, letterSpacing: 0.5, color: TEXT_FAINT }}>
             {t(lang, "Minimum 6 aksara.", "Minimum 6 characters.")}
           </div>
         </div>
@@ -230,26 +183,29 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className={oswald.className}
+          className={plexMono.className}
           style={{
             width: "100%",
+            background: GOLD,
+            color: "#1a1204",
             border: "none",
-            background: RED,
-            color: "#fff",
+            padding: 13,
             fontWeight: 700,
-            fontSize: 15,
-            letterSpacing: "0.2em",
-            padding: "14px 0",
-            boxShadow: loading ? "none" : `6px 6px 0 ${RED_DARK}`,
-            transform: loading ? "translate(6px, 6px)" : "none",
-            opacity: loading ? 0.75 : 1,
+            fontSize: 13,
+            letterSpacing: 1,
             cursor: loading ? "not-allowed" : "pointer",
-            transition: "transform 0.1s, box-shadow 0.1s, opacity 0.1s",
+            opacity: loading ? 0.6 : 1,
+            marginBottom: 4,
           }}
         >
           {loading ? t(lang, "MENDAFTAR…", "REGISTERING…") : t(lang, "DAFTAR »", "REGISTER »")}
         </button>
+
+        <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
+          {t(lang, "DAH ADA AKAUN? ", "ALREADY HAVE AN ACCOUNT? ")}
+          <a href="/login" style={{ color: CYAN }}>{t(lang, "LOG MASUK DI SINI", "LOG IN HERE")}</a>
+        </div>
       </form>
-    </PosterShell>
+    </TacticalAuthShell>
   );
 }

@@ -4,7 +4,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Pages reachable without a session — everything else requires one.
 const PUBLIC_AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password']
 
+// Must run unauthenticated and do its own thing regardless of session
+// state — the OAuth callback exchanges Google's redirect `code` for the
+// session ITSELF (see app/auth/callback/route.ts). Redirecting it to
+// /login first (the normal "!user && !isAuthPage" rule below) would fire
+// before that exchange ever happens, permanently breaking Google sign-in.
+const AUTH_BYPASS_PATHS = ['/auth/callback']
+
 export async function middleware(request: NextRequest) {
+  if (AUTH_BYPASS_PATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 

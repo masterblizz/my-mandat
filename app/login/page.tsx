@@ -3,16 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
-import PosterShell, { oswald, INK, RED, RED_DARK, MUTED, POSTER_INPUT_CLASS } from "../components/auth/PosterShell";
+import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED } from "../components/auth/TacticalAuthShell";
 import { useLang, t } from "../i18n/useLang";
+import { useGameStore } from "../store/gameStore";
+import { useHistoryStore } from "../store/historyStore";
+import { clearAllSavedGameData } from "../store/saveGame";
 
 export default function LoginPage() {
   const router = useRouter();
   const lang = useLang();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
+
+  const anyLoading = loading || googleLoading || guestLoading;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +42,12 @@ export default function LoginPage() {
       return;
     }
 
+    // "Ingat saya" (remember me) — Supabase's own session already persists
+    // by default (localStorage, survives closing the tab), so there's no
+    // separate persistent-vs-session storage mode to toggle here. Kept as
+    // a real controlled checkbox matching the design rather than removed,
+    // but it doesn't change auth behavior; wire it to an actual session-
+    // length option if that distinction is ever added.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     setLoading(false);
@@ -49,119 +64,199 @@ export default function LoginPage() {
     router.refresh();
   };
 
-  return (
-    <PosterShell
-      heading={t(lang, "LOG MASUK", "LOG IN")}
-      footNote={
-        <>
-          {t(lang, "Belum ada akaun? ", "Don't have an account? ")}
-          <a href="/register" style={{ color: RED, fontWeight: 700, textDecoration: "underline" }}>
-            {t(lang, "Daftar di sini", "Register here")}
-          </a>
-        </>
-      }
-    >
-      <form onSubmit={handleLogin}>
-        {error && (
-          <p
-            className={oswald.className}
-            style={{
-              marginBottom: 16,
-              padding: "10px 12px",
-              fontSize: 12,
-              lineHeight: 1.5,
-              border: `1.5px solid ${RED}`,
-              background: "rgba(193,31,44,0.08)",
-              color: RED_DARK,
-            }}
-          >
-            {error}
-          </p>
-        )}
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleLoading(true);
 
-        <div className="mb-5">
-          <label
-            className={oswald.className}
-            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
-          >
-            {t(lang, "EMEL", "EMAIL")}
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setGoogleLoading(false);
+      setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+
+    // On success the browser navigates away to Google's consent screen —
+    // nothing more to do here. Only reachable on failure (e.g. Google
+    // provider not enabled in the Supabase dashboard yet).
+    setGoogleLoading(false);
+    if (error) setError(error.message);
+  };
+
+  const handleGuestLogin = async () => {
+    setError(null);
+    setGuestLoading(true);
+
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setGuestLoading(false);
+      setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
+      return;
+    }
+
+    const { error } = await supabase.auth.signInAnonymously();
+    setGuestLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    // Same reasoning as /register: a brand-new session (anonymous or not)
+    // must start with zero leftover game memory from whoever last played
+    // on this browser, since saves live in localStorage rather than a
+    // per-account backend.
+    useGameStore.getState().resetGame();
+    useHistoryStore.getState().clearHistory();
+    clearAllSavedGameData();
+
+    router.push("/");
+    router.refresh();
+  };
+
+  return (
+    <TacticalAuthShell
+      eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
+      heading={t(lang, "Log Masuk ke Mandat", "Log In to Mandat")}
+    >
+      {error && (
+        <p
+          className={plexMono.className}
+          style={{ marginBottom: 16, padding: "10px 12px", fontSize: 11, lineHeight: 1.6, border: `1px solid ${RED}`, background: "rgba(193,31,44,0.1)", color: "#ff8a93" }}
+        >
+          {error}
+        </p>
+      )}
+
+      <form onSubmit={handleLogin}>
+        <div className="mb-4 flex flex-col gap-1.5">
+          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
+            {t(lang, "ID PENGGUNA / EMEL", "USER ID / EMAIL")}
           </label>
           <input
             type="email"
             required
             autoComplete="email"
+            placeholder={t(lang, "cth. operator01", "e.g. operator01")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              borderBottom: `2px solid ${MUTED}`,
-              borderRadius: 0,
-              padding: "6px 2px",
-              fontSize: 15,
-              color: INK,
-            }}
+            className={plexMono.className}
+            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
         </div>
 
-        <div className="mb-7">
-          <label
-            className={oswald.className}
-            style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: MUTED }}
-          >
+        <div className="mb-3.5 flex flex-col gap-1.5">
+          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
             {t(lang, "KATA LALUAN", "PASSWORD")}
           </label>
           <input
             type="password"
             required
             autoComplete="current-password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`${oswald.className} ${POSTER_INPUT_CLASS}`}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              borderBottom: `2px solid ${MUTED}`,
-              borderRadius: 0,
-              padding: "6px 2px",
-              fontSize: 15,
-              color: INK,
-            }}
+            className={plexMono.className}
+            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
+        </div>
+
+        <div className="mb-5 flex items-center justify-between">
+          <label className={plexMono.className} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TEXT_DIM, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ accentColor: GOLD }}
+            />
+            {t(lang, "INGAT SAYA", "REMEMBER ME")}
+          </label>
+          <a href="/forgot-password" className={plexMono.className} style={{ fontSize: 11, color: CYAN }}>
+            {t(lang, "LUPA KATA LALUAN", "FORGOT PASSWORD")}
+          </a>
         </div>
 
         <button
           type="submit"
-          disabled={loading}
-          className={oswald.className}
+          disabled={anyLoading}
+          className={plexMono.className}
           style={{
             width: "100%",
+            background: GOLD,
+            color: "#1a1204",
             border: "none",
-            background: RED,
-            color: "#fff",
+            padding: 13,
             fontWeight: 700,
-            fontSize: 15,
-            letterSpacing: "0.2em",
-            padding: "14px 0",
-            boxShadow: loading ? "none" : `6px 6px 0 ${RED_DARK}`,
-            transform: loading ? "translate(6px, 6px)" : "none",
-            opacity: loading ? 0.75 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
-            transition: "transform 0.1s, box-shadow 0.1s, opacity 0.1s",
+            fontSize: 13,
+            letterSpacing: 1,
+            cursor: anyLoading ? "not-allowed" : "pointer",
+            opacity: anyLoading && !loading ? 0.5 : 1,
+            marginBottom: 12,
           }}
         >
-          {loading ? t(lang, "MENGESAHKAN…", "VERIFYING…") : t(lang, "LOG MASUK »", "LOG IN »")}
+          {loading ? t(lang, "MENGESAHKAN…", "VERIFYING…") : t(lang, "MULA KEMPEN »", "START CAMPAIGN »")}
         </button>
 
-        <p className={oswald.className} style={{ marginTop: 18, textAlign: "center", fontSize: 12 }}>
-          <a href="/forgot-password" style={{ color: RED, fontWeight: 700, textDecoration: "underline" }}>
-            {t(lang, "Lupa kata laluan?", "Forgot password?")}
-          </a>
-        </p>
+        <div className="my-3.5 flex items-center gap-2.5">
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "ATAU", "OR")}</div>
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={anyLoading}
+          className={plexMono.className}
+          style={{
+            width: "100%",
+            background: "transparent",
+            color: "#c4cbd6",
+            border: `1px solid ${BORDER}`,
+            padding: 10,
+            fontSize: 11,
+            letterSpacing: 1,
+            cursor: anyLoading ? "not-allowed" : "pointer",
+            opacity: anyLoading && !googleLoading ? 0.5 : 1,
+            marginBottom: 10,
+          }}
+        >
+          {googleLoading ? t(lang, "MENYAMBUNG…", "CONNECTING…") : t(lang, "MASUK DENGAN GOOGLE", "SIGN IN WITH GOOGLE")}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleGuestLogin}
+          disabled={anyLoading}
+          className={plexMono.className}
+          style={{
+            width: "100%",
+            background: "transparent",
+            color: TEXT_DIM,
+            border: `1px solid ${BORDER}`,
+            padding: 10,
+            fontSize: 11,
+            letterSpacing: 1,
+            cursor: anyLoading ? "not-allowed" : "pointer",
+            opacity: anyLoading && !guestLoading ? 0.5 : 1,
+          }}
+        >
+          {guestLoading ? t(lang, "MEMULAKAN…", "STARTING…") : t(lang, "MASUK SEBAGAI TETAMU", "CONTINUE AS GUEST")}
+        </button>
+
+        <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
+          {t(lang, "TIADA AKAUN? ", "NO ACCOUNT? ")}
+          <a href="/register" style={{ color: CYAN }}>{t(lang, "DAFTAR SEKARANG", "REGISTER NOW")}</a>
+        </div>
       </form>
-    </PosterShell>
+    </TacticalAuthShell>
   );
 }
