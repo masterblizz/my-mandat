@@ -30,11 +30,12 @@ export default function AuthBackground() {
         }}
       />
 
-      {/* Peninsular Malaysia, cropped to the left 60% so it doesn't overlap Borneo */}
+      {/* Peninsular Malaysia, faded out past the left ~55% so it doesn't overlap Borneo */}
       <div
         className="mm-auth-map-glow pointer-events-none absolute inset-0"
         style={{
-          clipPath: "inset(0 40% 0 0)",
+          WebkitMaskImage: "linear-gradient(to right, black 0%, black 52%, transparent 68%)",
+          maskImage: "linear-gradient(to right, black 0%, black 52%, transparent 68%)",
           backgroundImage: "url(/malaysia.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "2400px auto",
@@ -44,15 +45,16 @@ export default function AuthBackground() {
           mixBlendMode: "screen",
         }}
       />
-      {/* East Malaysia (Sabah/Sarawak), full-bleed on the right */}
+      {/* East Malaysia (Sabah/Sarawak), faded in from the left so it doesn't overlap Peninsular */}
       <div
         className="mm-auth-map-glow pointer-events-none absolute inset-0"
         style={{
-          clipPath: "inset(0 0 0 8%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%)",
+          maskImage: "linear-gradient(to right, transparent 0%, black 14%)",
           backgroundImage: "url(/malaysia.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "2400px auto",
-          backgroundPosition: "-171px 128px",
+          backgroundPosition: "-433px 128px",
           opacity: 0.15,
           filter: MAP_RECOLOR_FILTER,
           mixBlendMode: "screen",
