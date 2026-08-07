@@ -7,9 +7,6 @@ import { useUIStore, type Lang } from "../../store/uiStore";
 
 // Shared chrome for /login and /register: "tactical map + centered card" —
 // Design Canvas variant 5a, the app's native dark cyan/gold/red HUD look.
-// A DIFFERENT concept from the vintage-poster PosterShell that both pages
-// used briefly before this — that component still exists (unused for now)
-// rather than deleted, in case a future page wants that look again.
 export const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 export const inter = Inter({ subsets: ["latin"], weight: ["400", "600", "700", "800"] });
 

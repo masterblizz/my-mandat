@@ -17,11 +17,14 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   // Set once signUp succeeds but Supabase requires email confirmation
   // before a session exists — the player isn't logged in yet, so there's
   // nowhere authenticated to route them; show the "check your inbox" state
   // in place of the form instead.
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+
+  const anyLoading = loading || googleLoading;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +81,31 @@ export default function RegisterPage() {
 
     router.push("/");
     router.refresh();
+  };
+
+  const handleGoogleSignUp = async () => {
+    setError(null);
+    setGoogleLoading(true);
+
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setGoogleLoading(false);
+      setError(t(lang, "Pendaftaran belum dikonfigurasi untuk deployment ini.", "Registration isn't configured for this deployment yet."));
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+
+    // On success the browser navigates away to Google's consent screen —
+    // nothing more to do here. Only reachable on failure (e.g. Google
+    // provider not enabled in the Supabase dashboard yet).
+    setGoogleLoading(false);
+    if (error) setError(error.message);
   };
 
   if (awaitingConfirmation) {
@@ -182,7 +210,7 @@ export default function RegisterPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={anyLoading}
           className={plexMono.className}
           style={{
             width: "100%",
@@ -193,12 +221,38 @@ export default function RegisterPage() {
             fontWeight: 700,
             fontSize: 13,
             letterSpacing: 1,
-            cursor: loading ? "not-allowed" : "pointer",
-            opacity: loading ? 0.6 : 1,
-            marginBottom: 4,
+            cursor: anyLoading ? "not-allowed" : "pointer",
+            opacity: anyLoading && !loading ? 0.5 : loading ? 0.6 : 1,
+            marginBottom: 12,
           }}
         >
           {loading ? t(lang, "MENDAFTAR…", "REGISTERING…") : t(lang, "DAFTAR »", "REGISTER »")}
+        </button>
+
+        <div className="my-3.5 flex items-center gap-2.5">
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "ATAU", "OR")}</div>
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleSignUp}
+          disabled={anyLoading}
+          className={plexMono.className}
+          style={{
+            width: "100%",
+            background: "transparent",
+            color: "#c4cbd6",
+            border: `1px solid ${BORDER}`,
+            padding: 10,
+            fontSize: 11,
+            letterSpacing: 1,
+            cursor: anyLoading ? "not-allowed" : "pointer",
+            opacity: anyLoading && !googleLoading ? 0.5 : 1,
+          }}
+        >
+          {googleLoading ? t(lang, "MENYAMBUNG…", "CONNECTING…") : t(lang, "DAFTAR DENGAN GOOGLE", "SIGN UP WITH GOOGLE")}
         </button>
 
         <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>

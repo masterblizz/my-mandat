@@ -5,9 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
 import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED } from "../components/auth/TacticalAuthShell";
 import { useLang, t } from "../i18n/useLang";
-import { useGameStore } from "../store/gameStore";
-import { useHistoryStore } from "../store/historyStore";
-import { clearAllSavedGameData } from "../store/saveGame";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,9 +16,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [guestLoading, setGuestLoading] = useState(false);
 
-  const anyLoading = loading || googleLoading || guestLoading;
+  const anyLoading = loading || googleLoading;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,39 +83,6 @@ export default function LoginPage() {
     // provider not enabled in the Supabase dashboard yet).
     setGoogleLoading(false);
     if (error) setError(error.message);
-  };
-
-  const handleGuestLogin = async () => {
-    setError(null);
-    setGuestLoading(true);
-
-    let supabase;
-    try {
-      supabase = createClient();
-    } catch {
-      setGuestLoading(false);
-      setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
-      return;
-    }
-
-    const { error } = await supabase.auth.signInAnonymously();
-    setGuestLoading(false);
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
-    // Same reasoning as /register: a brand-new session (anonymous or not)
-    // must start with zero leftover game memory from whoever last played
-    // on this browser, since saves live in localStorage rather than a
-    // per-account backend.
-    useGameStore.getState().resetGame();
-    useHistoryStore.getState().clearHistory();
-    clearAllSavedGameData();
-
-    router.push("/");
-    router.refresh();
   };
 
   return (
@@ -226,30 +189,9 @@ export default function LoginPage() {
             letterSpacing: 1,
             cursor: anyLoading ? "not-allowed" : "pointer",
             opacity: anyLoading && !googleLoading ? 0.5 : 1,
-            marginBottom: 10,
           }}
         >
           {googleLoading ? t(lang, "MENYAMBUNG…", "CONNECTING…") : t(lang, "MASUK DENGAN GOOGLE", "SIGN IN WITH GOOGLE")}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleGuestLogin}
-          disabled={anyLoading}
-          className={plexMono.className}
-          style={{
-            width: "100%",
-            background: "transparent",
-            color: TEXT_DIM,
-            border: `1px solid ${BORDER}`,
-            padding: 10,
-            fontSize: 11,
-            letterSpacing: 1,
-            cursor: anyLoading ? "not-allowed" : "pointer",
-            opacity: anyLoading && !guestLoading ? 0.5 : 1,
-          }}
-        >
-          {guestLoading ? t(lang, "MEMULAKAN…", "STARTING…") : t(lang, "MASUK SEBAGAI TETAMU", "CONTINUE AS GUEST")}
         </button>
 
         <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
