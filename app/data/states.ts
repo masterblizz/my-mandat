@@ -197,7 +197,7 @@ export const states: StateData[] = [
     name: "Perlis",
     shortName: "PLS",
     seats: 3,
-    dunSeats: 18,
+    dunSeats: 15,
     area: 821,
     mandatSupport: 58,
     lawanSupport: 32,

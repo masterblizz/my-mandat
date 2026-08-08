@@ -596,9 +596,18 @@ export default function WarroomPage() {
     winner === "mandat" ? "var(--cyan)" : winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
   const daerahWinnerLabel = (winner: Constituency["winner"]) =>
     t(lang, winner === "mandat" ? "warroom_page.daerahWinnerMandat" : winner === "lawan" ? "warroom_page.daerahWinnerLawan" : "warroom_page.daerahWinnerOthers");
-  const safeSeats = seatScopeStates.filter((s) => s.status === "winning").reduce((sum, s) => sum + s.projectedSeats, 0);
-  const trailingSeats = seatScopeStates.filter((s) => s.status === "losing").reduce((sum, s) => sum + s.projectedSeats, 0);
-  const contestedSeats = seatScopeStates.filter((s) => s.status === "contested").reduce((sum, s) => sum + s.projectedSeats, 0);
+  // PRN mode: derive straight from the per-DUN list the map/table below
+  // actually render (daerahList), not the whole-state aggregate below —
+  // those two were computed from unrelated fields and could disagree.
+  const safeSeats = electionScope === "prn"
+    ? daerahList.filter((c) => c.safety === "safe").length
+    : seatScopeStates.filter((s) => s.status === "winning").reduce((sum, s) => sum + s.projectedSeats, 0);
+  const trailingSeats = electionScope === "prn"
+    ? daerahList.filter((c) => c.safety === "danger").length
+    : seatScopeStates.filter((s) => s.status === "losing").reduce((sum, s) => sum + s.projectedSeats, 0);
+  const contestedSeats = electionScope === "prn"
+    ? daerahList.filter((c) => c.safety === "marginal").length
+    : seatScopeStates.filter((s) => s.status === "contested").reduce((sum, s) => sum + s.projectedSeats, 0);
 
   function getStatusBadge(status: string) {
     switch (status) {
@@ -947,13 +956,18 @@ export default function WarroomPage() {
               {electionScope === "prn" && prnState ? (
                 <StateZoomMap state={prnState} />
               ) : (
-                <MalaysiaMap
-                  states={mapStates}
-                  onStateClick={(id) => router.push(`/state/${id}`)}
-                  showLabels
-                />
+                <>
+                  <MalaysiaMap
+                    states={mapStates}
+                    onStateClick={(id) => router.push(`/state/${id}`)}
+                    showLabels
+                  />
+                  {/* Sized for the full national map — on the much smaller
+                      PRN state map this radar-sweep decoration overwhelmed
+                      it as a dark wedge overlay, so it's scoped here only. */}
+                  <div className="mm-radar" />
+                </>
               )}
-              <div className="mm-radar" />
             </div>
             {/* Map Summary */}
             <div className="grid grid-cols-3 gap-0 border-t border-cyan/20">

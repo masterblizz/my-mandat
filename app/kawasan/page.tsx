@@ -2140,7 +2140,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           only rotate+tilt+zoom, so "camera position" here is really just
           the orbit angle — the wedge direction is the honest equivalent of
           a position dot. */}
-      <div className="pointer-events-none absolute bottom-16 right-4 border p-1.5" style={{ borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.8)" }}>
+      <div className="pointer-events-auto absolute bottom-16 right-4 border p-1.5" style={{ borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.8)" }}>
         <div className="mb-1 text-center text-[7px] font-black tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "kawasan_page.map")}</div>
         <div className="relative" style={{ width: gridSize * MINIMAP_CELL, height: gridSize * MINIMAP_CELL }}>
           {Array.from({ length: gridSize * gridSize }, (_, index) => {
@@ -2152,6 +2152,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
               <div
                 key={`mm-${col}-${row}`}
                 className="absolute"
+                onClick={zone ? () => setSelectedZoneId(zone.id) : undefined}
                 style={{
                   left: col * MINIMAP_CELL,
                   top: row * MINIMAP_CELL,
@@ -2159,11 +2160,12 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
                   height: MINIMAP_CELL - 1,
                   background: zone ? `rgba(${scoreTintRGB(zone.sentiment)},0.85)` : "rgba(148,163,184,0.12)",
                   outline: isSelected ? "1px solid var(--gold)" : undefined,
+                  cursor: zone ? "pointer" : undefined,
                 }}
               />
             );
           })}
-          <div className="absolute" style={{ left: "50%", top: "50%", width: 0, height: 0, transform: "translate(-50%,-50%) rotate(var(--kw-rz, 45deg))" }}>
+          <div className="pointer-events-none absolute" style={{ left: "50%", top: "50%", width: 0, height: 0, transform: "translate(-50%,-50%) rotate(var(--kw-rz, 45deg))" }}>
             <div style={{ width: 0, height: 0, marginTop: -gridSize * MINIMAP_CELL * 0.5, borderLeft: "3.5px solid transparent", borderRight: "3.5px solid transparent", borderBottom: "8px solid #facc15", filter: "drop-shadow(0 0 2px rgba(250,204,21,0.8))" }} />
           </div>
         </div>

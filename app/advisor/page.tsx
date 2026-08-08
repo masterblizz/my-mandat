@@ -76,6 +76,17 @@ export default function AdvisorPage() {
     recentOpponentActions,
   }), [day, totalDays, resources, projectedSeats, majorityTarget, seatTotal, support, mediaSentiment, leader, isPrn, prnState, settings.prnStateId, weakAreas, threatLevel, recentOpponentActions]);
 
+  // Hide any quick-prompt chip whose exact text has already been sent this
+  // conversation — once asked, re-showing it just re-triggers the same
+  // question (and, while the offline fallback is active, the same reply).
+  const askedTexts = useMemo(
+    () => new Set(messages.filter((m) => m.role === "user").map((m) => m.content)),
+    [messages]
+  );
+  const availablePromptKeys = QUICK_PROMPT_KEYS.filter(
+    (key) => !askedTexts.has(t(lang, `advisor_page.quickPrompt_${key}`))
+  );
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
@@ -187,19 +198,21 @@ export default function AdvisorPage() {
               )}
             </div>
             <div className="border-t p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}>
-              <div className="mb-2 flex flex-wrap gap-2">
-                {QUICK_PROMPT_KEYS.map((promptKey, index) => (
-                  <button
-                    key={index}
-                    onClick={() => send(t(lang, `advisor_page.quickPrompt_${promptKey}`))}
-                    disabled={busy}
-                    className="border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
-                    style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.05)" }}
-                  >
-                    {t(lang, `advisor_page.quickPrompt_${promptKey}`)}
-                  </button>
-                ))}
-              </div>
+              {availablePromptKeys.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {availablePromptKeys.map((promptKey) => (
+                    <button
+                      key={promptKey}
+                      onClick={() => send(t(lang, `advisor_page.quickPrompt_${promptKey}`))}
+                      disabled={busy}
+                      className="border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
+                      style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.05)" }}
+                    >
+                      {t(lang, `advisor_page.quickPrompt_${promptKey}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <form onSubmit={onSubmit} className="flex gap-2">
                 <input
                   value={input}

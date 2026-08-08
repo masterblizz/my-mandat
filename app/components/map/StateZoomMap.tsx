@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { geoMercator, geoPath } from "d3-geo";
+import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
 import { StateData } from "../../data/states";
 import { generateConstituencies, type Constituency } from "../../data/constituencies";
 import { useLang, t } from "../../i18n/useLang";
@@ -10,106 +12,95 @@ interface Props {
   onSeatClick?: (seatId: string) => void;
 }
 
-// Same SVG path id → game state id map as MalaysiaMap.
-const SVG_TO_GAME: Record<string, string> = {
-  MY01: "johor", MY02: "kedah", MY03: "kelantan", MY04: "melaka",
-  MY05: "ns", MY06: "pahang", MY07: "penang", MY08: "perak",
-  MY09: "perlis", MY10: "selangor", MY11: "terengganu",
-  MY12: "sabah", MY13: "sarawak", MY14: "wp",
-};
-const GAME_TO_SVG: Record<string, string> = Object.fromEntries(
-  Object.entries(SVG_TO_GAME).map(([svgId, gameId]) => [gameId, svgId])
-);
+type StateProps = { id: string; name: string };
+type StateFeature = Feature<MultiPolygon, StateProps>;
+type StateFeatureCollection = FeatureCollection<MultiPolygon, StateProps>;
+
+interface DunPoint {
+  code: string;
+  name: string;
+  lng: number;
+  lat: number;
+}
 
 type Dot = { seat: Constituency; x: number; y: number };
 
-// Deterministic hash so a seat's dot position is stable across re-renders/refreshes.
-function seededFrac(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return (h % 10000) / 10000;
+// Fixed logical canvas — d3-geo's fitSize scales every state's real
+// boundary to fill it, so a tiny state (Perlis) and a huge one (Sarawak)
+// both render proportionally within the same frame, no per-state tuning.
+const WIDTH = 600;
+const HEIGHT = 420;
+
+// Real Malaysian state boundaries and DUN constituency centroids, sourced
+// from DOSM's (Department of Statistics Malaysia) official open data —
+// see scripts/build-geo-data.mjs. Module-level cache: these two small
+// files are shared across every state the player views this session, no
+// need to refetch on each mount.
+let stateGeoPromise: Promise<StateFeatureCollection> | null = null;
+let dunPointsPromise: Promise<Record<string, DunPoint[]>> | null = null;
+
+function loadStateGeo(): Promise<StateFeatureCollection> {
+  stateGeoPromise ??= fetch("/data/geo/malaysia-states.geojson").then((r) => r.json());
+  return stateGeoPromise;
+}
+
+function loadDunPoints(): Promise<Record<string, DunPoint[]>> {
+  dunPointsPromise ??= fetch("/data/geo/dun-points.json").then((r) => r.json());
+  return dunPointsPromise;
 }
 
 export default function StateZoomMap({ state, onSeatClick }: Props) {
   const lang = useLang();
   const [pathD, setPathD] = useState<string | null>(null);
-  const pathRef = useRef<SVGPathElement>(null);
-  const [viewBox, setViewBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [dots, setDots] = useState<Dot[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  // Real DUN centroids are indexed positionally (N.01, N.02, ...) and
+  // confirmed to match this array's order exactly — see the plan doc for
+  // the Selangor/Perlis cross-check that established this.
+  const seats = useMemo(() => generateConstituencies(state, "dun"), [state]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/malaysia.svg")
-      .then((r) => r.text())
-      .then((text) => {
-        if (cancelled) return;
-        const doc = new DOMParser().parseFromString(text, "image/svg+xml");
-        const svgId = GAME_TO_SVG[state.id];
-        const el = svgId ? doc.getElementById(svgId) : null;
-        setPathD(el?.getAttribute("d") ?? null);
-      })
-      .catch(() => setPathD(null));
-    return () => { cancelled = true; };
-  }, [state.id]);
+    setReady(false);
 
-  useEffect(() => {
-    if (!pathD || !pathRef.current) return;
-    const bbox = pathRef.current.getBBox();
-    const pad = Math.max(bbox.width, bbox.height) * 0.14;
-    setViewBox({ x: bbox.x - pad, y: bbox.y - pad, w: bbox.width + pad * 2, h: bbox.height + pad * 2 });
-  }, [pathD]);
+    Promise.all([loadStateGeo(), loadDunPoints()]).then(([stateGeo, dunPoints]) => {
+      if (cancelled) return;
 
-  const seats = useMemo(() => generateConstituencies(state, "dun"), [state]);
-  const [dots, setDots] = useState<Dot[]>([]);
-
-  // Scatter seats across a jittered grid inside the bbox, but only ever place
-  // a dot where it actually lands inside the state's real outline (tested via
-  // isPointInFill against the rendered path) — falls back to whole-bbox
-  // rejection sampling, then the grid cell centre, for oddly-shaped states
-  // where a cell falls entirely outside the polygon (e.g. a coastal notch).
-  useEffect(() => {
-    const path = pathRef.current;
-    if (!viewBox || !path || seats.length === 0) { setDots([]); return; }
-
-    const canTestFill = typeof path.isPointInFill === "function";
-    const isInside = (x: number, y: number) => {
-      if (!canTestFill) return true;
-      try { return path.isPointInFill(new DOMPoint(x, y)); } catch { return true; }
-    };
-
-    const cols = Math.max(1, Math.ceil(Math.sqrt(seats.length * (viewBox.w / viewBox.h))));
-    const rows = Math.max(1, Math.ceil(seats.length / cols));
-    const cellW = viewBox.w / cols;
-    const cellH = viewBox.h / rows;
-
-    const placed = seats.map((seat, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const cellCx = viewBox.x + cellW * (col + 0.5);
-      const cellCy = viewBox.y + cellH * (row + 0.5);
-
-      // Try the cell centre, then jittered offsets within the cell, before
-      // giving up on the grid layout and sampling the whole shape.
-      for (let attempt = -1; attempt < 14; attempt++) {
-        const x = attempt < 0 ? cellCx : cellCx + (seededFrac(`${seat.id}-jx-${attempt}`) - 0.5) * cellW * 0.82;
-        const y = attempt < 0 ? cellCy : cellCy + (seededFrac(`${seat.id}-jy-${attempt}`) - 0.5) * cellH * 0.82;
-        if (isInside(x, y)) return { seat, x, y };
+      const feature = stateGeo.features.find((f) => f.properties.id === state.id);
+      if (!feature) {
+        setPathD(null);
+        setDots([]);
+        setReady(true);
+        return;
       }
-      for (let attempt = 0; attempt < 80; attempt++) {
-        const x = viewBox.x + seededFrac(`${seat.id}-rx-${attempt}`) * viewBox.w;
-        const y = viewBox.y + seededFrac(`${seat.id}-ry-${attempt}`) * viewBox.h;
-        if (isInside(x, y)) return { seat, x, y };
-      }
-      // Every sample missed (degenerate/very thin shape) — fall back to the
-      // cell centre rather than dropping the seat off the map entirely.
-      return { seat, x: cellCx, y: cellCy };
+
+      const projection = geoMercator().fitSize([WIDTH, HEIGHT], feature);
+      const pathGenerator = geoPath(projection);
+      setPathD(pathGenerator(feature));
+
+      const points = dunPoints[state.id] ?? [];
+      const placed: Dot[] = [];
+      seats.forEach((seat, i) => {
+        const point = points[i];
+        if (!point) return;
+        const projected = projection([point.lng, point.lat]);
+        if (!projected) return;
+        placed.push({ seat, x: projected[0], y: projected[1] });
+      });
+      setDots(placed);
+      setReady(true);
     });
-    setDots(placed);
-  }, [seats, viewBox]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.id, seats]);
 
   const hoveredDot = dots.find((d) => d.seat.id === hoveredId) ?? null;
 
-  if (!pathD) {
+  if (!ready) {
     return (
       <div className="flex items-center justify-center" style={{ height: 380 }}>
         <LoadingSpinner label={t(lang, "components_map_StateZoomMap.loadingMap")} />
@@ -117,13 +108,17 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
     );
   }
 
+  // Keyed off safety (not winner) — matches what the legend/tooltip badge
+  // already say: MENANG/BERTANDING/KETINGGALAN describe how comfortably
+  // MANDAT is doing in that seat (safe/marginal/danger), not simply who's
+  // numerically ahead.
   const dotColor = (seat: Constituency) =>
-    seat.winner === "mandat" ? "var(--cyan)" : seat.winner === "lawan" ? "var(--neon-red)" : "var(--gold)";
+    seat.safety === "safe" ? "var(--cyan)" : seat.safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
 
   return (
     <div className="relative w-full select-none" style={{ fontFamily: "Space Mono, monospace" }}>
       <svg
-        viewBox={viewBox ? `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}` : "0 0 100 100"}
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
         style={{ display: "block", maxHeight: "420px", filter: "drop-shadow(0 0 6px rgb(var(--cyan-rgb) / 0.12))" }}
       >
@@ -133,17 +128,18 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
-        <path
-          ref={pathRef}
-          d={pathD}
-          fill="rgb(var(--cyan-rgb) / 0.05)"
-          stroke="rgb(var(--cyan-rgb) / 0.55)"
-          strokeWidth={viewBox ? Math.max(viewBox.w, viewBox.h) * 0.004 : 1}
-          strokeLinejoin="round"
-        />
+        {pathD && (
+          <path
+            d={pathD}
+            fill="rgb(var(--cyan-rgb) / 0.05)"
+            stroke="rgb(var(--cyan-rgb) / 0.55)"
+            strokeWidth={1.2}
+            strokeLinejoin="round"
+          />
+        )}
         {dots.map(({ seat, x, y }) => {
           const hovered = hoveredId === seat.id;
-          const r = viewBox ? Math.max(viewBox.w, viewBox.h) * (hovered ? 0.014 : 0.01) : 3;
+          const r = hovered ? 6 : 4.2;
           return (
             <g key={seat.id} style={{ cursor: onSeatClick ? "pointer" : "default" }}>
               <circle
@@ -153,7 +149,7 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
                 fill={dotColor(seat)}
                 fillOpacity={hovered ? 0.95 : 0.8}
                 stroke="rgba(255,255,255,0.85)"
-                strokeWidth={viewBox ? Math.max(viewBox.w, viewBox.h) * 0.0012 : 0.4}
+                strokeWidth={0.8}
                 filter={hovered ? "url(#szm-glow)" : undefined}
                 onMouseEnter={() => setHoveredId(seat.id)}
                 onMouseLeave={() => setHoveredId((current) => (current === seat.id ? null : current))}
@@ -164,12 +160,12 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
         })}
       </svg>
 
-      {hoveredDot && viewBox && (
+      {hoveredDot && (
         <div
           className="pointer-events-none absolute z-[80]"
           style={{
-            left: `${((hoveredDot.x - viewBox.x) / viewBox.w) * 100}%`,
-            top: `${((hoveredDot.y - viewBox.y) / viewBox.h) * 100}%`,
+            left: `${(hoveredDot.x / WIDTH) * 100}%`,
+            top: `${(hoveredDot.y / HEIGHT) * 100}%`,
             transform: "translate(-50%, -130%)",
             background: "#0d1117f2",
             border: "1px solid rgb(var(--cyan-rgb) / 0.35)",

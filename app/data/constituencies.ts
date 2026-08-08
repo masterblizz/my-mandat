@@ -151,7 +151,7 @@ const DUN_NAMES: Record<string, string[]> = {
     "Bukit Besi", "Rantau Abang", "Sura", "Paka", "Kemasik", "Kijal", "Cukai", "Air Putih",
   ],
   perlis: [
-    "Titi Tinggi", "Beseri", "Chuping", "Mata Ayer", "Santai", "Bintong", "Sena", "Indera Kayangan", "Kuala Perlis", "Kayang", "Pauh", "Tambun Tulang", "Guar Sanji", "Simpang Empat", "Sanglang", "Arau", "Paya", "Kaki Bukit",
+    "Titi Tinggi", "Beseri", "Chuping", "Mata Ayer", "Santan", "Bintong", "Sena", "Indera Kayangan", "Kuala Perlis", "Kayang", "Pauh", "Tambun Tulang", "Guar Sanji", "Simpang Empat", "Sanglang",
   ],
 };
 
