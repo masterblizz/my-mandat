@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -95,10 +96,10 @@ export default function ElectedPage() {
           <TacticalPanel title={t(lang, "elected_page.certificateOfVictory")}>
             <div className="flex flex-col items-center text-center py-2">
               <div
-                className="overflow-hidden rounded-full mb-3"
+                className="relative overflow-hidden rounded-full mb-3"
                 style={{ width: "104px", height: "104px", border: "2px solid var(--gold)", boxShadow: "0 0 20px rgb(var(--gold-rgb) / 0.35)" }}
               >
-                <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <Image src={avatarSrc} alt="" fill sizes="104px" style={{ objectFit: "cover" }} />
               </div>
               <div className="text-lg font-black text-white tracking-widest">{leader.name}</div>
               <div className="text-[12px] mt-0.5" style={{ color: "var(--gold)" }}>{leader.position} · {leader.partyAbbr}</div>

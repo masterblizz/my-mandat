@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -993,10 +994,12 @@ function NominationTab() {
                           boxShadow: "0 0 20px rgb(var(--cyan-rgb)/0.22), inset 0 0 18px rgb(var(--cyan-rgb)/0.06)",
                         }}
                       >
-                        <img
+                        <Image
                           src={candidatePortrait(currentMember)}
                           alt={`${currentMember.name} profile photo`}
-                          className="h-full w-full object-contain object-center"
+                          fill
+                          sizes="64px"
+                          className="object-contain object-center"
                           style={{ padding: "4px 4px 8px", imageRendering: "auto" }}
                         />
                         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.72))" }} />
@@ -1125,10 +1128,12 @@ function NominationTab() {
                             boxShadow: isHere ? "0 0 22px rgb(var(--cyan-rgb)/0.24), inset 0 0 18px rgb(var(--cyan-rgb)/0.08)" : "inset 0 0 14px rgb(var(--cyan-rgb)/0.055)",
                           }}
                         >
-                          <img
+                          <Image
                             src={portrait}
                             alt={`${member.name} profile photo`}
-                            className="h-full w-full object-contain object-center"
+                            fill
+                            sizes="74px"
+                            className="object-contain object-center"
                             style={{ padding: "4px 4px 16px", filter: isElsewhere ? "grayscale(0.35) brightness(0.78)" : "contrast(1.03) saturate(1.04)" }}
                           />
                           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.78))" }} />

@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
 import Skyline from "../layout/Skyline";
@@ -160,7 +161,7 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
 
       <div className="relative z-10 w-full max-w-[420px]">
         <div className="mb-6 flex items-center justify-center gap-3 mm-rise" style={{ ["--mm-i" as string]: 0 }}>
-          <img src="/logo-peti-undi.png" alt="My Mandat" width={48} height={48} style={{ filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
+          <Image src="/logo-peti-undi.png" alt="My Mandat" width={48} height={48} style={{ filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
           <div className="leading-none">
             <div className="whitespace-nowrap">
               <span className="text-[27px] font-black" style={{ color: "var(--cyan)", textShadow: "0 0 24px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import CreditsModal from "../components/menu/CreditsModal";
 import Skyline from "../components/layout/Skyline";
@@ -321,7 +322,7 @@ export default function MainMenuPage() {
 
         <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgba(4,8,14,0.96), rgba(4,8,14,0.88) 72%, rgba(4,8,14,0.62))" }}>
           <div className="mb-3 flex items-center gap-3">
-            <img src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
+            <Image src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
             <div>
               <h1 className="whitespace-nowrap leading-none tracking-[-0.03em]">
                 <span className="text-[38px] font-black" style={{ color: "#55dcff", textShadow: "0 0 32px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>

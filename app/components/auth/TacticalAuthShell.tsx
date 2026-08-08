@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import Image from "next/image";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
 import AuthBackground from "./AuthBackground";
@@ -143,10 +144,13 @@ function MalaysiaInfoPanel({ lang, maxWidth }: { lang: Lang; maxWidth: number })
         gap: 14,
       }}
     >
-      <img
+      <Image
         src="/flags/malaysia.svg"
         alt="Malaysia"
-        style={{ width: 42, height: 26, objectFit: "cover", border: `1px solid ${BORDER}`, flexShrink: 0 }}
+        width={42}
+        height={26}
+        unoptimized
+        style={{ objectFit: "cover", border: `1px solid ${BORDER}`, flexShrink: 0 }}
       />
       <div style={{ display: "flex", flex: 1, flexWrap: "wrap", gap: "8px 18px" }}>
         <div>
@@ -197,10 +201,12 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
       <NewsTicker lang={lang} />
 
       <div className="absolute z-10 flex items-center gap-2.5" style={{ left: 32, top: 56 }}>
-        <img
+        <Image
           src="/logo-peti-undi.png"
           alt="My Mandat"
-          style={{ width: 26, height: 26, filter: "drop-shadow(0 0 8px rgb(var(--auth-wash-rgb) / 0.5))" }}
+          width={26}
+          height={26}
+          style={{ filter: "drop-shadow(0 0 8px rgb(var(--auth-wash-rgb) / 0.5))" }}
         />
         <div style={{ fontSize: 15, fontWeight: 800 }}>
           <span style={{ color: CYAN }}>MY </span>

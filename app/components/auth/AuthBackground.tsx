@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { RED, CYAN, GOLD, TEXT, TEXT_DIM, TEXT_FAINT, PANEL, BORDER } from "./theme";
 import { plexMono } from "./fonts";
 import { useLang, t } from "../../i18n/useLang";
@@ -89,15 +90,16 @@ function StateFlag({ stateId }: { stateId: string }) {
 
   if (status === "error") return null;
   return (
-    <img
+    <Image
       ref={imgRef}
       src={`/flags/${stateId}.svg`}
       alt=""
+      width={384}
+      height={240}
+      unoptimized
       onLoad={() => setStatus("loaded")}
       onError={() => setStatus("error")}
       style={{
-        width: 384,
-        height: 240,
         // "cover" was cropping several flags (Terengganu, Johor, Sabah,
         // Sarawak, Kedah, Negeri Sembilan) — their source SVGs' own
         // aspect ratio (and, for some, padding around the flag rectangle

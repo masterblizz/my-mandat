@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -382,7 +383,7 @@ export default function SetupPage() {
                     }}
                   >
                     <div
-                      className="overflow-hidden rounded-full"
+                      className="relative overflow-hidden rounded-full"
                       style={{
                         width: "136px",
                         height: "136px",
@@ -393,10 +394,12 @@ export default function SetupPage() {
                         boxShadow: "0 0 18px rgb(var(--cyan-rgb) / 0.45)",
                       }}
                     >
-                      <img
+                      <Image
                         src={AVATARS[avatarIndex].src}
                         alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.06)" }}
+                        fill
+                        sizes="136px"
+                        style={{ objectFit: "cover", transform: "scale(1.06)" }}
                       />
                     </div>
                   </div>
@@ -437,11 +440,13 @@ export default function SetupPage() {
                             opacity: selected ? 1 : 0.78,
                           }}
                         >
-                          <img
+                          <Image
                             src={avatar.src}
                             alt=""
                             aria-hidden="true"
-                            style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.08)" }}
+                            fill
+                            sizes="52px"
+                            style={{ objectFit: "cover", transform: "scale(1.08)" }}
                           />
                           <span
                             className="absolute inset-0 rounded-full"
@@ -809,26 +814,28 @@ export default function SetupPage() {
                 )}
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "setup_page.startingRegionFocus")}>
-                <div className="flex gap-6 mt-2">
-                  {[
-                    { id: "peninsular", val: regionPeninsular, set: setRegionPeninsular },
-                    { id: "sabah", val: regionSabah, set: setRegionSabah },
-                    { id: "sarawak", val: regionSarawak, set: setRegionSarawak },
-                  ].map(({ id, val, set }) => (
-                    <label key={id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={val}
-                        onChange={(e) => set(e.target.checked)}
-                        className="w-4 h-4"
-                        style={{ accentColor: "var(--cyan)" }}
-                      />
-                      <span className="text-[13px] text-text-muted tracking-wider">{t(lang, `setup_page.region_${id}`)}</span>
-                    </label>
-                  ))}
-                </div>
-              </TacticalPanel>
+              {electionScope !== "prn" && (
+                <TacticalPanel title={t(lang, "setup_page.startingRegionFocus")}>
+                  <div className="flex gap-6 mt-2">
+                    {[
+                      { id: "peninsular", val: regionPeninsular, set: setRegionPeninsular },
+                      { id: "sabah", val: regionSabah, set: setRegionSabah },
+                      { id: "sarawak", val: regionSarawak, set: setRegionSarawak },
+                    ].map(({ id, val, set }) => (
+                      <label key={id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={val}
+                          onChange={(e) => set(e.target.checked)}
+                          className="w-4 h-4"
+                          style={{ accentColor: "var(--cyan)" }}
+                        />
+                        <span className="text-[13px] text-text-muted tracking-wider">{t(lang, `setup_page.region_${id}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </TacticalPanel>
+              )}
             </div>
           )}
 
@@ -956,8 +963,8 @@ export default function SetupPage() {
                 <TacticalPanel title={t(lang, "setup_page.leaderProfile")}>
                   <div className="space-y-2">
                     <div className="flex justify-center mb-3">
-                      <div style={{ width: "80px", height: "80px", border: "2px solid var(--cyan)", overflow: "hidden", background: "var(--bg)" }}>
-                        <img src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <div style={{ position: "relative", width: "80px", height: "80px", border: "2px solid var(--cyan)", overflow: "hidden", background: "var(--bg)" }}>
+                        <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} fill sizes="80px" style={{ objectFit: "cover" }} />
                       </div>
                     </div>
                     <SummaryRow label={t(lang, "setup_page.name")} value={leaderName} />

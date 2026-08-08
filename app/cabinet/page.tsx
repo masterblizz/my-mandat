@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -224,10 +225,12 @@ function CabinetPortrait({
     >
       <div className="absolute left-0 top-0 h-full w-[4px]" style={{ background: partyColor, boxShadow: `0 0 10px ${partyColor}` }} />
       <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${partyColor}, ${tone})` }} />
-      <img
+      <Image
         src={src}
         alt={alt}
-        className="h-full w-full object-contain object-center"
+        fill
+        sizes="92px"
+        className="object-contain object-center"
         style={{ padding: size === "sm" ? "5px 4px 10px 7px" : "6px 5px 13px 9px", filter: "drop-shadow(0 6px 8px rgba(0,0,0,0.45))" }}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.88))" }} />
