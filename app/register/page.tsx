@@ -12,7 +12,6 @@ import { clearAllSavedGameData } from "../store/saveGame";
 export default function RegisterPage() {
   const router = useRouter();
   const lang = useLang();
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +47,16 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        data: { username },
-        // Without this, Supabase sends the confirmation link to whatever
-        // "Site URL" is set in the dashboard (defaults to localhost:3000),
-        // which would break the flow on every non-local deployment.
+        // No username collected here (see /login and /register — the
+        // "pengguna id" field was removed from both). profiles.username
+        // is still NOT NULL in the DB, so the signup trigger
+        // (handle_new_user_purchases_profile) falls back to a generated
+        // "user_<id prefix>" placeholder when this metadata is absent.
+        //
+        // Without emailRedirectTo, Supabase sends the confirmation link to
+        // whatever "Site URL" is set in the dashboard (defaults to
+        // localhost:3000), which would break the flow on every non-local
+        // deployment.
         emailRedirectTo: `${window.location.origin}/login`,
       },
     });
@@ -159,28 +164,13 @@ export default function RegisterPage() {
       <form onSubmit={handleRegister}>
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "NAMA PENGGUNA", "USERNAME")}
-          </label>
-          <input
-            type="text"
-            required
-            autoComplete="username"
-            placeholder={t(lang, "cth. operator01", "e.g. operator01")}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className={plexMono.className}
-            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
-          />
-        </div>
-
-        <div className="mb-4 flex flex-col gap-1.5">
-          <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "ID PENGGUNA / EMEL", "USER ID / EMAIL")}
+            {t(lang, "EMEL", "EMAIL")}
           </label>
           <input
             type="email"
             required
             autoComplete="email"
+            placeholder={t(lang, "cth. operator01@emel.com", "e.g. operator01@email.com")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={plexMono.className}

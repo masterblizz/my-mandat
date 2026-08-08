@@ -12,7 +12,7 @@ import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import StatBar from "../components/ui/StatBar";
 import TrendLine from "../components/charts/TrendLine";
-import { nationalPollHistory } from "../data/parties";
+import { nationalPollHistory, getStatePollHistory } from "../data/parties";
 import { useGameStore } from "../store/gameStore";
 import { formatNumber, formatPercent, formatSignedPercent } from "../utils/format";
 import { useLang, t } from "../i18n/useLang";
@@ -77,6 +77,10 @@ export default function PollingPage() {
   const nationalSupport = isPrn && prnState
     ? { mandat: prnState.mandatSupport, lawan: prnState.lawanSupport, others: prnState.othersSupport }
     : getNationalSupport();
+  const pollHistory = useMemo(
+    () => (isPrn && prnState ? getStatePollHistory(prnState) : nationalPollHistory),
+    [isPrn, prnState]
+  );
 
   const pieData = [
     { name: leader.partyAbbr, value: nationalSupport.mandat, color: leader.partyColor },
@@ -284,9 +288,15 @@ export default function PollingPage() {
             </div>
 
             {/* Bottom: Trend Chart */}
-            <TacticalPanel title={t(lang, "TREND SOKONGAN — 6 BULAN", "SUPPORT TREND — 6 MONTHS")}>
+            <TacticalPanel
+              title={
+                isPrn && prnState
+                  ? t(lang, `TREND SOKONGAN — ${prnState.name.toUpperCase()} — 6 BULAN`, `SUPPORT TREND — ${prnState.name.toUpperCase()} — 6 MONTHS`)
+                  : t(lang, "TREND SOKONGAN — 6 BULAN", "SUPPORT TREND — 6 MONTHS")
+              }
+            >
               <TrendLine
-                data={nationalPollHistory}
+                data={pollHistory}
                 lines={[
                   { key: "mandat", color: leader.partyColor, label: leader.partyAbbr },
                   { key: "lawan",  color: "var(--warn-orange)", label: "LAWAN" },

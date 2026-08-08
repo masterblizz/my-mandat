@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const lang = useLang();
 
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,32 +36,6 @@ export default function LoginPage() {
       setLoading(false);
       setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
       return;
-    }
-
-    // Accept either a username or an email: signInWithPassword only takes
-    // an email, so a plain username needs resolving to its account's real
-    // email first (server-side — see /api/auth/resolve-login, profiles.
-    // username isn't readable client-side for anyone but yourself).
-    let email = identifier;
-    if (!identifier.includes("@")) {
-      try {
-        const res = await fetch("/api/auth/resolve-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifier }),
-        });
-        const data: { email?: string | null } = await res.json();
-        if (!data.email) {
-          setLoading(false);
-          setError(t(lang, "ID pengguna atau kata laluan tidak sah.", "Invalid user ID or password."));
-          return;
-        }
-        email = data.email;
-      } catch {
-        setLoading(false);
-        setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
-        return;
-      }
     }
 
     // "Ingat saya" (remember me) — Supabase's own session already persists
@@ -128,15 +102,15 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}>
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "ID PENGGUNA / EMEL", "USER ID / EMAIL")}
+            {t(lang, "EMEL", "EMAIL")}
           </label>
           <input
-            type="text"
+            type="email"
             required
-            autoComplete="username"
-            placeholder={t(lang, "cth. operator01 atau emel", "e.g. operator01 or email")}
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="email"
+            placeholder={t(lang, "cth. operator01@emel.com", "e.g. operator01@email.com")}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className={plexMono.className}
             style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />

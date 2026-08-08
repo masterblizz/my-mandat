@@ -370,3 +370,35 @@ export function getWinningStates(): StateData[] {
 export function getContestedStates(): StateData[] {
   return states.filter((s) => s.status === "contested");
 }
+
+export interface NationalStats {
+  population: number;
+  area: number;
+  ethnic: { malay: number; chinese: number; indian: number; others: number };
+}
+
+// demographics.* are per-state PERCENTAGES, so the national breakdown is a
+// population-weighted average, not a plain average of the 14 percentages.
+export function getNationalStats(): NationalStats {
+  const population = states.reduce((sum, s) => sum + s.population, 0);
+  const area = states.reduce((sum, s) => sum + s.area, 0);
+  const weighted = states.reduce(
+    (acc, s) => ({
+      malay: acc.malay + (s.demographics.malay * s.population) / 100,
+      chinese: acc.chinese + (s.demographics.chinese * s.population) / 100,
+      indian: acc.indian + (s.demographics.indian * s.population) / 100,
+      others: acc.others + (s.demographics.others * s.population) / 100,
+    }),
+    { malay: 0, chinese: 0, indian: 0, others: 0 }
+  );
+  return {
+    population,
+    area,
+    ethnic: {
+      malay: Math.round((weighted.malay / population) * 1000) / 10,
+      chinese: Math.round((weighted.chinese / population) * 1000) / 10,
+      indian: Math.round((weighted.indian / population) * 1000) / 10,
+      others: Math.round((weighted.others / population) * 1000) / 10,
+    },
+  };
+}

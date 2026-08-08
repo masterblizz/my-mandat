@@ -180,7 +180,7 @@ button:not(:disabled):not(.kw-zone):active { transform: translateY(1px); }
 }
 
 /* Rotating radar sweep overlay for map panels; parent must be relative */
-.mm-radar { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.mm-radar { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 50%; }
 .mm-radar::before {
   content: "";
   position: absolute;

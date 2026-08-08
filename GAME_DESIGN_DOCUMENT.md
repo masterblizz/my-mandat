@@ -1,7 +1,7 @@
 # MY MANDAT — GAME DESIGN DOCUMENT
 
 **Disediakan oleh:** Game Director / Game Designer pass (AI-assisted audit)
-**Tarikh:** 2026-08-03
+**Tarikh:** 2026-08-03 (kemas kini terakhir: 2026-08-08 — Seksyen 1/3.6/6/8/9/10 dikemas kini utk sistem akaun & log masuk Supabase, premium purchase Stripe, dan pembetulan skop QA `/polling`)
 **Kaedah:** Full codebase scan — setiap fakta dalam dokumen ini datang dari kod sebenar (`app/`, `docs/`, `package.json`, git log), bukan andaian generik. Item yang tidak boleh disahkan daripada kod ditanda `[PERLU INPUT SAYA]`.
 
 > Nota versi: `GAME_DESIGN.md` dan `BUILD_PROGRESS.md` sedia ada dalam root project ini masih berguna sebagai log teknikal/sejarah, tetapi kedua-duanya tertinggal beberapa fasa di belakang kod semasa (contoh: tiada sebutan `/cabinet`, `/government`, `/career`, `/kawasan`, `/sandbox`). Dokumen ini (`GAME_DESIGN_DOCUMENT.md`) adalah rujukan **paling terkini** dan patut jadi sumber utama untuk sesi AI akan datang.
@@ -14,9 +14,9 @@
 |---|---|
 | Nama | **MY MANDAT** |
 | Genre | Political campaign strategy simulator + post-election government management sim, dengan modul city-builder ringan (kawasan) |
-| Platform semasa | Web browser (Next.js 14 app, client-heavy, `localStorage`-based saves — tiada backend/DB) |
+| Platform semasa | Web browser (Next.js 14 app, client-heavy). Log masuk/akaun kini disokong backend sebenar (Supabase), tapi progress kempen (save/history) kekal `localStorage` peranti tempatan — akaun belum bawa cloud save. |
 | Platform sasaran lain | Belum ditentukan — layout guna fixed-width panel + `xl:` Tailwind breakpoints yang mengandaikan skrin desktop/laptop. Tiada bukti mobile-responsive design dalam kod. `[PERLU INPUT SAYA]` — adakah mobile/tablet jadi sasaran rasmi? |
-| Engine/Stack | Next.js 14 + React 18 + TypeScript, Zustand (state), Framer Motion (animasi), Tailwind (styling), Recharts (chart), react-simple-maps + custom SVG (peta), Anthropic Claude API (AI advisor) |
+| Engine/Stack | Next.js 14 + React 18 + TypeScript, Zustand (state), Framer Motion (animasi), Tailwind (styling), Recharts (chart), react-simple-maps + custom SVG (peta), Anthropic Claude API (AI advisor), Supabase (akaun/log masuk), Stripe (premium purchase) |
 | Bahasa | Bilingual penuh BM/EN (`useLang()` + `t(lang, ms, en)` di hampir setiap baris teks — bukan lapisan terjemahan tempelan) |
 
 ### Premis
@@ -146,7 +146,16 @@ Permainan direka **open-ended**: fasa Career membenarkan berbilang penggal (60 b
 - **AI Advisor chat** (`/advisor`, `/api/advisor`): chat sebenar dengan persona "DR. RAZMAN, ALPHA-1", dibekalkan snapshot state kempen (hari, dana, projected seats, majority target, negeri lemah). Fallback rule-based (`offlineAdvice`) bila tiada `ANTHROPIC_API_KEY` atau API gagal.
 - **Notification/Alert feed**: senarai alert (maks 12) di War Room, event modal (`EventModal`) untuk event random yang perlu di-"ACKNOWLEDGE".
 - **Live News feed**: 28 item berita berskrip mengikut hari (`liveNews.ts`), digabung dengan Political Reactions janaan-pemain dalam satu strim.
-- **QA automation**: `scripts/qa-full-game.js` — playwright script yang cold-load semua 23 route + drive satu playthrough penuh (setup→career/sandbox), rekod ke `docs/QA_REPORT.md` dan screenshot.
+- **QA automation**: `scripts/qa-full-game.js` — playwright script yang cold-load semua route + drive satu playthrough penuh (setup→career/sandbox), rekod ke `docs/QA_REPORT.md` dan screenshot. Disokong sejak Ogos 2026 oleh subagent Claude Code khusus (`.claude/agents/game-flow-qa.md`) yang mengaudit konsistensi skop PRU/PRN merentasi skrin (contoh: pernah menangkap `/polling`'s carta trend 6-bulan yang tersalah papar data PRU kebangsaan dalam kempen PRN — telah dibetulkan).
+
+### 3.6 Sistem Akaun & Log Masuk
+- **Backend**: Supabase Auth (bukan sistem custom) — `middleware.ts` menggerbang **setiap** route (kecuali `/login`, `/register`, `/forgot-password`, `/reset-password`, `/auth/callback`) di belakang sesi log masuk sah; tiada Supabase dikonfigur (`.env.local` kosong) → middleware auto-bypass supaya app tetap boleh jalan semasa dev.
+- **Kaedah log masuk**: (1) emel + kata laluan sebenar, (2) Google OAuth (`signInWithOAuth`, redirect via `/auth/callback` yang menukar `code` kepada sesi). Log masuk emel-sahaja dengan sengaja — satu percubaan sebentar untuk sokong log masuk guna username ATAU emel (`/api/auth/resolve-login`, cari `profiles.username`) dibina lalu **dialih keluar semula** sejurus selepas; kedua-dua `/login` dan `/register` kini hanya kumpul emel, tiada medan "Nama Pengguna"/"ID Pengguna" langsung. `profiles.username` (lajur DB, NOT NULL) masih wujud tapi diisi placeholder auto-jana (`user_<8 aksara id>`) oleh trigger signup, bukan input pemain.
+- **Log masuk tetamu (guest/anonymous) sengaja DIBUANG** — provider anonymous Supabase belum diaktifkan di dashboard projek; butang "MASUK SEBAGAI TETAMU" yang pernah wujud di reka bentuk asal telah dialih keluar drpd `/login` supaya tiada laluan yang sentiasa gagal.
+- **`profiles` table** (Supabase, RLS: baca row sendiri sahaja) — `username` (NOT NULL, auto-dijana trigger `on_auth_user_created_purchases_profile` semasa signup), `stripe_customer_id`, `premium_tier` (null = free), `premium_expires_at`. `purchases` table log setiap one-time purchase (status pending/completed/failed/refunded).
+- **Premium purchase**: Stripe Checkout (`/api/checkout`) + webhook (`/api/webhooks/stripe`) menulis `premium_tier` ke `profiles` melalui service-role client (RLS-bypass) apabila `checkout.session.completed`/langganan aktif. `/purchase-confirmation` + `/api/purchase-status` poll status selepas redirect Stripe.
+- **Reka bentuk `/login` & `/register`** ("tactical HUD" — `TacticalAuthShell` + `AuthBackground`): latar belakang peta Malaysia sebenar (`/malaysia.svg`, path per negeri, bukan imej statik) dengan **auto-highlight cycling** (satu negeri bercahaya setiap ~2.2 saat, urutan tetap bermula Sabah→Sarawak→Johor→Melaka, gelung semula; dilumpuhkan bila `prefers-reduced-motion`). Hover manual atas mana-mana negeri override auto-cycle dan papar tooltip maklumat sebenar negeri itu (penduduk, kerusi Parlimen/DUN, pecahan kaum — bukan data kempen simulasi, sengaja elak nombor mandat/lawan supaya tidak kelihatan macam kempen sedang berjalan sebelum log masuk). Sudut kanan-bawah papar bendera negeri (SVG sebenar dari Wikimedia Commons, disimpan lokal `public/flags/`); sudut kiri-bawah senarai kerusi Parlimen negeri berkenaan + bilangan pengundi per kerusi (nama kerusi sebenar drpd `PARLIAMENT_NAMES`, bukan rekaan).
+- **Batasan diketahui**: akaun Supabase ini **hanya** untuk log masuk + premium tier — save kempen (localStorage) TIDAK terikat kepada akaun; log masuk di peranti lain tidak bawa masuk save sedia ada (lihat Seksyen 8, item baru).
 
 ---
 
@@ -205,8 +214,18 @@ Permainan direka **open-ended**: fasa Career membenarkan berbilang penggal (60 b
 
 ## 5. UI/UX FLOW
 
-### Peta Skrin (23 route + 1 API route)
+### Peta Skrin (31 route + 4 API route)
 ```
+[GERBANG AUTH — middleware.ts]
+Setiap route digerbang di belakang sesi Supabase sah, KECUALI:
+  /login · /register · /forgot-password · /reset-password · /auth/callback
+Tiada sesi → redirect ke /login. Ada sesi & cuba buka /login|/register → redirect ke /.
+(Bypass automatik jika Supabase langsung tidak dikonfigur — lihat Seksyen 3.6/6.)
+
+/login ──→ /  (selepas sah, teruskan ke flow biasa di bawah)
+/register ──→ (emel confirmation) ──→ /login
+/forgot-password ──→ /reset-password
+
 / (intro video sekali per sesi) → /menu
 /menu ── Start Game ──→ /setup (6 langkah) ──→ /warroom
 /menu ── Load Game ───→ /load-game (5 slot) ──→ /warroom
@@ -237,7 +256,7 @@ Permainan direka **open-ended**: fasa Career membenarkan berbilang penggal (60 b
 /postmortem ─→ /career
 /government ── "BANGUNKAN KAWASAN" ──→ /kawasan  (laluan kedua ke sistem dev, selain /elected)
 ```
-Route sokongan: `/trailer` (video pengenalan berasingan drpd intro root), `/stats` (dashboard sejarah kempen).
+Route sokongan: `/trailer` (video pengenalan berasingan drpd intro root), `/stats` (dashboard sejarah kempen), `/purchase-confirmation` (poll status selepas Stripe Checkout redirect).
 
 ### Navigation flow (onboarding → end-game)
 1. Root `/` — video intro sekali sahaja setiap sesi browser (`sessionStorage` flag), skip terus ke `/menu` jika sudah ditonton.
@@ -282,7 +301,7 @@ app/
 4. **`uiStore.ts`** — theme/language/music, persisted manual via `localStorage` individual keys.
 
 ### Batasan teknikal yang diperhatikan
-- **Tiada backend/database** — semua data (save, history, political reactions) di `localStorage` peranti tempatan sahaja. Tiada akaun pengguna, tiada cloud sync, tiada leaderboard yang mungkin (perlu backend).
+- **Backend (Supabase) kini wujud, tapi skop terhad kepada log masuk + premium tier sahaja** — save kempen, history, dan political reactions kekal 100% `localStorage` peranti tempatan, TIDAK terikat akaun. Log masuk di peranti/browser lain = mula dari kosong (tiada save dibawa masuk), dan tiada leaderboard/cross-device play kerana asas datanya (save) masih tempatan, bukan kerana tiada backend langsung lagi.
 - **Fasa Career/Government/Sandbox/Kawasan tidak disimpan** dalam save snapshot — refresh/reload akan reset progress "100 hari pertama", "penggal kerjaya", dan "sandbox run" walaupun kempen PRU/PRN itu sendiri boleh disimpan.
 - **Model ID API Claude** dalam `app/api/advisor/route.ts` (`const MODEL = "claude-opus-4-8"`) bukan ID model semasa yang dikenali — patut disemak semula terhadap senarai model rasmi terkini supaya panggilan API tidak silently fallback ke `offlineAdvice` disebabkan model tidak sah.
 - Layout guna banyak `xl:grid-cols-[Npx_minmax(0,1fr)_Npx]` fixed-width — tiada bukti responsive mobile/tablet.
@@ -295,8 +314,8 @@ app/
 1. **Kedalaman sistem yang jarang ada dalam election sim** — dari nomination calon bernama, opponent AI reaktif, sistem reaksi politik prosedur, hingga kerjaya politik berbilang penggal — semuanya sudah *wired* ke state sebenar (bukan UI kosong), mengikut disiplin `AGENTS.md` ("Implement real state/store/gameplay effects, not UI-only descriptions").
 2. **Ketepatan civics Malaysia** — pembezaan PRU/PRN, negeri Raja vs Governor, DUN vs Parlimen, MA63/Borneo — konsisten merentasi hampir setiap skrin melalui satu fungsi tunggal (`getGovernmentTerms`), bukan hardcode bertaburan.
 3. **Bilingual sepenuhnya** dari hari pertama reka bentuk, bukan tampalan lewat.
-4. **QA automation sedia ada** — skrip Playwright yang cold-load semua 23 route + drive satu playthrough penuh end-to-end, dengan laporan/screenshot automatik. Ini jarang wujud dalam projek solo pada tahap ini.
-5. **Estetika visual konsisten dan padu** — "tactical war room HUD" (Space Mono, cyan/gold, corner marks, scanline) dikekalkan merentasi 23 skrin dan kedua-dua tema (dark/light) tanpa hardcoded hex bocor (`feedback_theme` sudah dikuatkuasakan).
+4. **QA automation sedia ada** — skrip Playwright yang cold-load semua route + drive satu playthrough penuh end-to-end, dengan laporan/screenshot automatik, disokong subagent `game-flow-qa` (Ogos 2026) khusus utk audit konsistensi skop PRU/PRN. Ini jarang wujud dalam projek solo pada tahap ini.
+5. **Estetika visual konsisten dan padu** — "tactical war room HUD" (Space Mono, cyan/gold, corner marks, scanline) dikekalkan merentasi hampir semua skrin (termasuk `/login`/`/register` sejak reka bentuk semula Ogos 2026 — peta negara sebenar + auto-highlight negeri) dan kedua-dua tema (dark/light) tanpa hardcoded hex bocor (`feedback_theme` sudah dikuatkuasakan).
 6. **Sistem kawasan 3D** — visual payoff yang kukuh untuk pencapaian pemain (menang kerusi sendiri), dengan wajah bandar yang benar-benar disesuaikan mengikut nama kawasan sebenar (bukan template generik).
 
 ---
@@ -306,13 +325,13 @@ app/
 ### Isu struktur/sistem (disahkan daripada kod)
 1. **Progress fasa akhir tidak disimpan.** Career (penggal/bulan/faction), Government (dasar aktif/krisis), Sandbox (lever aktif), dan Kawasan (zon/projek) semuanya `useState` tempatan — hilang bila navigate keluar+masuk semula atau refresh, dan tiada dalam `SavedGameSnapshot`. Ini bermakna "kerjaya berbilang penggal" — ciri USP utama — sebenarnya tidak berterusan merentasi sesi.
 2. **Model API advisor berpotensi salah/lapuk** (`claude-opus-4-8`) — jika ID tidak sah, setiap panggilan akan gagal senyap ke mod offline rule-based, menjadikan ciri "AI Advisor sebenar" sentiasa terasa seperti chatbot templat sahaja kepada pemain.
-3. **Tiada backend** bermakna tiada leaderboard, tiada akaun, tiada cross-device play — menyekat sebarang mekanik sosial/kompetitif.
+3. **Akaun wujud (Supabase) tapi tidak bawa save/progress** — kerana save kempen kekal `localStorage`-sahaja (lihat Seksyen 6), akaun sekarang hanya berguna untuk log masuk + premium tier, bukan cross-device play/leaderboard. Menyambungkan `SavedGameSnapshot` ke akaun (bukan sekadar `localStorage`) adalah langkah paling langsung ke arah leaderboard/cross-device sebenar — infra auth asasnya sudah sedia, tinggal skema DB save + sync logic.
 4. **Tiada bukti mobile-responsive** — risiko kehilangan pemain yang cuba main di telefon/tablet.
 5. **Coalition negotiation (`/formation`) agak cetek** — hanya togol on/off 3 rakan koalisi, tiada pusingan rundingan berbilang atau trade-off portfolio spesifik.
 
 ### Isu retention/monetization (gap kandungan, bukan pepijat)
 6. Tiada daily-login/streak, tiada scenario harian/mingguan, tiada leaderboard, tiada elemen kongsi hasil (share result) — tiada satu pun "retention hook" klasik wujud dalam kod semasa.
-7. Tiada sebarang kod monetisasi (tiada IAP, tiada ads, tiada payment gateway, tiada account tier) — projek ini 100% greenfield dari segi model perniagaan.
+7. **Infra monetisasi asas SUDAH wujud** (Stripe Checkout + webhook + `profiles.premium_tier`/`premium_expires_at`, lihat Seksyen 3.6) — tapi belum ada produk/harga premium yang dipasang di UI game itu sendiri (setakat semakan ini, tiada gate premium kelihatan pada mana-mana skrin gameplay); infra "account tier" wujud secara teknikal, cuma belum "dijual" kepada pemain di dalam permainan.
 8. AI Advisor chat memanggil API Claude sebenar (kos sebenar setiap mesej) tanpa sebarang had penggunaan/metering yang kelihatan dalam kod — risiko kos operasi tanpa kawalan jika dilancarkan secara umum.
 
 `[PERLU INPUT SAYA]` — isu UX/visual spesifik yang disebut dalam perbualan lalu (contoh "platform macam terapung", "istilah kabinet salah") tidak dapat disahkan dalam sesi ini kerana tiada rujukan sejarah perbualan berkaitan tersedia; senarai di atas adalah gap yang diperhatikan terus daripada kod semasa sahaja.
@@ -322,17 +341,17 @@ app/
 ## 9. MONETIZATION & COMMERCIAL POTENTIAL
 
 ### Model monetisasi dicadangkan
-Memandangkan ini projek solo, web-only, tiada backend, dan bertema niche (politik Malaysia) — jangan cuba model yang perlukan infra besar (F2P bermata-wang, ads network) sebelum backend wujud. Cadangan ikut kesediaan teknikal semasa:
+**Kemas kini (Ogos 2026)**: infra pembayaran (Stripe Checkout + webhook + `profiles.premium_tier`/`premium_expires_at`) **sudah wujud secara teknikal** — lihat Seksyen 3.6. Ini bermakna cadangan #1/#3 di bawah bukan lagi "belum ada infra", tapi "infra sedia, tinggal pasang produk/harga sebenar & UI gate di dalam game itu sendiri" (setakat semakan ini, tiada gate premium kelihatan pada mana-mana skrin gameplay).
 
-1. **Premium one-time purchase** (paling sesuai serta-merta) — jual sebagai "buy full campaign" di itch.io/Steam. Sesuai kerana permainan dah "complete" dari segi loop (kempen → kerajaan → kerjaya), tiada perlu backend, dan padan dengan audience deep-sim yang biasa bayar sekali (Democracy 4, Political Machine guna model sama).
+1. **Premium one-time purchase / langganan** — infra Stripe sudah wired (`/api/checkout`, `/api/webhooks/stripe`); apa yang tinggal ialah tentukan APA yang di-gate (PRN? Nightmare? advisor tanpa had?) dan pasang UI unlock di skrin berkaitan.
 2. **Freemium bertingkat** — PRU (kempen nasional) percuma sebagai "demo penuh"; PRN (mod negeri), custom party creator, Nightmare difficulty, atau advisor persona tambahan sebagai unlock berbayar.
-3. **AI Advisor sebagai gate semula jadi** — kerana setiap mesej memang kos token sebenar (Anthropic API), had "X mesej advisor percuma setiap kempen" → unlock tanpa had via pembelian sekali/langganan adalah paywall yang jujur dari segi kos, bukan paywall gimik.
-4. **Cosmetic IAP** (selepas backend wujud) — avatar tambahan, palet warna parti custom, set portret calon tambahan, "skin" bangunan kawasan.
+3. **AI Advisor sebagai gate semula jadi** — kerana setiap mesej memang kos token sebenar (Anthropic API), had "X mesej advisor percuma setiap kempen" → unlock tanpa had via pembelian sekali/langganan adalah paywall yang jujur dari segi kos, bukan paywall gimik. `premium_tier` di `profiles` sudah cukup untuk cek ini server-side.
+4. **Cosmetic IAP** — avatar tambahan, palet warna parti custom, set portret calon tambahan, "skin" bangunan kawasan. Backend akaun sudah wujud untuk simpan pemilikan cosmetic per-akaun.
 5. **Sponsorship jenama/politik** — **tidak disyorkan** tanpa arahan jelas pemilik produk; mengaitkan jenama sebenar/pihak politik dengan simulator politik membawa risiko reputasi. `[PERLU INPUT SAYA]` jika mahu diteroka lebih lanjut.
 
 ### Retention hooks yang perlu ditambah
 - **Daily/weekly seeded scenario** — guna semula `electionEngine` + seed tetap untuk cabaran "hari ini" (gaya Wordle) — effort rendah kerana engine sedia ada.
-- **Leaderboard** (Legacy Score terpantas, majoriti terbesar, kesukaran Nightmare cleared) — perlukan backend ringkas (contoh Supabase/Firebase) sahaja, bukan infra penuh.
+- **Leaderboard** (Legacy Score terpantas, majoriti terbesar, kesukaran Nightmare cleared) — backend (Supabase) sudah dipasang untuk auth, jadi tinggal tambah jadual `leaderboard`/hubungkan `historyStore`'s rekod kempen ke `profiles.id`, bukan lagi pilih & pasang backend dari kosong.
 - **Achievement/badge system** — sudah ada asas (`achievements` array di Results) — tinggal jadikan ia persistent profile merentasi kempen, bukan per-run sahaja.
 - **Notification** untuk momen berkaitan GE sebenar Malaysia (jika ada) — `[PERLU INPUT SAYA]` sama ada mahu tie-in dengan kalendar politik sebenar.
 
@@ -365,7 +384,7 @@ Memandangkan ini projek solo, web-only, tiada backend, dan bertema niche (politi
 ### 🟡 Medium Effort
 | Cadangan | Masalah diselesaikan | Impak dijangka |
 |---|---|---|
-| Backend ringkas (Supabase/Firebase) untuk leaderboard + achievement persistent | Tiada elemen kompetitif/sosial | Tinggi untuk retention & word-of-mouth; effort sederhana (tiada perlu full account system dulu) |
+| Jadual leaderboard + achievement persistent atas Supabase sedia ada (bukan pilih backend baru — akaun/auth dah wujud) | Tiada elemen kompetitif/sosial | Tinggi untuk retention & word-of-mouth; effort **lebih rendah drpd anggaran asal** kerana Supabase auth+`profiles` dah wired sejak Ogos 2026 |
 | Perdalam `/formation` (rundingan koalisi berbilang pusingan, trade-off portfolio) | Coalition nego terasa cetek (togol sahaja) | Sederhana — memperkukuh salah satu momen naratif paling penting (hung parliament) |
 | Mobile-responsive pass untuk skrin utama (warroom/campaign/results) | Kehilangan pemain mobile/tablet | Sederhana-tinggi bergantung sasaran pasaran akhir |
 | Metering/usage cap untuk AI Advisor + UI yang jelas menunjukkan kuota | Kos API tanpa kawalan jika dilancar meluas | Tinggi dari segi kawalan kos operasi sebelum monetisasi |
@@ -373,11 +392,11 @@ Memandangkan ini projek solo, web-only, tiada backend, dan bertema niche (politi
 ### 🔴 Long-term / Big Bet
 | Cadangan | Masalah diselesaikan | Impak dijangka |
 |---|---|---|
-| Akaun pengguna + cloud save penuh | Tiada cross-device, tiada asas untuk tier berbayar/leaderboard sebenar | Tinggi — prasyarat kepada hampir semua monetisasi & retention lanjutan; effort tinggi |
+| Cloud save penuh (akaun log masuk sendiri **sudah wujud** sejak Ogos 2026 — item baki ialah sync `SavedGameSnapshot`/history/Career-Government-Sandbox-Kawasan state ke Supabase, bukan bina akaun dari kosong) | Tiada cross-device, tiada asas untuk leaderboard sebenar | Tinggi — kini lebih dekat drpd anggaran asal sebab prasyarat akaun dah selesai; baki kerja ialah skema DB save + sync logic sahaja |
 | Mod "Compare with Friends" / async multiplayer | Tiada elemen sosial-kompetitif | Tinggi untuk virality, tapi perlukan akaun+backend siap dahulu |
 | Mod senario sejarah sebenar (replay GE14/GE15) menggunakan dataset nama sebenar sedia ada | Kandungan replay-value jangka panjang | Berpotensi tinggi tapi **sensitif dari segi politik/undang-undang** — `[PERLU INPUT SAYA]` wajib sebelum diteruskan |
 | Packaging Steam/mobile app rasmi untuk pasaran komersial meluas | Sekarang web-only, sukar discovery/monetize | Tinggi jika sasaran memang komersial meluas; effort tinggi (perlu QA/porting besar) |
 
 ---
 
-*Dokumen ini dijana daripada scan penuh `app/`, `docs/QA_REPORT.md`, `package.json`, dan git log semasa (commit terkini: `0818ae3` — "gate /kawasan development behind winning your own seat"). Kemas kini dokumen ini apabila sistem baru ditambah supaya ia kekal jadi rujukan tunggal yang tepat.*
+*Dokumen ini dijana daripada scan penuh `app/`, `docs/QA_REPORT.md`, `package.json`, dan git log semasa (commit terkini pada audit asal: `0818ae3` — "gate /kawasan development behind winning your own seat"; kemas kini 2026-08-08 dibuat atas kod kerja semasa — sistem log masuk/`/register`, `.claude/agents/game-flow-qa.md`, dan pembetulan `/polling` — sebahagian belum di-commit ketika kemas kini ini ditulis). Kemas kini dokumen ini apabila sistem baru ditambah supaya ia kekal jadi rujukan tunggal yang tepat.*
