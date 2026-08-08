@@ -34,7 +34,7 @@ export default function LoginPage() {
       supabase = createClient();
     } catch {
       setLoading(false);
-      setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
+      setError(t(lang, "login_page.loginIsnTConfiguredForThis"));
       return;
     }
 
@@ -69,7 +69,7 @@ export default function LoginPage() {
       supabase = createClient();
     } catch {
       setGoogleLoading(false);
-      setError(t(lang, "Log masuk belum dikonfigurasi untuk deployment ini.", "Login isn't configured for this deployment yet."));
+      setError(t(lang, "login_page.loginIsnTConfiguredForThis"));
       return;
     }
 
@@ -87,8 +87,8 @@ export default function LoginPage() {
 
   return (
     <TacticalAuthShell
-      eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
-      heading={t(lang, "Log Masuk ke MyMandat", "Log In to MyMandat")}
+      eyebrow={t(lang, "login_page.electionCampaignSimulator")}
+      heading={t(lang, "login_page.logInToMymandat")}
     >
       {error && (
         <p
@@ -102,13 +102,13 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}>
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "EMEL", "EMAIL")}
+            {t(lang, "login_page.email")}
           </label>
           <input
             type="email"
             required
             autoComplete="email"
-            placeholder={t(lang, "cth. operator01@emel.com", "e.g. operator01@email.com")}
+            placeholder={t(lang, "login_page.eGOperator01EmailCom")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={plexMono.className}
@@ -118,7 +118,7 @@ export default function LoginPage() {
 
         <div className="mb-3.5 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "KATA LALUAN", "PASSWORD")}
+            {t(lang, "login_page.password")}
           </label>
           <input
             type="password"
@@ -140,10 +140,10 @@ export default function LoginPage() {
               onChange={(e) => setRememberMe(e.target.checked)}
               style={{ accentColor: GOLD }}
             />
-            {t(lang, "INGAT SAYA", "REMEMBER ME")}
+            {t(lang, "login_page.rememberMe")}
           </label>
           <a href="/forgot-password" className={plexMono.className} style={{ fontSize: 11, color: CYAN }}>
-            {t(lang, "LUPA KATA LALUAN", "FORGOT PASSWORD")}
+            {t(lang, "login_page.forgotPassword")}
           </a>
         </div>
 
@@ -165,12 +165,12 @@ export default function LoginPage() {
             marginBottom: 12,
           }}
         >
-          {loading ? t(lang, "MENGESAHKAN…", "VERIFYING…") : t(lang, "MULA KEMPEN »", "START CAMPAIGN »")}
+          {loading ? t(lang, "login_page.verifying") : t(lang, "login_page.startCampaign")}
         </button>
 
         <div className="my-3.5 flex items-center gap-2.5">
           <div style={{ flex: 1, height: 1, background: BORDER }} />
-          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "ATAU", "OR")}</div>
+          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "login_page.or")}</div>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
         </div>
 
@@ -191,12 +191,12 @@ export default function LoginPage() {
             opacity: anyLoading && !googleLoading ? 0.5 : 1,
           }}
         >
-          {googleLoading ? t(lang, "MENYAMBUNG…", "CONNECTING…") : t(lang, "MASUK DENGAN GOOGLE", "SIGN IN WITH GOOGLE")}
+          {googleLoading ? t(lang, "login_page.connecting") : t(lang, "login_page.signInWithGoogle")}
         </button>
 
         <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
-          {t(lang, "TIADA AKAUN? ", "NO ACCOUNT? ")}
-          <a href="/register" style={{ color: CYAN }}>{t(lang, "DAFTAR SEKARANG", "REGISTER NOW")}</a>
+          {t(lang, "login_page.noAccount")}
+          <a href="/register" style={{ color: CYAN }}>{t(lang, "login_page.registerNow")}</a>
         </div>
       </form>
     </TacticalAuthShell>

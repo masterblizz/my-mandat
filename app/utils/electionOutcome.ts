@@ -20,8 +20,7 @@ export type ElectionOutcomeSummary = {
   contestedStates: StateData[];
   seatScope: SeatScope;
   status: MandateStatus;
-  statusLabelMS: string;
-  statusLabelEN: string;
+  statusLabelKey: string;
 };
 
 type Options = {
@@ -60,19 +59,7 @@ export function computeElectionOutcome(states: StateData[], options: Options = {
   const hungThreshold = electionScope === "prn" ? Math.ceil(totalSeats * 0.40) : 89;
   const oppositionThreshold = electionScope === "prn" ? Math.ceil(totalSeats * 0.18) : 40;
   const status: MandateStatus = seatsWon >= majorityTarget ? "majority" : seatsWon >= hungThreshold ? "hung" : seatsWon >= oppositionThreshold ? "opposition" : "collapse";
-  const labels = electionScope === "prn"
-    ? {
-        majority: ["MANDAT NEGERI JELAS", "CLEAR STATE MANDATE"],
-        hung: ["DUN TERGANTUNG", "HUNG STATE ASSEMBLY"],
-        opposition: ["PEMBANGKANG NEGERI KUAT", "STRONG STATE OPPOSITION"],
-        collapse: ["MANDAT NEGERI DITOLAK", "STATE MANDATE REJECTED"],
-      }
-    : {
-        majority: ["MANDAT JELAS", "CLEAR MANDATE"],
-        hung: ["PARLIMEN TERGANTUNG", "HUNG PARLIAMENT"],
-        opposition: ["PEMBANGKANG KUAT", "STRONG OPPOSITION"],
-        collapse: ["MANDAT DITOLAK", "MANDATE REJECTED"],
-      };
+  const statusLabelScope = electionScope === "prn" ? "prn" : "pru";
 
   return {
     seatsWon,
@@ -86,7 +73,6 @@ export function computeElectionOutcome(states: StateData[], options: Options = {
     contestedStates,
     seatScope,
     status,
-    statusLabelMS: labels[status][0],
-    statusLabelEN: labels[status][1],
+    statusLabelKey: `mandate_page.status_${statusLabelScope}_${status}`,
   };
 }

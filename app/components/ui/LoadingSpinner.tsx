@@ -21,7 +21,7 @@ export default function LoadingSpinner({ label, size = 32, fullScreen = false }:
         }}
       />
       <div className="mm-blip text-[10px] font-bold tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>
-        {label ?? t(lang, "MEMUATKAN...", "LOADING...")}
+        {label ?? t(lang, "components_ui_LoadingSpinner.loading")}
       </div>
     </div>
   );

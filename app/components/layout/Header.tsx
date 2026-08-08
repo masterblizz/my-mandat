@@ -80,7 +80,7 @@ export default function Header() {
     >
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
-        <span className="tracking-wider text-text-muted">{t(lang, "- OPS TAKTIKAL", "- TACTICAL OPS")}</span>
+        <span className="tracking-wider text-text-muted">{t(lang, "components_layout_Header.tacticalOps")}</span>
 
         {/* Only rendered once hasPremium is confirmed true — nothing shows
             while usePremiumStatus() is still loading or if the user isn't
@@ -91,7 +91,7 @@ export default function Header() {
             className="px-2 py-0.5 text-[11px] font-bold tracking-[0.16em]"
             style={{ color: "var(--gold)", border: "1px solid rgb(var(--gold-rgb) / 0.45)", background: "rgb(var(--gold-rgb) / 0.08)" }}
           >
-            ⭐ {t(lang, "PREMIUM", "PREMIUM")}
+            ⭐ {t(lang, "components_layout_Header.premium")}
           </span>
         )}
 
@@ -105,7 +105,7 @@ export default function Header() {
               background: "rgb(var(--cyan-rgb) / 0.06)",
             }}
           >
-            ← {t(lang, "KEMBALI", "BACK")}
+            ← {t(lang, "components_layout_Header.back")}
           </button>
         )}
 
@@ -118,7 +118,7 @@ export default function Header() {
               border: "1px solid rgb(var(--cyan-rgb) / 0.25)",
             }}
           >
-            ← {t(lang, "MENU UTAMA", "MAIN MENU")}
+            ← {t(lang, "components_layout_Header.mainMenu")}
           </Link>
         )}
 
@@ -128,7 +128,7 @@ export default function Header() {
             className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] text-gold transition-all hover:bg-gold/15"
             style={{ border: "1px solid rgb(var(--gold-rgb) / 0.45)" }}
           >
-            {t(lang, "LAMAN WAR ROOM", "WAR ROOM HOME")}
+            {t(lang, "components_layout_Header.warRoomHome")}
           </Link>
         )}
 
@@ -137,7 +137,7 @@ export default function Header() {
             className="px-2 py-1 text-[12px] font-bold tracking-[0.18em]"
             style={{ color: "var(--warn-orange)", border: "1px solid rgb(255 176 0 / 0.38)", background: "rgb(255 176 0 / 0.06)" }}
           >
-            {t(lang, "WAR ROOM DIKUNCI", "WAR ROOM LOCKED")}
+            {t(lang, "components_layout_Header.warRoomLocked")}
           </span>
         )}
 
@@ -150,24 +150,24 @@ export default function Header() {
               border: "1px solid rgb(var(--cyan-rgb) / 0.25)",
             }}
           >
-            {t(lang, "MENU UTAMA", "MAIN MENU")}
+            {t(lang, "components_layout_Header.mainMenu")}
           </Link>
         )}
       </div>
 
       <div className="hidden text-xs uppercase tracking-widest text-text-muted md:block">
         {governingRoute
-          ? t(lang, "PENTADBIRAN KERAJAAN - BUKAN MOD PILIHAN RAYA", "GOVERNMENT ADMINISTRATION - NON-ELECTION MODE")
+          ? t(lang, "components_layout_Header.governmentAdministrationNonElectionMode")
           : electionScope === "prn"
-            ? t(lang, "PILIHAN RAYA NEGERI - SIMULATOR ARAHAN", "STATE ELECTION - COMMAND SIMULATOR")
-            : t(lang, "PILIHAN RAYA UMUM - SIMULATOR ARAHAN", "GENERAL ELECTION - COMMAND SIMULATOR")}
+            ? t(lang, "components_layout_Header.stateElectionCommandSimulator")
+            : t(lang, "components_layout_Header.generalElectionCommandSimulator")}
       </div>
 
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-white tabular-nums">{time}</span>
         <span className="flex items-center gap-1 text-neon-green">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neon-green" />
-          {t(lang, "SISTEM DALAM TALIAN", "SYS ONLINE")}
+          {t(lang, "components_layout_Header.sysOnline")}
         </span>
       </div>
     </header>

@@ -20,16 +20,16 @@ type Tab = "NOMINATION" | "MINI-GAMES" | "OPERATIONS" | "VOLUNTEERS" | "RESOURCE
 
 const TABS: Tab[] = ["NOMINATION", "MINI-GAMES", "OPERATIONS", "VOLUNTEERS", "RESOURCES", "SCHEDULE", "MESSAGING"];
 
-const MINI_GAME_TACTICS: Record<MiniGameTactic, { titleMS: string; titleEN: string; descMS: string; descEN: string; riskMS: string; riskEN: string; color: string }> = {
-  safe: { titleMS: "MESEJ SELAMAT", titleEN: "SAFE MESSAGE", descMS: "Mesej terkawal, stabil, risiko backlash rendah.", descEN: "Controlled, stable message. Low risk of backlash.", riskMS: "Risiko rendah / perolehan sederhana", riskEN: "Low risk / modest gain", color: "var(--neon-green)" },
-  balanced: { titleMS: "TOLAKAN SEIMBANG", titleEN: "BALANCED PUSH", descMS: "Gabung janji dasar + attack line sederhana.", descEN: "Combine policy pledges with mild attack lines.", riskMS: "Risiko sederhana / perolehan baik", riskEN: "Medium risk / good gain", color: "var(--cyan)" },
-  aggressive: { titleMS: "SERANGAN AGRESIF", titleEN: "AGGRESSIVE ATTACK", descMS: "Serangan narrative tajam. Gain tinggi tapi amaran media boleh muncul.", descEN: "Sharp narrative attack. High gain but media warnings may trigger.", riskMS: "Risiko tinggi / perolehan tinggi", riskEN: "High risk / high gain", color: "var(--warn-orange)" },
+const MINI_GAME_TACTICS: Record<MiniGameTactic, { color: string }> = {
+  safe: { color: "var(--neon-green)" },
+  balanced: { color: "var(--cyan)" },
+  aggressive: { color: "var(--warn-orange)" },
 };
 
 const UPCOMING_EVENTS = [
-  { date: "28 MAY", eventMS: "CERAMAH MEGA — PAHANG", eventEN: "CERAMAH MEGA — PAHANG", location: "Kuantan, Pahang" },
-  { date: "30 MAY", eventMS: "DEWAN TERBUKA BELIA", eventEN: "YOUTH TOWN HALL", location: "Petaling Jaya, Selangor" },
-  { date: "02 JUN", eventMS: "SIDANG AKHBAR", eventEN: "PRESS CONFERENCE", location: "Kuala Lumpur" },
+  { date: "28 MAY", eventKey: "campaign_page.upcomingEvent_ceramahMegaPahang", location: "Kuantan, Pahang" },
+  { date: "30 MAY", eventKey: "campaign_page.upcomingEvent_youthTownHall", location: "Petaling Jaya, Selangor" },
+  { date: "02 JUN", eventKey: "campaign_page.upcomingEvent_pressConference", location: "Kuala Lumpur" },
 ];
 
 const VOLUNTEER_DATA = [
@@ -51,12 +51,12 @@ const BUDGET_DATA = [
 
 type OpType = Operation["type"];
 
-const OP_TEMPLATES: Record<OpType, { labelMS: string; labelEN: string; descMS: string; descEN: string; manpowerCost: number; fundsCost: number; supportGain: number }> = {
-  ceramah:        { labelMS: "CERAMAH",         labelEN: "CERAMAH",         descMS: "Perhimpunan besar — kesan orang ramai tinggi.", descEN: "Mass rally — high crowd impact.", manpowerCost: 100, fundsCost: 120000, supportGain: 2.5 },
-  "door-to-door": { labelMS: "RUMAH KE RUMAH",  labelEN: "DOOR-TO-DOOR",    descMS: "Hubungan langsung pengundi. Bina kepercayaan.", descEN: "Direct voter contact. Builds trust.", manpowerCost: 80,  fundsCost: 40000,  supportGain: 1.2 },
-  youth:          { labelMS: "JANGKAUAN BELIA", labelEN: "YOUTH OUTREACH", descMS: "Libatkan pengundi kali pertama.", descEN: "Engage first-time voters.", manpowerCost: 50,  fundsCost: 30000,  supportGain: 1.8 },
-  digital:        { labelMS: "DIGITAL",         labelEN: "DIGITAL",         descMS: "Media sosial & iklan dalam talian.", descEN: "Social media & online ads.", manpowerCost: 20,  fundsCost: 150000, supportGain: 1.0 },
-  rural:          { labelMS: "LIBATAN LUAR BANDAR", labelEN: "RURAL ENGAGE", descMS: "Operasi lapangan di kawasan luar bandar.", descEN: "Ground ops in rural constituencies.", manpowerCost: 90,  fundsCost: 60000,  supportGain: 1.4 },
+const OP_TEMPLATES: Record<OpType, { manpowerCost: number; fundsCost: number; supportGain: number }> = {
+  ceramah:        { manpowerCost: 100, fundsCost: 120000, supportGain: 2.5 },
+  "door-to-door": { manpowerCost: 80,  fundsCost: 40000,  supportGain: 1.2 },
+  youth:          { manpowerCost: 50,  fundsCost: 30000,  supportGain: 1.8 },
+  digital:        { manpowerCost: 20,  fundsCost: 150000, supportGain: 1.0 },
+  rural:          { manpowerCost: 90,  fundsCost: 60000,  supportGain: 1.4 },
 };
 
 function formatRM(amount: number): string {
@@ -81,17 +81,17 @@ function StatusDot({ status }: { status: string }) {
 function StatusBadge({ status, lang }: { status: string; lang: Lang }) {
   if (status === "active") return (
     <span className="text-[11px] px-1.5 py-0.5 tracking-widest" style={{ color: "var(--neon-green)", background: "rgb(var(--neon-green-rgb,21 128 61) / 0.1)", border: "1px solid rgb(var(--neon-green-rgb,21 128 61) / 0.3)" }}>
-      {t(lang, "AKTIF", "ACTIVE")}
+      {t(lang, "campaign_page.active")}
     </span>
   );
   if (status === "ongoing") return (
     <span className="text-[11px] px-1.5 py-0.5 tracking-widest" style={{ color: "var(--gold)", background: "rgb(var(--gold-rgb) / 0.1)", border: "1px solid rgb(var(--gold-rgb) / 0.3)" }}>
-      {t(lang, "BERTERUSAN", "ONGOING")}
+      {t(lang, "campaign_page.ongoing")}
     </span>
   );
   return (
     <span className="text-[11px] px-1.5 py-0.5 tracking-widest" style={{ color: "var(--text-muted)", background: "rgba(136,153,170,0.08)", border: "1px solid rgba(136,153,170,0.2)" }}>
-      {t(lang, "DIRANCANG", "PLANNED")}
+      {t(lang, "campaign_page.planned")}
     </span>
   );
 }
@@ -123,9 +123,9 @@ function DeployModal({ onClose }: { onClose: () => void }) {
 
     const newOp: Operation = {
       id: `op-${Date.now()}`,
-      name: t(lang, template.labelMS, template.labelEN),
+      name: t(lang, `campaign_page.opLabel_${opType}`),
       type: opType,
-      location: selectedNames || t(lang, "Seluruh Negara", "Nationwide"),
+      location: selectedNames || t(lang, "campaign_page.nationwide"),
       stateIds: selectedStateIds,
       status: "active",
       manpowerCost: template.manpowerCost,
@@ -149,7 +149,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
       >
         {/* Modal header */}
         <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
-          <span className="text-[14px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>{t(lang, "LANCAR OPERASI BAHARU", "DEPLOY NEW OPERATION")}</span>
+          <span className="text-[14px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>{t(lang, "campaign_page.deployNewOperation")}</span>
           <button onClick={onClose} className="text-[22px] leading-none" style={{ color: "var(--text-muted)", cursor: "pointer" }}>×</button>
         </div>
 
@@ -157,7 +157,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
 
           {/* Operation type */}
           <div>
-            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{t(lang, "JENIS OPERASI", "OPERATION TYPE")}</div>
+            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.operationType")}</div>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(OP_TEMPLATES) as OpType[]).map((opt) => (
                 <button
@@ -171,15 +171,15 @@ function DeployModal({ onClose }: { onClose: () => void }) {
                     cursor: "pointer",
                   }}
                 >
-                  {t(lang, OP_TEMPLATES[opt].labelMS, OP_TEMPLATES[opt].labelEN)}
+                  {t(lang, `campaign_page.opLabel_${opt}`)}
                 </button>
               ))}
             </div>
             <div className="mt-2 text-[12px]" style={{ color: "var(--text-muted)" }}>
-              {t(lang, template.descMS, template.descEN)}&nbsp;
-              <span style={{ color: "var(--cyan)" }}>{t(lang, "Perolehan", "Gain")}: +{template.supportGain}%/{t(lang, "hari", "day")}</span>
+              {t(lang, `campaign_page.opDesc_${opType}`)}&nbsp;
+              <span style={{ color: "var(--cyan)" }}>{t(lang, "campaign_page.gain")}: +{template.supportGain}%/{t(lang, "campaign_page.day")}</span>
               &nbsp;·&nbsp;
-              <span style={{ color: canAffordManpower ? "var(--text-muted)" : "var(--neon-red)" }}>{template.manpowerCost} {t(lang, "TENAGA", "MAN")}</span>
+              <span style={{ color: canAffordManpower ? "var(--text-muted)" : "var(--neon-red)" }}>{template.manpowerCost} {t(lang, "campaign_page.man")}</span>
               &nbsp;·&nbsp;
               <span style={{ color: canAffordFunds ? "var(--text-muted)" : "var(--neon-red)" }}>{formatRM(template.fundsCost)}</span>
             </div>
@@ -187,7 +187,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
 
           {/* State selection */}
           <div>
-            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{t(lang, "NEGERI SASARAN", "TARGET STATES")} <span style={{ color: "#4a5568" }}>{isPrn ? t(lang, "(dikunci pada negeri PRN)", "(locked to PRN negeri)") : t(lang, "(pilih sekurang-kurangnya satu)", "(select at least one)")}</span></div>
+            <div className="text-[12px] tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.targetStates")} <span style={{ color: "#4a5568" }}>{isPrn ? t(lang, "campaign_page.lockedToPrnNegeri") : t(lang, "campaign_page.selectAtLeastOne")}</span></div>
             <div className="grid grid-cols-3 gap-1.5">
               {targetableStates.map((s) => {
                 const selected = selectedStateIds.includes(s.id);
@@ -215,14 +215,14 @@ function DeployModal({ onClose }: { onClose: () => void }) {
           {/* Resource check */}
           <div className="flex gap-4 text-[12px]" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.1)", paddingTop: "12px" }}>
             <div>
-              <span style={{ color: "var(--text-muted)" }}>{t(lang, "TENAGA TERSEDIA", "MANPOWER AVAIL")}: </span>
+              <span style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.manpowerAvail")}: </span>
               <span style={{ color: canAffordManpower ? "var(--neon-green)" : "var(--neon-red)", fontWeight: "bold" }}>{resources.manpower}</span>
-              <span style={{ color: "#4a5568" }}> / {t(lang, "perlu", "needs")} {template.manpowerCost}</span>
+              <span style={{ color: "#4a5568" }}> / {t(lang, "campaign_page.needs")} {template.manpowerCost}</span>
             </div>
             <div>
-              <span style={{ color: "var(--text-muted)" }}>{t(lang, "DANA TERSEDIA", "FUNDS AVAIL")}: </span>
+              <span style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.fundsAvail")}: </span>
               <span style={{ color: canAffordFunds ? "var(--neon-green)" : "var(--neon-red)", fontWeight: "bold" }}>{formatRM(resources.funds)}</span>
-              <span style={{ color: "#4a5568" }}> / {t(lang, "perlu", "needs")} {formatRM(template.fundsCost)}</span>
+              <span style={{ color: "#4a5568" }}> / {t(lang, "campaign_page.needs")} {formatRM(template.fundsCost)}</span>
             </div>
           </div>
 
@@ -233,7 +233,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
               className="px-5 py-2 text-[13px] tracking-widest uppercase"
               style={{ border: "1px solid rgba(136,153,170,0.3)", color: "var(--text-muted)", background: "none", cursor: "pointer" }}
             >
-              {t(lang, "BATAL", "CANCEL")}
+              {t(lang, "campaign_page.cancel")}
             </button>
             <button
               onClick={handleDeploy}
@@ -245,7 +245,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
                 cursor: canDeploy ? "pointer" : "not-allowed",
               }}
             >
-              {t(lang, "LANCAR OPERASI", "DEPLOY OPERATION")}
+              {t(lang, "campaign_page.deployOperation")}
             </button>
           </div>
         </div>
@@ -574,13 +574,13 @@ function NominationTab() {
   const { states: gameStates, nominations, setNomination, applyCandidateFallout, day, leader, settings } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const seatScope = isPrn ? "dun" : "parliament";
-  const seatLabel = isPrn ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT");
+  const seatLabel = isPrn ? "DUN" : t(lang, "campaign_page.parliament");
   const nominationStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const initialStateId = (isPrn ? settings.prnStateId : gameStates[0]?.id) ?? "selangor";
   const firstSeatId = useCallback((stateId: string) => (isPrn ? `${stateId}-dun-0` : `${stateId}-0`), [isPrn]);
   const [selectedStateId, setSelectedStateId] = useState(initialStateId);
   const [selectedConstId, setSelectedConstId] = useState<string | null>(firstSeatId(initialStateId));
-  const [advisorNote, setAdvisorNote] = useState(t(lang, "AI Advisor belum dijalankan. Cadangan akan isi kerusi kosong sahaja supaya pilihan player tidak ditimpa.", "AI Advisor has not run yet. Suggestions only fill empty seats — the player's existing picks are never overwritten."));
+  const [advisorNote, setAdvisorNote] = useState(t(lang, "campaign_page.aiAdvisorHasNotRunYet"));
 
   const selectedState = gameStates.find((s) => s.id === selectedStateId);
 
@@ -706,17 +706,17 @@ function NominationTab() {
   const winColor = (w: Constituency["winner"]) =>
     w === "mandat" ? "var(--cyan)" : w === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
   const winLabel = (w: Constituency["winner"]) =>
-    t(lang, w === "mandat" ? "KITA UNGGUL" : w === "lawan" ? "LAWAN UNGGUL" : "LAIN-LAIN", w === "mandat" ? "WE LEAD" : w === "lawan" ? "LAWAN LEADS" : "OTHERS");
+    t(lang, w === "mandat" ? "campaign_page.winnerMandat" : w === "lawan" ? "campaign_page.winnerLawan" : "campaign_page.winnerOthers");
 
   const expColor = (e: PartyMember["experience"]) =>
     e === "veteran" ? "var(--gold)" : e === "rising" ? "var(--cyan)" : "var(--text-muted)";
   const expLabel = (e: PartyMember["experience"]) =>
-    t(lang, e === "veteran" ? "VETERAN" : e === "rising" ? "MENINGKAT" : "BAHARU", e === "veteran" ? "VETERAN" : e === "rising" ? "RISING" : "NEW");
+    t(lang, e === "veteran" ? "campaign_page.experienceVeteran" : e === "rising" ? "campaign_page.experienceRising" : "campaign_page.experienceNew");
 
   const nomBadge = (nom: NominationEntry | null | undefined) => {
-    if (!nom) return { label: t(lang, "BELUM PILIH", "PENDING"), color: "#4a5568", bg: "transparent" };
+    if (!nom) return { label: t(lang, "campaign_page.pending"), color: "#4a5568", bg: "transparent" };
     if (nom.type === "member") return { label: nom.memberName.split(" ").slice(-1)[0].toUpperCase(), color: "var(--cyan)", bg: "rgb(var(--cyan-rgb)/0.10)" };
-    if (nom.type === "leader") return { label: t(lang, "PRESIDEN", "PRESIDENT"), color: "var(--gold)", bg: "rgb(var(--gold-rgb)/0.10)" };
+    if (nom.type === "leader") return { label: t(lang, "campaign_page.president"), color: "var(--gold)", bg: "rgb(var(--gold-rgb)/0.10)" };
     return { label: "WALKOVER", color: "var(--neon-red)", bg: "rgba(255,68,68,0.08)" };
   };
 
@@ -726,11 +726,11 @@ function NominationTab() {
   const scopeColor = (scope: PartyMember["influenceScope"]) =>
     scope === "national" ? "var(--gold)" : scope === "state" ? "var(--cyan)" : "var(--neon-green)";
   const scopeLabel = (scope: PartyMember["influenceScope"]) =>
-    t(lang, scope === "national" ? "NASIONAL" : scope === "state" ? "NEGERI" : "DAERAH", scope === "national" ? "NATIONAL" : scope === "state" ? "STATE" : "DISTRICT");
+    t(lang, scope === "national" ? "campaign_page.scopeNational" : scope === "state" ? "campaign_page.scopeState" : "campaign_page.scopeDistrict");
 
   const fitLabel = (member: PartyMember) => {
-    if (isDistrictMember(member)) return t(lang, "ANAK KAWASAN", "LOCAL TO SEAT");
-    if (isLocalMember(member)) return t(lang, "ANAK NEGERI", "LOCAL TO STATE");
+    if (isDistrictMember(member)) return t(lang, "campaign_page.localToSeat");
+    if (isLocalMember(member)) return t(lang, "campaign_page.localToState");
     return scopeLabel(member.influenceScope);
   };
 
@@ -743,11 +743,11 @@ function NominationTab() {
   };
 
   const candidateEffectText = (member: PartyMember) => {
-    if (isDistrictMember(member)) return t(lang, "+Daerah: akar umbi kuat di kerusi ini", "+District: strong grassroots in this seat");
-    if (isLocalMember(member)) return t(lang, "+Negeri: jentera negeri lebih mudah digerakkan", "+State: state machinery mobilises more easily");
-    if (member.influenceScope === "national") return t(lang, "+Nasional: nama besar tarik liputan media", "+National: big name draws media coverage");
-    if (member.influenceScope === "state") return t(lang, "Pengaruh negeri: sesuai dalam negeri asal", "State influence: fits best in home state");
-    return t(lang, "Pengaruh daerah: terbaik jika diletak di kawasan asal", "District influence: best placed in home constituency");
+    if (isDistrictMember(member)) return t(lang, "campaign_page.districtStrongGrassrootsInThisSeat");
+    if (isLocalMember(member)) return t(lang, "campaign_page.stateStateMachineryMobilisesMoreEasily");
+    if (member.influenceScope === "national") return t(lang, "campaign_page.nationalBigNameDrawsMediaCoverage");
+    if (member.influenceScope === "state") return t(lang, "campaign_page.stateInfluenceFitsBestInHome");
+    return t(lang, "campaign_page.districtInfluenceBestPlacedInHome");
   };
 
   const sortedMembers = [...candidatePool].sort((a, b) => fitScore(b) - fitScore(a) || b.influence - a.influence);
@@ -807,16 +807,12 @@ function NominationTab() {
     }
 
     const targetLabel = scope === "state"
-      ? selectedState?.name ?? t(lang, "negeri ini", "this state")
-      : (isPrn ? selectedState?.name ?? t(lang, "negeri PRN ini", "this PRN state") : t(lang, "seluruh negara", "the whole country"));
+      ? selectedState?.name ?? t(lang, "campaign_page.thisState")
+      : (isPrn ? selectedState?.name ?? t(lang, "campaign_page.thisPrnState") : t(lang, "campaign_page.theWholeCountry"));
     setAdvisorNote(
       applied > 0
-        ? t(lang,
-            `AI Advisor cadangkan ${applied} calon untuk ${targetLabel}. Kerusi yang sudah ada calon tidak disentuh; player masih boleh clear, tukar atau pindahkan calon selepas ini.`,
-            `AI Advisor suggested ${applied} candidates for ${targetLabel}. Seats that already have a candidate are untouched; you can still clear, swap, or move a candidate afterwards.`)
-        : t(lang,
-            `AI Advisor tidak mengubah apa-apa untuk ${targetLabel} kerana semua calon/kerusi sesuai sudah digunakan atau tiada slot kosong.`,
-            `AI Advisor made no changes for ${targetLabel} — all suitable candidates/seats are already used or no empty slots remain.`)
+        ? t(lang, "campaign_page.aiAdvisorSuggestedCandidatesForSeats", { applied: applied, targetLabel: targetLabel })
+        : t(lang, "campaign_page.aiAdvisorMadeNoChangesFor", { targetLabel: targetLabel })
     );
   };
 
@@ -857,7 +853,7 @@ function NominationTab() {
       <div style={{ width: "268px", borderRight: "1px solid rgb(var(--cyan-rgb)/0.12)", overflowY: "auto", flexShrink: 0 }}>
         <div className="px-3 py-2 sticky top-0" style={{ background: "var(--bg)", borderBottom: "1px solid rgb(var(--cyan-rgb)/0.12)", zIndex: 1 }}>
           <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>
-            {t(lang, `${selectedState?.name} — ${constituencies.length} KERUSI ${seatLabel}`, `${selectedState?.name} — ${constituencies.length} ${seatLabel} SEATS`)}
+            {t(lang, "campaign_page.seats", { selectedStateName: selectedState?.name, constituenciesLength: constituencies.length, seatLabel: seatLabel })}
           </div>
         </div>
         {constituencies.map((c) => {
@@ -913,12 +909,10 @@ function NominationTab() {
             <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[11px] font-black tracking-widest uppercase" style={{ color: "var(--gold)" }}>
-                {t(lang, "AI ADVISOR · CADANGAN KELOMPOK CALON", "AI ADVISOR · BULK CANDIDATE SUGGESTIONS")}
+                {t(lang, "campaign_page.aiAdvisorBulkCandidateSuggestions")}
               </div>
               <div className="text-[10px] mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                {t(lang,
-                  "Advisor pilih calon ahli parti mengikut pengaruh nasional, negeri dan daerah. Ia hanya isi kerusi kosong — player boleh edit/pindahkan calon selepas cadangan.",
-                  "The advisor picks party candidates by national, state, and district influence. It only fills empty seats — you can still edit/move a candidate afterwards.")}
+                {t(lang, "campaign_page.theAdvisorPicksPartyCandidatesBy")}
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -927,14 +921,14 @@ function NominationTab() {
                 className="px-3 py-2 text-[10px] font-bold tracking-widest uppercase"
                 style={{ border: "1px solid rgb(var(--cyan-rgb)/0.4)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.07)", cursor: "pointer" }}
               >
-                {isPrn ? t(lang, "PILIH DUN NEGERI INI", "FILL THIS STATE'S DUN") : t(lang, "PILIH NEGERI INI", "FILL THIS STATE")}
+                {isPrn ? t(lang, "campaign_page.fillThisStateSDun") : t(lang, "campaign_page.fillThisState")}
               </button>
               <button
                 onClick={() => applyAdvisor("national")}
                 className="px-3 py-2 text-[10px] font-bold tracking-widest uppercase"
                 style={{ border: "1px solid rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)", cursor: "pointer" }}
               >
-                {isPrn ? t(lang, "PILIH SEMUA DUN NEGERI", "FILL ALL STATE'S DUN") : t(lang, "PILIH SELURUH NEGARA", "FILL WHOLE COUNTRY")}
+                {isPrn ? t(lang, "campaign_page.fillAllStateSDun") : t(lang, "campaign_page.fillWholeCountry")}
               </button>
             </div>
           </div>
@@ -948,7 +942,7 @@ function NominationTab() {
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center" style={{ minHeight: "300px" }}>
             <div className="text-[28px]" style={{ color: "var(--text-muted)" }}>←</div>
             <div className="text-[12px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>
-              {t(lang, `Pilih kerusi ${seatLabel} untuk letak calon`, `Select a ${seatLabel} seat to place a candidate`)}
+              {t(lang, "campaign_page.selectASeatToPlaceA", { seatLabel: seatLabel })}
             </div>
           </div>
         ) : (
@@ -970,7 +964,7 @@ function NominationTab() {
               </div>
               <div className="flex gap-4 text-right shrink-0">
                 <div>
-                  <div className="text-[9px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "SOKONGAN KITA", "OUR SUPPORT")}</div>
+                  <div className="text-[9px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.ourSupport")}</div>
                   <div className="text-[22px] font-black" style={{ color: "var(--cyan)" }}>{selectedConst?.mandat}%</div>
                 </div>
                 <div>
@@ -984,9 +978,9 @@ function NominationTab() {
 
             {/* Current nomination */}
             <div className="p-3" style={{ background: "var(--bg)", border: "1px solid rgb(var(--cyan-rgb)/0.18)" }}>
-              <div className="text-[10px] tracking-widest mb-2 uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "Calon Semasa", "Current Candidate")}</div>
+              <div className="text-[10px] tracking-widest mb-2 uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.currentCandidate")}</div>
               {!currentNom ? (
-                <div className="text-[13px]" style={{ color: "#4a5568" }}>{t(lang, "— Belum ada calon —", "— No candidate yet —")}</div>
+                <div className="text-[13px]" style={{ color: "#4a5568" }}>{t(lang, "campaign_page.noCandidateYet")}</div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -1015,21 +1009,21 @@ function NominationTab() {
                           <div className="text-[11px] mt-0.5" style={{ color: "var(--cyan)" }}>{currentNom.memberRole}</div>
                           {currentMember && (
                             <div className="text-[10px] mt-1 uppercase tracking-wide" style={{ color: scopeColor(currentMember.influenceScope) }}>
-                              {fitLabel(currentMember)} · {t(lang, "PENGARUH", "INFLUENCE")} {scopeLabel(currentMember.influenceScope)}
+                              {fitLabel(currentMember)} · {t(lang, "campaign_page.influence")} {scopeLabel(currentMember.influenceScope)}
                             </div>
                           )}
                         </>
                       )}
                       {currentNom.type === "none" && (
                         <>
-                          <div className="text-[15px] font-bold" style={{ color: "var(--neon-red)" }}>{t(lang, "TIADA CALON — WALKOVER", "NO CANDIDATE — WALKOVER")}</div>
-                          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{t(lang, "Kerusi ini tidak dipertandingkan", "This seat is not contested")}</div>
+                          <div className="text-[15px] font-bold" style={{ color: "var(--neon-red)" }}>{t(lang, "campaign_page.noCandidateWalkover")}</div>
+                          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.thisSeatIsNotContested")}</div>
                         </>
                       )}
                       {currentNom.type === "leader" && (
                         <>
                           <div className="text-[15px] font-bold" style={{ color: "var(--gold)" }}>{leader.name} ({leader.position})</div>
-                          <div className="text-[11px] mt-0.5" style={{ color: "var(--gold)" }}>{t(lang, "ANDA MENANDING KERUSI INI SECARA PERIBADI", "YOU ARE PERSONALLY CONTESTING THIS SEAT")}</div>
+                          <div className="text-[11px] mt-0.5" style={{ color: "var(--gold)" }}>{t(lang, "campaign_page.youArePersonallyContestingThisSeat")}</div>
                         </>
                       )}
                     </div>
@@ -1040,7 +1034,7 @@ function NominationTab() {
                       className="text-[11px] px-3 py-1 tracking-widest uppercase shrink-0"
                       style={{ border: "1px solid var(--neon-red)", color: "var(--neon-red)", background: "rgba(255,68,68,0.06)", cursor: "pointer" }}
                     >
-                      {t(lang, "PADAM", "CLEAR")}
+                      {t(lang, "campaign_page.clear")}
                     </button>
                   )}
                 </div>
@@ -1049,9 +1043,7 @@ function NominationTab() {
 
             {currentNom?.type === "leader" ? (
               <div className="p-3 text-[12px] leading-relaxed" style={{ border: "1px solid rgb(var(--gold-rgb)/0.28)", background: "rgb(var(--gold-rgb)/0.06)", color: "var(--gold)" }}>
-                {t(lang,
-                  "◇ Kerusi ini dikunci untuk calon presiden — tidak boleh ditukar atau diserahkan kepada ahli parti lain.",
-                  "◇ This seat is locked to the presidential candidate — it can't be changed or handed to another party member.")}
+                {t(lang, "campaign_page.thisSeatIsLockedToThe")}
               </div>
             ) : (
               <>
@@ -1067,7 +1059,7 @@ function NominationTab() {
                       cursor: "pointer",
                     }}
                   >
-                    {t(lang, "✗ TIADA CALON", "✗ NO CANDIDATE")}
+                    {t(lang, "campaign_page.noCandidate")}
                   </button>
                 </div>
 
@@ -1075,12 +1067,10 @@ function NominationTab() {
                 <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[11px] tracking-widest uppercase font-bold" style={{ color: "var(--text-muted)" }}>
-                  {t(lang, "AHLI PARTI — PILIH UNTUK DICALONKAN", "PARTY MEMBERS — SELECT TO NOMINATE")}
+                  {t(lang, "campaign_page.partyMembersSelectToNominate")}
                 </div>
                 <div className="text-[10px]" style={{ color: "#4a5568" }}>
-                  {t(lang,
-                    `${candidatePool.filter((m) => !memberAssignments[m.id]).length}/${candidatePool.length} TERSEDIA · ${candidatePool.filter((m) => m.influenceScope === "national").length} NASIONAL · ${candidatePool.filter(isLocalMember).length} ANAK NEGERI`,
-                    `${candidatePool.filter((m) => !memberAssignments[m.id]).length}/${candidatePool.length} AVAILABLE · ${candidatePool.filter((m) => m.influenceScope === "national").length} NATIONAL · ${candidatePool.filter(isLocalMember).length} LOCAL TO STATE`)}
+                  {t(lang, "campaign_page.availableNationalLocalToState", { candidatePoolFilterM: candidatePool.filter((m) => !memberAssignments[m.id]).length, candidatePoolLength: candidatePool.length, candidatePoolFilterM2: candidatePool.filter((m) => m.influenceScope === "national").length, candidatePoolFilterIsLocalMember: candidatePool.filter(isLocalMember).length })}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1095,8 +1085,8 @@ function NominationTab() {
                     ? "rgb(var(--gold-rgb)/0.4)"
                     : "rgb(var(--cyan-rgb)/0.14)";
                   const statusColor = isHere ? "var(--cyan)" : isElsewhere ? "var(--gold)" : "var(--neon-green)";
-                  const statusLabel = isHere ? t(lang, "KERUSI INI", "THIS SEAT") : isElsewhere ? t(lang, "PINDAH →", "MOVE →") : t(lang, "TERSEDIA", "AVAILABLE");
-                  const moveToLabel = t(lang, "PINDAH →", "MOVE →");
+                  const statusLabel = isHere ? t(lang, "campaign_page.thisSeat") : isElsewhere ? t(lang, "campaign_page.move") : t(lang, "campaign_page.available");
+                  const moveToLabel = t(lang, "campaign_page.move");
                   const elseWhereName = isElsewhere ? (allConsts[assignedTo]?.name ?? assignedTo) : "";
                   const local = isLocalMember(member);
                   const district = isDistrictMember(member);
@@ -1143,7 +1133,7 @@ function NominationTab() {
                           />
                           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7" style={{ background: "linear-gradient(180deg, transparent, rgb(3 8 15 / 0.78))" }} />
                           <div className="absolute inset-x-1 bottom-1 px-1 py-0.5 text-center text-[7px] font-black tracking-[0.16em]" style={{ color: "#061018", background: local ? "var(--neon-green)" : "var(--cyan)", boxShadow: "0 0 10px rgb(var(--cyan-rgb)/0.28)" }}>
-                            {t(lang, "PROFIL", "PROFILE")}
+                            {t(lang, "campaign_page.profile")}
                           </div>
                         </div>
 
@@ -1170,10 +1160,10 @@ function NominationTab() {
                           </div>
                           <div className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{member.role}</div>
                           <div className="text-[9px] mb-1 uppercase tracking-wide" style={{ color: local ? "var(--neon-green)" : "#4a5568" }}>
-                            {t(lang, "ASAL/MENETAP", "FROM/BASED IN")}: {gameStates.find((s) => s.id === member.homeState)?.shortName ?? member.homeState.toUpperCase()}{member.homeConstituency ? ` · ${member.homeConstituency}` : ""}
+                            {t(lang, "campaign_page.fromBasedIn")}: {gameStates.find((s) => s.id === member.homeState)?.shortName ?? member.homeState.toUpperCase()}{member.homeConstituency ? ` · ${member.homeConstituency}` : ""}
                           </div>
                           <div className="text-[9px] mb-2 uppercase tracking-wide" style={{ color: scopeTone }}>
-                            {t(lang, "PENGARUH", "INFLUENCE")} {scope} · {candidateEffectText(member)}
+                            {t(lang, "campaign_page.influence")} {scope} · {candidateEffectText(member)}
                           </div>
 
                           <div className="space-y-1 mb-2">
@@ -1216,15 +1206,6 @@ function NominationTab() {
 
 // ─── Campaign Page ──────────────────────────────────────────────────────────────
 
-const TAB_LABELS: Record<Tab, [string, string]> = {
-  "NOMINATION":  ["PENAMAAN", "NOMINATION"],
-  "MINI-GAMES":  ["MINI-PERMAINAN", "MINI-GAMES"],
-  "OPERATIONS":  ["OPERASI", "OPERATIONS"],
-  "VOLUNTEERS":  ["SUKARELAWAN", "VOLUNTEERS"],
-  "RESOURCES":   ["SUMBER", "RESOURCES"],
-  "SCHEDULE":    ["JADUAL", "SCHEDULE"],
-  "MESSAGING":   ["PESANAN", "MESSAGING"],
-};
 
 export default function CampaignPage() {
   const lang = useLang();
@@ -1247,7 +1228,7 @@ export default function CampaignPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
-      <StatusBar leftText={t(lang, "» IBU PEJABAT KEMPEN · ARAHAN OPERASI", "» CAMPAIGN HQ · OPERATIONS COMMAND")} rightText={t(lang, "TAB: TUKAR PANEL · ↵ PILIH", "TAB: SWITCH PANEL · ↵ SELECT")} />
+      <StatusBar leftText={t(lang, "campaign_page.campaignHqOperationsCommand")} rightText={t(lang, "campaign_page.tabSwitchPanelSelect")} />
 
       {showDeployModal && <DeployModal onClose={() => setShowDeployModal(false)} />}
       {activeScene && (
@@ -1276,7 +1257,7 @@ export default function CampaignPage() {
                 cursor: "pointer",
               }}
             >
-              {t(lang, ...TAB_LABELS[tab])}
+              {t(lang, `campaign_page.tab_${tab}`)}
             </button>
           ))}
         </div>
@@ -1287,7 +1268,7 @@ export default function CampaignPage() {
         {/* MINI-GAMES TAB */}
         {activeTab === "MINI-GAMES" && (
           <div className="grid grid-cols-[340px_1fr] gap-4">
-            <TacticalPanel title={t(lang, "SASARAN MINI-PERMAINAN", "MINI-GAME TARGET")}>
+            <TacticalPanel title={t(lang, "campaign_page.miniGameTarget")}>
               <div className="flex gap-2 mb-3">
                 {(["ceramah", "social"] as MiniGameType[]).map((type) => (
                   <button key={type} onClick={() => setMiniGameType(type)} className="flex-1 py-2 text-[12px] font-bold tracking-widest uppercase" style={{ border: miniGameType === type ? "1px solid var(--gold)" : "1px solid rgb(var(--cyan-rgb)/0.18)", color: miniGameType === type ? "var(--gold)" : "var(--text-muted)", background: miniGameType === type ? "rgb(var(--gold-rgb)/0.08)" : "transparent" }}>{type}</button>
@@ -1303,21 +1284,21 @@ export default function CampaignPage() {
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={`${miniGameType === "ceramah" ? t(lang, "MINI-PERMAINAN CERAMAH", "CERAMAH MINI-GAME") : t(lang, "MINI-PERMAINAN MEDIA SOSIAL", "SOCIAL MEDIA MINI-GAME")} — ${miniGameState?.name.toUpperCase() ?? t(lang, "NEGERI", "STATE")}`}>
+            <TacticalPanel title={`${miniGameType === "ceramah" ? t(lang, "campaign_page.ceramahMiniGame") : t(lang, "campaign_page.socialMediaMiniGame")} — ${miniGameState?.name.toUpperCase() ?? t(lang, "campaign_page.state")}`}>
               <div className="mb-4 grid grid-cols-3 gap-3">
-                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "KESESUAIAN AUDIENS", "AUDIENCE FIT")}</div><div className="text-xl font-black" style={{ color: "var(--cyan)" }}>{miniGameType === "ceramah" ? t(lang, `${miniGameState?.demographics.rural}% LUAR BANDAR`, `${miniGameState?.demographics.rural}% RURAL`) : t(lang, `${miniGameState?.demographics.youth}% BELIA`, `${miniGameState?.demographics.youth}% YOUTH`)}</div></div>
-                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "BELIAN MEDIA", "MEDIA BUY")}</div><div className="text-xl font-black" style={{ color: "var(--gold)" }}>{resources.mediaBuy}</div></div>
-                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "DANA", "FUNDS")}</div><div className="text-xl font-black" style={{ color: "var(--neon-green)" }}>{formatRM(resources.funds)}</div></div>
+                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.audienceFit")}</div><div className="text-xl font-black" style={{ color: "var(--cyan)" }}>{miniGameType === "ceramah" ? t(lang, "campaign_page.rural", { miniGameStateDemographicsRural: miniGameState?.demographics.rural }) : t(lang, "campaign_page.youth", { miniGameStateDemographicsYouth: miniGameState?.demographics.youth })}</div></div>
+                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.mediaBuy")}</div><div className="text-xl font-black" style={{ color: "var(--gold)" }}>{resources.mediaBuy}</div></div>
+                <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.funds")}</div><div className="text-xl font-black" style={{ color: "var(--neon-green)" }}>{formatRM(resources.funds)}</div></div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {(Object.keys(MINI_GAME_TACTICS) as MiniGameTactic[]).map((tactic) => {
                   const option = MINI_GAME_TACTICS[tactic];
                   return (
                     <button key={tactic} onClick={() => miniGameState && setActiveScene({ stateId: miniGameState.id, gameType: miniGameType, tactic })} className="p-5 text-left transition-all hover:scale-[1.01]" style={{ border: `1px solid ${option.color}55`, background: `${option.color}0d`, cursor: "pointer" }}>
-                      <div className="text-[13px] font-black tracking-widest" style={{ color: option.color }}>{t(lang, option.titleMS, option.titleEN)}</div>
-                      <div className="mt-2 min-h-[52px] text-[11px] leading-5" style={{ color: "#9fb0c2" }}>{t(lang, option.descMS, option.descEN)}</div>
-                      <div className="mt-3 text-[10px] font-bold" style={{ color: option.color }}>{t(lang, option.riskMS, option.riskEN)}</div>
-                      <div className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{miniGameType === "ceramah" ? t(lang, "RM75K · 42 TENAGA", "RM75K · 42 MAN") : t(lang, "RM45K · 65 MEDIA", "RM45K · 65 MEDIA")}</div>
+                      <div className="text-[13px] font-black tracking-widest" style={{ color: option.color }}>{t(lang, `campaign_page.tacticTitle_${tactic}`)}</div>
+                      <div className="mt-2 min-h-[52px] text-[11px] leading-5" style={{ color: "#9fb0c2" }}>{t(lang, `campaign_page.tacticDesc_${tactic}`)}</div>
+                      <div className="mt-3 text-[10px] font-bold" style={{ color: option.color }}>{t(lang, `campaign_page.tacticRisk_${tactic}`)}</div>
+                      <div className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{miniGameType === "ceramah" ? t(lang, "campaign_page.rm75k42Man") : t(lang, "campaign_page.rm45k65Media")}</div>
                     </button>
                   );
                 })}
@@ -1333,7 +1314,7 @@ export default function CampaignPage() {
             <div className="flex flex-col gap-4" style={{ flex: "0 0 55%" }}>
 
               {/* Active Operations */}
-              <TacticalPanel title={t(lang, "OPERASI AKTIF", "ACTIVE OPERATIONS")}>
+              <TacticalPanel title={t(lang, "campaign_page.activeOperations")}>
                 <div className="flex flex-col gap-1">
                   {operations.length === 0 && (
                     <div className="text-center py-6 text-[12px] tracking-widest" style={{ color: "#4a5568" }}>
@@ -1359,7 +1340,7 @@ export default function CampaignPage() {
                                 style={{ color: "#4a5568", cursor: "pointer" }}
                                 onMouseEnter={(e) => (e.currentTarget.style.color = "var(--neon-red)")}
                                 onMouseLeave={(e) => (e.currentTarget.style.color = "#4a5568")}
-                                title={t(lang, "Batalkan operasi", "Cancel operation")}
+                                title={t(lang, "campaign_page.cancelOperation")}
                               >
                                 ×
                               </button>
@@ -1418,13 +1399,13 @@ export default function CampaignPage() {
             <div className="flex flex-col gap-4" style={{ flex: "1" }}>
 
               {/* Resource Allocation — live from store */}
-              <TacticalPanel title={t(lang, "PERUNTUKAN SUMBER", "RESOURCE ALLOCATION")}>
+              <TacticalPanel title={t(lang, "campaign_page.resourceAllocation")}>
                 <div className="flex flex-col gap-3">
-                  <StatBar label={t(lang, "TENAGA", "MANPOWER")} value={resources.manpower} max={1000} color="var(--cyan)" animate={true} />
-                  <StatBar label={t(lang, "KENDERAAN", "VEHICLES")} value={resources.vehicles} max={500} color="var(--gold)" animate={true} />
+                  <StatBar label={t(lang, "campaign_page.manpower")} value={resources.manpower} max={1000} color="var(--cyan)" animate={true} />
+                  <StatBar label={t(lang, "campaign_page.vehicles")} value={resources.vehicles} max={500} color="var(--gold)" animate={true} />
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[13px] tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "BAJET", "BUDGET")}</span>
+                      <span className="text-[13px] tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.budget")}</span>
                       <span className="text-[13px] font-bold" style={{ color: "var(--neon-green)" }}>
                         {formatRM(resources.funds)} / RM 5.0M
                       </span>
@@ -1436,19 +1417,19 @@ export default function CampaignPage() {
                       />
                     </div>
                   </div>
-                  <StatBar label={t(lang, "BAHAN", "MATERIALS")} value={resources.materials} max={1000} color="var(--warn-orange)" animate={true} />
-                  <StatBar label={t(lang, "BELIAN MEDIA", "MEDIA BUY")} value={resources.mediaBuy} max={1000} color="#8b5cf6" animate={true} />
+                  <StatBar label={t(lang, "campaign_page.materials")} value={resources.materials} max={1000} color="var(--warn-orange)" animate={true} />
+                  <StatBar label={t(lang, "campaign_page.mediaBuy")} value={resources.mediaBuy} max={1000} color="#8b5cf6" animate={true} />
                 </div>
               </TacticalPanel>
 
               {/* Upcoming Events */}
-              <TacticalPanel title={t(lang, "PERISTIWA AKAN DATANG", "UPCOMING EVENTS")}>
+              <TacticalPanel title={t(lang, "campaign_page.upcomingEvents")}>
                 <div className="flex flex-col gap-2">
                   {UPCOMING_EVENTS.map((ev, i) => (
                     <div key={i} className="flex items-start gap-3 py-1.5" style={{ borderBottom: i < 2 ? "1px solid rgb(var(--cyan-rgb) / 0.08)" : "none" }}>
                       <span className="text-[12px] font-bold shrink-0" style={{ color: "var(--gold)", minWidth: "52px" }}>{ev.date}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-white tracking-wider uppercase">{t(lang, ev.eventMS, ev.eventEN)}</div>
+                        <div className="text-[13px] text-white tracking-wider uppercase">{t(lang, ev.eventKey)}</div>
                         <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.location}</div>
                       </div>
                     </div>
@@ -1457,7 +1438,7 @@ export default function CampaignPage() {
               </TacticalPanel>
 
               {/* Operation Status — live counts */}
-              <TacticalPanel title={t(lang, "STATUS OPERASI", "OPERATION STATUS")}>
+              <TacticalPanel title={t(lang, "campaign_page.operationStatus")}>
                 <div className="flex h-4 w-full rounded-sm overflow-hidden mb-3">
                   {operations.length > 0 ? (
                     <>
@@ -1471,17 +1452,17 @@ export default function CampaignPage() {
                 <div className="flex justify-between text-[11px] tracking-wider mb-3">
                   <div className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2" style={{ background: "var(--cyan)" }} />
-                    <span style={{ color: "var(--cyan)" }}>{t(lang, "AKTIF/BERTERUSAN", "ACTIVE/ONGOING")}</span>
+                    <span style={{ color: "var(--cyan)" }}>{t(lang, "campaign_page.activeOngoing")}</span>
                     <span className="text-white font-bold">{activeOpsCount}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2" style={{ background: "#4a5568" }} />
-                    <span style={{ color: "var(--text-muted)" }}>{t(lang, "DIRANCANG", "PLANNED")}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.planned")}</span>
                     <span className="text-white font-bold">{plannedOpsCount}</span>
                   </div>
                 </div>
                 <div className="text-center text-[12px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-                  {t(lang, "JUMLAH", "TOTAL")}: <span className="text-white font-bold">{operations.length} {t(lang, "OPS", "OPS")}</span>
+                  {t(lang, "campaign_page.total")}: <span className="text-white font-bold">{operations.length} {t(lang, "campaign_page.ops")}</span>
                 </div>
               </TacticalPanel>
             </div>
@@ -1490,12 +1471,12 @@ export default function CampaignPage() {
 
         {/* VOLUNTEERS TAB */}
         {activeTab === "VOLUNTEERS" && (
-          <TacticalPanel title={t(lang, "PENEMPATAN SUKARELAWAN", "VOLUNTEER DEPLOYMENT")}>
+          <TacticalPanel title={t(lang, "campaign_page.volunteerDeployment")}>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]" style={{ borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
-                    {[t(lang, "REGION", "REGION"), t(lang, "SUKARELAWAN", "VOLUNTEERS"), t(lang, "SASARAN", "TARGET"), t(lang, "% DIISI", "% FILLED")].map((h) => (
+                    {[t(lang, "campaign_page.region"), t(lang, "campaign_page.volunteers"), t(lang, "campaign_page.target"), t(lang, "campaign_page.filled")].map((h) => (
                       <th key={h} className="py-2 px-3 text-left tracking-widest uppercase" style={{ color: "var(--gold)", fontWeight: "normal" }}>{h}</th>
                     ))}
                   </tr>
@@ -1531,7 +1512,7 @@ export default function CampaignPage() {
                 setTimeout(() => setRecruitDone(false), 2000);
               }}
             >
-              {recruitDone ? t(lang, "✓ DIREKRUT", "✓ RECRUITED") : t(lang, "+ REKRUT SUKARELAWAN", "+ RECRUIT VOLUNTEERS")}
+              {recruitDone ? t(lang, "campaign_page.recruited") : t(lang, "campaign_page.recruitVolunteers")}
             </button>
           </TacticalPanel>
         )}
@@ -1539,12 +1520,12 @@ export default function CampaignPage() {
         {/* RESOURCES TAB */}
         {activeTab === "RESOURCES" && (
           <div className="flex flex-col gap-4">
-            <TacticalPanel title={t(lang, "PERUNTUKAN BAJET", "BUDGET ALLOCATION")}>
+            <TacticalPanel title={t(lang, "campaign_page.budgetAllocation")}>
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]" style={{ borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
-                      {[t(lang, "KATEGORI", "CATEGORY"), t(lang, "DIPERUNTUKKAN", "ALLOCATED"), t(lang, "DIBELANJA", "SPENT"), t(lang, "BERBAKI", "REMAINING")].map((h) => (
+                      {[t(lang, "campaign_page.category"), t(lang, "campaign_page.allocated"), t(lang, "campaign_page.spent"), t(lang, "campaign_page.remaining")].map((h) => (
                         <th key={h} className="py-2 px-3 text-left tracking-widest uppercase" style={{ color: "var(--gold)", fontWeight: "normal" }}>{h}</th>
                       ))}
                     </tr>
@@ -1567,8 +1548,8 @@ export default function CampaignPage() {
 
               <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[13px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "JUMLAH DANA KEMPEN", "TOTAL CAMPAIGN FUNDS")}</span>
-                  <span className="text-[13px] font-bold" style={{ color: "var(--neon-green)" }}>{formatRM(resources.funds)} {t(lang, "BERBAKI", "REMAINING")}</span>
+                  <span className="text-[13px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.totalCampaignFunds")}</span>
+                  <span className="text-[13px] font-bold" style={{ color: "var(--neon-green)" }}>{formatRM(resources.funds)} {t(lang, "campaign_page.remaining")}</span>
                 </div>
                 <div className="h-3 w-full" style={{ background: "var(--bar-empty)" }}>
                   <div
@@ -1587,17 +1568,17 @@ export default function CampaignPage() {
 
         {/* SCHEDULE TAB */}
         {activeTab === "SCHEDULE" && (
-          <TacticalPanel title={t(lang, "JADUAL KEMPEN", "CAMPAIGN SCHEDULE")}>
+          <TacticalPanel title={t(lang, "campaign_page.campaignSchedule")}>
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="text-[13px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>
-                {t(lang, "JADUAL KEMPEN PENUH DENGAN PENGURUSAN PERISTIWA", "FULL CAMPAIGN SCHEDULE WITH EVENT MANAGEMENT")}
+                {t(lang, "campaign_page.fullCampaignScheduleWithEventManagement")}
               </div>
               <button
                 onClick={() => router.push("/calendar")}
                 className="px-8 py-3 text-[16px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80"
                 style={{ background: "var(--gold)", color: "#000", cursor: "pointer" }}
               >
-                {t(lang, "LIHAT JADUAL PENUH →", "VIEW FULL SCHEDULE →")}
+                {t(lang, "campaign_page.viewFullSchedule")}
               </button>
             </div>
           </TacticalPanel>
@@ -1605,17 +1586,17 @@ export default function CampaignPage() {
 
         {/* MESSAGING TAB */}
         {activeTab === "MESSAGING" && (
-          <TacticalPanel title={t(lang, "PUSAT PESANAN", "MESSAGING CENTER")}>
+          <TacticalPanel title={t(lang, "campaign_page.messagingCenter")}>
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="text-[13px] tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>
-                {t(lang, "GUBAH DAN LANCARKAN MESEJ KEMPEN MERENTASI SEMUA SALURAN", "CRAFT AND DEPLOY CAMPAIGN MESSAGES ACROSS ALL CHANNELS")}
+                {t(lang, "campaign_page.craftAndDeployCampaignMessagesAcross")}
               </div>
               <button
                 onClick={() => router.push("/messaging")}
                 className="px-8 py-3 text-[16px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80"
                 style={{ background: "var(--gold)", color: "#000", cursor: "pointer" }}
               >
-                {t(lang, "LIHAT PUSAT PESANAN →", "VIEW MESSAGING CENTER →")}
+                {t(lang, "campaign_page.viewMessagingCenter")}
               </button>
             </div>
           </TacticalPanel>

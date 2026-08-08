@@ -293,7 +293,7 @@ export default function AuthBackground() {
             {STATE_CAPITALS[hoveredState.id] ?? hoveredState.name}
           </div>
           <div style={{ fontSize: 9, color: GOLD, letterSpacing: 1, marginBottom: 8 }}>
-            {t(lang, "IBU NEGERI ", "STATE CAPITAL OF ").toUpperCase()}
+            {t(lang, "components_auth_AuthBackground.stateCapitalOf").toUpperCase()}
             {hoveredState.name.toUpperCase()}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
@@ -301,28 +301,28 @@ export default function AuthBackground() {
               <div style={{ fontSize: 12, fontWeight: 700, color: CYAN }}>
                 {formatNumber(hoveredState.population / 1000000)}M
               </div>
-              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "PENDUDUK", "POPULATION")}</div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "components_auth_AuthBackground.population")}</div>
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: GOLD }}>{hoveredState.seats}</div>
-              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "KERUSI PARLIMEN", "PARL. SEATS")}</div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "components_auth_AuthBackground.parlSeats")}</div>
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_DIM }}>
                 {hoveredState.dunSeats > 0 ? hoveredState.dunSeats : "—"}
               </div>
-              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "KERUSI DUN", "DUN SEATS")}</div>
+              <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5 }}>{t(lang, "components_auth_AuthBackground.dunSeats")}</div>
             </div>
           </div>
           <div style={{ paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
             <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginBottom: 4 }}>
-              {t(lang, "PECAHAN KAUM", "ETHNIC BREAKDOWN")}
+              {t(lang, "components_auth_AuthBackground.ethnicBreakdown")}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 3, fontSize: 9, color: TEXT_DIM }}>
-              <span>{t(lang, "Melayu", "Malay")} {hoveredState.demographics.malay}%</span>
-              <span>{t(lang, "Cina", "Chinese")} {hoveredState.demographics.chinese}%</span>
-              <span>{t(lang, "India", "Indian")} {hoveredState.demographics.indian}%</span>
-              <span>{t(lang, "Lain-lain", "Others")} {hoveredState.demographics.others}%</span>
+              <span>{t(lang, "components_auth_AuthBackground.malay")} {hoveredState.demographics.malay}%</span>
+              <span>{t(lang, "components_auth_AuthBackground.chinese")} {hoveredState.demographics.chinese}%</span>
+              <span>{t(lang, "components_auth_AuthBackground.indian")} {hoveredState.demographics.indian}%</span>
+              <span>{t(lang, "components_auth_AuthBackground.others")} {hoveredState.demographics.others}%</span>
             </div>
           </div>
         </div>
@@ -367,13 +367,13 @@ export default function AuthBackground() {
         >
           <div style={{ fontSize: 11, fontWeight: 700, color: "#f2f4f8", marginBottom: 2 }}>{activeState.name}</div>
           <div style={{ fontSize: 9, color: CYAN, marginBottom: 8 }}>
-            {formatNumber(activeState.registeredVoters)} {t(lang, "JUMLAH PENGUNDI", "TOTAL VOTERS")}
+            {formatNumber(activeState.registeredVoters)} {t(lang, "components_auth_AuthBackground.totalVoters")}
           </div>
           <div>
             {seatLists.parlimen.length > 0 && (
               <>
                 <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginTop: 2 }}>
-                  {t(lang, "PARLIMEN", "PARLIAMENT")}
+                  {t(lang, "components_auth_AuthBackground.parliament")}
                 </div>
                 {seatLists.parlimen.map((s) => (
                   <div key={s.code} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, color: TEXT_DIM, padding: 0, lineHeight: "13px" }}>

@@ -25,14 +25,14 @@ export default function ResetPasswordPage() {
     try {
       supabase = createClient();
     } catch {
-      setError(t(lang, "Set semula kata laluan belum dikonfigurasi untuk deployment ini.", "Password reset isn't configured for this deployment yet."));
+      setError(t(lang, "reset_password_page.passwordResetIsnTConfiguredFor"));
       setReady(true);
       return;
     }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
-        setError(t(lang, "Pautan set semula tidak sah atau telah tamat tempoh. Minta pautan baharu.", "This reset link is invalid or has expired. Request a new one."));
+        setError(t(lang, "reset_password_page.thisResetLinkIsInvalidOr"));
       }
       setReady(true);
     });
@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError(t(lang, "Kata laluan tidak sepadan.", "Passwords don't match."));
+      setError(t(lang, "reset_password_page.passwordsDonTMatch"));
       return;
     }
 
@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
       supabase = createClient();
     } catch {
       setLoading(false);
-      setError(t(lang, "Set semula kata laluan belum dikonfigurasi untuk deployment ini.", "Password reset isn't configured for this deployment yet."));
+      setError(t(lang, "reset_password_page.passwordResetIsnTConfiguredFor"));
       return;
     }
 
@@ -76,11 +76,11 @@ export default function ResetPasswordPage() {
   if (done) {
     return (
       <AuthShell
-        title={t(lang, "KATA LALUAN DIKEMASKINI", "PASSWORD UPDATED")}
-        subtitle={t(lang, "Kata laluan baharu anda telah disimpan.", "Your new password has been saved.")}
+        title={t(lang, "reset_password_page.passwordUpdated")}
+        subtitle={t(lang, "reset_password_page.yourNewPasswordHasBeenSaved")}
       >
         <p className="text-center text-[12px] leading-6" style={{ color: "#d7e7f5" }}>
-          {t(lang, "Mengalihkan ke log masuk…", "Redirecting to login…")}
+          {t(lang, "reset_password_page.redirectingToLogin")}
         </p>
       </AuthShell>
     );
@@ -88,8 +88,8 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell
-      title={t(lang, "KATA LALUAN BAHARU", "NEW PASSWORD")}
-      subtitle={t(lang, "Masukkan kata laluan baharu untuk akaun anda.", "Enter a new password for your account.")}
+      title={t(lang, "reset_password_page.newPassword")}
+      subtitle={t(lang, "reset_password_page.enterANewPasswordForYour")}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -103,7 +103,7 @@ export default function ResetPasswordPage() {
 
         <div>
           <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
-            {t(lang, "KATA LALUAN BAHARU", "NEW PASSWORD")}
+            {t(lang, "reset_password_page.newPassword")}
           </label>
           <input
             type="password"
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
 
         <div>
           <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
-            {t(lang, "SAHKAN KATA LALUAN", "CONFIRM PASSWORD")}
+            {t(lang, "reset_password_page.confirmPassword")}
           </label>
           <input
             type="password"
@@ -144,7 +144,7 @@ export default function ResetPasswordPage() {
             boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
           }}
         >
-          {loading ? t(lang, "MENGEMASKINI…", "UPDATING…") : t(lang, "KEMASKINI KATA LALUAN »", "UPDATE PASSWORD »")}
+          {loading ? t(lang, "reset_password_page.updating") : t(lang, "reset_password_page.updatePassword")}
         </button>
       </form>
     </AuthShell>

@@ -6,7 +6,7 @@ import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
-import { useLang, t } from "../i18n/useLang";
+import { useLang, t, type Lang } from "../i18n/useLang";
 import { generateConstituencies } from "../data/constituencies";
 import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
@@ -16,22 +16,28 @@ const STORAGE_PREFIX = "mymandat-kawasan-development-v2";
 // Same quick-campaign templates as /campaign's deploy modal, kept local so a
 // player can launch a home-seat push without leaving the kawasan screen.
 type OpType = Operation["type"];
-const OP_TEMPLATES: Record<OpType, { labelMS: string; labelEN: string; manpowerCost: number; fundsCost: number; supportGain: number }> = {
-  ceramah:        { labelMS: "CERAMAH",          labelEN: "CERAMAH",          manpowerCost: 100, fundsCost: 120000, supportGain: 2.5 },
-  "door-to-door": { labelMS: "RUMAH KE RUMAH",   labelEN: "DOOR-TO-DOOR",     manpowerCost: 80,  fundsCost: 40000,  supportGain: 1.2 },
-  youth:          { labelMS: "BELIA",            labelEN: "YOUTH OUTREACH",   manpowerCost: 50,  fundsCost: 30000,  supportGain: 1.8 },
-  digital:        { labelMS: "DIGITAL",          labelEN: "DIGITAL",          manpowerCost: 20,  fundsCost: 150000, supportGain: 1.0 },
-  rural:          { labelMS: "LUAR BANDAR",      labelEN: "RURAL ENGAGE",     manpowerCost: 90,  fundsCost: 60000,  supportGain: 1.4 },
+const OP_TEMPLATES: Record<OpType, { manpowerCost: number; fundsCost: number; supportGain: number }> = {
+  ceramah:        { manpowerCost: 100, fundsCost: 120000, supportGain: 2.5 },
+  "door-to-door": { manpowerCost: 80,  fundsCost: 40000,  supportGain: 1.2 },
+  youth:          { manpowerCost: 50,  fundsCost: 30000,  supportGain: 1.8 },
+  digital:        { manpowerCost: 20,  fundsCost: 150000, supportGain: 1.0 },
+  rural:          { manpowerCost: 90,  fundsCost: 60000,  supportGain: 1.4 },
 };
 
 type ZoneKind = "urban" | "village" | "housing" | "commercial" | "education" | "industry" | "river" | "market" | "community";
 
+// Zone display names/types live in app/i18n/strings/kawasan_page.ts under
+// zoneName_<archetype> / zoneType_<archetype>.
+type ZoneArchetype =
+  | "townCentre" | "mainVillage" | "housingEstate" | "commercialHub" | "schoolZone"
+  | "industrialArea" | "riverside" | "marketHawkers" | "clinicHall"
+  | "fishingVillage" | "paddyVillage" | "industrialEstate";
+
 type Zone = {
   id: string;
-  nameMS: string;
-  nameEN: string;
-  typeMS: string;
-  typeEN: string;
+  archetype: ZoneArchetype;
+  // >0 when the archetype was cycled a second/third time; rendered as a numeric suffix.
+  repeat: number;
   kind: ZoneKind;
   economy: number;
   welfare: number;
@@ -48,10 +54,6 @@ type Requirement = { projectId?: string; zoneStat?: { key: ZoneStat; min: number
 
 type Project = {
   id: string;
-  titleMS: string;
-  titleEN: string;
-  detailMS: string;
-  detailEN: string;
   cost: number;
   target: ZoneStat;
   boost: number;
@@ -60,18 +62,18 @@ type Project = {
 };
 
 const PROJECTS: Project[] = [
-  { id: "road", icon: "🛣️", titleMS: "Naik Taraf Jalan & Lampu", titleEN: "Road & Streetlight Upgrade", detailMS: "Bina laluan utama, lampu jalan dan papan tanda keselamatan.", detailEN: "Build main access roads, lighting and safety signage.", cost: 180_000, target: "infra", boost: 12 },
-  { id: "clinic", icon: "🏥", titleMS: "Klinik Komuniti Bergerak", titleEN: "Mobile Community Clinic", detailMS: "Rawatan asas, pemeriksaan warga emas dan klinik hujung minggu.", detailEN: "Basic care, senior checks and weekend clinics.", cost: 220_000, target: "welfare", boost: 14 },
-  { id: "internet", icon: "📡", titleMS: "Internet Kawasan & WiFi Rakyat", titleEN: "Constituency Internet & Public WiFi", detailMS: "Menara mikro, WiFi awam dan pusat digital belia.", detailEN: "Micro towers, public WiFi and youth digital hubs.", cost: 260_000, target: "economy", boost: 13 },
-  { id: "flood", icon: "🌊", titleMS: "Tebatan Banjir Mikro", titleEN: "Micro Flood Mitigation", detailMS: "Longkang, pam, kolam takungan dan amaran awal banjir.", detailEN: "Drains, pumps, detention ponds and flood alerts.", cost: 300_000, target: "infra", boost: 16 },
-  { id: "market", icon: "🏪", titleMS: "Geran Pasar & Penjaja", titleEN: "Market & Hawker Grant", detailMS: "Kanopi, lot niaga, modal kecil dan promosi bazar rakyat.", detailEN: "Canopies, trade lots, micro grants and market promotions.", cost: 150_000, target: "economy", boost: 10 },
-  { id: "school", icon: "🏫", titleMS: "Baik Pulih Sekolah / Dewan", titleEN: "School / Hall Repair", detailMS: "Dewan rakyat, padang, kelas tambahan dan kemudahan komuniti.", detailEN: "Community halls, fields, tuition rooms and public facilities.", cost: 200_000, target: "welfare", boost: 11 },
-  { id: "park", icon: "🌳", titleMS: "Taman Rekreasi Rakyat", titleEN: "People's Recreation Park", detailMS: "Laluan pejalan kaki, taman permainan dan ruang keluarga.", detailEN: "Walkways, playgrounds and family spaces.", cost: 170_000, target: "welfare", boost: 9, requires: { zoneStat: { key: "infra", min: 55 } } },
-  { id: "bus", icon: "🚌", titleMS: "Bas Komuniti & Hentian", titleEN: "Community Bus & Stops", detailMS: "Hentian berbumbung dan laluan bas mini ke pusat bandar.", detailEN: "Covered stops and minibus route to town centre.", cost: 240_000, target: "infra", boost: 13, requires: { projectId: "road" } },
-  { id: "mall", icon: "🏬", titleMS: "Pusat Beli-Belah", titleEN: "Shopping Mall", detailMS: "Mall bertingkat dengan lot niaga tempatan dan medan selera.", detailEN: "Multi-storey mall with local retail lots and a food court.", cost: 400_000, target: "economy", boost: 18, requires: { projectId: "market", zoneStat: { key: "economy", min: 60 } } },
-  { id: "stadium", icon: "🏟️", titleMS: "Kompleks Sukan Rakyat", titleEN: "Community Sports Complex", detailMS: "Stadium mini, gelanggang futsal dan trek larian komuniti.", detailEN: "Mini stadium, futsal courts and a community running track.", cost: 350_000, target: "welfare", boost: 15, requires: { projectId: "school" } },
-  { id: "surau", icon: "🕌", titleMS: "Naik Taraf Masjid & Surau", titleEN: "Mosque & Surau Upgrade", detailMS: "Baik pulih kubah, dewan solat dan kelas agama komuniti.", detailEN: "Dome repairs, prayer hall and community religious classes.", cost: 160_000, target: "welfare", boost: 9 },
-  { id: "office", icon: "🏢", titleMS: "Menara Pejabat SME", titleEN: "SME Office Tower", detailMS: "Ruang pejabat mampu sewa untuk syarikat kecil dan startup.", detailEN: "Affordable office space for small firms and startups.", cost: 450_000, target: "economy", boost: 20, requires: { projectId: "internet" } },
+  { id: "road", icon: "🛣️", cost: 180_000, target: "infra", boost: 12 },
+  { id: "clinic", icon: "🏥", cost: 220_000, target: "welfare", boost: 14 },
+  { id: "internet", icon: "📡", cost: 260_000, target: "economy", boost: 13 },
+  { id: "flood", icon: "🌊", cost: 300_000, target: "infra", boost: 16 },
+  { id: "market", icon: "🏪", cost: 150_000, target: "economy", boost: 10 },
+  { id: "school", icon: "🏫", cost: 200_000, target: "welfare", boost: 11 },
+  { id: "park", icon: "🌳", cost: 170_000, target: "welfare", boost: 9, requires: { zoneStat: { key: "infra", min: 55 } } },
+  { id: "bus", icon: "🚌", cost: 240_000, target: "infra", boost: 13, requires: { projectId: "road" } },
+  { id: "mall", icon: "🏬", cost: 400_000, target: "economy", boost: 18, requires: { projectId: "market", zoneStat: { key: "economy", min: 60 } } },
+  { id: "stadium", icon: "🏟️", cost: 350_000, target: "welfare", boost: 15, requires: { projectId: "school" } },
+  { id: "surau", icon: "🕌", cost: 160_000, target: "welfare", boost: 9 },
+  { id: "office", icon: "🏢", cost: 450_000, target: "economy", boost: 20, requires: { projectId: "internet" } },
 ];
 
 function clamp(value: number) {
@@ -117,42 +119,39 @@ function seedFrom(text: string) {
 // them reading as literal duplicates.
 function makeZones(seedKey: string, traits: SeatTraits, developedCount: number): Zone[] {
   const base = seedFrom(seedKey);
-  const basePool: [string, string, string, string, ZoneKind][] = [
-    ["Pusat Bandar", "Town Centre", "Bandar", "Urban", "urban"],
-    ["Kampung Utama", "Main Village", "Kampung", "Village", "village"],
-    ["Taman Perumahan", "Housing Estate", "Perumahan", "Housing", "housing"],
-    ["Pusat Niaga", "Commercial Hub", "Niaga", "Commercial", "commercial"],
-    ["Zon Sekolah", "School Zone", "Pendidikan", "Education", "education"],
-    ["Kawasan Industri", "Industrial Area", "Industri", "Industry", "industry"],
-    ["Pinggir Sungai", "Riverside", "Risiko Banjir", "Flood Risk", "river"],
-    ["Pasar & Penjaja", "Market & Hawkers", "Ekonomi Rakyat", "People Economy", "market"],
-    ["Klinik / Dewan", "Clinic / Hall", "Komuniti", "Community", "community"],
+  const basePool: [ZoneArchetype, ZoneKind, number][] = [
+    ["townCentre", "urban", 0],
+    ["mainVillage", "village", 0],
+    ["housingEstate", "housing", 0],
+    ["commercialHub", "commercial", 0],
+    ["schoolZone", "education", 0],
+    ["industrialArea", "industry", 0],
+    ["riverside", "river", 0],
+    ["marketHawkers", "market", 0],
+    ["clinicHall", "community", 0],
   ];
-  if (traits.coastal) basePool[6] = ["Kampung Nelayan", "Fishing Village", "Pesisir Pantai", "Coastal", "river"];
-  if (traits.paddy) basePool[1] = ["Kampung Sawah", "Paddy Village", "Jelapang Padi", "Rice Bowl", "village"];
-  if (traits.industrial) basePool[5] = ["Zon Perindustrian", "Industrial Estate", "Industri Berat", "Heavy Industry", "industry"];
+  if (traits.coastal) basePool[6] = ["fishingVillage", "river", 0];
+  if (traits.paddy) basePool[1] = ["paddyVillage", "village", 0];
+  if (traits.industrial) basePool[5] = ["industrialEstate", "industry", 0];
 
-  const names: [string, string, string, string, ZoneKind][] = basePool.slice(0, Math.min(developedCount, basePool.length));
+  const names: [ZoneArchetype, ZoneKind, number][] = basePool.slice(0, Math.min(developedCount, basePool.length));
   if (developedCount > basePool.length) {
     const cyclePool = basePool.slice(1);
     for (let i = 0; i < developedCount - basePool.length; i++) {
-      const [nameMS, nameEN, typeMS, typeEN, kind] = cyclePool[i % cyclePool.length];
-      const repeatNum = Math.floor(i / cyclePool.length) + 2;
-      names.push([`${nameMS} ${repeatNum}`, `${nameEN} ${repeatNum}`, typeMS, typeEN, kind]);
+      const [archetype, kind] = cyclePool[i % cyclePool.length];
+      names.push([archetype, kind, Math.floor(i / cyclePool.length) + 2]);
     }
   }
 
-  return names.map(([nameMS, nameEN, typeMS, typeEN, kind], index) => {
+  return names.map(([archetype, kind, repeat], index) => {
     const n = base + index * 17;
     const infra = 42 + (n % 28);
     const welfare = 40 + ((n * 3) % 30);
     const economy = 38 + ((n * 5) % 32);
     return {
       id: `zone-${index}`,
-      nameMS,
-      nameEN,
-      typeMS,
-      typeEN,
+      archetype,
+      repeat,
       kind,
       economy,
       welfare,
@@ -189,17 +188,17 @@ function scoreTintRGB(value: number): string {
 }
 
 // Legend bands mirror metricColor's cutoffs — keep the two in step.
-const SCORE_LEGEND: { color: string; ms: string; en: string }[] = [
-  { color: "var(--neon-green)", ms: "BAIK ≥ 74", en: "GOOD ≥ 74" },
-  { color: "var(--gold)", ms: "SEDERHANA 54–73", en: "FAIR 54–73" },
-  { color: "var(--neon-red)", ms: "KRITIKAL < 54", en: "CRITICAL < 54" },
+const SCORE_LEGEND: { color: string; labelKey: string }[] = [
+  { color: "var(--neon-green)", labelKey: "kawasan_page.scoreLegendGood" },
+  { color: "var(--gold)", labelKey: "kawasan_page.scoreLegendFair" },
+  { color: "var(--neon-red)", labelKey: "kawasan_page.scoreLegendCritical" },
 ];
 
 const STAT_ORDER: ZoneStat[] = ["infra", "welfare", "economy"];
 
 function statLabel(lang: ReturnType<typeof useLang>, key: ZoneStat) {
-  if (key === "welfare") return t(lang, "RAKYAT", "WELFARE");
-  if (key === "economy") return t(lang, "EKONOMI", "ECONOMY");
+  if (key === "welfare") return t(lang, "kawasan_page.welfare");
+  if (key === "economy") return t(lang, "kawasan_page.economy");
   return "INFRA";
 }
 
@@ -214,13 +213,18 @@ function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<t
   const missing: string[] = [];
   if (requires.projectId && !zone.projects.includes(requires.projectId)) {
     const prerequisite = PROJECTS.find((candidate) => candidate.id === requires.projectId);
-    if (prerequisite) missing.push(t(lang, `${prerequisite.titleMS} siap`, `${prerequisite.titleEN} done`));
+    if (prerequisite) missing.push(t(lang, "kawasan_page.done", { prerequisite: t(lang, `kawasan_page.projectTitle_${prerequisite.id}`) }));
   }
   if (requires.zoneStat && zone[requires.zoneStat.key] < requires.zoneStat.min) {
     missing.push(`${statLabel(lang, requires.zoneStat.key)} ≥ ${requires.zoneStat.min}`);
   }
   if (!missing.length) return null;
-  return t(lang, `Perlu: ${missing.join(" & ")}`, `Requires: ${missing.join(" & ")}`);
+  return t(lang, "kawasan_page.requires", { missingJoin: missing.join(" & ") });
+}
+
+function zoneName(lang: Lang, zone: Zone) {
+  const name = t(lang, `kawasan_page.zoneName_${zone.archetype}`);
+  return zone.repeat ? `${name} ${zone.repeat}` : name;
 }
 
 function zoneIcon(kind: ZoneKind) {
@@ -1157,7 +1161,7 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
         onClick={() => { if (!movedRef.current) onSelect(zone.id); }}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
-        aria-label={t(lang, zone.nameMS, zone.nameEN)}
+        aria-label={zoneName(lang, zone)}
         className={`kw-zone kw-grassy ${selected ? "kw-zone-sel" : ""} ${hovered ? "kw-zone-hov" : ""} ${critical ? "kw-zone-critical" : ""}`}
         style={{
           background: zoneGround(zone.kind),
@@ -1215,7 +1219,7 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
           <div className="kw-bill">
             <div className="flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5" style={{ background: "rgba(3,8,15,0.9)", borderColor: "var(--gold)" }}>
               <div>
-                <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: "var(--gold)" }}>{zoneIcon(zone.kind)} {t(lang, zone.nameMS, zone.nameEN)}</div>
+                <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: "var(--gold)" }}>{zoneIcon(zone.kind)} {zoneName(lang, zone)}</div>
                 <div className="mt-0.5 text-[7px] font-bold tracking-wider" style={{ color: "rgba(148,163,184,0.85)" }}>INF {zone.infra} · RKT {zone.welfare} · EKO {zone.economy}</div>
               </div>
               <div className="text-base font-black leading-none" style={{ color: metricColor(zone.sentiment) }}>{zone.sentiment}</div>
@@ -1232,12 +1236,12 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
             {/* scene-palette colours, not theme vars: the 3D city keeps a fixed
                 dark artwork palette in both light and dark app themes */}
             <div className="kw-tip rounded-sm border px-2 py-1" style={{ background: "rgba(3,8,15,0.94)", borderColor: "rgba(125,211,252,0.75)", boxShadow: "0 0 16px rgba(125,211,252,0.35)" }}>
-              <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: "#7dd3fc" }}>{zoneIcon(zone.kind)} {t(lang, zone.nameMS, zone.nameEN)}</div>
+              <div className="text-[9px] font-black tracking-[0.1em]" style={{ color: "#7dd3fc" }}>{zoneIcon(zone.kind)} {zoneName(lang, zone)}</div>
               <div className="mt-0.5 text-[8px] font-bold tracking-wider" style={{ color: "rgba(148,163,184,0.9)" }}>
-                {t(lang, "SENTIMEN", "SENTIMENT")} <span style={{ color: metricColor(zone.sentiment) }}>{zone.sentiment}</span>
+                {t(lang, "kawasan_page.sentiment")} <span style={{ color: metricColor(zone.sentiment) }}>{zone.sentiment}</span>
               </div>
               <div className="text-[8px] font-bold tracking-wider" style={{ color: "#fbbf24" }}>
-                {t(lang, "PALING PERLU", "MOST NEEDED")}: {statLabel(lang, weakest)} {zone[weakest]}
+                {t(lang, "kawasan_page.mostNeeded")}: {statLabel(lang, weakest)} {zone[weakest]}
               </div>
             </div>
           </div>
@@ -1249,7 +1253,7 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
 
 const TOD_SEQUENCE = ["dusk", "night", "day"] as const;
 type Tod = (typeof TOD_SEQUENCE)[number];
-const TOD_LABEL: Record<Tod, [string, string, string]> = { day: ["☀", "SIANG", "DAY"], dusk: ["🌆", "SENJA", "DUSK"], night: ["🌙", "MALAM", "NIGHT"] };
+const TOD_ICON: Record<Tod, string> = { day: "☀", dusk: "🌆", night: "🌙" };
 // Matches the scene to the player's actual local clock on load — roughly
 // Malaysia's real sunrise/sunset (~7am/~7pm) with a one-hour dusk window
 // right after sunset, rather than always opening on a fixed "dusk" preset.
@@ -2089,14 +2093,14 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
 
       {/* HUD (screen space) */}
       <div className="pointer-events-none absolute left-4 top-4 max-w-[64%] truncate border px-3 py-2 text-[10px] font-black tracking-[0.22em]" style={{ color: "#7dd3fc", borderColor: "rgba(125,211,252,0.35)", background: "rgba(3,8,15,0.72)" }}>
-        {t(lang, "BANDAR 3D INTERAKTIF", "INTERACTIVE 3D CITY")} · {densityLabel}
+        {t(lang, "kawasan_page.interactive3dCity")} · {densityLabel}
       </div>
       <div className="pointer-events-none absolute left-4 top-[58px] flex flex-col gap-1 border px-2.5 py-1.5 text-[8px] font-bold tracking-[0.14em]" style={{ borderColor: "rgba(125,211,252,0.22)", background: "rgba(3,8,15,0.68)", color: "rgba(148,163,184,0.95)" }}>
-        <div className="tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "SKOR ZON", "ZONE SCORE")}</div>
+        <div className="tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "kawasan_page.zoneScore")}</div>
         {SCORE_LEGEND.map((band) => (
-          <div key={band.en} className="flex items-center gap-1.5">
+          <div key={band.labelKey} className="flex items-center gap-1.5">
             <span className="block h-1.5 w-3.5" style={{ background: band.color }} />
-            <span>{t(lang, band.ms, band.en)}</span>
+            <span>{t(lang, band.labelKey)}</span>
           </div>
         ))}
       </div>
@@ -2110,7 +2114,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           style={controlStyle}
           onClick={() => { markInteraction(); setTod((current) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(current) + 1) % TOD_SEQUENCE.length]); }}
         >
-          {TOD_LABEL[tod][0]} {t(lang, TOD_LABEL[tod][1], TOD_LABEL[tod][2])}
+          {TOD_ICON[tod]} {t(lang, `kawasan_page.tod_${tod}`)}
         </button>
         <button
           type="button"
@@ -2118,12 +2122,12 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           style={controlStyle}
           onClick={() => { markInteraction(); setWeather((current) => (current === "rain" ? "clear" : "rain")); }}
         >
-          {weather === "rain" ? `🌧 ${t(lang, "HUJAN", "RAIN")}` : `☀ ${t(lang, "CERAH", "CLEAR")}`}
+          {weather === "rain" ? `🌧 ${t(lang, "kawasan_page.rain")}` : `☀ ${t(lang, "kawasan_page.clear")}`}
         </button>
       </div>
       <div className="pointer-events-none absolute bottom-3 left-4 right-4 flex flex-wrap justify-between gap-x-4 gap-y-1 text-[9px] font-bold tracking-[0.18em]" style={{ color: "rgba(148,163,184,0.95)" }}>
-        <span>{t(lang, "SERET · PUTAR PETA", "DRAG · ROTATE MAP")} / {t(lang, "SKROL · ZUM", "SCROLL · ZOOM")}</span>
-        <span>{t(lang, "KLIK ZON UNTUK PILIH PROJEK", "CLICK A ZONE TO PICK A PROJECT")}</span>
+        <span>{t(lang, "kawasan_page.dragRotateMap")} / {t(lang, "kawasan_page.scrollZoom")}</span>
+        <span>{t(lang, "kawasan_page.clickAZoneToPickA")}</span>
       </div>
       {/* Minimap: top-down grid readout, screen-space (sibling of .kw-world,
           not inside its preserve-3d tree). The compass wedge reads --kw-rz
@@ -2137,7 +2141,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           the orbit angle — the wedge direction is the honest equivalent of
           a position dot. */}
       <div className="pointer-events-none absolute bottom-16 right-4 border p-1.5" style={{ borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.8)" }}>
-        <div className="mb-1 text-center text-[7px] font-black tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "PETA", "MAP")}</div>
+        <div className="mb-1 text-center text-[7px] font-black tracking-[0.2em]" style={{ color: "#7dd3fc" }}>{t(lang, "kawasan_page.map")}</div>
         <div className="relative" style={{ width: gridSize * MINIMAP_CELL, height: gridSize * MINIMAP_CELL }}>
           {Array.from({ length: gridSize * gridSize }, (_, index) => {
             const col = index % gridSize;
@@ -2213,19 +2217,19 @@ export default function KawasanDevelopmentPage() {
   const gridSize = kawasanGridSize(density);
   const developedCount = kawasanDevelopedCount(density, gridSize);
   const densityLabel = density >= 0.85
-    ? t(lang, "BANDAR RAYA PADAT", "DENSE METRO")
+    ? t(lang, "kawasan_page.denseMetro")
     : density >= 0.62
-    ? t(lang, "BANDAR RAYA", "METRO")
+    ? t(lang, "kawasan_page.metro")
     : density >= 0.3
-    ? t(lang, "SEPARA BANDAR", "SEMI-URBAN")
-    : t(lang, "LUAR BANDAR", "RURAL");
+    ? t(lang, "kawasan_page.semiUrban")
+    : t(lang, "kawasan_page.rural");
 
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? ""), [ownSeat?.name, homeState?.id]);
   const traitLabels = [
-    traits.coastal ? t(lang, "PESISIR", "COASTAL") : null,
-    traits.paddy ? t(lang, "JELAPANG PADI", "RICE BOWL") : null,
-    traits.hilly ? t(lang, "TANAH TINGGI", "HIGHLANDS") : null,
-    traits.industrial ? t(lang, "PERINDUSTRIAN", "INDUSTRIAL") : null,
+    traits.coastal ? t(lang, "kawasan_page.coastal") : null,
+    traits.paddy ? t(lang, "kawasan_page.riceBowl") : null,
+    traits.hilly ? t(lang, "kawasan_page.highlands") : null,
+    traits.industrial ? t(lang, "kawasan_page.industrial") : null,
   ].filter(Boolean).join(" · ");
   const sceneLabel = traitLabels ? `${densityLabel} · ${traitLabels}` : densityLabel;
 
@@ -2239,7 +2243,7 @@ export default function KawasanDevelopmentPage() {
           // Merge saved progress but let the generator's names/types win,
           // so trait-based zone identities (fishing village, paddy village)
           // apply to saves made before traits existed.
-          const upgraded = makeZones(ownSeat.id, traits, developedCount).map((fallback, index) => ({ ...fallback, ...(parsed[index] ?? {}), kind: fallback.kind, nameMS: fallback.nameMS, nameEN: fallback.nameEN, typeMS: fallback.typeMS, typeEN: fallback.typeEN }));
+          const upgraded = makeZones(ownSeat.id, traits, developedCount).map((fallback, index) => ({ ...fallback, ...(parsed[index] ?? {}), kind: fallback.kind, archetype: fallback.archetype, repeat: fallback.repeat }));
           setZones(upgraded);
           return;
         }
@@ -2279,20 +2283,20 @@ export default function KawasanDevelopmentPage() {
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
     if (!hasWonElection) {
-      setNotice(t(lang, "MENANG PILIHAN RAYA DAHULU UNTUK BUKA PEMBANGUNAN", "WIN YOUR ELECTION FIRST TO UNLOCK DEVELOPMENT"));
+      setNotice(t(lang, "kawasan_page.winYourElectionFirstToUnlock"));
       return;
     }
     if (selectedZone.projects.includes(project.id)) {
-      setNotice(t(lang, "PROJEK SUDAH DILULUSKAN UNTUK ZON INI", "PROJECT ALREADY APPROVED FOR THIS ZONE"));
+      setNotice(t(lang, "kawasan_page.projectAlreadyApprovedForThisZone"));
       return;
     }
     const locked = lockReason(project, selectedZone, lang);
     if (locked) {
-      setNotice(t(lang, "PROJEK MASIH TERKUNCI", "PROJECT STILL LOCKED"));
+      setNotice(t(lang, "kawasan_page.projectStillLocked"));
       return;
     }
     if (resources.funds < project.cost) {
-      setNotice(t(lang, "BAJET TIDAK MENCUKUPI", "INSUFFICIENT BUDGET"));
+      setNotice(t(lang, "kawasan_page.insufficientBudget"));
       return;
     }
 
@@ -2301,7 +2305,13 @@ export default function KawasanDevelopmentPage() {
       alerts: [{
         id: `dev-${Date.now()}`,
         time: new Date().toTimeString().slice(0, 5),
-        message: `${project.titleMS} approved in ${selectedZone.nameMS}, ${ownSeat?.name ?? "kawasan"}.`,
+        // Alert copy is stored, not re-rendered on language switch, so it keeps
+        // its existing Malay-name form in both locales.
+        message: t(lang, "kawasan_page.projectApprovedAlert", {
+          project: t("ms", `kawasan_page.projectTitle_${project.id}`),
+          zone: zoneName("ms", selectedZone),
+          seat: ownSeat?.name ?? "kawasan",
+        }),
         type: "positive",
       }, ...state.alerts].slice(0, 12),
     }));
@@ -2316,7 +2326,7 @@ export default function KawasanDevelopmentPage() {
       return { ...next, sentiment: clamp(Math.round((next.infra + next.welfare + next.economy) / 3)) };
     }));
     setCelebration({ zoneId: selectedZone.id, at: Date.now() });
-    setNotice(t(lang, "PROJEK DILULUSKAN · GRAFIK KAWASAN DIKEMAS KINI", "PROJECT APPROVED · LOCAL GRID UPDATED"));
+    setNotice(t(lang, "kawasan_page.projectApprovedLocalGridUpdated"));
   }
 
   function quickDevelopPriority() {
@@ -2339,7 +2349,7 @@ export default function KawasanDevelopmentPage() {
     const seatLabel = ownSeat ? `${ownSeat.name}, ${homeState.name}` : homeState.name;
     addOperation({
       id: `op-kawasan-${Date.now()}`,
-      name: t(lang, template.labelMS, template.labelEN),
+      name: t(lang, `kawasan_page.opLabel_${type}`),
       type,
       location: seatLabel,
       stateIds: [homeState.id],
@@ -2348,7 +2358,7 @@ export default function KawasanDevelopmentPage() {
       fundsCost: template.fundsCost,
       supportGain: template.supportGain,
     });
-    setNotice(t(lang, `${template.labelMS} dilancarkan di ${ownSeat?.name ?? homeState.name}`, `${template.labelEN} launched in ${ownSeat?.name ?? homeState.name}`));
+    setNotice(t(lang, "kawasan_page.launchedIn", { template: t(lang, `kawasan_page.opLabel_${type}`), ownSeatNameHomeState: ownSeat?.name ?? homeState.name }));
   }
 
   function saveManifesto() {
@@ -2361,8 +2371,8 @@ export default function KawasanDevelopmentPage() {
       <div className="min-h-screen" style={{ background: "var(--bg)" }}>
         <Header />
         <main className="pt-[80px] px-8">
-          <TacticalPanel title={t(lang, "TIADA KAWASAN", "NO CONSTITUENCY")}>
-            <div className="text-text-muted">{t(lang, "Pilih/menang kerusi dahulu sebelum membuat pembangunan.", "Select/win a seat before managing development.")}</div>
+          <TacticalPanel title={t(lang, "kawasan_page.noConstituency")}>
+            <div className="text-text-muted">{t(lang, "kawasan_page.selectWinASeatBeforeManaging")}</div>
           </TacticalPanel>
         </main>
       </div>
@@ -2381,43 +2391,43 @@ export default function KawasanDevelopmentPage() {
       <main className="pt-[56px] pb-[58px] px-6 w-full">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "SIMULATOR PEMBANGUNAN KAWASAN", "CONSTITUENCY BUILDER SIM")}</div>
+            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "kawasan_page.constituencyBuilderSim")}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
-            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.population)} {t(lang, "PENDUDUK", "POPULATION")} · {formatNumber(ownSeat.voters)} {t(lang, "PENGUNDI", "VOTERS")} · {densityLabel}</div>
+            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.population)} {t(lang, "kawasan_page.population")} · {formatNumber(ownSeat.voters)} {t(lang, "kawasan_page.voters")} · {densityLabel}</div>
             {!hasWonElection && (
               <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "rgba(203,213,225,0.85)", background: "rgba(10,14,22,0.72)" }}>
-                🔒 {t(lang, "PEMBANGUNAN TERKUNCI — MENANG PILIHAN RAYA UNTUK BUKA", "DEVELOPMENT LOCKED — WIN YOUR ELECTION TO UNLOCK")}
+                🔒 {t(lang, "kawasan_page.developmentLockedWinYourElectionTo")}
               </div>
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => router.push("/warroom")} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "MASUK WAR ROOM", "ENTER WAR ROOM")}</button>
+            <button onClick={() => router.push("/warroom")} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "kawasan_page.enterWarRoom")}</button>
             {hasWonElection ? (
-              <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "BANGUNKAN ZON KRITIKAL", "DEVELOP PRIORITY ZONE")}</button>
+              <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
             ) : (
-              <button disabled title={t(lang, "Menang pilihan raya dahulu", "Win your election first")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "BANGUNKAN ZON KRITIKAL", "DEVELOP PRIORITY ZONE")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
             )}
             {hasWonElection ? (
-              <button onClick={() => router.push("/government")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "KERAJAAN", "GOVERNMENT")}</button>
+              <button onClick={() => router.push("/government")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
             ) : (
-              <button disabled title={t(lang, "Menang pilihan raya dahulu", "Win your election first")} className="cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "KERAJAAN", "GOVERNMENT")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
             )}
           </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "BAKI DANA", "FUNDS")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "SENTIMEN", "SENTIMENT")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "PROJEK SIAP", "PROJECTS")}</div><div className="text-2xl font-black text-white">{totalProjects}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "ZON PRIORITI", "PRIORITY ZONE")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? t(lang, priorityZone.nameMS, priorityZone.nameEN) : "—"}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black text-white">{totalProjects}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <TacticalPanel title={t(lang, "PETA BANDAR 3D · KAWASAN ANDA", "3D CITY MAP · YOUR CONSTITUENCY")} noPadding>
+          <TacticalPanel title={t(lang, "kawasan_page._3dCityMapYourConstituency")} noPadding>
             <div className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-[11px] leading-relaxed text-text-muted">{t(lang, "Seret untuk pusing bandar, skrol untuk zum, klik zon untuk bina. Bangunan tumbuh apabila projek diluluskan — tukar waktu siang/malam di penjuru kanan.", "Drag to rotate the city, scroll to zoom, click a zone to build. Buildings grow as projects are approved — switch day/night in the corner.")}</div>
-                <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "DIBELANJA", "SPENT")}</div>
+                <div className="text-[11px] leading-relaxed text-text-muted">{t(lang, "kawasan_page.dragToRotateTheCityScroll")}</div>
+                <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "kawasan_page.spent")}</div>
               </div>
               <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
             </div>
@@ -2425,17 +2435,17 @@ export default function KawasanDevelopmentPage() {
 
           <div className="space-y-4">
             {!hasWonElection && (
-              <TacticalPanel title={t(lang, "MANIFESTO & KEMPEN", "MANIFESTO & CAMPAIGN")}>
+              <TacticalPanel title={t(lang, "kawasan_page.manifestoCampaign")}>
                 <div className="space-y-3">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-black tracking-widest text-text-muted">{t(lang, "MANIFESTO KAWASAN", "SEAT MANIFESTO")}</span>
-                      {!manifestoSaved && <span className="text-[9px] font-bold tracking-widest" style={{ color: "var(--warn-orange)" }}>{t(lang, "BELUM SIMPAN", "UNSAVED")}</span>}
+                      <span className="text-[10px] font-black tracking-widest text-text-muted">{t(lang, "kawasan_page.seatManifesto")}</span>
+                      {!manifestoSaved && <span className="text-[9px] font-bold tracking-widest" style={{ color: "var(--warn-orange)" }}>{t(lang, "kawasan_page.unsaved")}</span>}
                     </div>
                     <textarea
                       value={manifestoDraft}
                       onChange={(event) => { setManifestoDraft(event.target.value); setManifestoSaved(false); }}
-                      placeholder={t(lang, "Tulis janji dan fokus dasar anda untuk pengundi di sini...", "Write your pledges and policy focus for this seat's voters...")}
+                      placeholder={t(lang, "kawasan_page.writeYourPledgesAndPolicyFocus")}
                       rows={4}
                       className="w-full resize-none text-[12px]"
                       style={{ background: "rgba(3,8,15,0.72)", border: "1px solid rgb(var(--cyan-rgb)/0.2)", color: "var(--text)", padding: "8px" }}
@@ -2446,13 +2456,13 @@ export default function KawasanDevelopmentPage() {
                       className="mt-2 border px-3 py-1.5 text-[10px] font-black tracking-widest disabled:cursor-not-allowed disabled:opacity-40"
                       style={{ borderColor: "rgb(var(--gold-rgb)/0.45)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}
                     >
-                      {t(lang, "SIMPAN MANIFESTO", "SAVE MANIFESTO")}
+                      {t(lang, "kawasan_page.saveManifesto")}
                     </button>
                   </div>
 
                   <div className="border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
                     <div className="mb-2 text-[10px] font-black tracking-widest text-text-muted">
-                      {t(lang, `LANCAR KEMPEN PANTAS · ${homeState?.name?.toUpperCase() ?? ""}`, `QUICK CAMPAIGN LAUNCH · ${homeState?.name?.toUpperCase() ?? ""}`)}
+                      {t(lang, "kawasan_page.quickCampaignLaunch", { homeStateName: homeState?.name?.toUpperCase() ?? "" })}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {(Object.keys(OP_TEMPLATES) as OpType[]).map((type) => {
@@ -2467,14 +2477,14 @@ export default function KawasanDevelopmentPage() {
                             className="border p-2 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
                             style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)", background: "rgba(3,8,15,0.6)" }}
                           >
-                            <div className="text-[10px] font-black tracking-wider" style={{ color: "var(--cyan)" }}>{t(lang, template.labelMS, template.labelEN)}</div>
-                            <div className="mt-0.5 text-[9px] text-text-muted">RM {formatNumber(template.fundsCost)} · +{template.supportGain}%/{t(lang, "hari", "day")}</div>
+                            <div className="text-[10px] font-black tracking-wider" style={{ color: "var(--cyan)" }}>{t(lang, `kawasan_page.opLabel_${type}`)}</div>
+                            <div className="mt-0.5 text-[9px] text-text-muted">RM {formatNumber(template.fundsCost)} · +{template.supportGain}%/{t(lang, "kawasan_page.day")}</div>
                           </button>
                         );
                       })}
                     </div>
                     <div className="mt-2 text-[9px] leading-relaxed text-text-muted">
-                      {t(lang, `${operations.filter((op) => op.stateIds.includes(homeState?.id ?? "")).length} operasi aktif di ${homeState?.name ?? "negeri anda"}. Lawati War Room untuk urus kempen penuh.`, `${operations.filter((op) => op.stateIds.includes(homeState?.id ?? "")).length} active operations in ${homeState?.name ?? "your state"}. Visit War Room to manage the full campaign.`)}
+                      {t(lang, "kawasan_page.activeOperationsInVisitWarRoom", { operationsFilterOp: operations.filter((op) => op.stateIds.includes(homeState?.id ?? "")).length, homeStateName: homeState?.name ?? "negeri anda", homeStateName2: homeState?.name ?? "your state" })}
                     </div>
                   </div>
                 </div>
@@ -2485,9 +2495,9 @@ export default function KawasanDevelopmentPage() {
               title={
                 selectedZone
                   ? hasWonElection
-                    ? t(lang, `BANGUNKAN · ${selectedZone.nameMS.toUpperCase()}`, `DEVELOP · ${selectedZone.nameEN.toUpperCase()}`)
-                    : t(lang, `MAKLUMAT ZON · ${selectedZone.nameMS.toUpperCase()}`, `ZONE INFO · ${selectedZone.nameEN.toUpperCase()}`)
-                  : t(lang, "BANGUNKAN KAWASAN", "DEVELOP AREA")
+                    ? t(lang, "kawasan_page.develop", { zoneName: zoneName(lang, selectedZone).toUpperCase() })
+                    : t(lang, "kawasan_page.zoneInfo", { zoneName: zoneName(lang, selectedZone).toUpperCase() })
+                  : t(lang, "kawasan_page.developArea")
               }
               noPadding
             >
@@ -2495,8 +2505,8 @@ export default function KawasanDevelopmentPage() {
                 <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.07), rgba(3,8,15,0.72))" }}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-lg font-black text-white">{zoneIcon(selectedZone.kind)} {t(lang, selectedZone.nameMS, selectedZone.nameEN)}</div>
-                      <div className="text-[10px] font-bold tracking-widest" style={{ color: "var(--cyan)" }}>{t(lang, selectedZone.typeMS, selectedZone.typeEN)} · {selectedZone.projects.length} {t(lang, "projek", "projects")}</div>
+                      <div className="text-lg font-black text-white">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div>
+                      <div className="text-[10px] font-bold tracking-widest" style={{ color: "var(--cyan)" }}>{t(lang, `kawasan_page.zoneType_${selectedZone.archetype}`)} · {selectedZone.projects.length} {t(lang, "kawasan_page.projects2")}</div>
                     </div>
                     <div className="text-4xl font-black" style={{ color: metricColor(selectedZone.sentiment) }}>{selectedZone.sentiment}</div>
                   </div>
@@ -2515,14 +2525,10 @@ export default function KawasanDevelopmentPage() {
                 <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 p-6 text-center">
                   <div className="text-3xl">🔒</div>
                   <div className="text-[12px] font-black tracking-widest text-white">
-                    {t(lang, "PEMBANGUNAN BELUM DIBUKA", "DEVELOPMENT NOT YET UNLOCKED")}
+                    {t(lang, "kawasan_page.developmentNotYetUnlocked")}
                   </div>
                   <div className="max-w-[280px] text-[11px] leading-relaxed text-text-muted">
-                    {t(
-                      lang,
-                      "Menang kerusi ini dalam pilihan raya untuk membuka sistem pembangunan kawasan. Peta bandar 3D masih boleh dilihat — cuma projek belum boleh dibina.",
-                      "Win this seat in the election to unlock the constituency development system. The 3D city map is still viewable — projects just can't be built yet."
-                    )}
+                    {t(lang, "kawasan_page.winThisSeatInTheElection")}
                   </div>
                 </div>
               ) : (
@@ -2536,17 +2542,17 @@ export default function KawasanDevelopmentPage() {
                     <button key={project.id} onClick={() => runProject(project)} disabled={done || !!locked || !affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: locked ? 0.45 : done || !affordable ? 0.55 : 1, borderColor: done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : affordable ? "rgb(var(--cyan-rgb)/0.22)" : "rgb(255 68 68 / 0.25)", background: done ? "rgb(0 255 136 / 0.06)" : locked ? "rgba(10,14,22,0.72)" : "rgba(3,8,15,0.72)" }}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-[12px] font-black tracking-wider" style={{ color: locked ? "rgba(203,213,225,0.75)" : "#fff" }}>{locked ? "🔒" : project.icon} {t(lang, project.titleMS, project.titleEN)}</div>
-                          <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{t(lang, project.detailMS, project.detailEN)}</div>
+                          <div className="text-[12px] font-black tracking-wider" style={{ color: locked ? "rgba(203,213,225,0.75)" : "#fff" }}>{locked ? "🔒" : project.icon} {t(lang, `kawasan_page.projectTitle_${project.id}`)}</div>
+                          <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{t(lang, `kawasan_page.projectDetail_${project.id}`)}</div>
                         </div>
                         <div className="shrink-0 text-right text-[10px] font-black tracking-widest" style={{ color: accent }}>
-                          {done ? t(lang, "SIAP", "DONE") : locked ? t(lang, "TERKUNCI", "LOCKED") : `RM ${formatNumber(project.cost)}`}
+                          {done ? t(lang, "kawasan_page.done2") : locked ? t(lang, "kawasan_page.locked") : `RM ${formatNumber(project.cost)}`}
                         </div>
                       </div>
                       <div className="mt-2 flex items-start justify-between gap-3 text-[9px] font-bold tracking-wider">
                         <span className="shrink-0" style={{ color: "var(--cyan)" }}>+{project.boost} {project.target === "welfare" ? "RAKYAT" : project.target.toUpperCase()}</span>
                         <span className="text-right" style={{ color: locked ? "var(--warn-orange)" : affordable || done ? "var(--text-muted)" : "var(--neon-red)" }}>
-                          {done ? t(lang, "grafik dinaik taraf", "visual upgraded") : locked ?? t(lang, "klik untuk bina", "click to build")}
+                          {done ? t(lang, "kawasan_page.visualUpgraded") : locked ?? t(lang, "kawasan_page.clickToBuild")}
                         </span>
                       </div>
                     </button>
@@ -2559,7 +2565,7 @@ export default function KawasanDevelopmentPage() {
         </div>
       </main>
 
-      <StatusBar leftText={`${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, "CITY BUILDER KAWASAN", "LOCAL CITY BUILDER")}`} rightText={t(lang, `RM ${formatNumber(resources.funds)} · SENTIMEN ${overall}% · PROJEK ${totalProjects}`, `RM ${formatNumber(resources.funds)} · SENTIMENT ${overall}% · PROJECTS ${totalProjects}`)} />
+      <StatusBar leftText={`${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, "kawasan_page.localCityBuilder")}`} rightText={t(lang, "kawasan_page.rmSentimentProjects", { formatNumberResourcesFunds: formatNumber(resources.funds), overall: overall, totalProjects: totalProjects })} />
     </div>
   );
 }

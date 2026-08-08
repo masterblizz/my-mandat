@@ -69,7 +69,7 @@ function BackButton() {
       className="absolute left-5 top-5 z-20 border px-2 py-1 text-[9px] font-black tracking-[0.18em] transition-all hover:bg-cyan/10"
       style={{ borderColor: "rgb(var(--cyan-rgb) / 0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / 0.06)" }}
     >
-      ← {t(lang, "KEMBALI", "BACK")}
+      ← {t(lang, "components_auth_AuthShell.back")}
     </button>
   );
 }
@@ -106,19 +106,16 @@ function ThemeToggle() {
   const lang = useLang();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const options: { id: "dark" | "light"; labelMS: string; labelEN: string }[] = [
-    { id: "dark", labelMS: "GELAP", labelEN: "DARK" },
-    { id: "light", labelMS: "CERAH", labelEN: "LIGHT" },
-  ];
+  const options: ("dark" | "light")[] = ["dark", "light"];
   return (
     <div className="flex gap-1">
       {options.map((opt) => {
-        const active = theme === opt.id;
+        const active = theme === opt;
         return (
           <button
-            key={opt.id}
+            key={opt}
             type="button"
-            onClick={() => setTheme(opt.id)}
+            onClick={() => setTheme(opt)}
             className="border px-2 py-1 text-[9px] font-black tracking-[0.18em]"
             style={{
               borderColor: active ? "rgb(var(--gold-rgb) / 0.7)" : "rgb(var(--cyan-rgb) / 0.2)",
@@ -126,7 +123,7 @@ function ThemeToggle() {
               background: active ? "rgb(var(--gold-rgb) / 0.08)" : "transparent",
             }}
           >
-            {t(lang, opt.labelMS, opt.labelEN)}
+            {t(lang, `components_auth_AuthShell.theme_${opt}`)}
           </button>
         );
       })}
@@ -170,7 +167,7 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
               <span className="text-[27px] font-black" style={{ color: "#ffb22c", textShadow: "0 0 28px rgb(var(--gold-rgb) / 0.45)" }}>MANDAT</span>
             </div>
             <div className="text-[8px] font-bold tracking-[0.34em]" style={{ color: "rgb(var(--gold-rgb) / 0.55)" }}>
-              {t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "CAMPAIGN COMMAND SIMULATOR")}
+              {t(lang, "components_auth_AuthShell.campaignCommandSimulator")}
             </div>
           </div>
         </div>

@@ -66,8 +66,8 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
   }
 
   const title = gameType === "ceramah"
-    ? t(lang, "SESI CERAMAH LANGSUNG", "LIVE CERAMAH SESSION")
-    : t(lang, "SESI KEMPEN DIGITAL", "LIVE DIGITAL PUSH");
+    ? t(lang, "components_campaign_CeramahSceneModal.liveCeramahSession")
+    : t(lang, "components_campaign_CeramahSceneModal.liveDigitalPush");
 
   return (
     <div
@@ -111,7 +111,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
             {phase === "topic" && (
               <>
                 <div className="mb-2 text-center text-[11px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-                  {t(lang, "PILIH TOPIK UCAPAN", "CHOOSE SPEECH TOPIC")}
+                  {t(lang, "components_campaign_CeramahSceneModal.chooseSpeechTopic")}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {topics.map((topicOption) => (
@@ -135,7 +135,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                 </div>
                 {phase === "done" && (
                   <div className="mt-3 text-[12px] font-bold" style={{ color: "var(--neon-green)" }}>
-                    {t(lang, "Kesan kempen direkod.", "Campaign impact recorded.")}
+                    {t(lang, "components_campaign_CeramahSceneModal.campaignImpactRecorded")}
                   </div>
                 )}
               </div>

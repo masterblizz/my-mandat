@@ -20,11 +20,15 @@ export type AdvisorGameState = {
   homeSeat: string;
   scope: string;
   weakStates: string[];
+  // LAWAN's recent posture — lets the advisor cite specific opposition
+  // moves instead of only speaking in aggregate percentages.
+  opponentThreatLevel?: { label: string; labelMS: string };
+  recentOpponentActions?: { type: string; narrativeEN: string; narrativeMS: string; day: number }[];
 };
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const PERSONA = `You are DR. RAZMAN, codename ALPHA-1, Strategic Director of the MANDAT party's election war room in the game MY MANDAT — a Malaysian election campaign simulator. The player may be running a PRU (national, 222 parliamentary seats, 112 for a federal majority) or a PRN (single-state DUN election — the state and its seat/majority numbers are given in the campaign state each turn). Always match your advice to whichever mode the campaign state says you're in: for PRN, stay focused entirely on that one negeri (its seats, issues, coalition maths) — do not bring up other states or a federal majority target. You advise the party leader (the player) on strategy: seat targeting, budget allocation, media handling, coalition maths, and Malaysian political geography (Borneo kingmakers, Malay heartland, urban-rural splits) as relevant to the current scope.
+const PERSONA = `You are DR. RAZMAN, codename ALPHA-1, Strategic Director of the MANDAT party's election war room in the game MY MANDAT — a Malaysian election campaign simulator. The player may be running a PRU (national, 222 parliamentary seats, 112 for a federal majority) or a PRN (single-state DUN election — the state and its seat/majority numbers are given in the campaign state each turn). Always match your advice to whichever mode the campaign state says you're in: for PRN, stay focused entirely on that one negeri (its seats, issues, coalition maths) — do not bring up other states or a federal majority target. You advise the party leader (the player) on strategy: seat targeting, budget allocation, media handling, coalition maths, and Malaysian political geography (Borneo kingmakers, Malay heartland, urban-rural splits) as relevant to the current scope. When the campaign state gives you LAWAN's threat level and recent moves, cite them specifically (by move type and where relevant) instead of only speaking in aggregate percentages — a real strategist reacts to what the opposition just did, not just the scoreboard.
 
 Style: a seasoned, slightly dry Malaysian political operative. Terse, tactical, numbers-first. Refer to real Malaysian states and political dynamics, but never real politicians or real parties — this is a fictional simulation. Keep replies under 150 words unless asked for a deep dive. Use short paragraphs or tight bullet lists. Your motto: "Every seat is a battlefield. We fight smart, not loud."
 
@@ -33,7 +37,7 @@ Language: reply in Bahasa Melayu when the user writes in Malay or when the langu
 You are given the live campaign state each turn. Ground every recommendation in it — cite the actual numbers. If the player asks about something outside the campaign (real-world politics, other topics), steer back to the war room in character.`;
 
 function formatState(state: AdvisorGameState): string {
-  return [
+  const lines = [
     `CAMPAIGN STATE — DAY ${state.day}/${state.totalDays} (${Math.max(0, state.totalDays - state.day)} days to polling)`,
     `Leader: ${state.leaderName} (${state.party}) · Home seat: ${state.homeSeat} · Mode: ${state.scope}`,
     `Funds: RM ${state.funds.toLocaleString()} · Ground workers: ${state.manpower}`,
@@ -41,7 +45,15 @@ function formatState(state: AdvisorGameState): string {
     `Support: MANDAT ${state.support.mandat}% · LAWAN ${state.support.lawan}% · Others ${state.support.others}%`,
     `Media sentiment: ${state.mediaSentiment}`,
     state.weakStates.length ? `Trailing areas: ${state.weakStates.join(", ")}` : "No trailing areas flagged.",
-  ].join("\n");
+  ];
+  if (state.opponentThreatLevel) {
+    lines.push(`LAWAN threat level: ${state.opponentThreatLevel.label}`);
+  }
+  if (state.recentOpponentActions?.length) {
+    lines.push("LAWAN recent moves:");
+    state.recentOpponentActions.forEach((a) => lines.push(`- (day ${a.day}, ${a.type}) ${a.narrativeEN}`));
+  }
+  return lines.join("\n");
 }
 
 // Rule-based fallback so the advisor still answers when no API
@@ -60,6 +72,13 @@ function offlineAdvice(state: AdvisorGameState, lang: string): string {
     lines.push(ms
       ? `Unjuran ${state.projectedSeats} kerusi melepasi sasaran. Kekalkan momentum — pertahankan kerusi marginal kita, jangan leka.`
       : `Projection of ${state.projectedSeats} seats clears the target. Hold the line — defend our marginals, no complacency.`);
+  }
+
+  if (state.recentOpponentActions?.length) {
+    const latest = state.recentOpponentActions[0];
+    lines.push(ms
+      ? `LAWAN baru bergerak (${latest.type}): ${latest.narrativeMS}. Sediakan tindak balas.`
+      : `LAWAN just moved (${latest.type}): ${latest.narrativeEN}. Prepare a response.`);
   }
 
   if (state.weakStates.length) {

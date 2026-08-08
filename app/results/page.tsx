@@ -26,33 +26,27 @@ function getVerdict(mandatSeats: number, majorityTarget = MAJORITY): Verdict {
   return "LOSS";
 }
 
-const VERDICT_CONFIG: Record<Verdict, { labelMS: string; labelEN: string; color: string; borderColor: string; bgColor: string; badgeMS: string; badgeEN: string }> = {
+const VERDICT_CONFIG: Record<Verdict, { labelKey: string; color: string; borderColor: string; bgColor: string; badgeKey: string }> = {
   WIN: {
-    labelMS: "KERAJAAN DIBENTUK",
-    labelEN: "GOVERNMENT FORMED",
+    labelKey: "results_page.verdictLabelWIN",
     color: "var(--neon-green)",
     borderColor: "rgb(0 255 136 / 0.27)",
     bgColor: "rgb(var(--neon-green-rgb,21 128 61) / 0.06)",
-    badgeMS: "KERAJAAN MAJORITI",
-    badgeEN: "MAJORITY GOVERNMENT",
+    badgeKey: "results_page.verdictBadgeWIN",
   },
   KINGMAKER: {
-    labelMS: "PARLIMEN TERGANTUNG",
-    labelEN: "HUNG PARLIAMENT",
+    labelKey: "results_page.verdictLabelKINGMAKER",
     color: "var(--gold)",
     borderColor: "rgb(var(--gold-rgb) / 0.27)",
     bgColor: "rgb(var(--gold-rgb) / 0.06)",
-    badgeMS: "KEDUDUKAN PENENTU",
-    badgeEN: "KINGMAKER POSITION",
+    badgeKey: "results_page.verdictBadgeKINGMAKER",
   },
   LOSS: {
-    labelMS: "PEMBANGKANG",
-    labelEN: "OPPOSITION",
+    labelKey: "results_page.verdictLabelLOSS",
     color: "var(--neon-red)",
     borderColor: "rgb(255 68 68 / 0.27)",
     bgColor: "rgb(255 68 68 / 0.06)",
-    badgeMS: "DI PIHAK PEMBANGKANG",
-    badgeEN: "IN OPPOSITION",
+    badgeKey: "results_page.verdictBadgeLOSS",
   },
 };
 
@@ -122,7 +116,7 @@ function SeatBar({ mandat, lawan, others, partyName, partyColor, animPhase, tota
       </motion.div>
       <div className="flex gap-4 mt-1 text-[11px]">
         <span><span style={{ color: partyColor }}>■</span> {partyName} {mandat}</span>
-        <span><span style={{ color: "#4a5568" }}>■</span> {t(lang, "LAIN-LAIN", "OTHERS")} {others}</span>
+        <span><span style={{ color: "#4a5568" }}>■</span> {t(lang, "results_page.others")} {others}</span>
         <span><span style={{ color: "var(--warn-orange)" }}>■</span> LAWAN {lawan}</span>
       </div>
     </div>
@@ -134,7 +128,7 @@ function resultColor(result: SeatDetail["result"]) {
 }
 
 function resultLabel(lang: Lang, result: SeatDetail["result"]) {
-  return t(lang, result === "WIN" ? "MENANG" : result === "LOSS" ? "KALAH" : result, result);
+  return t(lang, result === "WIN" ? "results_page.win" : result === "LOSS" ? "results_page.loss" : "results_page.resultOthers");
 }
 
 export default function ResultsPage() {
@@ -183,19 +177,19 @@ export default function ResultsPage() {
   const resultStates = electionOutcome.contestedStates;
   const resultStateIds = useMemo(() => new Set(resultStates.map((state) => state.id)), [resultStates]);
   const seatScope = electionOutcome.seatScope;
-  const seatTypeLabel = isPrn ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT");
-  const chamberLabel = isPrn ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT");
-  const governmentLabel = isPrn ? t(lang, "KERAJAAN NEGERI DIBENTUK", "STATE GOVERNMENT FORMED") : t(lang, "KERAJAAN DIBENTUK", "GOVERNMENT FORMED");
-  const hungLabel = isPrn ? t(lang, "DEWAN NEGERI TERGANTUNG", "HUNG STATE ASSEMBLY") : t(lang, "PARLIMEN TERGANTUNG", "HUNG PARLIAMENT");
+  const seatTypeLabel = isPrn ? "DUN" : t(lang, "results_page.parliament");
+  const chamberLabel = isPrn ? "DUN" : t(lang, "results_page.parliament");
+  const governmentLabel = isPrn ? t(lang, "results_page.stateGovernmentFormed") : t(lang, "results_page.governmentFormed");
+  const hungLabel = isPrn ? t(lang, "results_page.hungStateAssembly") : t(lang, "results_page.hungParliament");
   const resultScopeLabel = dailyChallengeDate
-    ? t(lang, `CABARAN HARIAN · ${dailyChallengeDate}`, `DAILY CHALLENGE · ${dailyChallengeDate}`)
-    : isPrn ? `PRN ${resultStates[0]?.name ?? "NEGERI"}` : t(lang, "PRU16 NASIONAL", "GE16 NATIONAL");
-  const stateResultsTitle = isPrn ? t(lang, "KEPUTUSAN NEGERI PRN · BUTIRAN DUN", "PRN STATE RESULT · DUN DETAILS") : t(lang, "KEPUTUSAN NEGERI · KLIK NEGERI UNTUK BUTIRAN KERUSI", "STATE RESULTS · CLICK STATE FOR SEAT DETAILS");
+    ? t(lang, "results_page.dailyChallenge", { dailyChallengeDate: dailyChallengeDate })
+    : isPrn ? `PRN ${resultStates[0]?.name ?? "NEGERI"}` : t(lang, "results_page.ge16National");
+  const stateResultsTitle = isPrn ? t(lang, "results_page.prnStateResultDunDetails") : t(lang, "results_page.stateResultsClickStateForSeat");
   const detailTitle = isPrn ? "DETAIL KAWASAN DUN" : "DETAIL KAWASAN PARLIMEN";
-  const supportLabel = isPrn ? t(lang, "SOKONGAN NEGERI", "STATE SUPPORT") : t(lang, "SOKONGAN KEBANGSAAN", "NATIONAL SUPPORT");
-  const statesWonLabel = isPrn ? t(lang, "NEGERI PRN DIMENANGI", "PRN STATE WON") : t(lang, "NEGERI DIMENANGI", "STATES WON");
-  const statesLostLabel = isPrn ? t(lang, "NEGERI PRN HILANG", "PRN STATE LOST") : t(lang, "NEGERI HILANG", "STATES LOST");
-  const majorityText = isPrn ? t(lang, "majoriti dewan negeri", "state assembly majority") : t(lang, "majoriti parlimen", "parliamentary majority");
+  const supportLabel = isPrn ? t(lang, "results_page.stateSupport") : t(lang, "results_page.nationalSupport");
+  const statesWonLabel = isPrn ? t(lang, "results_page.prnStateWon") : t(lang, "results_page.statesWon");
+  const statesLostLabel = isPrn ? t(lang, "results_page.prnStateLost") : t(lang, "results_page.statesLost");
+  const majorityText = isPrn ? t(lang, "results_page.stateAssemblyMajority") : t(lang, "results_page.parliamentaryMajority");
   const totalSeats = electionOutcome.totalSeats;
   const majorityTarget = electionOutcome.majorityTarget;
   const allSeatDetailsByState = useMemo(() => {
@@ -226,21 +220,17 @@ export default function ResultsPage() {
   const verdictConfig = VERDICT_CONFIG[verdict];
   const cfg = {
     ...verdictConfig,
-    label: verdict === "WIN" ? governmentLabel : verdict === "KINGMAKER" ? hungLabel : t(lang, verdictConfig.labelMS, verdictConfig.labelEN),
-    badge: verdict === "WIN" ? t(lang, isPrn ? "KERAJAAN NEGERI MAJORITI" : "KERAJAAN MAJORITI", isPrn ? "MAJORITY STATE GOVERNMENT" : "MAJORITY GOVERNMENT") : t(lang, verdictConfig.badgeMS, verdictConfig.badgeEN),
+    label: verdict === "WIN" ? governmentLabel : verdict === "KINGMAKER" ? hungLabel : t(lang, verdictConfig.labelKey),
+    badge: verdict === "WIN" ? t(lang, isPrn ? "results_page.verdictBadgeStateMajority" : "results_page.verdictBadgeWIN") : t(lang, verdictConfig.badgeKey),
   };
   const selectedState = resultStates.find((state) => state.id === selectedStateId) ?? resultStates[0];
   const selectedSeatDetails = selectedState ? allSeatDetailsByState[selectedState.id] ?? [] : [];
   const selectedSeatSummary = selectedState ? stateSeatSummaries[selectedState.id] ?? { wins: 0, losses: 0, others: 0, avgTurnout: 0, totalVotes: 0 } : { wins: 0, losses: 0, others: 0, avgTurnout: 0, totalVotes: 0 };
   const verdictSub = verdict === "WIN"
-    ? t(lang, `${partyDisplay} telah memperoleh ${majorityText}.`, `${partyDisplay} has secured a ${majorityText}.`)
+    ? t(lang, "results_page.hasSecuredA", { partyDisplay: partyDisplay, majorityText: majorityText })
     : verdict === "KINGMAKER"
-      ? t(lang,
-          `Tiada mana-mana parti memperoleh majoriti ${isPrn ? "Dewan Negeri" : "Parlimen"}. ${partyDisplay} memasuki rundingan gabungan.`,
-          `No single party holds a ${isPrn ? "DUN" : "Parliament"} majority. ${partyDisplay} enters coalition negotiations.`)
-      : t(lang,
-          `${partyDisplay} tamat di pihak pembangkang. LAWAN akan membentuk kerajaan ${isPrn ? "negeri" : "persekutuan"} seterusnya.`,
-          `${partyDisplay} finished in opposition. LAWAN will form the next ${isPrn ? "state" : "federal"} government.`);
+      ? t(lang, "results_page.noSinglePartyHoldsAMajority", { isPrn: isPrn ? "Dewan Negeri" : "Parlimen", partyDisplay: partyDisplay, isPrn2: isPrn ? "DUN" : "Parliament" })
+      : t(lang, "results_page.finishedInOppositionLawanWillForm", { partyDisplay: partyDisplay, isPrn: isPrn ? "negeri" : "persekutuan", isPrn2: isPrn ? "state" : "federal" });
 
   const nationalSupport = electionOutcome.nationalSupport;
 
@@ -278,8 +268,8 @@ export default function ResultsPage() {
       topState: sortedBySupport[0]?.name ?? "-",
       worstState: sortedBySupport.at(-1)?.name ?? "-",
       notes: verdict === "WIN"
-        ? t(lang, `${leader.partyAbbr} membentuk kerajaan ${isPrn ? "negeri" : "persekutuan"} dengan ${mandatSeats} kerusi.`, `${leader.partyAbbr} formed ${isPrn ? "state" : "federal"} government with ${mandatSeats} seats.`)
-        : t(lang, `${leader.partyAbbr} tamat kurang daripada majoriti dengan ${mandatSeats} kerusi.`, `${leader.partyAbbr} finished short of majority with ${mandatSeats} seats.`),
+        ? t(lang, "results_page.formedGovernmentWithSeats", { leaderPartyAbbr: leader.partyAbbr, isPrn: isPrn ? "negeri" : "persekutuan", mandatSeats: mandatSeats, isPrn2: isPrn ? "state" : "federal" })
+        : t(lang, "results_page.finishedShortOfMajorityWithSeats", { leaderPartyAbbr: leader.partyAbbr, mandatSeats: mandatSeats }),
     });
     // Snapshot the active language at record time; re-running on lang change
     // would just rewrite an already-saved history record.
@@ -297,13 +287,13 @@ export default function ResultsPage() {
   const klWon = !isPrn && states.find((s) => s.id === "wp")?.status !== "losing";
   const selangorWon = !isPrn && states.find((s) => s.id === "selangor")?.status === "winning";
 
-  const achievements: { labelMS: string; labelEN: string; achieved: boolean }[] = [
-    { labelMS: isPrn ? "KERAJAAN NEGERI" : "KERAJAAN MAJORITI", labelEN: isPrn ? "STATE GOVERNMENT" : "MAJORITY GOVERNMENT", achieved: mandatSeats >= majorityTarget },
-    { labelMS: "BORNEO DIKUASAI", labelEN: "BORNEO SECURED", achieved: !!borneoWon },
-    { labelMS: "LEMBAH KLANG DIKEKALKAN", labelEN: "KLANG VALLEY HELD", achieved: !!klWon && !!selangorWon },
-    { labelMS: "SOKONGAN MELEBIHI 50%", labelEN: "ABOVE 50% SUPPORT", achieved: nationalSupport >= 50 },
-    { labelMS: "DISIPLIN FISKAL", labelEN: "FISCAL DISCIPLINE", achieved: resources.funds > 500_000 },
-    { labelMS: isPrn ? "KEMPEN PRN SELESAI" : "KEMPEN PENUH SELESAI", labelEN: isPrn ? "PRN CAMPAIGN COMPLETE" : "FULL CAMPAIGN COMPLETE", achieved: day >= totalDays },
+  const achievements: { labelKey: string; achieved: boolean }[] = [
+    { labelKey: isPrn ? "results_page.achievementStateGovernment" : "results_page.achievementMajorityGovernment", achieved: mandatSeats >= majorityTarget },
+    { labelKey: "results_page.achievementBorneoSecured", achieved: !!borneoWon },
+    { labelKey: "results_page.achievementKlangValleyHeld", achieved: !!klWon && !!selangorWon },
+    { labelKey: "results_page.achievementAbove50Support", achieved: nationalSupport >= 50 },
+    { labelKey: "results_page.achievementFiscalDiscipline", achieved: resources.funds > 500_000 },
+    { labelKey: isPrn ? "results_page.achievementPrnCampaignComplete" : "results_page.achievementFullCampaignComplete", achieved: day >= totalDays },
   ];
 
   function handleRestart() {
@@ -349,16 +339,16 @@ export default function ResultsPage() {
         {/* Page title */}
         <div className="flex items-center justify-between mb-5 mt-2">
           <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {isPrn ? t(lang, "MALAM KEPUTUSAN PRN — KIRAAN DUN DEMI DUN", "PRN RESULTS NIGHT — DUN-BY-DUN COUNT") : t(lang, "MALAM KEPUTUSAN — KIRAAN KERUSI DEMI KERUSI", "RESULTS NIGHT — SEAT-BY-SEAT COUNT")}</div>
+            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {isPrn ? t(lang, "results_page.prnResultsNightDunByDun") : t(lang, "results_page.resultsNightSeatBySeatCount")}</div>
             <h1
               className="text-2xl font-bold tracking-widest"
               style={{ fontFamily: "Space Mono, monospace", color: "var(--text-primary)" }}
             >
-              {t(lang, "KEPUTUSAN RASMI", "OFFICIAL RESULTS")}
+              {t(lang, "results_page.officialResults")}
             </h1>
           </div>
           <div className="text-right">
-            <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "PEMIMPIN KEMPEN", "CAMPAIGN LEADER")}</div>
+            <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "results_page.campaignLeader")}</div>
             <div className="text-sm font-bold text-white tracking-widest mt-0.5">{leader.name}</div>
             <div className="text-[12px] text-gold tracking-wider">{leader.position} · {leader.partyAbbr}</div>
           </div>
@@ -405,7 +395,7 @@ export default function ResultsPage() {
                 className="text-[11px] font-bold tracking-widest px-3 py-1.5 uppercase"
                 style={{ border: "1px solid rgb(var(--gold-rgb) / 0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / 0.08)" }}
               >
-                {t(lang, "↗ KONGSI KEPUTUSAN", "↗ SHARE RESULT")}
+                {t(lang, "results_page.shareResult")}
               </button>
             </div>
           </div>
@@ -414,9 +404,9 @@ export default function ResultsPage() {
         {/* Seat counts + bar */}
         <div className="grid grid-cols-3 gap-4 mb-4">
           {[
-            { party: partyDisplay, seats: mandatSeats, color: leader.partyColor, target: t(lang, `/ ${majorityTarget} SASARAN`, `/ ${majorityTarget} TARGET`) },
-            { party: "LAWAN", seats: lawanSeats, color: "var(--warn-orange)", target: t(lang, "kerusi", "seats") },
-            { party: t(lang, "LAIN-LAIN", "OTHERS"), seats: othersSeats, color: "var(--text-muted)", target: t(lang, "kerusi", "seats") },
+            { party: partyDisplay, seats: mandatSeats, color: leader.partyColor, target: t(lang, "results_page.target", { majorityTarget: majorityTarget }) },
+            { party: "LAWAN", seats: lawanSeats, color: "var(--warn-orange)", target: t(lang, "results_page.seats") },
+            { party: t(lang, "results_page.others"), seats: othersSeats, color: "var(--text-muted)", target: t(lang, "results_page.seats") },
           ].map(({ party, seats, color, target }) => (
             <TacticalPanel key={party}>
               <div className="flex flex-col items-center py-3">
@@ -432,7 +422,7 @@ export default function ResultsPage() {
           ))}
         </div>
 
-        <TacticalPanel title={t(lang, `PENGAGIHAN KERUSI ${chamberLabel} — ${totalSeats} KERUSI ${seatTypeLabel}`, `${chamberLabel} SEAT DISTRIBUTION — ${totalSeats} ${seatTypeLabel} SEATS`)} className="mb-4">
+        <TacticalPanel title={t(lang, "results_page.seatDistributionSeats", { chamberLabel: chamberLabel, totalSeats: totalSeats, seatTypeLabel: seatTypeLabel })} className="mb-4">
           <div className="mt-2">
             <SeatBar mandat={mandatSeats} lawan={lawanSeats} others={othersSeats} partyName={partyDisplay} partyColor={leader.partyColor} animPhase={animPhase} totalSeats={totalSeats} majorityTarget={majorityTarget} lang={lang} />
           </div>
@@ -446,7 +436,7 @@ export default function ResultsPage() {
               <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-                    {(isPrn ? ["NEGERI", "DUN", t(lang, "SOKONGAN", "SUPPORT"), t(lang, "KEPUTUSAN", "RESULT")] : [t(lang, "NEGERI", "STATE"), t(lang, "KERUSI", "SEATS"), t(lang, "SOKONGAN", "SUPPORT"), t(lang, "KEPUTUSAN", "RESULT")]).map((h) => (
+                    {(isPrn ? ["NEGERI", "DUN", t(lang, "results_page.support"), t(lang, "results_page.result")] : [t(lang, "results_page.state"), t(lang, "results_page.seats2"), t(lang, "results_page.support"), t(lang, "results_page.result")]).map((h) => (
                       <th key={h} className="text-left py-2 px-3 text-text-muted font-normal text-[11px] tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -460,7 +450,7 @@ export default function ResultsPage() {
                         ? "LOSS"
                         : "FIGHT";
                     const resColor = stateWinner === "WIN" ? "var(--cyan)" : stateWinner === "LOSS" ? "var(--neon-red)" : "var(--gold)";
-                    const resLabel = t(lang, stateWinner === "WIN" ? "MENANG" : stateWinner === "LOSS" ? "KALAH" : "BERTANDING", stateWinner);
+                    const resLabel = t(lang, stateWinner === "WIN" ? "results_page.win" : stateWinner === "LOSS" ? "results_page.loss" : "results_page.stateWinnerFight");
                     const isSelected = selectedState?.id === s.id;
                     return (
                       <motion.tr
@@ -520,10 +510,10 @@ export default function ResultsPage() {
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {[
-                    { label: t(lang, "MENANG", "WIN"), value: selectedSeatSummary.wins, color: "var(--cyan)" },
-                    { label: t(lang, "KALAH", "LOSS"), value: selectedSeatSummary.losses, color: "var(--warn-orange)" },
-                    { label: t(lang, "LAIN", "OTH"), value: selectedSeatSummary.others, color: "var(--text-muted)" },
-                    { label: t(lang, "KELUAR MENGUNDI", "TURNOUT"), value: formatPercent(selectedSeatSummary.avgTurnout), color: "var(--neon-green)" },
+                    { label: t(lang, "results_page.win"), value: selectedSeatSummary.wins, color: "var(--cyan)" },
+                    { label: t(lang, "results_page.loss"), value: selectedSeatSummary.losses, color: "var(--warn-orange)" },
+                    { label: t(lang, "results_page.oth"), value: selectedSeatSummary.others, color: "var(--text-muted)" },
+                    { label: t(lang, "results_page.turnout"), value: formatPercent(selectedSeatSummary.avgTurnout), color: "var(--neon-green)" },
                   ].map((item) => (
                     <div key={item.label} className="px-2 py-1" style={{ border: `1px solid ${item.color}33`, background: `${item.color}0f` }}>
                       <div className="text-[10px] text-text-muted tracking-wider">{item.label}</div>
@@ -536,7 +526,7 @@ export default function ResultsPage() {
                 <table className="w-full text-[11px]" style={{ fontFamily: "Space Mono, monospace" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-                      {["KAWASAN", t(lang, "KEPUTUSAN", "RESULT"), "MAJORITI", t(lang, "KELUAR MENGUNDI", "TURNOUT"), partyDisplay, "LAWAN", t(lang, "LAIN", "OTH")].map((h) => (
+                      {["KAWASAN", t(lang, "results_page.result"), "MAJORITI", t(lang, "results_page.turnout"), partyDisplay, "LAWAN", t(lang, "results_page.oth")].map((h) => (
                         <th key={h} className="text-left py-2 pr-2 text-text-muted font-normal text-[10px] tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -548,11 +538,11 @@ export default function ResultsPage() {
                         <tr key={seat.constituency.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                           <td className="py-2 pr-2 text-white font-bold">
                             <div>{seat.constituency.name}</div>
-                            <div className="text-[9px] text-text-muted">{seat.constituency.code} · {formatNumber(seat.registeredVoters)} {t(lang, "PENGUNDI", "VOTERS")}</div>
+                            <div className="text-[9px] text-text-muted">{seat.constituency.code} · {formatNumber(seat.registeredVoters)} {t(lang, "results_page.voters")}</div>
                           </td>
                           <td className="py-2 pr-2">
                             <span className="px-1.5 py-0.5 font-bold" style={{ color, border: `1px solid ${color}44`, background: `${color}16` }}>{resultLabel(lang, seat.result)}</span>
-                            <div className="text-[9px] text-text-muted mt-1">{seat.winnerLabel} {t(lang, "lwn", "vs")} {seat.runnerUpLabel}</div>
+                            <div className="text-[9px] text-text-muted mt-1">{seat.winnerLabel} {t(lang, "results_page.vs")} {seat.runnerUpLabel}</div>
                           </td>
                           <td className="py-2 pr-2 text-white">
                             <div>{formatNumber(seat.majorityVotes)}</div>
@@ -560,7 +550,7 @@ export default function ResultsPage() {
                           </td>
                           <td className="py-2 pr-2" style={{ color: seat.turnoutPct >= 75 ? "var(--neon-green)" : "var(--gold)" }}>
                             <div>{formatPercent(seat.turnoutPct)}</div>
-                            <div className="text-[9px] text-text-muted">{t(lang, `${formatNumber(seat.votesCast)} undi`, `${formatNumber(seat.votesCast)} votes`)}</div>
+                            <div className="text-[9px] text-text-muted">{t(lang, "results_page.votes", { formatNumberSeatVotesCast: formatNumber(seat.votesCast) })}</div>
                           </td>
                           <td className="py-2 pr-2" style={{ color: leader.partyColor }}>{formatPercent(seat.constituency.mandat)}</td>
                           <td className="py-2 pr-2" style={{ color: "var(--warn-orange)" }}>{formatPercent(seat.constituency.lawan)}</td>
@@ -572,24 +562,24 @@ export default function ResultsPage() {
                 </table>
               </div>
               <div className="mt-2 text-[10px] text-text-muted tracking-wider">
-                {t(lang, "JUMLAH UNDI SAH TERPILIH", "TOTAL VALID VOTES COUNTED")}: {formatNumber(selectedSeatSummary.totalVotes)} · {isPrn ? t(lang, "fokus PRN negeri terpilih.", "focused on the selected PRN state.") : t(lang, "klik negeri lain untuk tukar detail kawasan.", "click another state to switch constituency detail.")}
+                {t(lang, "results_page.totalValidVotesCounted")}: {formatNumber(selectedSeatSummary.totalVotes)} · {isPrn ? t(lang, "results_page.focusedOnTheSelectedPrnState") : t(lang, "results_page.clickAnotherStateToSwitchConstituency")}
               </div>
             </div>
           </TacticalPanel>
 
           {/* Campaign Stats + Achievements */}
           <div className="flex flex-col gap-4">
-            <TacticalPanel title={isPrn ? t(lang, "STATISTIK KEMPEN PRN", "PRN CAMPAIGN STATISTICS") : t(lang, "STATISTIK KEMPEN", "CAMPAIGN STATISTICS")}>
+            <TacticalPanel title={isPrn ? t(lang, "results_page.prnCampaignStatistics") : t(lang, "results_page.campaignStatistics")}>
               <div className="space-y-3 mt-1">
                 {[
                   { label: supportLabel, value: <CountUpNumber value={nationalSupport} duration={1200} format={(n) => `${n}%`} />, color: nationalSupport >= 50 ? "var(--neon-green)" : "var(--gold)" },
-                  { label: t(lang, "HARI BERKEMPEN", "DAYS CAMPAIGNED"), value: `${day} / ${totalDays}`, color: "var(--text-primary)" },
+                  { label: t(lang, "results_page.daysCampaigned"), value: `${day} / ${totalDays}`, color: "var(--text-primary)" },
                   { label: statesWonLabel, value: isPrn ? `${statesWon} / 1` : `${statesWon} / 14`, color: "var(--cyan)" },
-                  { label: t(lang, "NEGERI DIPERTANDINGKAN", "STATES CONTESTED"), value: `${statesContested}`, color: "var(--gold)" },
+                  { label: t(lang, "results_page.statesContested"), value: `${statesContested}`, color: "var(--gold)" },
                   { label: statesLostLabel, value: `${statesLost}`, color: "var(--neon-red)" },
-                  { label: t(lang, "DANA DIBELANJA", "FUNDS SPENT"), value: `RM ${(fundsSpent / 1_000_000).toFixed(2)}M`, color: "var(--text-muted)" },
-                  { label: t(lang, "DANA BERBAKI", "FUNDS REMAINING"), value: `RM ${(resources.funds / 1_000_000).toFixed(2)}M`, color: "var(--gold)" },
-                  { label: t(lang, "KEKUATAN LAPANGAN", "GROUND STRENGTH"), value: t(lang, `${resources.manpower} PEKERJA`, `${resources.manpower} WORKERS`), color: "var(--text-primary)" },
+                  { label: t(lang, "results_page.fundsSpent"), value: `RM ${(fundsSpent / 1_000_000).toFixed(2)}M`, color: "var(--text-muted)" },
+                  { label: t(lang, "results_page.fundsRemaining"), value: `RM ${(resources.funds / 1_000_000).toFixed(2)}M`, color: "var(--gold)" },
+                  { label: t(lang, "results_page.groundStrength"), value: t(lang, "results_page.workers", { resourcesManpower: resources.manpower }), color: "var(--text-primary)" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "6px" }}>
                     <span className="text-[12px] text-text-muted tracking-wider">{label}</span>
@@ -599,10 +589,10 @@ export default function ResultsPage() {
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, "PENCAPAIAN", "ACHIEVEMENTS")}>
+            <TacticalPanel title={t(lang, "results_page.achievements")}>
               <div className="space-y-2 mt-1">
-                {achievements.map(({ labelMS, labelEN, achieved }) => (
-                  <div key={labelEN} className="flex items-center gap-2.5">
+                {achievements.map(({ labelKey, achieved }) => (
+                  <div key={labelKey} className="flex items-center gap-2.5">
                     <div
                       className="w-4 h-4 shrink-0 flex items-center justify-center text-[12px] font-bold"
                       style={{
@@ -617,7 +607,7 @@ export default function ResultsPage() {
                       className="text-[12px] tracking-wider"
                       style={{ color: achieved ? "#ffffff" : "#4a5568" }}
                     >
-                      {t(lang, labelMS, labelEN)}
+                      {t(lang, labelKey)}
                     </span>
                   </div>
                 ))}
@@ -639,7 +629,7 @@ export default function ResultsPage() {
               fontFamily: "Space Mono, monospace",
             }}
           >
-            {isPending ? t(lang, "⟳ MEMUATKAN...", "⟳ LOADING...") : t(lang, "KEMBALI KE MENU", "RETURN TO MENU")}
+            {isPending ? t(lang, "results_page.loading") : t(lang, "results_page.returnToMenu")}
           </button>
           <button
             onClick={() => navigate(wonOwnSeat ? "/elected" : "/mandate")}
@@ -653,7 +643,7 @@ export default function ResultsPage() {
               boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
             }}
           >
-            {isPending ? t(lang, "⟳ MEMUATKAN...", "⟳ LOADING...") : "♛ SAHKAN MANDAT"}
+            {isPending ? t(lang, "results_page.loading") : "♛ SAHKAN MANDAT"}
           </button>
           <button
             onClick={handleNewCampaign}
@@ -667,12 +657,12 @@ export default function ResultsPage() {
               boxShadow: "0 0 16px rgb(var(--cyan-rgb) / 0.15)",
             }}
           >
-            {isPending ? t(lang, "⟳ MEMUATKAN...", "⟳ LOADING...") : t(lang, "» KEMPEN BAHARU", "» NEW CAMPAIGN")}
+            {isPending ? t(lang, "results_page.loading") : t(lang, "results_page.newCampaign")}
           </button>
         </div>
       </main>
 
-      <StatusBar leftText={t(lang, `${isPrn ? "PRN SELESAI" : "PILIHAN RAYA SELESAI"} · ${resultScopeLabel} · HARI ${day}/${totalDays}`, `${isPrn ? "PRN COMPLETE" : "ELECTION COMPLETE"} · ${resultScopeLabel} · DAY ${day}/${totalDays}`)} rightText={`${partyDisplay} ${mandatSeats}/${totalSeats} ${seatTypeLabel} · ${t(lang, verdict === "WIN" ? "MENANG" : verdict === "KINGMAKER" ? "PENENTU" : "KALAH", verdict)}`} />
+      <StatusBar leftText={t(lang, "results_page.day", { isPrn: isPrn ? "PRN SELESAI" : "PILIHAN RAYA SELESAI", resultScopeLabel: resultScopeLabel, day: day, totalDays: totalDays, isPrn2: isPrn ? "PRN COMPLETE" : "ELECTION COMPLETE" })} rightText={`${partyDisplay} ${mandatSeats}/${totalSeats} ${seatTypeLabel} · ${t(lang, verdict === "WIN" ? "results_page.win" : verdict === "KINGMAKER" ? "results_page.verdictKingmaker" : "results_page.loss")}`} />
 
       {showShare && (
         <ShareResultModal

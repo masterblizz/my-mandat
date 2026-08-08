@@ -33,32 +33,30 @@ export default function SwearingInPage() {
       <main className="pt-[56px] pb-[58px] px-6 w-full">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "ISTIADAT ANGKAT SUMPAH", "SWEARING-IN CEREMONY")}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, `${terms.executiveBody} RASMI`, `OFFICIAL ${terms.executiveBody}`)}</h1>
-            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{leader.partyAbbr} · {outcome.seatsWon} {t(lang, `kerusi ${terms.seatLabel}`, `${terms.seatLabel} seats`)} · {terms.governmentName}</div>
+            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "swearing_in_page.swearingInCeremony")}</div>
+            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "swearing_in_page.official", { termsExecutiveBody: terms.executiveBody })}</h1>
+            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{leader.partyAbbr} · {outcome.seatsWon} {t(lang, "swearing_in_page.seats", { termsSeatLabel: terms.seatLabel })} · {terms.governmentName}</div>
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/cabinet")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {terms.executiveBody}</button>
-            <button onClick={() => navigate("/government")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.10)" }}>{isPending ? t(lang, "MEMUATKAN...", "LOADING...") : t(lang, "MULA 100 HARI PERTAMA", "START FIRST 100 DAYS")}</button>
+            <button onClick={() => navigate("/government")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.10)" }}>{isPending ? t(lang, "swearing_in_page.loading") : t(lang, "swearing_in_page.startFirst100Days")}</button>
           </div>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <TacticalPanel title={t(lang, "PENGUMUMAN RASMI", "OFFICIAL ANNOUNCEMENT")}>
+          <TacticalPanel title={t(lang, "swearing_in_page.officialAnnouncement")}>
             <div className="text-[11px] font-bold tracking-[0.24em] text-text-muted">{terms.appointingAuthority}</div>
-            <div className="mt-3 text-3xl font-black leading-tight" style={{ color: "var(--gold)" }}>{t(lang, `${terms.governmentName} DIPERKENANKAN`, `${terms.governmentName} APPROVED`)}</div>
+            <div className="mt-3 text-3xl font-black leading-tight" style={{ color: "var(--gold)" }}>{t(lang, "swearing_in_page.approved", { termsGovernmentName: terms.governmentName })}</div>
             <div className="mt-4 text-[13px] leading-relaxed text-text-muted">
-              {t(lang,
-                `${terms.headTitle} ${leader.name} dan barisan ${terms.executiveBody} pertama telah mengangkat sumpah. War Room pilihan raya ditutup. Cabaran sebenar kini bermula: menunaikan janji, mengurus krisis dan mempertahankan mandat rakyat.`,
-                `${terms.headTitle} ${leader.name} and the first ${terms.executiveBody} line-up have been sworn in. The election War Room is closed. The real challenge begins: deliver promises, manage crises and defend the people's mandate.`)}
+              {t(lang, "swearing_in_page.andTheFirstLineUpHave", { termsHeadTitle: terms.headTitle, leaderName: leader.name, termsExecutiveBody: terms.executiveBody })}
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, "REAKSI AWAM", "PUBLIC REACTION")}</div><div className="text-2xl font-black" style={{ color: "var(--neon-green)" }}>{t(lang, "POSITIF", "POSITIVE")}</div></div>
-              <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, `SKOR ${terms.executiveBody}`, `${terms.executiveBody} SCORE`)}</div><div className="text-2xl font-black" style={{ color: "var(--cyan)" }}>{cabinetScore}</div></div>
+              <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, "swearing_in_page.publicReaction")}</div><div className="text-2xl font-black" style={{ color: "var(--neon-green)" }}>{t(lang, "swearing_in_page.positive")}</div></div>
+              <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, "swearing_in_page.score", { termsExecutiveBody: terms.executiveBody })}</div><div className="text-2xl font-black" style={{ color: "var(--cyan)" }}>{cabinetScore}</div></div>
             </div>
           </TacticalPanel>
 
-          <TacticalPanel title={t(lang, "BARISAN UTAMA", "KEY LINEUP")}>
+          <TacticalPanel title={t(lang, "swearing_in_page.keyLineup")}>
             <div className="grid gap-3 md:grid-cols-3">
               {keyMinisters.map(({ post, member }) => (
                 <div key={post!.id} className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "rgba(3,8,15,0.74)" }}>
@@ -69,13 +67,13 @@ export default function SwearingInPage() {
               ))}
             </div>
             <div className="mt-5 border px-4 py-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.26)", background: "rgb(var(--gold-rgb)/0.06)" }}>
-              <div className="text-[11px] font-black tracking-[0.22em]" style={{ color: "var(--gold)" }}>{t(lang, "NEXT STORY BEAT", "NEXT STORY BEAT")}</div>
-              <div className="mt-1 text-[12px] text-text-muted">{t(lang, "Masuk ke pemerintahan 100 hari pertama: pilih dasar, kawal koalisi dan jawab krisis awal kerajaan.", "Enter the first 100 days: choose policy, manage coalition and respond to early government crises.")}</div>
+              <div className="text-[11px] font-black tracking-[0.22em]" style={{ color: "var(--gold)" }}>{t(lang, "swearing_in_page.nextStoryBeat")}</div>
+              <div className="mt-1 text-[12px] text-text-muted">{t(lang, "swearing_in_page.enterTheFirst100DaysChoose")}</div>
             </div>
           </TacticalPanel>
         </div>
       </main>
-      <StatusBar leftText={t(lang, `${terms.executiveBody} ANGKAT SUMPAH`, `${terms.executiveBody} SWORN IN`)} rightText={t(lang, `${leader.partyAbbr} · 100 Hari Pertama Sedia`, `${leader.partyAbbr} · First 100 Days Ready`)} />
+      <StatusBar leftText={t(lang, "swearing_in_page.swornIn", { termsExecutiveBody: terms.executiveBody })} rightText={t(lang, "swearing_in_page.first100DaysReady", { leaderPartyAbbr: leader.partyAbbr })} />
     </div>
   );
 }

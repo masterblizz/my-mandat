@@ -24,30 +24,10 @@ type SettingsTab =
 // ─── Difficulty presets ───────────────────────────────────────────────────────
 
 const DIFFICULTY_PRESETS = {
-  easy: {
-    labelMS: "MUDAH", labelEN: "EASY",
-    descriptionMS: "Sumber penuh. Pembangkang lemah. Sesuai untuk belajar.",
-    descriptionEN: "Full resources. Weak opposition. Ideal for learning the ropes.",
-    opposition: 30, media: 25, events: 40, economy: 80,
-  },
-  normal: {
-    labelMS: "NORMAL", labelEN: "NORMAL",
-    descriptionMS: "Kempen seimbang. Persaingan adil. Pembangkang sederhana.",
-    descriptionEN: "Balanced campaign. Fair competition. Moderate opposition.",
-    opposition: 60, media: 50, events: 60, economy: 50,
-  },
-  hard: {
-    labelMS: "SUKAR", labelEN: "HARD",
-    descriptionMS: "Pembangkang kuat. Pemeriksaan media. Sumber terhad.",
-    descriptionEN: "Strong opposition. Media scrutiny. Limited resources.",
-    opposition: 75, media: 70, events: 75, economy: 35,
-  },
-  nightmare: {
-    labelMS: "MIMPI NGERI", labelEN: "NIGHTMARE",
-    descriptionMS: "Kesukaran maksimum. Setiap keputusan kritikal. Tiada ruang ralat.",
-    descriptionEN: "Maximum difficulty. Every decision is critical. No margin for error.",
-    opposition: 95, media: 90, events: 95, economy: 15,
-  },
+  easy: { opposition: 30, media: 25, events: 40, economy: 80 },
+  normal: { opposition: 60, media: 50, events: 60, economy: 50 },
+  hard: { opposition: 75, media: 70, events: 75, economy: 35 },
+  nightmare: { opposition: 95, media: 90, events: 95, economy: 15 },
 } as const;
 
 type DifficultyKey = keyof typeof DIFFICULTY_PRESETS;
@@ -133,39 +113,39 @@ function GameplayTab() {
   return (
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
-        <TacticalPanel title={t(lang, "TETAPAN PERMAINAN", "GAMEPLAY SETTINGS")}>
-          <SettingRow label={t(lang, "TEMPOH KEMPEN", "CAMPAIGN LENGTH")}>
+        <TacticalPanel title={t(lang, "settings_page.gameplaySettings")}>
+          <SettingRow label={t(lang, "settings_page.campaignLength")}>
             <select value={settings.campaignLength} onChange={(e) => updateSettings({ campaignLength: e.target.value as "full" | "short" | "custom" })} style={{ minWidth: "200px" }}>
-              <option value="full">{t(lang, "Kempen Penuh", "Full Campaign")}</option>
-              <option value="short">{t(lang, "Kempen Singkat", "Short Campaign")}</option>
-              <option value="custom">{t(lang, "Tersuai", "Custom")}</option>
+              <option value="full">{t(lang, "settings_page.fullCampaign")}</option>
+              <option value="short">{t(lang, "settings_page.shortCampaign")}</option>
+              <option value="custom">{t(lang, "settings_page.custom")}</option>
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "MOD PILIHAN RAYA", "ELECTION MODE")}>
+          <SettingRow label={t(lang, "settings_page.electionMode")}>
             <div className="flex flex-col gap-2" style={{ minWidth: "260px" }}>
               <select value={settings.electionScope ?? "pru"} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
-                <option value="pru">{t(lang, "PRU — Pilihan Raya Umum", "GE — General Election")}</option>
-                <option value="prn">{t(lang, "PRN — Pilihan Raya Negeri", "State Election")}</option>
+                <option value="pru">{t(lang, "settings_page.geGeneralElection")}</option>
+                <option value="prn">{t(lang, "settings_page.stateElection")}</option>
               </select>
               {(settings.electionScope ?? "pru") === "prn" && (
                 <select value={settings.prnStateId ?? "selangor"} onChange={(e) => updateSettings({ prnStateId: e.target.value })}>
-                  {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "kerusi", "seats")}</option>)}
+                  {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "settings_page.seats")}</option>)}
                 </select>
               )}
             </div>
           </SettingRow>
 
-          <SettingRow label={t(lang, "TAHAP KESUKARAN", "DIFFICULTY")}>
+          <SettingRow label={t(lang, "settings_page.difficulty")}>
             <select value={settings.difficulty} onChange={(e) => updateSettings({ difficulty: e.target.value as DifficultyKey })} style={{ minWidth: "200px" }}>
-              <option value="easy">{t(lang, "Mudah", "Easy")}</option>
-              <option value="normal">{t(lang, "Normal", "Normal")}</option>
-              <option value="hard">{t(lang, "Sukar", "Hard")}</option>
-              <option value="nightmare">{t(lang, "Mimpi Ngeri", "Nightmare")}</option>
+              <option value="easy">{t(lang, "settings_page.easy")}</option>
+              <option value="normal">{t(lang, "settings_page.normal")}</option>
+              <option value="hard">{t(lang, "settings_page.hard")}</option>
+              <option value="nightmare">{t(lang, "settings_page.nightmare")}</option>
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "DANA PERMULAAN", "STARTING FUND")}>
+          <SettingRow label={t(lang, "settings_page.startingFund")}>
             <div className="flex items-center gap-2">
               <button onClick={() => adjustFund(-100000)} style={{ fontFamily: "'Space Mono', monospace", fontSize: "19px", background: "rgb(var(--cyan-rgb) / 0.1)", border: "1px solid rgb(var(--cyan-rgb) / 0.3)", padding: "2px 10px", cursor: "pointer", color: "var(--cyan)" }}>−</button>
               <span className="text-white font-bold tabular-nums" style={{ fontSize: "16px", fontFamily: "'Space Mono', monospace", minWidth: "130px", textAlign: "center" }}>RM {localFund.toLocaleString()}</span>
@@ -175,19 +155,19 @@ function GameplayTab() {
 
           <div className="py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>{t(lang, "KEKUATAN PEMBANGKANG", "OPPOSITION STRENGTH")}</span>
+              <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>{t(lang, "settings_page.oppositionStrength")}</span>
               <span className="text-cyan font-bold tabular-nums" style={{ fontSize: "14px", fontFamily: "'Space Mono', monospace" }}>{settings.oppositionStrength}</span>
             </div>
             <input type="range" min={0} max={100} value={settings.oppositionStrength} onChange={(e) => updateSettings({ oppositionStrength: Number(e.target.value) })} className="w-full" style={{ accentColor: "var(--neon-red)" }} />
           </div>
 
-          <SettingRow label={t(lang, "BERAT SEBELAH MEDIA", "MEDIA BIAS")}>
+          <SettingRow label={t(lang, "settings_page.mediaBias")}>
             <div className="flex" style={{ border: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
               {(["pro", "balanced", "hostile"] as const).map((bias) => {
                 const labels = {
-                  pro:      t(lang, "PRO-MANDAT",   "PRO-MANDAT"),
-                  balanced: t(lang, "SEIMBANG",      "BALANCED"),
-                  hostile:  t(lang, "BERMUSUHAN",    "HOSTILE"),
+                  pro:      t(lang, "settings_page.proMandat"),
+                  balanced: t(lang, "settings_page.balanced"),
+                  hostile:  t(lang, "settings_page.hostile"),
                 };
                 const active = settings.mediaBias === bias;
                 return (
@@ -199,33 +179,33 @@ function GameplayTab() {
             </div>
           </SettingRow>
 
-          <SettingRow label={t(lang, "TINJAUAN REALISTIK", "REALISTIC POLLS")}>
+          <SettingRow label={t(lang, "settings_page.realisticPolls")}>
             <Toggle value={settings.realisticPolls} onChange={(v) => updateSettings({ realisticPolls: v })} />
           </SettingRow>
-          <SettingRow label={t(lang, "RAWAKAN PERISTIWA", "EVENT RANDOMNESS")}>
+          <SettingRow label={t(lang, "settings_page.eventRandomness")}>
             <Toggle value={settings.eventRandomness} onChange={(v) => updateSettings({ eventRandomness: v })} />
           </SettingRow>
-          <SettingRow label={t(lang, "KESAN KEKAL", "PERMANENT CONSEQUENCES")}>
+          <SettingRow label={t(lang, "settings_page.permanentConsequences")}>
             <Toggle value={settings.permanentConsequences} onChange={(v) => updateSettings({ permanentConsequences: v })} />
           </SettingRow>
         </TacticalPanel>
       </div>
 
       <div style={{ width: "280px", flexShrink: 0 }}>
-        <TacticalPanel title={t(lang, "PRATONTON KESUKARAN", "DIFFICULTY PREVIEW")} goldBorder>
+        <TacticalPanel title={t(lang, "settings_page.difficultyPreview")} goldBorder>
           <div className="flex flex-col items-center mb-4">
             <div className="text-gold font-bold uppercase tracking-widest mb-2" style={{ fontSize: "34px", fontFamily: "'Space Mono', monospace" }}>
-              {t(lang, preset.labelMS, preset.labelEN)}
+              {t(lang, `settings_page.preset_${difficulty}_label`)}
             </div>
             <div className="text-text-muted text-center" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", lineHeight: "1.6" }}>
-              {t(lang, preset.descriptionMS, preset.descriptionEN)}
+              {t(lang, `settings_page.preset_${difficulty}_desc`)}
             </div>
           </div>
           <div className="space-y-3 mb-6">
-            <StatBar label={t(lang, "KEKUATAN OPP.", "OPP. STRENGTH")} value={preset.opposition} color="var(--neon-red)" />
-            <StatBar label={t(lang, "CABARAN MEDIA", "MEDIA CHALLENGE")} value={preset.media} color="var(--warn-orange)" />
-            <StatBar label={t(lang, "KEKERAPAN PERISTIWA", "EVENT FREQUENCY")} value={preset.events} color="var(--cyan)" />
-            <StatBar label={t(lang, "KEADAAN EKONOMI", "ECON. CONDITIONS")} value={preset.economy} color="var(--neon-green)" />
+            <StatBar label={t(lang, "settings_page.oppStrength")} value={preset.opposition} color="var(--neon-red)" />
+            <StatBar label={t(lang, "settings_page.mediaChallenge")} value={preset.media} color="var(--warn-orange)" />
+            <StatBar label={t(lang, "settings_page.eventFrequency")} value={preset.events} color="var(--cyan)" />
+            <StatBar label={t(lang, "settings_page.econConditions")} value={preset.economy} color="var(--neon-green)" />
           </div>
           <button
             className="btn-primary w-full"
@@ -236,7 +216,7 @@ function GameplayTab() {
               setTimeout(() => setSaved(false), 1500);
             }}
           >
-            {saved ? t(lang, "✓ TERSIMPAN", "✓ SAVED") : t(lang, "SIMPAN & GUNA", "SAVE & APPLY")}
+            {saved ? t(lang, "settings_page.saved") : t(lang, "settings_page.saveApply")}
           </button>
         </TacticalPanel>
       </div>
@@ -254,21 +234,18 @@ function AudioTab() {
   const { musicEnabled, musicVolume, setMusicEnabled, setMusicVolume } = useUIStore();
 
   return (
-    <TacticalPanel title={t(lang, "TETAPAN AUDIO", "AUDIO SETTINGS")}>
-      <VolumeSlider label={t(lang, "KELANTANGAN UTAMA", "MASTER VOLUME")} value={master} onChange={setMaster} />
-      <VolumeSlider label={t(lang, "KELANTANGAN MUZIK", "MUSIC VOLUME")} value={musicVolume} onChange={setMusicVolume} />
-      <VolumeSlider label={t(lang, "KELANTANGAN SFX", "SFX VOLUME")} value={sfx} onChange={setSfx} />
-      <SettingRow label={t(lang, "MUZIK LATAR", "BACKGROUND MUSIC")}>
+    <TacticalPanel title={t(lang, "settings_page.audioSettings")}>
+      <VolumeSlider label={t(lang, "settings_page.masterVolume")} value={master} onChange={setMaster} />
+      <VolumeSlider label={t(lang, "settings_page.musicVolume")} value={musicVolume} onChange={setMusicVolume} />
+      <VolumeSlider label={t(lang, "settings_page.sfxVolume")} value={sfx} onChange={setSfx} />
+      <SettingRow label={t(lang, "settings_page.backgroundMusic")}>
         <Toggle value={musicEnabled} onChange={setMusicEnabled} />
       </SettingRow>
-      <SettingRow label={t(lang, "KESAN BUNYI UI", "UI SOUND EFFECTS")}>
+      <SettingRow label={t(lang, "settings_page.uiSoundEffects")}>
         <Toggle value={uiSfx} onChange={setUiSfx} />
       </SettingRow>
       <p className="mt-4 text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
-        {t(lang,
-          "Muzik bermula selepas klik/tekan kekunci pertama disebabkan peraturan autoplay pelayar. Gunakan butang MUZIK di bawah kanan atau togol ini untuk matikan pada bila-bila masa.",
-          "Music starts after the first click/keypress due browser autoplay rules. Use the bottom-right MUSIC button or this toggle to turn it off anytime."
-        )}
+        {t(lang, "settings_page.musicStartsAfterTheFirstClick")}
       </p>
     </TacticalPanel>
   );
@@ -284,67 +261,64 @@ function DisplayTab() {
   const [animations, setAnimations] = useState(true);
   const [fps, setFps] = useState("60");
 
-  const themes: { id: "dark" | "light"; labelMS: string; labelEN: string; descMS: string; descEN: string }[] = [
-    { id: "dark",  labelMS: "TAKTIKAL GELAP", labelEN: "DARK TACTICAL", descMS: "Biru tua. Aksen sian & emas. Lalai.", descEN: "Deep navy. Cyan & gold accents. Default." },
-    { id: "light", labelMS: "OPS CERAH",      labelEN: "LIGHT OPS",     descMS: "Mod kerja lapangan cerah. Kontras tinggi.", descEN: "Bright fieldwork mode. High-contrast on light background." },
-  ];
+  const themes: ("dark" | "light")[] = ["dark", "light"];
 
   return (
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
-        <TacticalPanel title={t(lang, "TETAPAN PAPARAN", "DISPLAY SETTINGS")}>
+        <TacticalPanel title={t(lang, "settings_page.displaySettings")}>
           <div className="mb-1">
             <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>
-              {t(lang, "TEMA", "THEME")}
+              {t(lang, "settings_page.theme")}
             </span>
             <div className="flex gap-3 mt-3 mb-4">
               {themes.map((th) => {
-                const active = theme === th.id;
+                const active = theme === th;
                 return (
-                  <button key={th.id} onClick={() => setTheme(th.id)} className="flex-1 text-left p-3 transition-all" style={{ background: active ? "rgb(var(--gold-rgb) / 0.08)" : "var(--panel-dark)", border: active ? "2px solid var(--gold)" : "2px solid rgb(var(--cyan-rgb) / 0.2)", cursor: "pointer", fontFamily: "'Space Mono', monospace" }}>
+                  <button key={th} onClick={() => setTheme(th)} className="flex-1 text-left p-3 transition-all" style={{ background: active ? "rgb(var(--gold-rgb) / 0.08)" : "var(--panel-dark)", border: active ? "2px solid var(--gold)" : "2px solid rgb(var(--cyan-rgb) / 0.2)", cursor: "pointer", fontFamily: "'Space Mono', monospace" }}>
                     <div className="font-bold uppercase mb-1" style={{ fontSize: "12px", color: active ? "var(--gold)" : "var(--text-primary)", letterSpacing: "0.1em" }}>
-                      {active ? "▶ " : ""}{t(lang, th.labelMS, th.labelEN)}
+                      {active ? "▶ " : ""}{t(lang, th === "dark" ? "settings_page.darkTactical" : "settings_page.lightOps")}
                     </div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                      {t(lang, th.descMS, th.descEN)}
+                      {t(lang, `settings_page.themeDesc_${th}`)}
                     </div>
                   </button>
                 );
               })}
             </div>
           </div>
-          <SettingRow label={t(lang, "KESAN IMBASAN GARIS", "SCAN LINE EFFECT")}><Toggle value={scanLine} onChange={setScanLine} /></SettingRow>
-          <SettingRow label={t(lang, "KESAN CAHAYA", "GLOW EFFECTS")}><Toggle value={glow} onChange={setGlow} /></SettingRow>
-          <SettingRow label={t(lang, "ANIMASI", "ANIMATIONS")}><Toggle value={animations} onChange={setAnimations} /></SettingRow>
+          <SettingRow label={t(lang, "settings_page.scanLineEffect")}><Toggle value={scanLine} onChange={setScanLine} /></SettingRow>
+          <SettingRow label={t(lang, "settings_page.glowEffects")}><Toggle value={glow} onChange={setGlow} /></SettingRow>
+          <SettingRow label={t(lang, "settings_page.animations")}><Toggle value={animations} onChange={setAnimations} /></SettingRow>
           <SettingRow label="FPS">
             <select value={fps} onChange={(e) => setFps(e.target.value)} style={{ minWidth: "120px" }}>
               <option value="30">30</option>
               <option value="60">60</option>
-              <option value="unlimited">{t(lang, "Tanpa Had", "Unlimited")}</option>
+              <option value="unlimited">{t(lang, "settings_page.unlimited")}</option>
             </select>
           </SettingRow>
         </TacticalPanel>
       </div>
 
       <div style={{ width: "220px", flexShrink: 0 }}>
-        <TacticalPanel title={t(lang, "PRATONTON TEMA", "THEME PREVIEW")} goldBorder>
+        <TacticalPanel title={t(lang, "settings_page.themePreview")} goldBorder>
           <div className="text-center py-2">
             <div className="font-bold uppercase tracking-widest mb-1" style={{ fontSize: "13px", color: "var(--gold)" }}>
-              {theme === "light" ? t(lang, "OPS CERAH", "LIGHT OPS") : t(lang, "TAKTIKAL GELAP", "DARK TACTICAL")}
+              {theme === "light" ? t(lang, "settings_page.lightOps") : t(lang, "settings_page.darkTactical")}
             </div>
             <div style={{ fontSize: "11px", color: "var(--text-muted)", lineHeight: "1.5" }}>
               {theme === "light"
-                ? t(lang, "Mod siang. Sesuai persekitaran cerah.", "Daylight fieldwork mode. Suited for bright environments.")
-                : t(lang, "Mod pusat arahan. Antara muka taktikal cahaya rendah.", "Command centre mode. Low-light tactical interface.")}
+                ? t(lang, "settings_page.daylightFieldworkModeSuitedForBright")
+                : t(lang, "settings_page.commandCentreModeLowLightTactical")}
             </div>
           </div>
           <div className="mt-3 space-y-2">
-            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--cyan)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "Aksen Sian", "Accent Cyan")}</span></div>
-            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--gold)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "Aksen Emas", "Accent Gold")}</span></div>
-            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--panel)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "Latar Panel", "Panel BG")}</span></div>
+            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--cyan)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "settings_page.accentCyan")}</span></div>
+            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--gold)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "settings_page.accentGold")}</span></div>
+            <div className="flex items-center gap-2"><span className="w-4 h-4 rounded-full shrink-0" style={{ background: "var(--panel)" }} /><span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t(lang, "settings_page.panelBg")}</span></div>
           </div>
           <div className="mt-4 text-center" style={{ fontSize: "11px", color: "var(--neon-green)", letterSpacing: "0.08em" }}>
-            ✓ {t(lang, "DIPAKAI LANGSUNG", "APPLIED LIVE")}
+            ✓ {t(lang, "settings_page.appliedLive")}
           </div>
         </TacticalPanel>
       </div>
@@ -356,25 +330,25 @@ function DisplayTab() {
 
 function ControlsTab() {
   const lang = useLang();
-  const shortcuts: [string, string, string][] = [
-    ["↑ ↓", "NAVIGASI MENU",        "NAVIGATE MENUS"],
-    ["↵",   "PILIH / SAHKAN",       "SELECT / CONFIRM"],
-    ["ESC", "KEMBALI / BATAL",      "BACK / CANCEL"],
-    ["M",   "BUKA PETA",            "OPEN MAP"],
-    ["H",   "MARKAS KEMPEN",        "CAMPAIGN HQ"],
-    ["P",   "DATA TINJAUAN",        "POLLING DATA"],
+  const shortcuts: [string, string][] = [
+    ["↑ ↓", "settings_page.shortcutNavigateMenus"],
+    ["↵",   "settings_page.shortcutSelectConfirm"],
+    ["ESC", "settings_page.shortcutBackCancel"],
+    ["M",   "settings_page.shortcutOpenMap"],
+    ["H",   "settings_page.shortcutCampaignHq"],
+    ["P",   "settings_page.shortcutPollingData"],
   ];
 
   return (
-    <TacticalPanel title={t(lang, "PINTASAN PAPAN KEKUNCI", "KEYBOARD SHORTCUTS")}>
+    <TacticalPanel title={t(lang, "settings_page.keyboardShortcuts")}>
       <div className="space-y-0">
-        {shortcuts.map(([key, ms, en]) => (
+        {shortcuts.map(([key, labelKey]) => (
           <div key={key} className="flex items-center gap-4 py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
             <div className="flex items-center justify-center shrink-0" style={{ minWidth: "56px", padding: "4px 10px", background: "var(--panel-dark)", border: "1px solid rgb(var(--cyan-rgb) / 0.4)", color: "var(--cyan)", fontFamily: "'Space Mono', monospace", fontSize: "16px", fontWeight: "bold", letterSpacing: "0.05em", boxShadow: "0 0 8px rgb(var(--cyan-rgb) / 0.15)" }}>
               {key}
             </div>
             <span className="text-white uppercase tracking-wider" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace" }}>
-              {t(lang, ms, en)}
+              {t(lang, labelKey)}
             </span>
           </div>
         ))}
@@ -393,11 +367,11 @@ function NotificationsTab() {
   const [mediaAlerts, setMediaAlerts] = useState(true);
 
   return (
-    <TacticalPanel title={t(lang, "TETAPAN PEMBERITAHUAN", "NOTIFICATION SETTINGS")}>
-      <SettingRow label={t(lang, "AMARAN PERISTIWA", "EVENT ALERTS")}><Toggle value={eventAlerts} onChange={setEventAlerts} /></SettingRow>
-      <SettingRow label={t(lang, "KEMASKINI TINJAUAN", "POLL UPDATES")}><Toggle value={pollUpdates} onChange={setPollUpdates} /></SettingRow>
-      <SettingRow label={t(lang, "SELESAI OPERASI", "OP COMPLETION")}><Toggle value={opCompletion} onChange={setOpCompletion} /></SettingRow>
-      <SettingRow label={t(lang, "AMARAN MEDIA", "MEDIA ALERTS")}><Toggle value={mediaAlerts} onChange={setMediaAlerts} /></SettingRow>
+    <TacticalPanel title={t(lang, "settings_page.notificationSettings")}>
+      <SettingRow label={t(lang, "settings_page.eventAlerts")}><Toggle value={eventAlerts} onChange={setEventAlerts} /></SettingRow>
+      <SettingRow label={t(lang, "settings_page.pollUpdates")}><Toggle value={pollUpdates} onChange={setPollUpdates} /></SettingRow>
+      <SettingRow label={t(lang, "settings_page.opCompletion")}><Toggle value={opCompletion} onChange={setOpCompletion} /></SettingRow>
+      <SettingRow label={t(lang, "settings_page.mediaAlerts")}><Toggle value={mediaAlerts} onChange={setMediaAlerts} /></SettingRow>
     </TacticalPanel>
   );
 }
@@ -439,12 +413,12 @@ function LanguageTab() {
 function AboutTab() {
   const lang = useLang();
   return (
-    <TacticalPanel title={t(lang, "TENTANG", "ABOUT")}>
+    <TacticalPanel title={t(lang, "settings_page.about")}>
       <div className="space-y-6 py-2">
         <div className="text-center">
           <div className="text-gold font-bold uppercase tracking-widest" style={{ fontSize: "34px", fontFamily: "'Space Mono', monospace", textShadow: "0 0 20px rgb(var(--gold-rgb) / 0.4)" }}>MY MANDAT</div>
           <div className="text-text-muted mt-1" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.15em" }}>
-            {t(lang, "SIMULATOR KEMPEN POLITIK MALAYSIA", "MALAYSIAN POLITICAL CAMPAIGN SIMULATOR")}
+            {t(lang, "settings_page.malaysianPoliticalCampaignSimulator")}
           </div>
           <div className="text-cyan mt-2 font-bold" style={{ fontSize: "16px", fontFamily: "'Space Mono', monospace" }}>v1.0.0</div>
         </div>
@@ -452,14 +426,14 @@ function AboutTab() {
         <div style={{ height: "1px", background: "rgb(var(--cyan-rgb) / 0.2)" }} />
 
         <div>
-          <div className="panel-header mb-3">{t(lang, "TEKNOLOGI", "TECH STACK")}</div>
+          <div className="panel-header mb-3">{t(lang, "settings_page.techStack")}</div>
           <div className="space-y-2">
             {[
-              [t(lang, "RANGKA KERJA", "FRAMEWORK"), "Next.js 14 (App Router)"],
-              [t(lang, "BAHASA",        "LANGUAGE"),  "TypeScript"],
-              [t(lang, "GAYA",          "STYLING"),   "Tailwind CSS + Space Mono"],
-              [t(lang, "KEADAAN",       "STATE"),     "Zustand"],
-              [t(lang, "PLATFORM",      "PLATFORM"),  "Browser / Web"],
+              [t(lang, "settings_page.framework"), "Next.js 14 (App Router)"],
+              [t(lang, "settings_page.language"),  "TypeScript"],
+              [t(lang, "settings_page.styling"),   "Tailwind CSS + Space Mono"],
+              [t(lang, "settings_page.state"),     "Zustand"],
+              [t(lang, "settings_page.platform"),  "Browser / Web"],
             ].map(([label, val]) => (
               <div key={label} className="flex gap-3">
                 <span className="text-text-muted uppercase shrink-0" style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", minWidth: "90px" }}>{label}</span>
@@ -474,7 +448,7 @@ function AboutTab() {
         <div className="text-center text-text-muted" style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", lineHeight: "1.8", letterSpacing: "0.05em" }}>
           <div>BUILT WITH NEXT.JS, TYPESCRIPT, TAILWIND CSS</div>
           <div className="mt-2 text-gold">© 2024 PARTI MANDAT MY</div>
-          <div className="mt-1">{t(lang, "HAK CIPTA TERPELIHARA", "ALL RIGHTS RESERVED")}</div>
+          <div className="mt-1">{t(lang, "settings_page.allRightsReserved")}</div>
         </div>
       </div>
     </TacticalPanel>
@@ -492,13 +466,13 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("GAMEPLAY");
 
   const TAB_LABELS: Record<SettingsTab, string> = {
-    GAMEPLAY:      t(lang, "PERMAINAN",      "GAMEPLAY"),
-    AUDIO:         t(lang, "AUDIO",          "AUDIO"),
-    DISPLAY:       t(lang, "PAPARAN",        "DISPLAY"),
-    CONTROLS:      t(lang, "KAWALAN",        "CONTROLS"),
-    NOTIFICATIONS: t(lang, "PEMBERITAHUAN", "NOTIFICATIONS"),
-    LANGUAGE:      t(lang, "BAHASA",         "LANGUAGE"),
-    ABOUT:         t(lang, "TENTANG",        "ABOUT"),
+    GAMEPLAY:      t(lang, "settings_page.gameplay"),
+    AUDIO:         t(lang, "settings_page.audio"),
+    DISPLAY:       t(lang, "settings_page.display"),
+    CONTROLS:      t(lang, "settings_page.controls"),
+    NOTIFICATIONS: t(lang, "settings_page.notifications"),
+    LANGUAGE:      t(lang, "settings_page.language"),
+    ABOUT:         t(lang, "settings_page.about"),
   };
 
   return (
@@ -507,7 +481,7 @@ export default function SettingsPage() {
 
       <div className="flex items-center px-4" style={{ height: "44px", background: "var(--panel)", borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)", fontFamily: "'Space Mono', monospace" }}>
         <span className="text-gold font-bold uppercase tracking-widest" style={{ fontSize: "13px" }}>
-          {t(lang, "TETAPAN & KONFIGURASI — LARAS. OPTIMA. LAKSANA.", "SETTINGS & CONFIGURATION — CALIBRATE. OPTIMISE. DEPLOY.")}
+          {t(lang, "settings_page.settingsConfigurationCalibrateOptimiseDeploy")}
         </span>
       </div>
 
@@ -534,8 +508,8 @@ export default function SettingsPage() {
       </div>
 
       <StatusBar
-        leftText={t(lang, "TETAPAN · PERMAINAN AKTIF", "SETTINGS · GAMEPLAY ACTIVE")}
-        rightText={t(lang, "↑↓ NAVIGASI · ↵ PILIH · ESC KEMBALI", "↑↓ NAVIGATE · ↵ SELECT · ESC BACK")}
+        leftText={t(lang, "settings_page.settingsGameplayActive")}
+        rightText={t(lang, "settings_page.navigateSelectEscBack")}
       />
     </div>
   );

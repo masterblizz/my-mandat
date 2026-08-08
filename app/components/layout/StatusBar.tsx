@@ -21,8 +21,8 @@ export default function StatusBar({
   const lang = useLang();
   // Defaults (used by callers that render <StatusBar /> with no props) must
   // follow the language setting too, not just caller-supplied text.
-  const resolvedLeftText = leftText ?? t(lang, "» SEDIA · MENUNGGU ARAHAN", "» READY · AWAITING COMMAND");
-  const resolvedRightText = rightText ?? t(lang, "↑↓ NAVIGASI · ↵ PILIH", "↑↓ NAVIGATE · ↵ SELECT");
+  const resolvedLeftText = leftText ?? t(lang, "components_layout_StatusBar.readyAwaitingCommand");
+  const resolvedRightText = rightText ?? t(lang, "components_layout_StatusBar.navigateSelect");
   const reducedMotion = useReducedMotion();
   const scrolling = ticker && !reducedMotion;
   // Scroll duration proportional to headline length, clamped to ~4-6s.

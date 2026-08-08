@@ -14,8 +14,8 @@ interface SeatDonutProps {
 
 export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size = "md", partyName = "MANDAT", partyColor = "var(--cyan)" }: SeatDonutProps) {
   const lang = useLang();
-  const othersLabel = t(lang, "LAIN-LAIN", "OTHERS");
-  const seatsWord = t(lang, "kerusi", "seats");
+  const othersLabel = t(lang, "components_charts_SeatDonut.others");
+  const seatsWord = t(lang, "components_charts_SeatDonut.seats");
   const data = [
     { name: partyName, value: mandat, color: partyColor },
     { name: "PARTI LAWAN", value: lawan, color: "var(--warn-orange)" },
@@ -57,8 +57,8 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
 
       {/* Center overlay text */}
       <div className="-mt-2 text-center">
-        <div className="text-xs text-gold font-bold tracking-widest">{winTarget} {t(lang, "KERUSI", "SEATS")}</div>
-        <div className="text-[11px] text-text-muted tracking-wider">{t(lang, "UNTUK MEMERINTAH", "TO GOVERN")}</div>
+        <div className="text-xs text-gold font-bold tracking-widest">{winTarget} {t(lang, "components_charts_SeatDonut.seats2")}</div>
+        <div className="text-[11px] text-text-muted tracking-wider">{t(lang, "components_charts_SeatDonut.toGovern")}</div>
       </div>
 
       {/* Legend */}

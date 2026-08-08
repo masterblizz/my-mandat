@@ -22,13 +22,13 @@ const TABS: TabId[] = [
   "MEDIA LANDSCAPE",
 ];
 
-const TAB_LABELS: Record<TabId, { ms: string; en: string }> = {
-  "OVERVIEW": { ms: "GAMBARAN KESELURUHAN", en: "OVERVIEW" },
-  "PARLIAMENT SEATS": { ms: "KERUSI PARLIMEN", en: "PARLIAMENT SEATS" },
-  "DEMOGRAPHICS": { ms: "DEMOGRAFI", en: "DEMOGRAPHICS" },
-  "SUPPORT ANALYSIS": { ms: "ANALISIS SOKONGAN", en: "SUPPORT ANALYSIS" },
-  "GROUND REPORT": { ms: "LAPORAN LAPANGAN", en: "GROUND REPORT" },
-  "MEDIA LANDSCAPE": { ms: "LANDSKAP MEDIA", en: "MEDIA LANDSCAPE" },
+const TAB_LABEL_KEYS: Record<TabId, string> = {
+  "OVERVIEW": "state__id__page.tabOverview",
+  "PARLIAMENT SEATS": "state__id__page.tabParliamentSeats",
+  "DEMOGRAPHICS": "state__id__page.tabDemographics",
+  "SUPPORT ANALYSIS": "state__id__page.tabSupportAnalysis",
+  "GROUND REPORT": "state__id__page.tabGroundReport",
+  "MEDIA LANDSCAPE": "state__id__page.tabMediaLandscape",
 };
 
 function generateTrendData(mandatBase: number, lawanBase: number) {
@@ -41,10 +41,10 @@ function generateTrendData(mandatBase: number, lawanBase: number) {
 }
 
 function getWinDesc(lang: Lang, prob: number) {
-  if (prob >= 75) return t(lang, "SANGAT TINGGI", "VERY HIGH");
-  if (prob >= 60) return t(lang, "TINGGI", "HIGH");
-  if (prob >= 40) return t(lang, "SEDERHANA", "MODERATE");
-  return t(lang, "RENDAH", "LOW");
+  if (prob >= 75) return t(lang, "state__id__page.veryHigh");
+  if (prob >= 60) return t(lang, "state__id__page.high");
+  if (prob >= 40) return t(lang, "state__id__page.moderate");
+  return t(lang, "state__id__page.low");
 }
 
 function getWinColor(prob: number) {
@@ -57,8 +57,7 @@ function ConstituencyCard({ c, lang }: { c: Constituency; lang: Lang }) {
   const winnerColor = c.winner === "mandat" ? "var(--cyan)" : c.winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
   const safetyColor = c.safety === "safe" ? "var(--neon-green)" : c.safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
   const safetyLabel = t(lang,
-    c.safety === "safe" ? "SELAMAT" : c.safety === "marginal" ? "MARJ" : "BAHAYA",
-    c.safety === "safe" ? "SAFE" : c.safety === "marginal" ? "MARG" : "DANGER");
+    c.safety === "safe" ? "state__id__page.safetySafe" : c.safety === "marginal" ? "state__id__page.safetyMarginal" : "state__id__page.safetyDanger");
 
   return (
     <div
@@ -98,7 +97,7 @@ function ConstituencyCard({ c, lang }: { c: Constituency; lang: Lang }) {
         </div>
       </div>
       <div className="mt-1.5 text-[10px] text-text-muted tracking-wider">
-        {t(lang, "MARGIN", "MARGIN")}: <span className="font-bold" style={{ color: winnerColor }}>{c.margin}%</span>
+        {t(lang, "state__id__page.margin")}: <span className="font-bold" style={{ color: winnerColor }}>{c.margin}%</span>
       </div>
     </div>
   );
@@ -110,39 +109,39 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
   const negativeSentiment = Math.round(state.lawanSupport * 0.55);
   const neutralSentiment = Math.max(0, 100 - positiveSentiment - negativeSentiment);
 
-  const NEUTRAL = t(lang, "NEUTRAL", "NEUTRAL");
-  const PRO_MANDAT = t(lang, "PRO-MANDAT", "PRO-MANDAT");
-  const CONTESTED = t(lang, "BERTANDING", "CONTESTED");
+  const NEUTRAL = t(lang, "state__id__page.neutral");
+  const PRO_MANDAT = t(lang, "state__id__page.proMandat");
+  const CONTESTED = t(lang, "state__id__page.contested");
 
   const platforms = [
-    { label: t(lang, "TV ARUS PERDANA", "MAINSTREAM TV"), reach: Math.round(55 + state.demographics.urban * 0.2), bias: state.mandatSupport >= 45 ? PRO_MANDAT : NEUTRAL, biasColor: state.mandatSupport >= 45 ? "var(--neon-green)" : "var(--text-muted)" },
-    { label: t(lang, "MEDIA SOSIAL", "SOCIAL MEDIA"), reach: Math.round(40 + state.demographics.youth * 1.2), bias: state.demographics.youth >= 32 ? CONTESTED : NEUTRAL, biasColor: "var(--gold)" },
-    { label: t(lang, "CETAK / DALAM TALIAN", "PRINT / ONLINE"), reach: Math.round(30 + state.demographics.urban * 0.15), bias: t(lang, "BERCAMPUR", "MIXED"), biasColor: "var(--text-muted)" },
-    { label: t(lang, "RADIO", "RADIO"), reach: Math.round(20 + state.demographics.rural * 0.25), bias: state.mandatSupport >= 50 ? PRO_MANDAT : NEUTRAL, biasColor: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--text-muted)" },
+    { label: t(lang, "state__id__page.mainstreamTv"), reach: Math.round(55 + state.demographics.urban * 0.2), bias: state.mandatSupport >= 45 ? PRO_MANDAT : NEUTRAL, biasColor: state.mandatSupport >= 45 ? "var(--neon-green)" : "var(--text-muted)" },
+    { label: t(lang, "state__id__page.socialMedia"), reach: Math.round(40 + state.demographics.youth * 1.2), bias: state.demographics.youth >= 32 ? CONTESTED : NEUTRAL, biasColor: "var(--gold)" },
+    { label: t(lang, "state__id__page.printOnline"), reach: Math.round(30 + state.demographics.urban * 0.15), bias: t(lang, "state__id__page.mixed"), biasColor: "var(--text-muted)" },
+    { label: t(lang, "state__id__page.radio"), reach: Math.round(20 + state.demographics.rural * 0.25), bias: state.mandatSupport >= 50 ? PRO_MANDAT : NEUTRAL, biasColor: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--text-muted)" },
   ];
 
   const keyOutlets = [
-    { name: "UTUSAN MELAYU", slant: t(lang, state.mandatSupport >= 50 ? "MEMIHAK" : "BERMUSUHAN", state.mandatSupport >= 50 ? "FAVOURABLE" : "HOSTILE"), color: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--neon-red)" },
-    { name: "THE STAR", slant: t(lang, state.demographics.chinese >= 30 ? "KRITIKAL" : "NEUTRAL", state.demographics.chinese >= 30 ? "CRITICAL" : "NEUTRAL"), color: state.demographics.chinese >= 30 ? "var(--gold)" : "var(--text-muted)" },
-    { name: "MALAYSIAKINI", slant: t(lang, "KRITIKAL", "CRITICAL"), color: "var(--neon-red)" },
+    { name: "UTUSAN MELAYU", slant: t(lang, state.mandatSupport >= 50 ? "state__id__page.outletFavourable" : "state__id__page.outletHostile"), color: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--neon-red)" },
+    { name: "THE STAR", slant: t(lang, state.demographics.chinese >= 30 ? "state__id__page.critical" : "state__id__page.neutral"), color: state.demographics.chinese >= 30 ? "var(--gold)" : "var(--text-muted)" },
+    { name: "MALAYSIAKINI", slant: t(lang, "state__id__page.critical"), color: "var(--neon-red)" },
     { name: "FREE MALAYSIA TODAY", slant: NEUTRAL, color: "var(--text-muted)" },
-    { name: "ASTRO AWANI", slant: t(lang, "SEIMBANG", "BALANCED"), color: "var(--cyan)" },
+    { name: "ASTRO AWANI", slant: t(lang, "state__id__page.balanced"), color: "var(--cyan)" },
   ];
 
   const topics = [
-    { topicMS: "Ekonomi", topicEN: "Economy", control: state.mandatSupport >= 50 ? "WINNING" : "LOSING", color: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--neon-red)" },
-    { topicMS: "Tadbir Urus", topicEN: "Governance", control: state.mandatSupport >= 48 ? "WINNING" : "CONTESTED", color: state.mandatSupport >= 48 ? "var(--neon-green)" : "var(--gold)" },
-    { topicMS: "Keselamatan", topicEN: "Security", control: "NEUTRAL", color: "var(--text-muted)" },
-    { topicMS: "Kebajikan", topicEN: "Welfare", control: state.demographics.rural >= 50 ? "LOSING" : "WINNING", color: state.demographics.rural >= 50 ? "var(--neon-red)" : "var(--neon-green)" },
+    { topicKey: "state__id__page.topicEconomy", control: state.mandatSupport >= 50 ? "WINNING" : "LOSING", color: state.mandatSupport >= 50 ? "var(--neon-green)" : "var(--neon-red)" },
+    { topicKey: "state__id__page.topicGovernance", control: state.mandatSupport >= 48 ? "WINNING" : "CONTESTED", color: state.mandatSupport >= 48 ? "var(--neon-green)" : "var(--gold)" },
+    { topicKey: "state__id__page.topicSecurity", control: "NEUTRAL", color: "var(--text-muted)" },
+    { topicKey: "state__id__page.topicWelfare", control: state.demographics.rural >= 50 ? "LOSING" : "WINNING", color: state.demographics.rural >= 50 ? "var(--neon-red)" : "var(--neon-green)" },
   ];
   const controlLabel = (control: string) =>
-    t(lang, control === "WINNING" ? "MENANG" : control === "LOSING" ? "KALAH" : control === "CONTESTED" ? "BERTANDING" : "NEUTRAL", control);
+    t(lang, control === "WINNING" ? "state__id__page.controlWinning" : control === "LOSING" ? "state__id__page.controlLosing" : control === "CONTESTED" ? "state__id__page.contested" : "state__id__page.neutral");
 
   return (
     <div className="space-y-4">
       {/* Coverage + Sentiment row */}
       <div className="grid grid-cols-3 gap-4">
-        <TacticalPanel title={t(lang, "LIPUTAN MEDIA", "MEDIA COVERAGE")}>
+        <TacticalPanel title={t(lang, "state__id__page.mediaCoverage")}>
           <div className="flex flex-col items-center py-4">
             <div
               className="text-5xl font-bold"
@@ -150,28 +149,27 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
             >
               {coverageScore}%
             </div>
-            <div className="text-[12px] text-text-muted mt-2 tracking-wider">{t(lang, "SKOR LIPUTAN", "COVERAGE SCORE")}</div>
+            <div className="text-[12px] text-text-muted mt-2 tracking-wider">{t(lang, "state__id__page.coverageScore")}</div>
             <div className="mt-3 w-full h-2 bg-bar-empty overflow-hidden">
               <div className="h-2" style={{ width: `${coverageScore}%`, background: "var(--cyan)" }} />
             </div>
             <div className="text-[11px] text-text-muted mt-1.5">
               {t(lang,
-                coverageScore >= 70 ? "KEHADIRAN KUKUH" : coverageScore >= 50 ? "LIPUTAN SEDERHANA" : "LIPUTAN LEMAH",
-                coverageScore >= 70 ? "STRONG PRESENCE" : coverageScore >= 50 ? "MODERATE COVERAGE" : "WEAK COVERAGE")}
+                coverageScore >= 70 ? "state__id__page.coverageStrongPresence" : coverageScore >= 50 ? "state__id__page.coverageModerate" : "state__id__page.coverageWeak")}
             </div>
           </div>
         </TacticalPanel>
 
-        <TacticalPanel title={t(lang, "PECAHAN SENTIMEN", "SENTIMENT BREAKDOWN")}>
+        <TacticalPanel title={t(lang, "state__id__page.sentimentBreakdown")}>
           <div className="space-y-3 mt-1">
             {[
-              { labelMS: "POSITIF", labelEN: "POSITIVE", value: positiveSentiment, color: "var(--neon-green)" },
-              { labelMS: "NEUTRAL", labelEN: "NEUTRAL", value: neutralSentiment, color: "var(--text-muted)" },
-              { labelMS: "NEGATIF", labelEN: "NEGATIVE", value: negativeSentiment, color: "var(--neon-red)" },
-            ].map(({ labelMS, labelEN, value, color }) => (
-              <div key={labelEN}>
+              { labelKey: "state__id__page.sentimentPositive", value: positiveSentiment, color: "var(--neon-green)" },
+              { labelKey: "state__id__page.neutral", value: neutralSentiment, color: "var(--text-muted)" },
+              { labelKey: "state__id__page.sentimentNegative", value: negativeSentiment, color: "var(--neon-red)" },
+            ].map(({ labelKey, value, color }) => (
+              <div key={labelKey}>
                 <div className="flex justify-between text-[11px] mb-1">
-                  <span style={{ color }}>{t(lang, labelMS, labelEN)}</span>
+                  <span style={{ color }}>{t(lang, labelKey)}</span>
                   <span className="font-bold" style={{ color }}>{value}%</span>
                 </div>
                 <div className="h-2 bg-bar-empty overflow-hidden">
@@ -182,11 +180,11 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
           </div>
         </TacticalPanel>
 
-        <TacticalPanel title={t(lang, "KAWALAN NARATIF", "NARRATIVE CONTROL")}>
+        <TacticalPanel title={t(lang, "state__id__page.narrativeControl")}>
           <div className="space-y-2 mt-1">
-            {topics.map(({ topicMS, topicEN, control, color }) => (
-              <div key={topicEN} className="flex justify-between items-center">
-                <span className="text-[12px] text-text-muted">{t(lang, topicMS, topicEN)}</span>
+            {topics.map(({ topicKey, control, color }) => (
+              <div key={topicKey} className="flex justify-between items-center">
+                <span className="text-[12px] text-text-muted">{t(lang, topicKey)}</span>
                 <span className="text-[11px] font-bold tracking-wider" style={{ color }}>{controlLabel(control)}</span>
               </div>
             ))}
@@ -195,7 +193,7 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
       </div>
 
       {/* Platform reach */}
-      <TacticalPanel title={t(lang, "CAPAIAN PLATFORM", "PLATFORM REACH")}>
+      <TacticalPanel title={t(lang, "state__id__page.platformReach")}>
         <div className="grid grid-cols-2 gap-3 mt-1">
           {platforms.map(({ label, reach, bias, biasColor }) => (
             <div
@@ -211,7 +209,7 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
                 <div className="text-[17px] font-bold" style={{ color: "var(--cyan)", fontFamily: "Space Mono, monospace" }}>
                   {reach}%
                 </div>
-                <div className="text-[10px] text-text-muted">{t(lang, "CAPAIAN", "REACH")}</div>
+                <div className="text-[10px] text-text-muted">{t(lang, "state__id__page.reach")}</div>
               </div>
             </div>
           ))}
@@ -219,7 +217,7 @@ function MediaLandscapeTab({ state, lang }: { state: StateData; lang: Lang }) {
       </TacticalPanel>
 
       {/* Key Outlets */}
-      <TacticalPanel title={t(lang, "SALURAN UTAMA", "KEY OUTLETS")}>
+      <TacticalPanel title={t(lang, "state__id__page.keyOutlets")}>
         <div className="space-y-2 mt-1">
           {keyOutlets.map(({ name, slant, color }) => (
             <div
@@ -251,7 +249,7 @@ export default function StatePage() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
         <Header />
-        <div className="text-text-muted text-sm">{t(lang, "// NEGERI TIDAK DITEMUI: ", "// STATE NOT FOUND: ")}{stateId}</div>
+        <div className="text-text-muted text-sm">{t(lang, "state__id__page.stateNotFound")}{stateId}</div>
         <StatusBar />
       </div>
     );
@@ -298,7 +296,7 @@ export default function StatePage() {
               className="text-[11px] mt-1 tracking-wider"
               style={{ color: state.region === "borneo" ? "var(--gold)" : "var(--cyan)" }}
             >
-              {t(lang, state.region === "borneo" ? "BORNEO" : "SEMENANJUNG", state.region.toUpperCase())}
+              {t(lang, state.region === "borneo" ? "state__id__page.regionBorneo" : "state__id__page.regionPeninsular")}
             </div>
           </div>
 
@@ -315,7 +313,7 @@ export default function StatePage() {
                   background: activeTab === tab ? "rgb(var(--gold-rgb) / 0.06)" : "transparent",
                 }}
               >
-                {t(lang, TAB_LABELS[tab].ms, TAB_LABELS[tab].en)}
+                {t(lang, TAB_LABEL_KEYS[tab])}
               </button>
             ))}
           </nav>
@@ -326,7 +324,7 @@ export default function StatePage() {
               onClick={() => router.push("/warroom")}
               className="w-full text-left px-4 py-3 text-[12px] tracking-wider text-text-muted hover:text-cyan transition-colors"
             >
-              {t(lang, "← KEMBALI KE WAR ROOM", "← BACK TO WAR ROOM")}
+              {t(lang, "state__id__page.backToWarRoom")}
             </button>
           </div>
         </div>
@@ -343,7 +341,7 @@ export default function StatePage() {
                 {state.name}
               </h1>
               <div className="text-[12px] text-text-muted tracking-widest mt-1">
-                {t(lang, `${state.seats} KERUSI PARLIMEN · ${state.region === "borneo" ? "BORNEO" : "SEMENANJUNG"}`, `${state.seats} PARLIAMENT SEATS · ${state.region.toUpperCase()}`)}
+                {t(lang, "state__id__page.parliamentSeats", { stateSeats: state.seats, stateRegion: state.region === "borneo" ? "BORNEO" : "SEMENANJUNG", stateRegion2: state.region.toUpperCase() })}
               </div>
             </div>
 
@@ -356,7 +354,7 @@ export default function StatePage() {
                 >
                   {state.winProbability}%
                 </div>
-                <div className="text-[11px] text-text-muted tracking-widest mt-0.5">{t(lang, "KEBARANGKALIAN MENANG", "WIN PROBABILITY")}</div>
+                <div className="text-[11px] text-text-muted tracking-widest mt-0.5">{t(lang, "state__id__page.winProbability")}</div>
                 <div className="text-[12px] font-bold mt-0.5" style={{ color: winColor }}>
                   {winDesc}
                 </div>
@@ -370,7 +368,7 @@ export default function StatePage() {
                 >
                   {state.projectedSeats}/{state.seats}
                 </div>
-                <div className="text-[11px] text-text-muted tracking-widest mt-0.5">{t(lang, "UNJURAN KERUSI", "SEATS PROJECTED")}</div>
+                <div className="text-[11px] text-text-muted tracking-widest mt-0.5">{t(lang, "state__id__page.seatsProjected")}</div>
               </div>
             </div>
           </div>
@@ -381,12 +379,12 @@ export default function StatePage() {
               {/* 3-col top row */}
               <div className="grid grid-cols-3 gap-4">
                 {/* Party Support */}
-                <TacticalPanel title={t(lang, "SOKONGAN PARTI", "PARTY SUPPORT")}>
+                <TacticalPanel title={t(lang, "state__id__page.partySupport")}>
                   <div className="space-y-3 mt-1">
                     {[
                       { label: leader.partyAbbr, value: state.mandatSupport, color: leader.partyColor },
-                      { label: t(lang, "LAWAN", "LAWAN"), value: state.lawanSupport, color: "var(--warn-orange)" },
-                      { label: t(lang, "LAIN-LAIN", "OTHERS"), value: state.othersSupport, color: "#4a5568" },
+                      { label: t(lang, "state__id__page.lawan"), value: state.lawanSupport, color: "var(--warn-orange)" },
+                      { label: t(lang, "state__id__page.others"), value: state.othersSupport, color: "#4a5568" },
                     ].map(({ label, value, color }) => (
                       <div key={label} className="flex items-center gap-2">
                         <span className="text-[12px] text-text-muted w-14 shrink-0">{label}</span>
@@ -405,7 +403,7 @@ export default function StatePage() {
                 </TacticalPanel>
 
                 {/* Key Issues */}
-                <TacticalPanel title={t(lang, "ISU UTAMA", "KEY ISSUES")}>
+                <TacticalPanel title={t(lang, "state__id__page.keyIssues")}>
                   <ul className="space-y-1.5 mt-1">
                     {state.keyIssues.map((issue) => (
                       <li key={issue} className="flex items-center gap-2">
@@ -417,9 +415,9 @@ export default function StatePage() {
                 </TacticalPanel>
 
                 {/* Demographics mini */}
-                <TacticalPanel title={t(lang, "DEMOGRAFI", "DEMOGRAPHICS")}>
+                <TacticalPanel title={t(lang, "state__id__page.demographics")}>
                   <div className="space-y-2 mt-1">
-                    <div className="text-[11px] text-text-muted tracking-wider mb-1">{t(lang, "BANDAR / LUAR BANDAR", "URBAN / RURAL")}</div>
+                    <div className="text-[11px] text-text-muted tracking-wider mb-1">{t(lang, "state__id__page.urbanRural")}</div>
                     <div className="flex h-4 overflow-hidden">
                       <div
                         className="flex items-center justify-center text-[10px] text-white font-bold"
@@ -435,19 +433,19 @@ export default function StatePage() {
                       </div>
                     </div>
                     <div className="flex gap-3 text-[11px]">
-                      <span><span style={{ color: "var(--cyan)" }}>■</span> {t(lang, "Bandar", "Urban")} {state.demographics.urban}%</span>
-                      <span><span className="text-text-muted">■</span> {t(lang, "Luar Bandar", "Rural")} {state.demographics.rural}%</span>
+                      <span><span style={{ color: "var(--cyan)" }}>■</span> {t(lang, "state__id__page.urban")} {state.demographics.urban}%</span>
+                      <span><span className="text-text-muted">■</span> {t(lang, "state__id__page.rural")} {state.demographics.rural}%</span>
                     </div>
 
-                    <div className="text-[11px] text-text-muted tracking-wider mt-2 mb-1">{t(lang, "ETNIK", "ETHNICITY")}</div>
+                    <div className="text-[11px] text-text-muted tracking-wider mt-2 mb-1">{t(lang, "state__id__page.ethnicity")}</div>
                     <div className="space-y-1">
                       {[
-                        { labelMS: "MELAYU", labelEN: "MALAY", val: state.demographics.malay, color: "var(--cyan)" },
-                        { labelMS: "CINA", labelEN: "CHINESE", val: state.demographics.chinese, color: "var(--gold)" },
-                        { labelMS: "INDIA", labelEN: "INDIAN", val: state.demographics.indian, color: "var(--neon-green)" },
-                        { labelMS: "LAIN-LAIN", labelEN: "OTHERS", val: state.demographics.others, color: "#4a5568" },
-                      ].map(({ labelMS, labelEN, val, color }) => (
-                        <StatBar key={labelEN} label={t(lang, labelMS, labelEN)} value={val} color={color} animate size="sm" />
+                        { labelKey: "state__id__page.ethnicMalay", val: state.demographics.malay, color: "var(--cyan)" },
+                        { labelKey: "state__id__page.ethnicChinese", val: state.demographics.chinese, color: "var(--gold)" },
+                        { labelKey: "state__id__page.ethnicIndian", val: state.demographics.indian, color: "var(--neon-green)" },
+                        { labelKey: "state__id__page.ethnicOthers", val: state.demographics.others, color: "#4a5568" },
+                      ].map(({ labelKey, val, color }) => (
+                        <StatBar key={labelKey} label={t(lang, labelKey)} value={val} color={color} animate size="sm" />
                       ))}
                     </div>
                   </div>
@@ -455,7 +453,7 @@ export default function StatePage() {
               </div>
 
               {/* Vote Share Over Time */}
-              <TacticalPanel title={t(lang, "TREND KONGSI UNDI — 6 BULAN", "VOTE SHARE TREND — 6 MONTHS")}>
+              <TacticalPanel title={t(lang, "state__id__page.voteShareTrend6Months")}>
                 <TrendLine
                   data={trendData}
                   lines={[
@@ -474,14 +472,14 @@ export default function StatePage() {
           {activeTab === "DEMOGRAPHICS" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <TacticalPanel title={t(lang, "BANDAR LWN LUAR BANDAR", "URBAN VS RURAL")}>
+                <TacticalPanel title={t(lang, "state__id__page.urbanVsRural")}>
                   <div className="space-y-3 mt-2">
-                    <StatBar label={t(lang, "BANDAR", "URBAN")} value={state.demographics.urban} color="var(--cyan)" animate />
-                    <StatBar label={t(lang, "LUAR BANDAR", "RURAL")} value={state.demographics.rural} color="#4a5568" animate />
+                    <StatBar label={t(lang, "state__id__page.urban2")} value={state.demographics.urban} color="var(--cyan)" animate />
+                    <StatBar label={t(lang, "state__id__page.rural2")} value={state.demographics.rural} color="#4a5568" animate />
                   </div>
                 </TacticalPanel>
 
-                <TacticalPanel title={t(lang, "PENGUNDI BELIA", "YOUTH VOTERS")}>
+                <TacticalPanel title={t(lang, "state__id__page.youthVoters")}>
                   <div className="flex flex-col items-center justify-center py-4">
                     <div
                       className="text-5xl font-bold"
@@ -489,26 +487,26 @@ export default function StatePage() {
                     >
                       {state.demographics.youth}%
                     </div>
-                    <div className="text-[12px] text-text-muted mt-2 tracking-wider">{t(lang, "KONGSI PENGUNDI BELIA (18-35)", "YOUTH VOTER SHARE (18-35)")}</div>
+                    <div className="text-[12px] text-text-muted mt-2 tracking-wider">{t(lang, "state__id__page.youthVoterShare1835")}</div>
                     <div
                       className="text-[12px] mt-1"
                       style={{ color: state.demographics.youth >= 30 ? "var(--neon-green)" : "var(--gold)" }}
                     >
-                      {t(lang, state.demographics.youth >= 30 ? "PENGLIBATAN BELIA TINGGI" : "PENGLIBATAN BELIA SEDERHANA", state.demographics.youth >= 30 ? "HIGH YOUTH ENGAGEMENT" : "MODERATE YOUTH ENGAGEMENT")}
+                      {t(lang, state.demographics.youth >= 30 ? "state__id__page.youthEngagementHigh" : "state__id__page.youthEngagementModerate")}
                     </div>
                   </div>
                 </TacticalPanel>
               </div>
 
-              <TacticalPanel title={t(lang, "PECAHAN ETNIK", "ETHNIC BREAKDOWN")}>
+              <TacticalPanel title={t(lang, "state__id__page.ethnicBreakdown")}>
                 <div className="space-y-3 mt-2">
                   {[
-                    { labelMS: "MELAYU", labelEN: "MALAY", val: state.demographics.malay, color: "var(--cyan)" },
-                    { labelMS: "CINA", labelEN: "CHINESE", val: state.demographics.chinese, color: "var(--gold)" },
-                    { labelMS: "INDIA", labelEN: "INDIAN", val: state.demographics.indian, color: "var(--neon-green)" },
-                    { labelMS: "LAIN-LAIN", labelEN: "OTHERS", val: state.demographics.others, color: "#8b5cf6" },
-                  ].map(({ labelMS, labelEN, val, color }) => (
-                    <StatBar key={labelEN} label={t(lang, labelMS, labelEN)} value={val} color={color} animate />
+                    { labelKey: "state__id__page.ethnicMalay", val: state.demographics.malay, color: "var(--cyan)" },
+                    { labelKey: "state__id__page.ethnicChinese", val: state.demographics.chinese, color: "var(--gold)" },
+                    { labelKey: "state__id__page.ethnicIndian", val: state.demographics.indian, color: "var(--neon-green)" },
+                    { labelKey: "state__id__page.ethnicOthers", val: state.demographics.others, color: "#8b5cf6" },
+                  ].map(({ labelKey, val, color }) => (
+                    <StatBar key={labelKey} label={t(lang, labelKey)} value={val} color={color} animate />
                   ))}
                 </div>
               </TacticalPanel>
@@ -519,9 +517,9 @@ export default function StatePage() {
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { label: t(lang, `SOKONGAN ${leader.partyAbbr}`, `${leader.partyAbbr} SUPPORT`), value: state.mandatSupport, color: leader.partyColor },
-                  { label: t(lang, "SOKONGAN LAWAN", "LAWAN SUPPORT"), value: state.lawanSupport, color: "var(--warn-orange)" },
-                  { label: t(lang, "LAIN-LAIN", "OTHERS"), value: state.othersSupport, color: "var(--text-muted)" },
+                  { label: t(lang, "state__id__page.support", { leaderPartyAbbr: leader.partyAbbr }), value: state.mandatSupport, color: leader.partyColor },
+                  { label: t(lang, "state__id__page.lawanSupport"), value: state.lawanSupport, color: "var(--warn-orange)" },
+                  { label: t(lang, "state__id__page.others"), value: state.othersSupport, color: "var(--text-muted)" },
                 ].map(({ label, value, color }) => (
                   <TacticalPanel key={label}>
                     <div className="flex flex-col items-center py-4">
@@ -537,7 +535,7 @@ export default function StatePage() {
                 ))}
               </div>
 
-              <TacticalPanel title={t(lang, "KEBARANGKALIAN GOYANG", "SWING PROBABILITY")}>
+              <TacticalPanel title={t(lang, "state__id__page.swingProbability")}>
                 <div className="flex items-center gap-4 mt-2">
                   <div
                     className="text-3xl font-bold"
@@ -551,31 +549,30 @@ export default function StatePage() {
                   <div>
                     <div className="text-[13px] text-white">
                       {t(lang,
-                        state.swingProbability >= 25 ? "RISIKO GOYANG TINGGI" : state.swingProbability >= 15 ? "RISIKO GOYANG SEDERHANA" : "RISIKO GOYANG RENDAH",
-                        state.swingProbability >= 25 ? "HIGH SWING RISK" : state.swingProbability >= 15 ? "MODERATE SWING RISK" : "LOW SWING RISK")}
+                        state.swingProbability >= 25 ? "state__id__page.swingRiskHigh" : state.swingProbability >= 15 ? "state__id__page.swingRiskModerate" : "state__id__page.swingRiskLow")}
                     </div>
-                    <div className="text-[12px] text-text-muted mt-0.5">{t(lang, "Kebarangkalian kerusi bertukar tangan", "Probability of seat changing hands")}</div>
+                    <div className="text-[12px] text-text-muted mt-0.5">{t(lang, "state__id__page.probabilityOfSeatChangingHands")}</div>
                   </div>
                 </div>
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "FAKTOR GOYANG UTAMA", "KEY SWING FACTORS")}>
+              <TacticalPanel title={t(lang, "state__id__page.keySwingFactors")}>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   {[
-                    { factorMS: "Kos Sara Hidup", factorEN: "Cost of Living", impact: "HIGH", color: "var(--neon-red)" },
-                    { factorMS: "Pekerjaan", factorEN: "Employment", impact: "HIGH", color: "var(--neon-red)" },
-                    { factorMS: "Infrastruktur", factorEN: "Infrastructure", impact: "MODERATE", color: "var(--gold)" },
-                    { factorMS: "Pendidikan", factorEN: "Education", impact: "MODERATE", color: "var(--gold)" },
-                    { factorMS: "Kesihatan", factorEN: "Healthcare", impact: "LOW", color: "var(--neon-green)" },
-                    { factorMS: "Keselamatan", factorEN: "Security", impact: "LOW", color: "var(--neon-green)" },
-                  ].map(({ factorMS, factorEN, impact, color }) => (
+                    { factorKey: "state__id__page.factorCostOfLiving", impact: "HIGH", color: "var(--neon-red)" },
+                    { factorKey: "state__id__page.factorEmployment", impact: "HIGH", color: "var(--neon-red)" },
+                    { factorKey: "state__id__page.factorInfrastructure", impact: "MODERATE", color: "var(--gold)" },
+                    { factorKey: "state__id__page.factorEducation", impact: "MODERATE", color: "var(--gold)" },
+                    { factorKey: "state__id__page.factorHealthcare", impact: "LOW", color: "var(--neon-green)" },
+                    { factorKey: "state__id__page.factorSecurity", impact: "LOW", color: "var(--neon-green)" },
+                  ].map(({ factorKey, impact, color }) => (
                     <div
-                      key={factorEN}
+                      key={factorKey}
                       className="flex items-center justify-between px-3 py-2"
                       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                     >
-                      <span className="text-[12px] text-white">{t(lang, factorMS, factorEN)}</span>
-                      <span className="text-[11px] font-bold tracking-wider" style={{ color }}>{t(lang, impact === "HIGH" ? "TINGGI" : impact === "MODERATE" ? "SEDERHANA" : "RENDAH", impact)}</span>
+                      <span className="text-[12px] text-white">{t(lang, factorKey)}</span>
+                      <span className="text-[11px] font-bold tracking-wider" style={{ color }}>{t(lang, impact === "HIGH" ? "state__id__page.high" : impact === "MODERATE" ? "state__id__page.moderate" : "state__id__page.low")}</span>
                     </div>
                   ))}
                 </div>
@@ -587,12 +584,12 @@ export default function StatePage() {
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-3">
                 {[
-                  { labelMS: "PENDUDUK", labelEN: "POPULATION", value: (state.population / 1_000_000).toFixed(1) + "M", color: "var(--text-primary)" },
-                  { labelMS: "PENGUNDI BERDAFTAR", labelEN: "REG. VOTERS", value: (state.registeredVoters / 1_000).toFixed(0) + "K", color: "var(--cyan)" },
-                  { labelMS: "SASARAN KELUAR MENGUNDI", labelEN: "TURNOUT TARGET", value: `${state.turnoutTarget}%`, color: "var(--gold)" },
-                  { labelMS: "KEKUATAN LAPANGAN", labelEN: "GROUND STRENGTH", value: state.groundStrength.toString(), color: "var(--neon-green)" },
-                ].map(({ labelMS, labelEN, value, color }) => (
-                  <TacticalPanel key={labelEN}>
+                  { labelKey: "state__id__page.statPopulation", value: (state.population / 1_000_000).toFixed(1) + "M", color: "var(--text-primary)" },
+                  { labelKey: "state__id__page.statRegisteredVoters", value: (state.registeredVoters / 1_000).toFixed(0) + "K", color: "var(--cyan)" },
+                  { labelKey: "state__id__page.statTurnoutTarget", value: `${state.turnoutTarget}%`, color: "var(--gold)" },
+                  { labelKey: "state__id__page.statGroundStrength", value: state.groundStrength.toString(), color: "var(--neon-green)" },
+                ].map(({ labelKey, value, color }) => (
+                  <TacticalPanel key={labelKey}>
                     <div className="flex flex-col items-center py-3">
                       <div
                         className="text-2xl font-bold"
@@ -600,17 +597,17 @@ export default function StatePage() {
                       >
                         {value}
                       </div>
-                      <div className="text-[11px] text-text-muted mt-1.5 tracking-wider text-center">{t(lang, labelMS, labelEN)}</div>
+                      <div className="text-[11px] text-text-muted mt-1.5 tracking-wider text-center">{t(lang, labelKey)}</div>
                     </div>
                   </TacticalPanel>
                 ))}
               </div>
 
-              <TacticalPanel title={t(lang, "OPERASI AKTIF", "ACTIVE OPERATIONS")}>
+              <TacticalPanel title={t(lang, "state__id__page.activeOperations")}>
                 <div className="space-y-2 mt-2">
                   {stateOperations.length === 0 && (
                     <div className="text-center py-4 text-[12px] tracking-widest" style={{ color: "#4a5568" }}>
-                      {t(lang, `TIADA OPERASI DI ${state.name.toUpperCase()} — GERAKKAN DARI IBU PEJABAT KEMPEN`, `NO OPERATIONS IN ${state.name.toUpperCase()} — DEPLOY FROM CAMPAIGN HQ`)}
+                      {t(lang, "state__id__page.noOperationsInDeployFromCampaign", { stateName: state.name.toUpperCase() })}
                     </div>
                   )}
                   {stateOperations.map((op) => {
@@ -628,7 +625,7 @@ export default function StatePage() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div className="text-[12px] text-cyan font-bold">+{op.supportGain}%</div>
-                            <div className="text-[11px] text-text-muted">{t(lang, "PEROLEHAN/HARI", "GAIN/DAY")}</div>
+                            <div className="text-[11px] text-text-muted">{t(lang, "state__id__page.gainDay")}</div>
                           </div>
                           <span
                             className="text-[11px] px-2 py-0.5 font-bold tracking-wider uppercase"
@@ -638,7 +635,7 @@ export default function StatePage() {
                               border: `1px solid ${statusColor}44`,
                             }}
                           >
-                            {t(lang, op.status === "active" ? "AKTIF" : op.status === "ongoing" ? "BERTERUSAN" : op.status === "planned" ? "DIRANCANG" : "SELESAI", op.status)}
+                            {t(lang, op.status === "active" ? "state__id__page.opStatusActive" : op.status === "ongoing" ? "state__id__page.opStatusOngoing" : op.status === "planned" ? "state__id__page.opStatusPlanned" : "state__id__page.opStatusCompleted")}
                           </span>
                         </div>
                       </div>
@@ -655,22 +652,22 @@ export default function StatePage() {
               <div className="grid grid-cols-4 gap-3">
                 {[
                   {
-                    label: t(lang, `KEMENANGAN ${leader.partyAbbr}`, `${leader.partyAbbr} WINS`),
+                    label: t(lang, "state__id__page.wins", { leaderPartyAbbr: leader.partyAbbr }),
                     value: constituencies.filter((c) => c.winner === "mandat").length,
                     color: leader.partyColor,
                   },
                   {
-                    label: t(lang, "KEMENANGAN LAWAN", "LAWAN WINS"),
+                    label: t(lang, "state__id__page.lawanWins"),
                     value: constituencies.filter((c) => c.winner === "lawan").length,
                     color: "var(--warn-orange)",
                   },
                   {
-                    label: t(lang, "MARJINAL", "MARGINAL"),
+                    label: t(lang, "state__id__page.marginal"),
                     value: constituencies.filter((c) => c.safety === "marginal").length,
                     color: "var(--gold)",
                   },
                   {
-                    label: t(lang, "KERUSI BAHAYA", "DANGER SEATS"),
+                    label: t(lang, "state__id__page.dangerSeats"),
                     value: constituencies.filter((c) => c.safety === "danger" && c.winner === "mandat").length,
                     color: "var(--neon-red)",
                   },
@@ -703,10 +700,10 @@ export default function StatePage() {
                       fontFamily: "Space Mono, monospace",
                     }}
                   >
-                    {f === "all" ? t(lang, `SEMUA (${constituencies.length})`, `ALL (${constituencies.length})`)
+                    {f === "all" ? t(lang, "state__id__page.all", { constituenciesLength: constituencies.length })
                       : f === "mandat" ? `${leader.partyAbbr} (${constituencies.filter(c => c.winner === "mandat").length})`
                       : f === "lawan" ? `LAWAN (${constituencies.filter(c => c.winner === "lawan").length})`
-                      : t(lang, `BERISIKO (${constituencies.filter(c => c.safety !== "safe").length})`, `AT RISK (${constituencies.filter(c => c.safety !== "safe").length})`)}
+                      : t(lang, "state__id__page.atRisk", { constituenciesFilterC: constituencies.filter(c => c.safety !== "safe").length })}
                   </button>
                 ))}
               </div>
@@ -747,7 +744,7 @@ export default function StatePage() {
             )}
 
             <div className="text-[12px] text-text-muted tracking-wider">
-              {t(lang, `${stateIndex + 1} / ${gameStates.length} NEGERI`, `${stateIndex + 1} / ${gameStates.length} STATES`)}
+              {t(lang, "state__id__page.states", { stateIndex: stateIndex + 1, gameStatesLength: gameStates.length })}
             </div>
 
             {nextState ? (

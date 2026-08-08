@@ -54,11 +54,11 @@ function LangToggle() {
 
 function NewsTicker({ lang }: { lang: Lang }) {
   const headlines = [
-    t(lang, "SELANGOR MASIH TERLALU RAPAT UNTUK DIRAMAL", "SELANGOR STILL TOO CLOSE TO CALL"),
-    t(lang, "BLOK BORNEO DIPANTAU SEMUA KOALISI", "BORNEO BLOC WATCHED BY ALL COALITIONS"),
-    t(lang, "WAR ROOM MEDIA SOSIAL KESAN SWING", "SOCIAL WAR ROOM DETECTS SWING"),
+    t(lang, "components_auth_TacticalAuthShell.selangorStillTooCloseToCall"),
+    t(lang, "components_auth_TacticalAuthShell.borneoBlocWatchedByAllCoalitions"),
+    t(lang, "components_auth_TacticalAuthShell.socialWarRoomDetectsSwing"),
   ];
-  const live = t(lang, "BERITA LANGSUNG", "LIVE NEWS");
+  const live = t(lang, "components_auth_TacticalAuthShell.liveNews");
 
   const run = (key: string) => (
     <div key={key} className="flex items-center gap-2.5" style={{ whiteSpace: "nowrap" }}>
@@ -125,18 +125,18 @@ function MalaysiaInfoPanel({ lang, maxWidth }: { lang: Lang; maxWidth: number })
       />
       <div style={{ display: "flex", flex: 1, flexWrap: "wrap", gap: "8px 18px" }}>
         <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "PENDUDUK", "POPULATION")}</div>
+          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.population")}</div>
           <div style={{ fontSize: 13, color: CYAN, fontWeight: 700 }}>{formatNumber(stats.population, 0)}</div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "KELUASAN", "AREA")}</div>
+          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.area")}</div>
           <div style={{ fontSize: 13, color: CYAN, fontWeight: 700 }}>{formatNumber(stats.area, 0)} km²</div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "PECAHAN KAUM", "ETHNIC BREAKDOWN")}</div>
+          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.ethnicBreakdown")}</div>
           <div style={{ fontSize: 11, color: TEXT, fontWeight: 600 }}>
-            {t(lang, "Melayu", "Malay")} {formatNumber(ethnic.malay)}% · {t(lang, "Cina", "Chinese")} {formatNumber(ethnic.chinese)}% ·{" "}
-            {t(lang, "India", "Indian")} {formatNumber(ethnic.indian)}% · {t(lang, "Lain-lain", "Other")} {formatNumber(ethnic.others)}%
+            {t(lang, "components_auth_TacticalAuthShell.malay")} {formatNumber(ethnic.malay)}% · {t(lang, "components_auth_TacticalAuthShell.chinese")} {formatNumber(ethnic.chinese)}% ·{" "}
+            {t(lang, "components_auth_TacticalAuthShell.indian")} {formatNumber(ethnic.indian)}% · {t(lang, "components_auth_TacticalAuthShell.other")} {formatNumber(ethnic.others)}%
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
           <span className="mm-auth-live-blink" style={{ display: "inline-block" }}>
             ●
           </span>{" "}
-          {t(lang, "SIS DALAM TALIAN", "SYS ONLINE")}
+          {t(lang, "components_auth_TacticalAuthShell.sysOnline")}
         </span>
       </div>
 

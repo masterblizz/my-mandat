@@ -39,7 +39,7 @@ export default function RegisterPage() {
       supabase = createClient();
     } catch {
       setLoading(false);
-      setError(t(lang, "Pendaftaran belum dikonfigurasi untuk deployment ini.", "Registration isn't configured for this deployment yet."));
+      setError(t(lang, "register_page.registrationIsnTConfiguredForThis"));
       return;
     }
 
@@ -97,7 +97,7 @@ export default function RegisterPage() {
       supabase = createClient();
     } catch {
       setGoogleLoading(false);
-      setError(t(lang, "Pendaftaran belum dikonfigurasi untuk deployment ini.", "Registration isn't configured for this deployment yet."));
+      setError(t(lang, "register_page.registrationIsnTConfiguredForThis"));
       return;
     }
 
@@ -116,15 +116,11 @@ export default function RegisterPage() {
   if (awaitingConfirmation) {
     return (
       <TacticalAuthShell
-        eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
-        heading={t(lang, "Semak Emel Anda", "Check Your Email")}
+        eyebrow={t(lang, "register_page.electionCampaignSimulator")}
+        heading={t(lang, "register_page.checkYourEmail")}
       >
         <p className={plexMono.className} style={{ fontSize: 12, lineHeight: 1.7, color: TEXT_DIM, marginBottom: 22 }}>
-          {t(
-            lang,
-            `Pautan pengesahan telah dihantar ke ${email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.`,
-            `A confirmation link was sent to ${email}. Verify it, then log in to start your campaign.`
-          )}
+          {t(lang, "register_page.aConfirmationLinkWasSentTo", { email: email })}
         </p>
         <a
           href="/login"
@@ -141,7 +137,7 @@ export default function RegisterPage() {
             padding: 13,
           }}
         >
-          {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
+          {t(lang, "register_page.goToLogin")}
         </a>
       </TacticalAuthShell>
     );
@@ -149,8 +145,8 @@ export default function RegisterPage() {
 
   return (
     <TacticalAuthShell
-      eyebrow={t(lang, "SIMULATOR KEMPEN PILIHAN RAYA", "ELECTION CAMPAIGN SIMULATOR")}
-      heading={t(lang, "Daftar Operator Baharu", "Register New Operator")}
+      eyebrow={t(lang, "register_page.electionCampaignSimulator")}
+      heading={t(lang, "register_page.registerNewOperator")}
     >
       {error && (
         <p
@@ -164,13 +160,13 @@ export default function RegisterPage() {
       <form onSubmit={handleRegister}>
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "EMEL", "EMAIL")}
+            {t(lang, "register_page.email")}
           </label>
           <input
             type="email"
             required
             autoComplete="email"
-            placeholder={t(lang, "cth. operator01@emel.com", "e.g. operator01@email.com")}
+            placeholder={t(lang, "register_page.eGOperator01EmailCom")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={plexMono.className}
@@ -180,7 +176,7 @@ export default function RegisterPage() {
 
         <div className="mb-5 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
-            {t(lang, "KATA LALUAN", "PASSWORD")}
+            {t(lang, "register_page.password")}
           </label>
           <input
             type="password"
@@ -194,7 +190,7 @@ export default function RegisterPage() {
             style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
           <div className={plexMono.className} style={{ fontSize: 10, letterSpacing: 0.5, color: TEXT_FAINT }}>
-            {t(lang, "Minimum 6 aksara.", "Minimum 6 characters.")}
+            {t(lang, "register_page.minimum6Characters")}
           </div>
         </div>
 
@@ -216,12 +212,12 @@ export default function RegisterPage() {
             marginBottom: 12,
           }}
         >
-          {loading ? t(lang, "MENDAFTAR…", "REGISTERING…") : t(lang, "DAFTAR »", "REGISTER »")}
+          {loading ? t(lang, "register_page.registering") : t(lang, "register_page.register")}
         </button>
 
         <div className="my-3.5 flex items-center gap-2.5">
           <div style={{ flex: 1, height: 1, background: BORDER }} />
-          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "ATAU", "OR")}</div>
+          <div className={plexMono.className} style={{ fontSize: 9, color: TEXT_FAINT }}>{t(lang, "register_page.or")}</div>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
         </div>
 
@@ -242,12 +238,12 @@ export default function RegisterPage() {
             opacity: anyLoading && !googleLoading ? 0.5 : 1,
           }}
         >
-          {googleLoading ? t(lang, "MENYAMBUNG…", "CONNECTING…") : t(lang, "DAFTAR DENGAN GOOGLE", "SIGN UP WITH GOOGLE")}
+          {googleLoading ? t(lang, "register_page.connecting") : t(lang, "register_page.signUpWithGoogle")}
         </button>
 
         <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
-          {t(lang, "DAH ADA AKAUN? ", "ALREADY HAVE AN ACCOUNT? ")}
-          <a href="/login" style={{ color: CYAN }}>{t(lang, "LOG MASUK DI SINI", "LOG IN HERE")}</a>
+          {t(lang, "register_page.alreadyHaveAnAccount")}
+          <a href="/login" style={{ color: CYAN }}>{t(lang, "register_page.logInHere")}</a>
         </div>
       </form>
     </TacticalAuthShell>

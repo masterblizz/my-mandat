@@ -5,6 +5,7 @@ import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
+import calendarStrings from "../i18n/strings/calendar_page";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ interface CalendarEvent {
   date: string;
   time: string;
   location: string;
-  description: string;
+  description?: string; // live ops only; static events use the dictionary
   operatives: number;
   status: "CONFIRMED" | "PENDING";
 }
@@ -31,101 +32,42 @@ const DAYS_MS = ["ISN", "SEL", "RAB", "KHA", "JUM", "SAB", "AHD"];
 const DAY_DATES = ["16 JUN", "17 JUN", "18 JUN", "19 JUN", "20 JUN", "21 JUN", "22 JUN"];
 
 // Titles are kept as stable English keys (used to match events across the
-// week/month/list views and the click-to-open lookup) — translate only at
-// render time via eventTitle()/EVENT_TITLE_MS below.
-const EVENT_TITLE_MS: Record<string, string> = {
-  "JOHOR RALLY": "PERHIMPUNAN JOHOR",
-  "KL CERAMAH": "CERAMAH KL",
-  "PRESS CONF": "SIDANG AKHBAR",
-  "PAHANG TOUR": "LAWATAN PAHANG",
-  "SELANGOR RALLY": "PERHIMPUNAN SELANGOR",
-  "JOHOR MEGA RALLY": "PERHIMPUNAN MEGA JOHOR",
-  "REST DAY": "HARI REHAT",
-  "TV3 INTERVIEW": "TEMU BUAL TV3",
-  "RADIO RTM": "RADIO RTM",
-  "ASTRO AWANI": "ASTRO AWANI",
-  "LIVE STREAM": "SIARAN LANGSUNG",
-  "DOOR TO DOOR": "RUMAH KE RUMAH",
-  "YOUTH OUTREACH": "JANGKAUAN BELIA",
-  "RURAL ENGAGEMENT": "PENGLIBATAN LUAR BANDAR",
-  "CERAMAH MEGA": "CERAMAH MEGA",
-  "ALL TEAMS": "SEMUA PASUKAN",
-  "CERAMAH JOHOR": "CERAMAH JOHOR",
-  "CANVASSING OPS": "OPERASI PUJUKAN",
-  "RTM INTERVIEW": "TEMU BUAL RTM",
-  "PAHANG RALLY": "PERHIMPUNAN PAHANG",
-  "DIGITAL PUSH": "TOLAKAN DIGITAL",
-  "KEDAH TOUR": "LAWATAN KEDAH",
-  "TV3 SEGMENT": "SEGMEN TV3",
-  "PERAK CERAMAH": "CERAMAH PERAK",
-  "GROUND OPS": "OPERASI LAPANGAN",
-  "REST & DEBRIEF": "REHAT & TAKLIMAT",
-  "SABAH TOUR": "LAWATAN SABAH",
-  "RADIO INTERVIEW": "TEMU BUAL RADIO",
-  "SARAWAK CERAMAH": "CERAMAH SARAWAK",
-  "MEGA RALLY KL": "PERHIMPUNAN MEGA KL",
-  "TV3 SPECIAL": "KHAS TV3",
-  "DIGITAL BLITZ": "SERANGAN DIGITAL",
-  "FINAL CANVASS": "PUJUKAN TERAKHIR",
-  "MEDIA BLITZ": "SERANGAN MEDIA",
-  "DIGITAL CAMPAIGN": "KEMPEN DIGITAL",
-};
-
+// week/month/list views and the click-to-open lookup) — the displayed text
+// comes from the calendar_page dictionary, keyed by the slugified title.
+// Live ops carry runtime titles that have no dictionary entry — show them as-is.
 function eventTitle(lang: Lang, title: string): string {
-  return t(lang, EVENT_TITLE_MS[title] ?? title, title);
+  const key = `eventTitle_${title.replace(/[^A-Za-z0-9]+/g, "_")}`;
+  return key in calendarStrings ? t(lang, `calendar_page.${key}`) : title;
 }
 
-const EVENT_DESC_MS: Record<string, string> = {
-  e1: "Perhimpunan awam utama menyasarkan kerusi Johor. Dijangka 25,000 hadirin.",
-  e2: "Ceramah bandar utama menyasarkan pengundi WP.",
-  e3: "Pengumuman dasar mengenai kos sara hidup.",
-  e4: "Lawatan pelbagai kawasan merentasi Pahang.",
-  e5: "Perhimpunan unggulan Selangor. Unjuran 50,000 hadirin.",
-  e6: "Acara tunggal terbesar minggu kempen ini.",
-  e7: "Rehat berjadual dan taklimat dalaman.",
-  m1: "Temu bual waktu perdana secara langsung. Fokus dasar ekonomi & perumahan.",
-  m2: "Segmen radio pagi, capaian kebangsaan.",
-  m3: "Liputan berita waktu perdana tentang kemajuan kempen.",
-  m4: "Segmen TV sarapan pagi.",
-  m5: "Liputan tengah hari mengenai perhimpunan Selangor.",
-  m6: "Siaran langsung penuh Perhimpunan Mega Johor.",
-  o1: "Pujukan rumah ke rumah disasarkan di kerusi goyah.",
-  o2: "Program penglibatan pengundi kali pertama.",
-  o3: "Tolakan iklan digital menyasarkan media sosial.",
-  o4: "Penglibatan komuniti luar bandar di kawasan utama.",
-  o5: "Pujukan susulan selepas Lawatan Pahang.",
-  o6: "Operasi lapangan untuk Ceramah Mega Selangor.",
-  o7: "Penempatan penuh — semua pasukan operasi aktif untuk Perhimpunan Mega.",
-};
-
 function eventDescription(lang: Lang, ev: CalendarEvent): string {
-  return t(lang, EVENT_DESC_MS[ev.id] ?? ev.description, ev.description);
+  return ev.description ?? t(lang, `calendar_page.eventDesc_${ev.id}`);
 }
 
 const calendarEvents: CalendarEvent[] = [
   // Events
-  { id: "e1", title: "JOHOR RALLY", type: "event", day: 0, date: "MON 16 JUN 2025", time: "19:00", location: "Johor Bahru Stadium", description: "Major public rally targeting Johor seats. Expected 25,000 attendees.", operatives: 80, status: "CONFIRMED" },
-  { id: "e2", title: "KL CERAMAH", type: "event", day: 2, date: "WED 18 JUN 2025", time: "20:00", location: "Dataran Merdeka, KL", description: "Prime urban ceramah targeting WP voters.", operatives: 60, status: "CONFIRMED" },
-  { id: "e3", title: "PRESS CONF", type: "event", day: 2, date: "WED 18 JUN 2025", time: "10:00", location: "Menara Mandat HQ", description: "Policy announcement on cost of living.", operatives: 12, status: "CONFIRMED" },
-  { id: "e4", title: "PAHANG TOUR", type: "event", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Kuantan & Temerloh", description: "Multi-constituency tour across Pahang.", operatives: 45, status: "CONFIRMED" },
-  { id: "e5", title: "SELANGOR RALLY", type: "event", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam Stadium", description: "Flagship Selangor rally. Projected 50,000 attendees.", operatives: 120, status: "CONFIRMED" },
-  { id: "e6", title: "JOHOR MEGA RALLY", type: "event", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Iskandar Puteri Arena", description: "Largest single event of the campaign week.", operatives: 200, status: "CONFIRMED" },
-  { id: "e7", title: "REST DAY", type: "event", day: 6, date: "SUN 22 JUN 2025", time: "—", location: "—", description: "Scheduled rest and internal briefings.", operatives: 0, status: "CONFIRMED" },
+  { id: "e1", title: "JOHOR RALLY", type: "event", day: 0, date: "MON 16 JUN 2025", time: "19:00", location: "Johor Bahru Stadium", operatives: 80, status: "CONFIRMED" },
+  { id: "e2", title: "KL CERAMAH", type: "event", day: 2, date: "WED 18 JUN 2025", time: "20:00", location: "Dataran Merdeka, KL", operatives: 60, status: "CONFIRMED" },
+  { id: "e3", title: "PRESS CONF", type: "event", day: 2, date: "WED 18 JUN 2025", time: "10:00", location: "Menara Mandat HQ", operatives: 12, status: "CONFIRMED" },
+  { id: "e4", title: "PAHANG TOUR", type: "event", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Kuantan & Temerloh", operatives: 45, status: "CONFIRMED" },
+  { id: "e5", title: "SELANGOR RALLY", type: "event", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam Stadium", operatives: 120, status: "CONFIRMED" },
+  { id: "e6", title: "JOHOR MEGA RALLY", type: "event", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Iskandar Puteri Arena", operatives: 200, status: "CONFIRMED" },
+  { id: "e7", title: "REST DAY", type: "event", day: 6, date: "SUN 22 JUN 2025", time: "—", location: "—", operatives: 0, status: "CONFIRMED" },
   // Media
-  { id: "m1", title: "TV3 INTERVIEW", type: "media", day: 0, date: "MON 16 JUN 2025", time: "14:00", location: "TV3 Studios, PJ", description: "Live prime-time interview. Economy & housing policy focus.", operatives: 4, status: "CONFIRMED" },
-  { id: "m2", title: "RADIO RTM", type: "media", day: 1, date: "TUE 17 JUN 2025", time: "08:00", location: "RTM Angkasapuri", description: "Morning radio segment, national reach.", operatives: 2, status: "CONFIRMED" },
-  { id: "m3", title: "ASTRO AWANI", type: "media", day: 3, date: "THU 19 JUN 2025", time: "21:00", location: "Astro Studios", description: "Primetime news feature on campaign progress.", operatives: 3, status: "PENDING" },
-  { id: "m4", title: "TV3", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "07:30", location: "TV3 Studios, PJ", description: "Breakfast TV segment.", operatives: 2, status: "CONFIRMED" },
-  { id: "m5", title: "TV9", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "12:00", location: "TV9 Studios", description: "Midday feature on Selangor rally.", operatives: 2, status: "CONFIRMED" },
-  { id: "m6", title: "LIVE STREAM", type: "media", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Online", description: "Full live stream of Johor Mega Rally.", operatives: 8, status: "CONFIRMED" },
+  { id: "m1", title: "TV3 INTERVIEW", type: "media", day: 0, date: "MON 16 JUN 2025", time: "14:00", location: "TV3 Studios, PJ", operatives: 4, status: "CONFIRMED" },
+  { id: "m2", title: "RADIO RTM", type: "media", day: 1, date: "TUE 17 JUN 2025", time: "08:00", location: "RTM Angkasapuri", operatives: 2, status: "CONFIRMED" },
+  { id: "m3", title: "ASTRO AWANI", type: "media", day: 3, date: "THU 19 JUN 2025", time: "21:00", location: "Astro Studios", operatives: 3, status: "PENDING" },
+  { id: "m4", title: "TV3", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "07:30", location: "TV3 Studios, PJ", operatives: 2, status: "CONFIRMED" },
+  { id: "m5", title: "TV9", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "12:00", location: "TV9 Studios", operatives: 2, status: "CONFIRMED" },
+  { id: "m6", title: "LIVE STREAM", type: "media", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Online", operatives: 8, status: "CONFIRMED" },
   // Operations
-  { id: "o1", title: "DOOR TO DOOR", type: "operation", day: 0, date: "MON 16 JUN 2025", time: "09:00", location: "Selangor & Johor", description: "Targeted door-to-door canvassing in swing seats.", operatives: 120, status: "ACTIVE" as unknown as "CONFIRMED" },
-  { id: "o2", title: "YOUTH OUTREACH", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "14:00", location: "Klang Valley Universities", description: "First-time voter engagement programme.", operatives: 60, status: "CONFIRMED" },
-  { id: "o3", title: "DIGITAL", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "All Day", location: "Nationwide", description: "Digital ad push targeting social media.", operatives: 30, status: "CONFIRMED" },
-  { id: "o4", title: "RURAL ENGAGEMENT", type: "operation", day: 2, date: "WED 18 JUN 2025", time: "08:00", location: "Perak & Kedah", description: "Rural community engagement in key constituencies.", operatives: 100, status: "CONFIRMED" },
-  { id: "o5", title: "DOOR TO DOOR", type: "operation", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Pahang", description: "Follow-up canvassing after Pahang Tour.", operatives: 80, status: "PENDING" },
-  { id: "o6", title: "CERAMAH MEGA", type: "operation", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam", description: "Ground operations for Selangor Mega Ceramah.", operatives: 150, status: "CONFIRMED" },
-  { id: "o7", title: "ALL TEAMS", type: "operation", day: 5, date: "SAT 21 JUN 2025", time: "All Day", location: "Johor", description: "Full deployment — all ops teams active for Mega Rally.", operatives: 200, status: "CONFIRMED" },
+  { id: "o1", title: "DOOR TO DOOR", type: "operation", day: 0, date: "MON 16 JUN 2025", time: "09:00", location: "Selangor & Johor", operatives: 120, status: "ACTIVE" as unknown as "CONFIRMED" },
+  { id: "o2", title: "YOUTH OUTREACH", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "14:00", location: "Klang Valley Universities", operatives: 60, status: "CONFIRMED" },
+  { id: "o3", title: "DIGITAL", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "All Day", location: "Nationwide", operatives: 30, status: "CONFIRMED" },
+  { id: "o4", title: "RURAL ENGAGEMENT", type: "operation", day: 2, date: "WED 18 JUN 2025", time: "08:00", location: "Perak & Kedah", operatives: 100, status: "CONFIRMED" },
+  { id: "o5", title: "DOOR TO DOOR", type: "operation", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Pahang", operatives: 80, status: "PENDING" },
+  { id: "o6", title: "CERAMAH MEGA", type: "operation", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam", operatives: 150, status: "CONFIRMED" },
+  { id: "o7", title: "ALL TEAMS", type: "operation", day: 5, date: "SAT 21 JUN 2025", time: "All Day", location: "Johor", operatives: 200, status: "CONFIRMED" },
 ];
 
 // ─── Month View Data (June 2025, 30 days) ────────────────────────────────────
@@ -197,9 +139,9 @@ function typeBadgeBg(type: EventType) {
 }
 
 function typeLabel(lang: Lang, type: EventType) {
-  if (type === "event") return t(lang, "PERISTIWA", "EVENT");
-  if (type === "media") return t(lang, "MEDIA", "MEDIA");
-  return t(lang, "OPERASI", "OPERATION");
+  if (type === "event") return t(lang, "calendar_page.event");
+  if (type === "media") return t(lang, "calendar_page.media");
+  return t(lang, "calendar_page.operation");
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -252,13 +194,13 @@ function DetailPanel({
         className="flex items-center justify-between px-4 py-3"
         style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}
       >
-        <span className="panel-header" style={{ fontSize: "12px" }}>{t(lang, "BUTIRAN PERISTIWA", "EVENT DETAIL")}</span>
+        <span className="panel-header" style={{ fontSize: "12px" }}>{t(lang, "calendar_page.eventDetail")}</span>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-cyan text-xs"
           style={{ fontFamily: "'Space Mono', monospace" }}
         >
-          [{t(lang, "TUTUP", "CLOSE")}]
+          [{t(lang, "calendar_page.close")}]
         </button>
       </div>
 
@@ -287,7 +229,7 @@ function DetailPanel({
               fontFamily: "'Space Mono', monospace",
             }}
           >
-            {t(lang, ev.status === "CONFIRMED" ? "DISAHKAN" : "BELUM PASTI", ev.status)}
+            {t(lang, ev.status === "CONFIRMED" ? "calendar_page.statusConfirmed" : (ev.status as string) === "ACTIVE" ? "calendar_page.statusActive" : "calendar_page.statusPending")}
           </span>
         </div>
 
@@ -304,10 +246,10 @@ function DetailPanel({
         {/* Info rows */}
         <div className="space-y-2">
           {[
-            [t(lang, "TARIKH", "DATE"), ev.date],
-            [t(lang, "MASA", "TIME"), ev.time],
-            [t(lang, "LOKASI", "LOCATION"), ev.location],
-            [t(lang, "OPERATIF", "OPERATIVES"), ev.operatives > 0 ? t(lang, `${ev.operatives} DIGERAKKAN`, `${ev.operatives} DEPLOYED`) : "—"],
+            [t(lang, "calendar_page.date"), ev.date],
+            [t(lang, "calendar_page.time"), ev.time],
+            [t(lang, "calendar_page.location"), ev.location],
+            [t(lang, "calendar_page.operatives"), ev.operatives > 0 ? t(lang, "calendar_page.deployed", { evOperatives: ev.operatives }) : "—"],
           ].map(([label, val]) => (
             <div key={label} className="flex gap-2">
               <span
@@ -338,7 +280,7 @@ function DetailPanel({
             className="text-text-muted mb-1 uppercase"
             style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.1em" }}
           >
-            {t(lang, "TAKLIMAT", "BRIEFING")}
+            {t(lang, "calendar_page.briefing")}
           </div>
           <div
             className="text-white"
@@ -375,9 +317,7 @@ export default function CalendarPage() {
       date: `${DAY_DATES[idx % 7]} 2025`,
       time: "All Day",
       location: op.location.toUpperCase(),
-      description: t(lang,
-        `Operasi ${op.type.toUpperCase()}. ${op.stateIds.length} negeri disasarkan. Peningkatan sokongan: +${op.supportGain}%`,
-        `${op.type.toUpperCase()} operation. ${op.stateIds.length} state(s) targeted. Support gain: +${op.supportGain}%`),
+      description: t(lang, "calendar_page.operationStateSTargetedSupportGain", { opType: op.type.toUpperCase(), opStateIdsLength: op.stateIds.length, opSupportGain: op.supportGain }),
       operatives: op.manpowerCost,
       status: (op.status === "active" ? "CONFIRMED" : op.status === "planned" ? "PENDING" : "CONFIRMED") as "CONFIRMED" | "PENDING",
     }));
@@ -393,10 +333,10 @@ export default function CalendarPage() {
     weekOffset === 0 ? allEvents.filter((e) => e.type === type && e.day === dayIdx) : [];
 
   // Row labels
-  const ROWS: { labelMS: string; labelEN: string; type: EventType }[] = [
-    { labelMS: "PERISTIWA", labelEN: "EVENTS", type: "event" },
-    { labelMS: "MEDIA", labelEN: "MEDIA", type: "media" },
-    { labelMS: "OPERASI", labelEN: "OPERATIONS", type: "operation" },
+  const ROWS: { labelKey: string; type: EventType }[] = [
+    { labelKey: "calendar_page.rowEvents", type: "event" },
+    { labelKey: "calendar_page.rowMedia", type: "media" },
+    { labelKey: "calendar_page.rowOperations", type: "operation" },
   ];
 
   // Stat totals
@@ -405,7 +345,7 @@ export default function CalendarPage() {
   const totalOps = liveOpEvents.length;
   const totalOperatives = allEvents.reduce((sum, e) => sum + e.operatives, 0);
 
-  const viewLabel = (v: ViewMode) => t(lang, v === "WEEK" ? "MINGGU" : v === "MONTH" ? "BULAN" : "SENARAI", v);
+  const viewLabel = (v: ViewMode) => t(lang, v === "WEEK" ? "calendar_page.viewWeek" : v === "MONTH" ? "calendar_page.viewMonth" : "calendar_page.viewList");
   const dayLabels = lang === "ms" ? DAYS_MS : DAYS;
 
   return (
@@ -430,7 +370,7 @@ export default function CalendarPage() {
           className="text-gold font-bold uppercase tracking-widest"
           style={{ fontSize: "13px" }}
         >
-          {t(lang, "KALENDAR & JADUAL — RANCANG. LAKSANA. MENANG.", "CALENDAR & SCHEDULE — PLAN. EXECUTE. WIN.")}
+          {t(lang, "calendar_page.calendarSchedulePlanExecuteWin")}
         </div>
 
         {/* Controls */}
@@ -464,7 +404,7 @@ export default function CalendarPage() {
             style={{ padding: "4px 12px", fontSize: "12px", opacity: weekOffset === 0 ? 0.5 : 1 }}
             onClick={() => setWeekOffset(0)}
           >
-            {t(lang, "HARI INI", "TODAY")}
+            {t(lang, "calendar_page.today")}
           </button>
 
           {/* Nav arrows */}
@@ -484,7 +424,7 @@ export default function CalendarPage() {
                 const base = new Date(2025, 5, 16 + weekOffset * 7);
                 const end = new Date(2025, 5, 22 + weekOffset * 7);
                 const fmt = (d: Date) => `${d.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]}`;
-                return t(lang, `MG ${23 + weekOffset} · ${fmt(base)}-${fmt(end)}`, `WK ${23 + weekOffset} · ${fmt(base)}-${fmt(end)}`);
+                return t(lang, "calendar_page.wk", { weekOffset: 23 + weekOffset, fmtBase: fmt(base), fmtEnd: fmt(end) });
               })()}
             </span>
             <button
@@ -561,7 +501,7 @@ export default function CalendarPage() {
                         transform: "rotate(180deg)",
                       }}
                     >
-                      {t(lang, row.labelMS, row.labelEN)}
+                      {t(lang, row.labelKey)}
                     </span>
                   </div>
 
@@ -591,7 +531,7 @@ export default function CalendarPage() {
 
         {/* ─── MONTH VIEW ─────────────────────────────────────── */}
         {view === "MONTH" && (
-          <TacticalPanel title={t(lang, "JUN 2025", "JUNE 2025")} className="flex-1">
+          <TacticalPanel title={t(lang, "calendar_page.june2025")} className="flex-1">
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-2">
               {dayLabels.map((d) => (
@@ -644,7 +584,7 @@ export default function CalendarPage() {
                         {date}
                       </span>
                       {isToday && (
-                        <span style={{ fontSize: "8px", fontFamily: "'Space Mono', monospace", color: "var(--cyan)", letterSpacing: "0.1em" }}>{t(lang, "HARI INI", "TODAY")}</span>
+                        <span style={{ fontSize: "8px", fontFamily: "'Space Mono', monospace", color: "var(--cyan)", letterSpacing: "0.1em" }}>{t(lang, "calendar_page.today")}</span>
                       )}
                     </div>
                     {/* Event chips */}
@@ -671,7 +611,7 @@ export default function CalendarPage() {
                     })}
                     {overflow > 0 && (
                       <div style={{ fontSize: "9px", fontFamily: "'Space Mono', monospace", color: "#4a5e72", paddingLeft: "2px" }}>
-                        {t(lang, `+${overflow} lagi`, `+${overflow} more`)}
+                        {t(lang, "calendar_page.more", { overflow: overflow })}
                       </div>
                     )}
                   </div>
@@ -681,14 +621,14 @@ export default function CalendarPage() {
             {/* Legend */}
             <div className="flex gap-4 mt-4 pt-4" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
               {[
-                { labelMS: "PERISTIWA", labelEN: "EVENTS", color: "var(--gold)" },
-                { labelMS: "MEDIA", labelEN: "MEDIA", color: "var(--cyan)" },
-                { labelMS: "OPERASI", labelEN: "OPERATIONS", color: "var(--neon-green)" },
-              ].map(({ labelMS, labelEN, color }) => (
-                <div key={labelEN} className="flex items-center gap-2">
+                { labelKey: "calendar_page.rowEvents", color: "var(--gold)" },
+                { labelKey: "calendar_page.rowMedia", color: "var(--cyan)" },
+                { labelKey: "calendar_page.rowOperations", color: "var(--neon-green)" },
+              ].map(({ labelKey, color }) => (
+                <div key={labelKey} className="flex items-center gap-2">
                   <span className="rounded-full" style={{ width: "8px", height: "8px", background: color, display: "inline-block" }} />
                   <span className="text-text-muted uppercase" style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace" }}>
-                    {t(lang, labelMS, labelEN)}
+                    {t(lang, labelKey)}
                   </span>
                 </div>
               ))}
@@ -697,7 +637,7 @@ export default function CalendarPage() {
                   className="rounded px-2 py-0.5"
                   style={{ background: "rgb(var(--gold-rgb) / 0.08)", border: "1px solid rgb(var(--gold-rgb) / 0.25)", color: "var(--gold)", fontSize: "11px", fontFamily: "'Space Mono', monospace" }}
                 >
-                  {t(lang, "MINGGU SEMASA", "CURRENT WEEK")}
+                  {t(lang, "calendar_page.currentWeek")}
                 </span>
               </div>
             </div>
@@ -706,7 +646,7 @@ export default function CalendarPage() {
 
         {/* ─── LIST VIEW ──────────────────────────────────────── */}
         {view === "LIST" && (
-          <TacticalPanel title={t(lang, "SEMUA PERISTIWA DIJADUALKAN", "ALL SCHEDULED EVENTS")} noPadding className="flex-1">
+          <TacticalPanel title={t(lang, "calendar_page.allScheduledEvents")} noPadding className="flex-1">
             <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
               {/* Table header */}
               <div
@@ -718,7 +658,7 @@ export default function CalendarPage() {
                   borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)",
                 }}
               >
-                {[t(lang, "TARIKH", "DATE"), t(lang, "JENIS", "TYPE"), t(lang, "TAJUK", "TITLE"), t(lang, "LOKASI", "LOCATION"), t(lang, "STATUS", "STATUS")].map((h) => (
+                {[t(lang, "calendar_page.date"), t(lang, "calendar_page.type"), t(lang, "calendar_page.title"), t(lang, "calendar_page.location"), t(lang, "calendar_page.status")].map((h) => (
                   <span
                     key={h}
                     className="text-text-muted uppercase"
@@ -768,7 +708,7 @@ export default function CalendarPage() {
                         color: ev.status === "CONFIRMED" ? "var(--neon-green)" : "var(--warn-orange)",
                       }}
                     >
-                      {t(lang, ev.status === "CONFIRMED" ? "DISAHKAN" : "BELUM PASTI", ev.status)}
+                      {t(lang, ev.status === "CONFIRMED" ? "calendar_page.statusConfirmed" : (ev.status as string) === "ACTIVE" ? "calendar_page.statusActive" : "calendar_page.statusPending")}
                     </span>
                   </button>
                 );
@@ -791,12 +731,12 @@ export default function CalendarPage() {
         }}
       >
         {[
-          { value: totalEvents, labelMS: "PERISTIWA", labelEN: "EVENTS" },
-          { value: totalMedia, labelMS: "PENAMPILAN MEDIA", labelEN: "MEDIA APPEARANCES" },
-          { value: totalOps, labelMS: "OPERASI", labelEN: "OPERATIONS" },
-          { value: totalOperatives, labelMS: "OPERATIF DIGERAKKAN", labelEN: "OPERATIVES DEPLOYED" },
-        ].map(({ value, labelMS, labelEN }, i, arr) => (
-          <div key={labelEN} className="flex items-center">
+          { value: totalEvents, labelKey: "calendar_page.rowEvents" },
+          { value: totalMedia, labelKey: "calendar_page.statMediaAppearances" },
+          { value: totalOps, labelKey: "calendar_page.rowOperations" },
+          { value: totalOperatives, labelKey: "calendar_page.statOperativesDeployed" },
+        ].map(({ value, labelKey }, i, arr) => (
+          <div key={labelKey} className="flex items-center">
             <div className="flex items-center gap-2 px-6">
               <span
                 className="text-gold font-bold"
@@ -808,7 +748,7 @@ export default function CalendarPage() {
                 className="text-text-muted uppercase"
                 style={{ fontSize: "12px", letterSpacing: "0.1em" }}
               >
-                {t(lang, labelMS, labelEN)}
+                {t(lang, labelKey)}
               </span>
             </div>
             {i < arr.length - 1 && (
@@ -824,8 +764,8 @@ export default function CalendarPage() {
       )}
 
       <StatusBar
-        leftText={t(lang, `KALENDAR & JADUAL · HARI ${gameDay}/${totalDays} · ${totalDays - gameDay} HARI KE PILIHAN RAYA`, `CALENDAR & SCHEDULE · DAY ${gameDay}/${totalDays} · ${totalDays - gameDay} DAYS TO ELECTION`)}
-        rightText={t(lang, "KLIK PERISTIWA UNTUK BUTIRAN · ESC UNTUK TUTUP", "CLICK EVENT FOR DETAILS · ESC TO CLOSE")}
+        leftText={t(lang, "calendar_page.calendarScheduleDayDaysToElection", { gameDay: gameDay, totalDays: totalDays, totalDaysGameDay: totalDays - gameDay })}
+        rightText={t(lang, "calendar_page.clickEventForDetailsEscTo")}
       />
     </div>
   );

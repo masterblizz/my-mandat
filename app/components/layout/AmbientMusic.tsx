@@ -100,10 +100,10 @@ export default function AmbientMusic() {
   };
 
   const statusLabel = error
-    ? t(lang, "TIADA FAIL", "NO FILE")
+    ? t(lang, "components_layout_AmbientMusic.noFile")
     : !ready
-    ? t(lang, "MEMUATKAN", "LOADING")
-    : musicEnabled ? t(lang, "HIDUP", "ON") : t(lang, "MATI", "OFF");
+    ? t(lang, "components_layout_AmbientMusic.loading")
+    : musicEnabled ? t(lang, "components_layout_AmbientMusic.on") : t(lang, "components_layout_AmbientMusic.off");
 
   return (
     <div
@@ -122,7 +122,7 @@ export default function AmbientMusic() {
               background: "rgba(3,8,15,.78)",
               borderRight: "none",
             }}
-            title={t(lang, "Trek sebelum", "Previous track")}
+            title={t(lang, "components_layout_AmbientMusic.previousTrack")}
           >
             ‹
           </button>
@@ -148,7 +148,7 @@ export default function AmbientMusic() {
               borderLeft: "none",
               borderRight: "none",
             }}
-            title={t(lang, "Trek seterusnya", "Next track")}
+            title={t(lang, "components_layout_AmbientMusic.nextTrack")}
           >
             ›
           </button>
@@ -184,9 +184,9 @@ export default function AmbientMusic() {
           color: musicEnabled && !error ? "var(--gold)" : "#718397",
           boxShadow: musicEnabled && !error ? "0 0 18px rgb(var(--gold-rgb) / 0.16)" : "none",
         }}
-        title={t(lang, "Togol muzik latar", "Toggle background music")}
+        title={t(lang, "components_layout_AmbientMusic.toggleBackgroundMusic")}
       >
-        {t(lang, "MUZIK", "MUSIC")} {statusLabel}
+        {t(lang, "components_layout_AmbientMusic.music")} {statusLabel}
       </button>
     </div>
   );

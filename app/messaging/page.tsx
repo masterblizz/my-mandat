@@ -17,10 +17,10 @@ function opStatusColor(status: string): string {
 }
 
 function opStatusLabel(lang: Lang, status: string): string {
-  if (status === "active") return t(lang, "AKTIF", "ACTIVE");
-  if (status === "ongoing") return t(lang, "BERJALAN", "RUNNING");
-  if (status === "planned") return t(lang, "DIJADUALKAN", "SCHEDULED");
-  return t(lang, "SELESAI", "COMPLETED");
+  if (status === "active") return t(lang, "messaging_page.active");
+  if (status === "ongoing") return t(lang, "messaging_page.running");
+  if (status === "planned") return t(lang, "messaging_page.scheduled");
+  return t(lang, "messaging_page.completed");
 }
 
 function EffectivenessColor(eff: number): string {
@@ -45,26 +45,26 @@ export default function MessagingPage() {
 
   const recommendations = [
     topSwingStates[0]
-      ? t(lang, `Fokuskan ceramah di ${topSwingStates[0].name} — kebarangkalian goyang ${topSwingStates[0].swingProbability}%`, `Focus ceramah in ${topSwingStates[0].name} — swing probability ${topSwingStates[0].swingProbability}%`)
-      : t(lang, "Tingkatkan kekerapan ceramah di negeri bertanding", "Increase ceramah frequency in contested states"),
-    t(lang, `${totalDays - day} hari berbaki — pergiatkan jangkauan digital di Lembah Klang`, `${totalDays - day} days remain — accelerate digital outreach in Klang Valley`),
+      ? t(lang, "messaging_page.focusCeramahInSwingProbability", { topSwingStatesName: topSwingStates[0].name, topSwingStatesSwingProbability: topSwingStates[0].swingProbability })
+      : t(lang, "messaging_page.increaseCeramahFrequencyInContestedStates"),
+    t(lang, "messaging_page.daysRemainAccelerateDigitalOutreachIn", { totalDaysDay: totalDays - day }),
     states.find((s) => s.mandatSupport < 45)
-      ? t(lang, `Tingkatkan pesanan di ${states.filter((s) => s.mandatSupport < 45)[0]?.name} — sokongan bawah 45%`, `Boost messaging in ${states.filter((s) => s.mandatSupport < 45)[0]?.name} — support below 45%`)
-      : t(lang, "Kekalkan momentum — semua negeri kekal di atas ambang", "Maintain momentum — all states holding above threshold"),
+      ? t(lang, "messaging_page.boostMessagingInSupportBelow45", { statesFilterS: states.filter((s) => s.mandatSupport < 45)[0]?.name })
+      : t(lang, "messaging_page.maintainMomentumAllStatesHoldingAbove"),
   ];
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
-      <StatusBar leftText={t(lang, "» PUSAT PESANAN · ARAHAN NARATIF", "» MESSAGING CENTER · NARRATIVE COMMAND")} rightText={t(lang, "PILIH MESEJ · LANCAR KEMPEN", "SELECT MESSAGE · DEPLOY CAMPAIGN")} />
+      <StatusBar leftText={t(lang, "messaging_page.messagingCenterNarrativeCommand")} rightText={t(lang, "messaging_page.selectMessageDeployCampaign")} />
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
         {/* Title Bar */}
         <div className="mb-4 py-3" style={{ borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)" }}>
           <h1 className="text-[19px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>
-            {t(lang, "PUSAT PESANAN", "MESSAGING CENTER")}
-            <span className="text-[14px] font-normal ml-3" style={{ color: "var(--text-muted)" }}>— {t(lang, "BENTUK NARATIF", "SHAPE THE NARRATIVE")}</span>
+            {t(lang, "messaging_page.messagingCenter")}
+            <span className="text-[14px] font-normal ml-3" style={{ color: "var(--text-muted)" }}>— {t(lang, "messaging_page.shapeTheNarrative")}</span>
           </h1>
         </div>
 
@@ -72,7 +72,7 @@ export default function MessagingPage() {
 
           {/* LEFT COLUMN: Key Messages */}
           <div style={{ flex: "0 0 28%" }} className="flex flex-col gap-4">
-            <TacticalPanel title={t(lang, "MESEJ UTAMA", "KEY MESSAGES")} noPadding={true}>
+            <TacticalPanel title={t(lang, "messaging_page.keyMessages")} noPadding={true}>
               <div style={{ maxHeight: "420px", overflowY: "auto" }}>
                 {keyMessages.map((msg) => {
                   const isSelected = selectedMsg?.id === msg.id;
@@ -92,7 +92,7 @@ export default function MessagingPage() {
                         {lang === "ms" ? msg.titleBM : msg.titleEN}
                       </div>
                       <StatBar
-                        label={t(lang, "KSN", "EFF")}
+                        label={t(lang, "messaging_page.eff")}
                         value={msg.effectiveness}
                         max={100}
                         color={effColor}
@@ -122,7 +122,7 @@ export default function MessagingPage() {
                   }}
                   onClick={() => setSelectedMsg(null)}
                 >
-                  {t(lang, "+ MESEJ BARU", "+ CREATE NEW MESSAGE")}
+                  {t(lang, "messaging_page.createNewMessage")}
                 </button>
               </div>
             </TacticalPanel>
@@ -130,7 +130,7 @@ export default function MessagingPage() {
             {/* Selected Message Expanded */}
             {selectedMsg && (
               <TacticalPanel goldBorder={true}>
-                <div className="text-[11px] tracking-widest mb-1" style={{ color: "var(--gold)" }}>{t(lang, "MESEJ DIPILIH", "SELECTED MESSAGE")}</div>
+                <div className="text-[11px] tracking-widest mb-1" style={{ color: "var(--gold)" }}>{t(lang, "messaging_page.selectedMessage")}</div>
                 <div className="text-[14px] font-bold tracking-wider mb-1" style={{ color: "var(--gold)" }}>
                   {lang === "ms" ? selectedMsg.titleBM : selectedMsg.titleEN}
                 </div>
@@ -138,7 +138,7 @@ export default function MessagingPage() {
                   {selectedMsg.description}
                 </div>
                 <div className="text-[11px] mb-1.5" style={{ color: "var(--text-muted)" }}>
-                  <span style={{ color: "var(--cyan)" }}>{t(lang, "SASARAN:", "TARGET:")}</span> {selectedMsg.targetDemographic}
+                  <span style={{ color: "var(--cyan)" }}>{t(lang, "messaging_page.target")}</span> {selectedMsg.targetDemographic}
                 </div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedMsg.channels.map((ch) => (
@@ -161,7 +161,7 @@ export default function MessagingPage() {
 
           {/* CENTER COLUMN: Performance + Active Campaigns */}
           <div style={{ flex: "1" }} className="flex flex-col gap-4">
-            <TacticalPanel title={t(lang, "PRESTASI MESEJ — 6 MINGGU", "MESSAGE PERFORMANCE — 6 WEEKS")}>
+            <TacticalPanel title={t(lang, "messaging_page.messagePerformance6Weeks")}>
               <TrendLine
                 data={messagePerformanceHistory}
                 lines={[
@@ -176,11 +176,11 @@ export default function MessagingPage() {
               />
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, `KEMPEN AKTIF — HARI ${day}/${totalDays}`, `ACTIVE CAMPAIGNS — DAY ${day}/${totalDays}`)}>
+            <TacticalPanel title={t(lang, "messaging_page.activeCampaignsDay", { day: day, totalDays: totalDays })}>
               <div className="flex flex-col gap-2">
                 {activeCampaigns.length === 0 && (
                   <div className="text-[12px] text-center py-4" style={{ color: "var(--text-muted)" }}>
-                    {t(lang, "TIADA KEMPEN AKTIF · LANCARKAN DARI IBU PEJABAT KEMPEN", "NO ACTIVE CAMPAIGNS · DEPLOY FROM CAMPAIGN HQ")}
+                    {t(lang, "messaging_page.noActiveCampaignsDeployFromCampaign")}
                   </div>
                 )}
                 {activeCampaigns.map((op) => {
@@ -198,7 +198,7 @@ export default function MessagingPage() {
                       <div>
                         <div className="text-[13px] font-bold text-white tracking-wider uppercase">{op.name}</div>
                         <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                          {op.location.toUpperCase()}{op.stateIds.length > 1 ? t(lang, ` · ${op.stateIds.length} NEGERI`, ` · ${op.stateIds.length} STATES`) : ""}
+                          {op.location.toUpperCase()}{op.stateIds.length > 1 ? t(lang, "messaging_page.states", { opStateIdsLength: op.stateIds.length }) : ""}
                         </div>
                       </div>
                       <span
@@ -220,13 +220,13 @@ export default function MessagingPage() {
 
           {/* RIGHT COLUMN: Channel Effectiveness + Strategy */}
           <div style={{ flex: "0 0 26%" }} className="flex flex-col gap-4">
-            <TacticalPanel title={t(lang, "KEBERKESANAN SALURAN", "CHANNEL EFFECTIVENESS")}>
+            <TacticalPanel title={t(lang, "messaging_page.channelEffectiveness")}>
               <div className="flex flex-col gap-3">
                 {sortedChannels.map((ch) => {
                   const color = ch.effectiveness >= 70 ? "var(--neon-green)" : ch.effectiveness >= 50 ? "var(--gold)" : "var(--warn-orange)";
                   const reach = ch.reach >= 1000000
-                    ? t(lang, `${(ch.reach / 1000000).toFixed(1)}J CAPAIAN`, `${(ch.reach / 1000000).toFixed(1)}M REACH`)
-                    : t(lang, `${(ch.reach / 1000).toFixed(0)}R CAPAIAN`, `${(ch.reach / 1000).toFixed(0)}K REACH`);
+                    ? t(lang, "messaging_page.mReach", { chReachToFixed: (ch.reach / 1000000).toFixed(1) })
+                    : t(lang, "messaging_page.kReach", { chReachToFixed: (ch.reach / 1000).toFixed(0) });
                   return (
                     <div key={ch.channel}>
                       <div className="flex items-center justify-between mb-1">
@@ -253,7 +253,7 @@ export default function MessagingPage() {
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, "STRATEGI DICADANGKAN", "RECOMMENDED STRATEGY")}>
+            <TacticalPanel title={t(lang, "messaging_page.recommendedStrategy")}>
               <ul className="flex flex-col gap-3">
                 {recommendations.map((rec, i) => (
                   <li key={i} className="flex items-start gap-2 text-[12px]" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
@@ -276,7 +276,7 @@ export default function MessagingPage() {
                     setTimeout(() => setDeployedAll(false), 2000);
                   }}
                 >
-                  {deployedAll ? t(lang, "✓ DILANCARKAN", "✓ DEPLOYED") : t(lang, "LANCAR SEMUA KEMPEN", "DEPLOY ALL CAMPAIGNS")}
+                  {deployedAll ? t(lang, "messaging_page.deployed") : t(lang, "messaging_page.deployAllCampaigns")}
                 </button>
               </div>
             </TacticalPanel>

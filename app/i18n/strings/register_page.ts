@@ -1,0 +1,20 @@
+// Extracted by i18n codemod from app/register/page.tsx.
+export default {
+  registrationIsnTConfiguredForThis: { ms: "Pendaftaran belum dikonfigurasi untuk deployment ini.", en: "Registration isn't configured for this deployment yet." },
+  electionCampaignSimulator: { ms: "SIMULATOR KEMPEN PILIHAN RAYA", en: "ELECTION CAMPAIGN SIMULATOR" },
+  checkYourEmail: { ms: "Semak Emel Anda", en: "Check Your Email" },
+  aConfirmationLinkWasSentTo: { ms: "Pautan pengesahan telah dihantar ke {email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.", en: "A confirmation link was sent to {email}. Verify it, then log in to start your campaign." },
+  goToLogin: { ms: "KE LOG MASUK »", en: "GO TO LOGIN »" },
+  registerNewOperator: { ms: "Daftar Operator Baharu", en: "Register New Operator" },
+  email: { ms: "EMEL", en: "EMAIL" },
+  eGOperator01EmailCom: { ms: "cth. operator01@emel.com", en: "e.g. operator01@email.com" },
+  password: { ms: "KATA LALUAN", en: "PASSWORD" },
+  minimum6Characters: { ms: "Minimum 6 aksara.", en: "Minimum 6 characters." },
+  registering: { ms: "MENDAFTAR…", en: "REGISTERING…" },
+  register: { ms: "DAFTAR »", en: "REGISTER »" },
+  or: { ms: "ATAU", en: "OR" },
+  connecting: { ms: "MENYAMBUNG…", en: "CONNECTING…" },
+  signUpWithGoogle: { ms: "DAFTAR DENGAN GOOGLE", en: "SIGN UP WITH GOOGLE" },
+  alreadyHaveAnAccount: { ms: "DAH ADA AKAUN? ", en: "ALREADY HAVE AN ACCOUNT? " },
+  logInHere: { ms: "LOG MASUK DI SINI", en: "LOG IN HERE" },
+};

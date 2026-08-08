@@ -8,6 +8,7 @@ import type { DatasetKind } from "../data/datasets";
 import type { OpponentAction } from "./opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
 import { buildCampaignActionReaction, buildNominationReaction } from "../data/politicalReactions";
+import type { LiveNewsItem } from "../data/liveNews";
 import { calculateCampaignGain, getCampaignBaseGain } from "./campaignMath";
 import { generateConstituencies } from "../data/constituencies";
 
@@ -91,6 +92,12 @@ export interface GameState {
   nationalSupportDelta: number;
   opponentLog: OpponentAction[];
   politicalReactions: PoliticalReaction[];
+  // AI-generated daily news headlines (see app/api/news/route.ts) — kept
+  // separate from politicalReactions because that type requires opponent-
+  // attack/social-reaction/advisor-warning detail fields this content
+  // doesn't have; these are plain LiveNewsItem-shaped like the static
+  // liveNewsByDay pool, just freshly written per day.
+  aiNews: LiveNewsItem[];
   // True once the player's own seat (leader.homeConstituencyId) has been
   // won under whichever electionScope they played (pru or prn) — set from
   // /elected, which only ever renders on that exact win. Gates the
@@ -148,6 +155,7 @@ export interface GameState {
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
   runCampaignMiniGame: (stateId: string, gameType: "ceramah" | "social", tactic: "safe" | "balanced" | "aggressive") => void;
   addPoliticalReaction: (reaction: PoliticalReaction) => void;
+  addAiNewsReaction: (item: LiveNewsItem) => void;
   applyCandidateFallout: (stateId: string, reaction: PoliticalReaction, lawanBoost: number, othersBoost: number) => void;
   clearLastEvent: () => void;
   getTotalProjectedSeats: () => number;
@@ -199,6 +207,27 @@ export function readPersistedPoliticalReactions(): PoliticalReaction[] {
   }
 }
 
+const AI_NEWS_KEY = "mymandat-ai-news";
+
+function persistAiNews(items: LiveNewsItem[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(AI_NEWS_KEY, JSON.stringify(items.slice(0, 20)));
+  }
+}
+
+export function readPersistedAiNews(): LiveNewsItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(AI_NEWS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, 20) as LiveNewsItem[] : [];
+  } catch {
+    localStorage.removeItem(AI_NEWS_KEY);
+    return [];
+  }
+}
+
 const defaultOperations: Operation[] = [
   { id: "op1", name: "DOOR TO DOOR", type: "door-to-door", location: "Selangor · Johor", stateIds: ["selangor", "johor"], status: "active", manpowerCost: 120, fundsCost: 50000, supportGain: 1.5 },
   { id: "op2", name: "CERAMAH MEGA", type: "ceramah", location: "Pahang (6 events)", stateIds: ["pahang"], status: "active", manpowerCost: 80, fundsCost: 120000, supportGain: 2.2 },
@@ -231,6 +260,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   nationalSupportDelta: 0,
   opponentLog: [],
   politicalReactions: [],
+  aiNews: [],
   hasWonElection: false,
   dailyChallengeDate: null,
   careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
@@ -342,7 +372,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   startCampaign: () => set({ phase: "playing" }),
 
   resetGame: () => {
-    if (typeof window !== "undefined") localStorage.removeItem(POLITICAL_REACTIONS_KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(POLITICAL_REACTIONS_KEY);
+      localStorage.removeItem(AI_NEWS_KEY);
+    }
     return set({
       phase: "menu",
       dataset: "dummy",
@@ -361,6 +394,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       nationalSupportDelta: 0,
       opponentLog: [],
       politicalReactions: [],
+      aiNews: [],
       hasWonElection: false,
       dailyChallengeDate: null,
       careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
@@ -489,6 +523,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       const politicalReactions = [reaction, ...state.politicalReactions].slice(0, 30);
       persistPoliticalReactions(politicalReactions);
       return { politicalReactions };
+    }),
+
+  addAiNewsReaction: (item) =>
+    set((state) => {
+      const aiNews = [item, ...state.aiNews].slice(0, 20);
+      persistAiNews(aiNews);
+      return { aiNews };
     }),
 
   applyCandidateFallout: (stateId, reaction, lawanBoost, othersBoost) =>

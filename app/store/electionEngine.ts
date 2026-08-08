@@ -17,6 +17,10 @@ interface EngineInput {
   totalDays?: number;
   difficulty?: "easy" | "normal" | "hard" | "nightmare";
   settings?: { oppositionStrength: number; electionScope?: "pru" | "prn"; prnStateId?: string };
+  // Optional: the store's rolling opponent-action history, used to derive
+  // recently-targeted states so pressure doesn't repeatedly hit the same
+  // one (see AIInput.recentTargetIds in opponentAI.ts).
+  opponentLog?: OpponentAction[];
 }
 
 interface Alert {
@@ -74,6 +78,19 @@ export function processDay(state: EngineInput): DayResult {
     .filter((s) => s.trend > 0.5)
     .map((s) => s.id);
 
+  // Seat-weighted average of yesterday's per-state trend (s.trend holds the
+  // PREVIOUS day's delta, set at the end of the last processDay call),
+  // squashed to roughly -1..+1 — see AIInput.playerMomentum in opponentAI.ts.
+  const scopeSeats = effectiveStates.reduce((sum, s) => sum + s.seats, 0);
+  const rawMomentum = scopeSeats > 0
+    ? effectiveStates.reduce((sum, s) => sum + s.trend * (s.seats / scopeSeats), 0)
+    : 0;
+  const playerMomentum = clamp(rawMomentum / 1.2, -1, 1);
+
+  const recentTargetIds = (state.opponentLog ?? [])
+    .filter((a) => a.stateId && state.day - a.day <= 2)
+    .map((a) => a.stateId!);
+
   const opponentResult: OpponentResult = runOpponentAI({
     day: state.day,
     totalDays,
@@ -86,6 +103,8 @@ export function processDay(state: EngineInput): DayResult {
     difficulty: state.difficulty ?? "normal",
     recentPlayerGains,
     scopeStateName: electionScope === "prn" ? effectiveStates[0]?.name : undefined,
+    playerMomentum,
+    recentTargetIds,
   });
 
   // Spread national damage evenly across all in-scope states

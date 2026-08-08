@@ -309,7 +309,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
     .filter((n) => { if (seen.has(n)) return false; seen.add(n); return true; })
     .slice(0, 3);
 
-  const title = t(lang, "INTEL PEMBANGKANG", "OPPOSITION INTEL");
+  const title = t(lang, "warroom_page.oppositionIntel");
 
   return (
     <TacticalPanel title={title} noPadding>
@@ -320,7 +320,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <span className="text-[10px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-            {t(lang, "TAHAP ANCAMAN", "THREAT LEVEL")}
+            {t(lang, "warroom_page.threatLevel")}
           </span>
           <span
             className="text-[11px] font-black tracking-widest px-2 py-0.5"
@@ -341,7 +341,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
             style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
           >
             <div className="mb-1 text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--warn-orange)" }}>
-              {t(lang, "NEGERI DISASARKAN", "TARGETED STATES")}
+              {t(lang, "warroom_page.targetedStates")}
             </div>
             <div className="flex flex-wrap gap-1">
               {targetedStateNames.map((name) => (
@@ -367,7 +367,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <span className="text-[9px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-            {t(lang, "TINDAKAN HARI INI", "TODAY'S ACTIONS")}
+            {t(lang, "warroom_page.todaySActions")}
           </span>
           <span
             className="text-[11px] font-black"
@@ -381,7 +381,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
         <div className="px-3 pb-3 pt-1">
           {log.length === 0 ? (
             <div className="py-4 text-center text-[10px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-              {t(lang, "TIADA AKTIVITI DIKESAN", "NO ACTIVITY DETECTED")}
+              {t(lang, "warroom_page.noActivityDetected")}
             </div>
           ) : (
             log.slice(0, 10).map((action) => {
@@ -433,7 +433,7 @@ export default function WarroomPage() {
   const reducedMotion = useReducedMotion();
   const [advancing, setAdvancing] = useState(false);
   const [manualSaveNotice, setManualSaveNotice] = useState<string | null>(null);
-  const { states: gameStates, resources, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, settings, mediaSentiment } = useGameStore();
+  const { states: gameStates, resources, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, aiNews, settings, mediaSentiment, addAiNewsReaction } = useGameStore();
   const [persistedReactions, setPersistedReactions] = useState<PoliticalReaction[]>([]);
 
   // False during the first render so the live-news list doesn't cascade in on
@@ -454,9 +454,13 @@ export default function WarroomPage() {
 
   const allPoliticalReactions = [...politicalReactions, ...persistedReactions]
     .filter((item, index, arr) => arr.findIndex((other) => other.id === item.id) === index);
+  // aiNews (app/api/news/route.ts, requested after each advanceDay) merges in
+  // alongside the scripted political reactions — both are LiveNewsItem-shaped,
+  // so they flow through the exact same feed/media-wall/ticker rendering.
+  const allReactionsAndAiNews = [...allPoliticalReactions, ...aiNews];
   const staticTodaysNews = getLiveNewsForDay(day).filter((item) => newsMatchesElectionScope(item, electionScope, settings.prnStateId));
-  const todaysNews = [...allPoliticalReactions.filter((item) => item.day === day), ...staticTodaysNews];
-  const latestNews = [...allPoliticalReactions, ...getLatestLiveNews(day, 5).filter((item) => newsMatchesElectionScope(item, electionScope, settings.prnStateId))]
+  const todaysNews = [...allReactionsAndAiNews.filter((item) => item.day === day), ...staticTodaysNews];
+  const latestNews = [...allReactionsAndAiNews, ...getLatestLiveNews(day, 5).filter((item) => newsMatchesElectionScope(item, electionScope, settings.prnStateId))]
     .filter((item) => item.day <= day)
     .sort((a, b) => b.day - a.day || b.time.localeCompare(a.time))
     .slice(0, 8);
@@ -498,19 +502,71 @@ export default function WarroomPage() {
 
   const flowStatus = getElectionFlowStatus(day, totalDays);
   const daysLeft = flowStatus.daysLeft;
-  const dayLabel = flowStatus.campaignDay ? t(lang, `KEMPEN ${flowStatus.campaignDay}/14`, `CAMPAIGN ${flowStatus.campaignDay}/14`) : t(lang, `HARI ${day}/${totalDays}`, `DAY ${day}/${totalDays}`);
-  const electionModeLabel = electionScope === "prn" ? `PRN ${prnState?.name ?? "NEGERI"}` : t(lang, "PRU16 NASIONAL", "GE16 NATIONAL");
+  const dayLabel = flowStatus.campaignDay ? t(lang, "warroom_page.campaign14", { flowStatusCampaignDay: flowStatus.campaignDay }) : t(lang, "warroom_page.day", { day: day, totalDays: totalDays });
+  const electionModeLabel = electionScope === "prn" ? `PRN ${prnState?.name ?? "NEGERI"}` : t(lang, "warroom_page.ge16National");
   const electionModeTitle = electionScope === "prn"
-    ? t(lang, `TIMELINE PRN — PILIHAN RAYA NEGERI ${prnState?.name?.toUpperCase() ?? ""}`, `STATE ELECTION TIMELINE — ${prnState?.name?.toUpperCase() ?? ""}`)
-    : t(lang, "TIMELINE PRU16 — JADUAL PILIHAN RAYA UMUM", "GE16 TIMELINE — ELECTION SCHEDULE");
+    ? t(lang, "warroom_page.stateElectionTimeline", { prnStateName: prnState?.name?.toUpperCase() ?? "" })
+    : t(lang, "warroom_page.ge16TimelineElectionSchedule");
   const mapTitle = electionScope === "prn"
-    ? t(lang, `PETA PRN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}`, `STATE ELECTION MAP — ${prnState?.name?.toUpperCase() ?? "STATE"}`)
-    : t(lang, "PETA PILIHAN RAYA — MALAYSIA", "ELECTORAL MAP — MALAYSIA");
+    ? t(lang, "warroom_page.stateElectionMap", { prnStateName: prnState?.name?.toUpperCase() ?? "NEGERI", prnStateName2: prnState?.name?.toUpperCase() ?? "STATE" })
+    : t(lang, "warroom_page.electoralMapMalaysia");
 
   function handleAdvanceDay() {
     setAdvancing(true);
     advanceDay();
     setTimeout(() => setAdvancing(false), 700);
+    requestAiNewsForToday();
+  }
+
+  // Fire-and-forget: ask /api/news to write one headline grounded in what
+  // just happened this day (LAWAN's actions, any triggered event, biggest
+  // state swings). Reads the store fresh right after advanceDay() resolves
+  // so it sees the post-update day/opponentLog/states, not stale closures.
+  // Never blocks or throws into the day-advance flow — a failed/offline
+  // response just means the static news pools cover today instead.
+  function requestAiNewsForToday() {
+    const fresh = useGameStore.getState();
+    const completedDay = fresh.day - 1;
+    const todaysActions = fresh.opponentLog.filter((a) => a.day === completedDay);
+    const freshIsPrn = fresh.settings.electionScope === "prn";
+    const freshPrnState = freshIsPrn ? fresh.states.find((s) => s.id === fresh.settings.prnStateId) : null;
+    const scopeStates = freshIsPrn && freshPrnState ? [freshPrnState] : fresh.states;
+    const topMovers = [...scopeStates]
+      .sort((a, b) => Math.abs(b.trend) - Math.abs(a.trend))
+      .slice(0, 3)
+      .filter((s) => Math.abs(s.trend) > 0.05)
+      .map((s) => ({ stateName: s.name, delta: s.trend }));
+    const freshSupport = freshIsPrn && freshPrnState
+      ? { mandat: Math.round(freshPrnState.mandatSupport), lawan: Math.round(freshPrnState.lawanSupport), others: Math.round(freshPrnState.othersSupport) }
+      : fresh.getNationalSupport();
+
+    fetch("/api/news", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        snapshot: {
+          day: completedDay,
+          totalDays: fresh.totalDays,
+          scope: fresh.settings.electionScope ?? "pru",
+          scopeStateName: freshPrnState?.name,
+          support: freshSupport,
+          opponentActions: todaysActions.map((a) => ({ type: a.type, stateName: a.stateName, narrativeEN: a.narrativeEN, severity: a.severity })),
+          triggeredEvent: fresh.lastEvent ? { title: fresh.lastEvent.title, description: fresh.lastEvent.description } : null,
+          topMovers,
+        },
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        // Re-stamp with whatever day is current when the response actually
+        // arrives (not the closed-over `fresh.day`) so the headline lands in
+        // "today's news" — reporting on the day that just concluded, dated
+        // like a morning paper covering yesterday's campaign trail.
+        if (data.source === "ai" && data.item) {
+          addAiNewsReaction({ ...data.item, day: useGameStore.getState().day });
+        }
+      })
+      .catch(() => {});
   }
 
   function handleManualSave() {
@@ -520,9 +576,9 @@ export default function WarroomPage() {
     }
     const saved = saveGameSnapshot(useGameStore.getState());
     if (saved) {
-      setManualSaveNotice(t(lang, `GAME SAVED · SLOT ${saved.slotNumber.toString().padStart(2, "0")} · DAY ${saved.state.day}/${saved.state.totalDays}`, `GAME SAVED · SLOT ${saved.slotNumber.toString().padStart(2, "0")} · DAY ${saved.state.day}/${saved.state.totalDays}`));
+      setManualSaveNotice(t(lang, "warroom_page.gameSavedSlotDay", { savedSlotNumberPadStart: saved.slotNumber.toString().padStart(2, "0"), savedStateDay: saved.state.day, savedStateTotalDays: saved.state.totalDays }));
     } else {
-      setManualSaveNotice(t(lang, "SAVE FAILED · TIADA KEMPEN AKTIF", "SAVE FAILED · NO ACTIVE CAMPAIGN"));
+      setManualSaveNotice(t(lang, "warroom_page.saveFailedNoActiveCampaign"));
     }
   }
 
@@ -539,16 +595,16 @@ export default function WarroomPage() {
   const daerahWinnerColor = (winner: Constituency["winner"]) =>
     winner === "mandat" ? "var(--cyan)" : winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
   const daerahWinnerLabel = (winner: Constituency["winner"]) =>
-    t(lang, winner === "mandat" ? "KITA" : winner === "lawan" ? "LAWAN" : "LAIN-LAIN", winner === "mandat" ? "WE LEAD" : winner === "lawan" ? "LAWAN" : "OTHERS");
+    t(lang, winner === "mandat" ? "warroom_page.daerahWinnerMandat" : winner === "lawan" ? "warroom_page.daerahWinnerLawan" : "warroom_page.daerahWinnerOthers");
   const safeSeats = seatScopeStates.filter((s) => s.status === "winning").reduce((sum, s) => sum + s.projectedSeats, 0);
   const trailingSeats = seatScopeStates.filter((s) => s.status === "losing").reduce((sum, s) => sum + s.projectedSeats, 0);
   const contestedSeats = seatScopeStates.filter((s) => s.status === "contested").reduce((sum, s) => sum + s.projectedSeats, 0);
 
   function getStatusBadge(status: string) {
     switch (status) {
-      case "winning":  return { label: t(lang, "MENANG", "WIN"),   bg: "rgb(var(--cyan-rgb) / 0.13)", color: "var(--cyan)", border: "rgb(var(--cyan-rgb) / 0.27)" };
-      case "losing":   return { label: t(lang, "KALAH", "LOSS"),  bg: "rgb(255 68 68 / 0.13)", color: "var(--neon-red)", border: "rgb(255 68 68 / 0.27)" };
-      case "contested":return { label: t(lang, "BERTANDING", "FIGHT"), bg: "rgb(var(--gold-rgb) / 0.13)", color: "var(--gold)", border: "rgb(var(--gold-rgb) / 0.27)" };
+      case "winning":  return { label: t(lang, "warroom_page.win"),   bg: "rgb(var(--cyan-rgb) / 0.13)", color: "var(--cyan)", border: "rgb(var(--cyan-rgb) / 0.27)" };
+      case "losing":   return { label: t(lang, "warroom_page.loss"),  bg: "rgb(255 68 68 / 0.13)", color: "var(--neon-red)", border: "rgb(255 68 68 / 0.27)" };
+      case "contested":return { label: t(lang, "warroom_page.fight"), bg: "rgb(var(--gold-rgb) / 0.13)", color: "var(--gold)", border: "rgb(var(--gold-rgb) / 0.27)" };
       default:         return { label: "—",     bg: "transparent", color: "var(--text-muted)", border: "transparent" };
     }
   }
@@ -562,7 +618,7 @@ export default function WarroomPage() {
           <rect x="1" y="7.5" width="4.5" height="4.5"/><rect x="7.5" y="7.5" width="4.5" height="4.5"/>
         </svg>
       ),
-      label: t(lang, "MENU UTAMA", "MAIN MENU"), path: "/menu",
+      label: t(lang, "warroom_page.mainMenu"), path: "/menu",
     },
     {
       icon: (
@@ -571,7 +627,7 @@ export default function WarroomPage() {
           <path d="M3.5 8.5l.8 3"/>
         </svg>
       ),
-      label: t(lang, "OPS KEMPEN", "CAMPAIGN OPS"), path: "/campaign",
+      label: t(lang, "warroom_page.campaignOps"), path: "/campaign",
     },
     {
       icon: (
@@ -580,7 +636,7 @@ export default function WarroomPage() {
           <path d="M1 12h10"/>
         </svg>
       ),
-      label: t(lang, "TINJAUAN", "POLLING"), path: "/polling",
+      label: t(lang, "warroom_page.polling"), path: "/polling",
     },
     {
       icon: (
@@ -589,7 +645,7 @@ export default function WarroomPage() {
           <path d="M4 5h5M4 7h3"/>
         </svg>
       ),
-      label: t(lang, "PESANAN", "MESSAGING"), path: "/messaging",
+      label: t(lang, "warroom_page.messaging"), path: "/messaging",
     },
     {
       icon: (
@@ -597,7 +653,7 @@ export default function WarroomPage() {
           <rect x="1" y="2.5" width="11" height="9.5"/><path d="M1 6h11M4.5 1v3M8.5 1v3"/>
         </svg>
       ),
-      label: t(lang, "KALENDAR", "CALENDAR"), path: "/calendar",
+      label: t(lang, "warroom_page.calendar"), path: "/calendar",
     },
     {
       icon: (
@@ -606,7 +662,7 @@ export default function WarroomPage() {
           <path d="M5.5 4.5h2M6.5 3.5v2" />
         </svg>
       ),
-      label: t(lang, "PENASIHAT AI", "AI ADVISOR"), path: "/advisor",
+      label: t(lang, "warroom_page.aiAdvisor"), path: "/advisor",
     },
   ];
 
@@ -722,7 +778,7 @@ export default function WarroomPage() {
           <div className="flex w-full items-center justify-center gap-2">
             <button
               onClick={() => router.push("/kawasan")}
-              title={t(lang, "Pergi ke kawasan anda", "Go to your constituency")}
+              title={t(lang, "warroom_page.goToYourConstituency")}
               className="flex-1 px-2 py-2 text-[10px] font-bold tracking-widest uppercase transition-all hover:opacity-80 active:scale-[0.97]"
               style={{
                 background: "rgb(var(--cyan-rgb) / 0.10)",
@@ -732,7 +788,7 @@ export default function WarroomPage() {
                 boxShadow: "0 0 10px rgb(var(--cyan-rgb) / 0.14)",
               }}
             >
-              {t(lang, "🏘 KAWASAN", "🏘 SEAT")}
+              {t(lang, "warroom_page.seat")}
             </button>
             <button
               onClick={handleManualSave}
@@ -745,7 +801,7 @@ export default function WarroomPage() {
                 boxShadow: "0 0 10px rgb(var(--gold-rgb) / 0.14)",
               }}
             >
-              {t(lang, "💾 SIMPAN", "💾 SAVE")}
+              {t(lang, "warroom_page.save")}
             </button>
             {day < totalDays ? (
               <button
@@ -787,23 +843,23 @@ export default function WarroomPage() {
       <main className="pt-[164px] pb-[56px] px-6">
         <div className="flex flex-col gap-4 w-full">
 
-          <TacticalPanel title={electionScope === "prn" ? t(lang, "TAKLIMAT ARAHAN PRN", "PRN COMMAND BRIEFING") : t(lang, "TAKLIMAT ARAHAN PRU", "PRU COMMAND BRIEFING")}>
+          <TacticalPanel title={electionScope === "prn" ? t(lang, "warroom_page.prnCommandBriefing") : t(lang, "warroom_page.pruCommandBriefing")}>
             <div className="grid gap-3 md:grid-cols-4">
               <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.32)", background: "rgb(var(--gold-rgb) / 0.06)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "MOD", "MODE")}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.mode")}</div>
                 <div className="mt-1 text-lg font-black tracking-widest" style={{ color: "var(--gold)" }}>{electionModeLabel}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "MEDAN PERANG", "BATTLEFIELD")}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.battlefield")}</div>
                 <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? prnState?.name : "Malaysia"}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "SASARAN", "TARGET")}</div>
-                <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? t(lang, "Bentuk kerajaan negeri / mandat MB", "Form state government / MB mandate") : t(lang, "Bentuk kerajaan persekutuan / mandat PM", "Form federal government / PM mandate")}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.target")}</div>
+                <div className="mt-1 text-sm font-black text-white">{electionScope === "prn" ? t(lang, "warroom_page.formStateGovernmentMbMandate") : t(lang, "warroom_page.formFederalGovernmentPmMandate")}</div>
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
-                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "ISU", "ISSUES")}</div>
-                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" ? t(lang, "Perkhidmatan tempatan · calon MB · kerusi goyang negeri", "Local services · MB candidate · state swing seats") : t(lang, "Mandat nasional · gabungan · dasar persekutuan", "National mandate · coalitions · federal policy")}</div>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.issues")}</div>
+                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" ? t(lang, "warroom_page.localServicesMbCandidateStateSwing") : t(lang, "warroom_page.nationalMandateCoalitionsFederalPolicy")}</div>
               </div>
             </div>
           </TacticalPanel>
@@ -811,7 +867,7 @@ export default function WarroomPage() {
           {/* Living War Room ambient scene — every hotspot color below is derived
               from real store state (opponent threat, media sentiment, support
               trend, resource levels), never randomized. */}
-          <TacticalPanel title={t(lang, "BILIK GERAKAN HIDUP", "LIVING WAR ROOM")} noPadding>
+          <TacticalPanel title={t(lang, "warroom_page.livingWarRoom")} noPadding>
             <WarRoomLivingScene
               lang={lang}
               opponentLog={opponentLog}
@@ -835,12 +891,12 @@ export default function WarroomPage() {
               <div className="absolute top-[22px] left-[calc(100%/12)] right-[calc(100%/12)] h-[2px]" style={{ background: "rgb(var(--cyan-rgb) / 0.15)" }} />
               <div className="grid grid-cols-6 gap-3">
                 {[
-                  { day: "T-30", tarikh: "12 JUN 2025", labelMS: "PARLIMEN DIBUBAR",   labelEN: "PARLIAMENT DISSOLVED",  subMS: "SPR terima notis pembubaran",             subEN: "EC receives dissolution notice",            done: day > 1, active: day < NOMINATION_DAY      },
-                  { day: "T-15", tarikh: "27 JUN 2025", labelMS: "HARI PENAMAAN",       labelEN: "NOMINATION DAY",        subMS: "Calon disahkan sebelum kempen bermula",    subEN: "Candidates confirmed before campaigning",   done: day > NOMINATION_DAY, active: day === NOMINATION_DAY      },
-                  { day: "T-14", tarikh: "28 JUN 2025", labelMS: "KEMPEN BERMULA",      labelEN: "CAMPAIGN BEGINS",       subMS: flowStatus.campaignDay ? `Hari ${flowStatus.campaignDay} drpd 14 — selepas penamaan calon` : "Belum bermula — tunggu penamaan calon",  subEN: flowStatus.campaignDay ? `Day ${flowStatus.campaignDay} of 14 — after nomination day` : "Not started — nomination comes first", done: day > CAMPAIGN_END_DAY, active: day >= CAMPAIGN_START_DAY && day <= CAMPAIGN_END_DAY  },
-                  { day: "T-4",  tarikh: "8 JUL 2025",  labelMS: "PENGUNDIAN AWAL",     labelEN: "EARLY VOTING",          subMS: "Anggota polis & tentera mengundi",         subEN: "Police & military personnel vote",          done: day > 26,  active: day >= 26 && day < POLLING_DAY  },
-                  { day: "T-1",  tarikh: "11 JUL 2025", labelMS: "HARI TERAKHIR KEMPEN", labelEN: "FINAL CAMPAIGN DAY",    subMS: "Kempen berakhir sebelum Hari Mengundi",    subEN: "Campaign ends before Polling Day",          done: day >= POLLING_DAY, active: day === CAMPAIGN_END_DAY  },
-                  { day: "T-0",  tarikh: "12 JUL 2025", labelMS: "HARI MENGUNDI",       labelEN: "POLLING DAY",           subMS: "Rakyat ke peti undi — 8pg hingga 5ptg",   subEN: "Voters to the polls — 8am to 5:30pm",      done: false, active: day >= POLLING_DAY  },
+                  { day: "T-30", tarikh: "12 JUN 2025", labelKey: "timelineDissolvedLabel",   subKey: "timelineDissolvedSub",     done: day > 1, active: day < NOMINATION_DAY      },
+                  { day: "T-15", tarikh: "27 JUN 2025", labelKey: "timelineNominationLabel",  subKey: "timelineNominationSub",    done: day > NOMINATION_DAY, active: day === NOMINATION_DAY      },
+                  { day: "T-14", tarikh: "28 JUN 2025", labelKey: "timelineCampaignLabel",    subKey: flowStatus.campaignDay ? "timelineCampaignSubActive" : "timelineCampaignSubPending", done: day > CAMPAIGN_END_DAY, active: day >= CAMPAIGN_START_DAY && day <= CAMPAIGN_END_DAY  },
+                  { day: "T-4",  tarikh: "8 JUL 2025",  labelKey: "timelineEarlyVotingLabel", subKey: "timelineEarlyVotingSub",   done: day > 26,  active: day >= 26 && day < POLLING_DAY  },
+                  { day: "T-1",  tarikh: "11 JUL 2025", labelKey: "timelineFinalDayLabel",    subKey: "timelineFinalDaySub",      done: day >= POLLING_DAY, active: day === CAMPAIGN_END_DAY  },
+                  { day: "T-0",  tarikh: "12 JUL 2025", labelKey: "timelinePollingLabel",     subKey: "timelinePollingSub",       done: false, active: day >= POLLING_DAY  },
                 ].map((ev, i) => {
                   const dotColor = ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.35)";
                   const labelColor = ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "#8899aa";
@@ -862,8 +918,8 @@ export default function WarroomPage() {
                       </div>
                       <div className="w-full rounded-sm p-2.5" style={{ background: bgColor, border: `1px solid ${borderColor}` }}>
                         <div className="text-[10px] font-black tracking-[0.22em] mb-0.5" style={{ color: dotColor }}>{ev.day}</div>
-                        <div className="text-[11px] font-bold tracking-[0.10em] leading-tight" style={{ color: labelColor }}>{t(lang, ev.labelMS, ev.labelEN)}</div>
-                        <div className="mt-1 text-[9px] leading-[1.4]" style={{ color: "#4a6070" }}>{t(lang, ev.subMS, ev.subEN)}</div>
+                        <div className="text-[11px] font-bold tracking-[0.10em] leading-tight" style={{ color: labelColor }}>{t(lang, `warroom_page.${ev.labelKey}`)}</div>
+                        <div className="mt-1 text-[9px] leading-[1.4]" style={{ color: "#4a6070" }}>{t(lang, `warroom_page.${ev.subKey}`, { campaignDay: flowStatus.campaignDay ?? undefined })}</div>
                         <div className="mt-2 text-[8px] font-bold tracking-[0.14em]" style={{ color: ev.done ? "var(--neon-green)" : "#3d5166" }}>{ev.tarikh}</div>
                       </div>
                     </div>
@@ -872,13 +928,13 @@ export default function WarroomPage() {
               </div>
               <div className="mt-3 flex items-center gap-5 justify-end">
                 {[
-                  { color: "var(--neon-green)", labelMS: "SELESAI",      labelEN: "DONE"     },
-                  { color: "var(--gold)",        labelMS: "SEMASA",       labelEN: "CURRENT"  },
-                  { color: "rgb(var(--cyan-rgb) / 0.35)", labelMS: "AKAN DATANG", labelEN: "UPCOMING" },
+                  { color: "var(--neon-green)", key: "timelineLegendDone"     },
+                  { color: "var(--gold)",        key: "timelineLegendCurrent"  },
+                  { color: "rgb(var(--cyan-rgb) / 0.35)", key: "timelineLegendUpcoming" },
                 ].map((l) => (
-                  <div key={l.labelMS} className="flex items-center gap-1.5">
+                  <div key={l.key} className="flex items-center gap-1.5">
                     <div className="h-2 w-2 rounded-full" style={{ background: l.color }} />
-                    <span className="text-[9px] tracking-[0.14em]" style={{ color: "#4a5e72" }}>{t(lang, l.labelMS, l.labelEN)}</span>
+                    <span className="text-[9px] tracking-[0.14em]" style={{ color: "#4a5e72" }}>{t(lang, `warroom_page.${l.key}`)}</span>
                   </div>
                 ))}
               </div>
@@ -952,13 +1008,13 @@ export default function WarroomPage() {
           <div className="flex gap-4">
             {/* State / Daerah Summary Table */}
             <div style={{ flex: "0 0 42%" }}>
-              <TacticalPanel title={electionScope === "prn" ? `DUN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}` : t(lang, "RINGKASAN NEGERI", "STATE SUMMARY")} noPadding>
+              <TacticalPanel title={electionScope === "prn" ? `DUN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}` : t(lang, "warroom_page.stateSummary")} noPadding>
                 <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
                   {electionScope === "prn" ? (
                     <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
-                          {["DUN", t(lang, "MENDAHULUI", "LEADING"), t(lang, "MARGIN", "MARGIN"), t(lang, "KESELAMATAN", "SAFETY")].map((h) => (
+                          {["DUN", t(lang, "warroom_page.leading"), t(lang, "warroom_page.margin"), t(lang, "warroom_page.safety")].map((h) => (
                             <th key={h} className="text-left py-2 px-3 text-text-muted tracking-wider font-normal text-[11px]">
                               {h}
                             </th>
@@ -980,7 +1036,7 @@ export default function WarroomPage() {
                                   border: `1px solid ${daerahSafetyColor(c.safety)}55`,
                                 }}
                               >
-                                {t(lang, c.safety === "safe" ? "SELAMAT" : c.safety === "marginal" ? "MARJIN" : "BAHAYA", c.safety)}
+                                {t(lang, c.safety === "safe" ? "warroom_page.daerahSafetySafe" : c.safety === "marginal" ? "warroom_page.daerahSafetyMarginal" : "warroom_page.daerahSafetyDanger")}
                               </span>
                             </td>
                           </tr>
@@ -991,7 +1047,7 @@ export default function WarroomPage() {
                     <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.2)" }}>
-                          {[t(lang, "NEGERI", "STATE"), t(lang, "KERUSI", "SEATS"), t(lang, "SOKONGAN", "SUPPORT"), t(lang, "TREND", "TREND"), t(lang, "STATUS", "STATUS")].map((h) => (
+                          {[t(lang, "warroom_page.state"), t(lang, "warroom_page.seats"), t(lang, "warroom_page.support"), t(lang, "warroom_page.trend"), t(lang, "warroom_page.status")].map((h) => (
                             <th
                               key={h}
                               className="text-left py-2 px-3 text-text-muted tracking-wider font-normal text-[11px]"
@@ -1048,7 +1104,7 @@ export default function WarroomPage() {
             {/* Seat Distribution */}
             <div style={{ flex: "0 0 20%" }}>
               {electionScope === "prn" && prnState ? (
-                <TacticalPanel title={t(lang, `PENGAGIHAN KERUSI — ${prnState.dunSeats} JUMLAH`, `SEAT DISTRIBUTION — ${prnState.dunSeats} TOTAL`)}>
+                <TacticalPanel title={t(lang, "warroom_page.seatDistributionTotal", { prnStateDunSeats: prnState.dunSeats })}>
                   <SeatDonut
                     mandat={prnState.projectedSeats}
                     lawan={Math.max(0, prnState.dunSeats - prnState.projectedSeats - Math.round(prnState.dunSeats * 0.126))}
@@ -1060,7 +1116,7 @@ export default function WarroomPage() {
                   />
                 </TacticalPanel>
               ) : (
-                <TacticalPanel title={t(lang, "PENGAGIHAN KERUSI — 222 JUMLAH", "SEAT DISTRIBUTION — 222 TOTAL")}>
+                <TacticalPanel title={t(lang, "warroom_page.seatDistribution222Total")}>
                   <SeatDonut
                     mandat={projectedSeats}
                     lawan={222 - projectedSeats - 28}
@@ -1081,7 +1137,7 @@ export default function WarroomPage() {
 
             {/* Live News */}
             <div style={{ flex: "0 0 18%" }}>
-              <TacticalPanel title={t(lang, `BERITA LIVE — HARI ${day}`, `LIVE NEWS — DAY ${day}`)} noPadding>
+              <TacticalPanel title={t(lang, "warroom_page.liveNewsDay", { day: day })} noPadding>
                 <div className="overflow-y-auto px-4 pb-3" style={{ maxHeight: "300px" }}>
                   {todaysNews.map((news) => {
                     const toneColor = news.tone === "positive" ? "var(--neon-green)"
@@ -1125,7 +1181,7 @@ export default function WarroomPage() {
                     );
                   })}
                   <div className="pt-2">
-                    <div className="mb-1 text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--gold)" }}>{t(lang, "WAYAR TERKINI", "LATEST WIRES")}</div>
+                    <div className="mb-1 text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--gold)" }}>{t(lang, "warroom_page.latestWires")}</div>
                     {latestNews.filter((item) => item.day !== day).slice(0, 3).map((news) => (
                       <div key={`wire-${news.id}`} className="flex items-start gap-2 py-1.5 text-[10px]" style={{ color: "#7f90a3" }}>
                         <span className="font-bold" style={{ color: "var(--gold)" }}>D{news.day}</span>
@@ -1142,7 +1198,7 @@ export default function WarroomPage() {
       </main>
 
       <StatusBar
-        leftText={`${t(lang, "BERITA LIVE", "LIVE NEWS")} · DAY ${day}/${totalDays} · ${
+        leftText={`${t(lang, "warroom_page.liveNews")} · DAY ${day}/${totalDays} · ${
           lang === "ms"
             ? (todaysNews[0]?.headline ?? (electionScope === "prn" ? `War room memantau ${prnState?.name ?? "negeri"}` : "War room memantau nasional"))
             : (todaysNews[0]?.headlineEN ?? (electionScope === "prn" ? `War room monitoring ${prnState?.name ?? "state"} wires` : "War room monitoring national wires"))

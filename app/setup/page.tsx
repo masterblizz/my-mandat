@@ -18,43 +18,43 @@ import { useLang, t } from "../i18n/useLang";
 import { PREMIUM_PRICE_IDS } from "../config/premiumProducts";
 
 const POSITIONS = [
-  { id: "PRESIDENT", ms: "PRESIDEN", en: "PRESIDENT" },
-  { id: "SECRETARY GENERAL", ms: "SETIAUSAHA AGUNG", en: "SECRETARY GENERAL" },
-  { id: "CHAIRMAN", ms: "PENGERUSI", en: "CHAIRMAN" },
-  { id: "DEPUTY PRESIDENT", ms: "TIMBALAN PRESIDEN", en: "DEPUTY PRESIDENT" },
+  { id: "PRESIDENT" },
+  { id: "SECRETARY GENERAL" },
+  { id: "CHAIRMAN" },
+  { id: "DEPUTY PRESIDENT" },
 ];
 const EXPERIENCE_OPTIONS = [
-  { id: "veteran", ms: "VETERAN", en: "VETERAN" },
-  { id: "moderate", ms: "SEDERHANA", en: "MODERATE" },
-  { id: "rookie", ms: "PEMULA", en: "ROOKIE" },
+  { id: "veteran" },
+  { id: "moderate" },
+  { id: "rookie" },
 ] as const;
 const DIFFICULTIES = [
-  { id: "easy", labelMS: "MUDAH", labelEN: "EASY", descMS: "Untuk pemula. Pembangkang lembut, media memihak.", descEN: "For first-timers. Relaxed opposition, favorable media.", opp: 40, media: 30 },
-  { id: "normal", labelMS: "NORMAL", labelEN: "NORMAL", descMS: "Cabaran seimbang. Persaingan adil.", descEN: "Balanced challenge. Fair competition.", opp: 60, media: 50 },
-  { id: "hard", labelMS: "SUKAR", labelEN: "HARD", descMS: "Pembangkang tangguh, media berat sebelah.", descEN: "Tough opposition, biased media.", opp: 80, media: 70 },
-  { id: "nightmare", labelMS: "MIMPI NGERI", labelEN: "NIGHTMARE", descMS: "Cabaran maksimum. Semua menentang anda.", descEN: "Maximum challenge. Everything against you.", opp: 95, media: 90 },
+  { id: "easy", opp: 40, media: 30 },
+  { id: "normal", opp: 60, media: 50 },
+  { id: "hard", opp: 80, media: 70 },
+  { id: "nightmare", opp: 95, media: 90 },
 ] as const;
 const MEDIA_OPTIONS = [
-  { id: "PRO-MANDAT", ms: "PRO-MANDAT", en: "PRO-MANDAT" },
-  { id: "BALANCED", ms: "SEIMBANG", en: "BALANCED" },
-  { id: "HOSTILE", ms: "BERMUSUHAN", en: "HOSTILE" },
+  { id: "PRO-MANDAT" },
+  { id: "BALANCED" },
+  { id: "HOSTILE" },
 ] as const;
 const TOTAL_POINTS = 450;
 const AVATARS = [
-  { src: "/avatars/leader-01.png", ms: "AHLI STRATEGI BANDAR", en: "URBAN STRATEGIST" },
-  { src: "/avatars/leader-02.png", ms: "DIPLOMAT REFORMASI", en: "REFORM DIPLOMAT" },
-  { src: "/avatars/leader-03.png", ms: "TEKNOKRAT DASAR", en: "POLICY TECHNOCRAT" },
-  { src: "/avatars/leader-04.png", ms: "PENGANJUR AKAR UMBI", en: "GRASSROOTS ORGANISER" },
-  { src: "/avatars/leader-05.png", ms: "NEGARAWAN KANAN", en: "SENIOR STATESMAN" },
+  { src: "/avatars/leader-01.png" },
+  { src: "/avatars/leader-02.png" },
+  { src: "/avatars/leader-03.png" },
+  { src: "/avatars/leader-04.png" },
+  { src: "/avatars/leader-05.png" },
 ];
 
 const STEPS = [
-  { num: "00", labelMS: "MOD DATA", labelEN: "DATA MODE" },
-  { num: "01", labelMS: "AVATAR & PARTI", labelEN: "AVATAR & PARTY" },
-  { num: "02", labelMS: "TETAPAN KEMPEN", labelEN: "CAMPAIGN SETTINGS" },
-  { num: "03", labelMS: "PENCALONAN", labelEN: "NOMINATION" },
-  { num: "04", labelMS: "KESUKARAN", labelEN: "DIFFICULTY" },
-  { num: "05", labelMS: "SAHKAN", labelEN: "CONFIRM" },
+  { num: "00" },
+  { num: "01" },
+  { num: "02" },
+  { num: "03" },
+  { num: "04" },
+  { num: "05" },
 ];
 
 export default function SetupPage() {
@@ -72,7 +72,7 @@ export default function SetupPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("purchase") === "cancelled") {
-      setNotice(t(lang, "Pembelian dibatalkan.", "Purchase cancelled."));
+      setNotice(t(lang, "setup_page.purchaseCancelled"));
       // Plain History API, NOT router.replace(): router.replace() re-enters
       // Next's App Router and was re-rendering this page in the same tick,
       // wiping the setNotice() call above before it ever painted — the
@@ -122,6 +122,7 @@ export default function SetupPage() {
   // constituency list and silently falls back to the first DUN seat.
   const homeStateData = useMemo(() => states.find((s) => s.id === homeState) ?? states[0], [homeState]);
   const prnStateData = useMemo(() => states.find((s) => s.id === prnStateId) ?? states[0], [prnStateId]);
+  const positionLabelLower = t(lang, `setup_page.position_${position}`).toLowerCase();
   const homeConstituencies = useMemo(
     () => electionScope === "prn" ? generateConstituencies(prnStateData, "dun") : generateConstituencies(homeStateData),
     [electionScope, prnStateData, homeStateData]
@@ -287,7 +288,7 @@ export default function SetupPage() {
                   className="text-[11px] tracking-wider mt-0.5"
                   style={{ color: i === step ? "var(--gold)" : "var(--text-muted)" }}
                 >
-                  {t(lang, s.labelMS, s.labelEN)}
+                  {t(lang, `setup_page.step_${s.num}_label`)}
                 </div>
               </button>
             ))}
@@ -298,7 +299,7 @@ export default function SetupPage() {
             <div className="space-y-6">
               <div className="text-center mb-2">
                 <div className="text-[13px] text-text-muted tracking-widest uppercase">
-                  {t(lang, "Pilih nama dan parti politik yang muncul dalam kempen anda", "Choose which political names & parties appear in your campaign")}
+                  {t(lang, "setup_page.chooseWhichPoliticalNamesPartiesAppear")}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -322,7 +323,7 @@ export default function SetupPage() {
                           className="absolute top-3 right-3 text-[10px] font-bold tracking-widest px-2 py-0.5"
                           style={{ background: accentColor, color: "#000" }}
                         >
-                          {t(lang, "DIPILIH", "SELECTED")}
+                          {t(lang, "setup_page.selected")}
                         </div>
                       )}
                       <div className="text-[22px] mb-3">{isReal ? "🇲🇾" : "🎮"}</div>
@@ -354,7 +355,7 @@ export default function SetupPage() {
                         ))}
                         {ds.parties.length > 4 && (
                           <div className="text-[11px] text-text-muted pl-4">
-                            {t(lang, `+ ${ds.parties.length - 4} parti lagi`, `+ ${ds.parties.length - 4} more parties`)}
+                            {t(lang, "setup_page.moreParties", { dsPartiesLength: ds.parties.length - 4 })}
                           </div>
                         )}
                       </div>
@@ -369,7 +370,7 @@ export default function SetupPage() {
           {step === 1 && (
             <div className="flex gap-4">
               {/* Left: Avatar Selector */}
-              <TacticalPanel title={t(lang, "AVATAR", "AVATAR")} className="w-[220px] shrink-0">
+              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-[220px] shrink-0">
                 <div className="flex flex-col items-center gap-3 mt-1">
                   <div
                     className="relative flex items-center justify-center rounded-full"
@@ -394,7 +395,7 @@ export default function SetupPage() {
                     >
                       <img
                         src={AVATARS[avatarIndex].src}
-                        alt={t(lang, `Avatar ${AVATARS[avatarIndex].ms}`, `${AVATARS[avatarIndex].en} avatar`)}
+                        alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })}
                         style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.06)" }}
                       />
                     </div>
@@ -402,7 +403,7 @@ export default function SetupPage() {
 
                   <div className="text-center">
                     <div className="text-[11px] tracking-[0.28em]" style={{ color: "var(--cyan)" }}>
-                      {t(lang, "AVATAR DIPILIH", "SELECTED AVATAR")}
+                      {t(lang, "setup_page.selectedAvatar")}
                     </div>
                     <div
                       className="mt-1 inline-flex px-2 py-1 text-[10px] font-bold tracking-wider"
@@ -412,11 +413,11 @@ export default function SetupPage() {
                         background: "rgb(var(--gold-rgb) / 0.08)",
                       }}
                     >
-                      {t(lang, AVATARS[avatarIndex].ms, AVATARS[avatarIndex].en)}
+                      {t(lang, `setup_page.avatar_${avatarIndex}`)}
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap justify-center gap-2.5 w-full pt-1" aria-label={t(lang, "Pilih avatar", "Choose avatar")}>
+                  <div className="flex flex-wrap justify-center gap-2.5 w-full pt-1" aria-label={t(lang, "setup_page.chooseAvatar")}>
                     {AVATARS.map((avatar, i) => {
                       const selected = avatarIndex === i;
                       return (
@@ -424,7 +425,7 @@ export default function SetupPage() {
                           key={avatar.src}
                           type="button"
                           onClick={() => setAvatarIndex(i)}
-                          aria-label={t(lang, `Pilih ${avatar.ms}`, `Select ${avatar.en}`)}
+                          aria-label={t(lang, "setup_page.select", { avatarName: t(lang, `setup_page.avatar_${i}`) })}
                           aria-pressed={selected}
                           className="group relative flex items-center justify-center overflow-hidden rounded-full transition-all hover:scale-105"
                           style={{
@@ -454,32 +455,32 @@ export default function SetupPage() {
               </TacticalPanel>
 
               {/* Center: Leader Details */}
-              <TacticalPanel title={t(lang, "BUTIRAN PEMIMPIN", "LEADER DETAILS")} className="flex-1">
+              <TacticalPanel title={t(lang, "setup_page.leaderDetails")} className="flex-1">
                 <div className="space-y-3">
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "NAMA", "NAME")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.name")}</div>
                     <input
                       type="text"
                       value={leaderName}
                       onChange={(e) => setLeaderName(e.target.value.toUpperCase())}
                       className="w-full uppercase"
-                      placeholder={t(lang, "MASUKKAN NAMA", "ENTER NAME")}
+                      placeholder={t(lang, "setup_page.enterName")}
                     />
                   </div>
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "JAWATAN", "POSITION")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.position")}</div>
                     <select
                       value={position}
                       onChange={(e) => setPosition(e.target.value)}
                       className="w-full"
                     >
                       {POSITIONS.map((p) => (
-                        <option key={p.id} value={p.id}>{t(lang, p.ms, p.en)}</option>
+                        <option key={p.id} value={p.id}>{t(lang, `setup_page.position_${p.id}`)}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "PENGALAMAN", "EXPERIENCE")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.experience")}</div>
                     <div className="flex gap-2">
                       {EXPERIENCE_OPTIONS.map((opt) => (
                         <button
@@ -493,13 +494,13 @@ export default function SetupPage() {
                             borderColor: experience === opt.id ? "var(--gold)" : "var(--bar-empty)",
                           }}
                         >
-                          {t(lang, opt.ms, opt.en)}
+                          {t(lang, `setup_page.experience_${opt.id}`)}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "NEGERI ASAL", "HOME STATE")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.homeState")}</div>
                     <select
                       value={homeState}
                       onChange={(e) => setHomeState(e.target.value)}
@@ -514,25 +515,25 @@ export default function SetupPage() {
                   {/* Leader Attributes */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "ATRIBUT PEMIMPIN", "LEADER ATTRIBUTES")}</div>
+                      <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.leaderAttributes")}</div>
                       <div
                         className="text-[12px] font-bold"
                         style={{ color: pointsRemaining < 0 ? "var(--neon-red)" : "var(--neon-green)" }}
                       >
-                        {t(lang, `${pointsRemaining} MATA BERBAKI`, `${pointsRemaining} PTS REMAINING`)}
+                        {t(lang, "setup_page.ptsRemaining", { pointsRemaining: pointsRemaining })}
                       </div>
                     </div>
                     <div className="space-y-2">
                       {[
-                        { labelMS: "PENGARUH", labelEN: "INFLUENCE", val: influence, set: setInfluence },
-                        { labelMS: "KARISMA", labelEN: "CHARISMA", val: charisma, set: setCharisma },
-                        { labelMS: "KREDIBILITI", labelEN: "CREDIBILITY", val: credibility, set: setCredibility },
-                        { labelMS: "RUNDINGAN", labelEN: "NEGOTIATION", val: negotiation, set: setNegotiation },
-                        { labelMS: "STRATEGI", labelEN: "STRATEGY", val: strategy, set: setStrategy },
-                      ].map(({ labelMS, labelEN, val, set }) => (
-                        <div key={labelEN} className="space-y-1">
+                        { id: "influence", val: influence, set: setInfluence },
+                        { id: "charisma", val: charisma, set: setCharisma },
+                        { id: "credibility", val: credibility, set: setCredibility },
+                        { id: "negotiation", val: negotiation, set: setNegotiation },
+                        { id: "strategy", val: strategy, set: setStrategy },
+                      ].map(({ id, val, set }) => (
+                        <div key={id} className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-text-muted">{t(lang, labelMS, labelEN)}</span>
+                            <span className="text-[12px] text-text-muted">{t(lang, `setup_page.attr_${id}`)}</span>
                             <span className="text-[12px] text-cyan font-bold">{val}</span>
                           </div>
                           <input
@@ -555,10 +556,10 @@ export default function SetupPage() {
               </TacticalPanel>
 
               {/* Right: Party Identity */}
-              <TacticalPanel title={t(lang, "IDENTITI PARTI", "PARTY IDENTITY")} className="w-[200px] shrink-0">
+              <TacticalPanel title={t(lang, "setup_page.partyIdentity")} className="w-[200px] shrink-0">
                 <div className="space-y-3">
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "PARTI SET DATA", "DATASET PARTY")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.datasetParty")}</div>
                     <select
                       value={selectedPartyId}
                       onChange={(e) => setSelectedPartyId(e.target.value)}
@@ -572,22 +573,22 @@ export default function SetupPage() {
                       ))}
                     </select>
                     <div className="mt-1 text-[9px] leading-4 tracking-[0.12em]" style={{ color: "#6f8092" }}>
-                      {t(lang, `Identiti parti dikunci pada set data dipilih: ${currentDataset.labelMS ?? currentDataset.label}`, `Party identity locked to selected dataset: ${currentDataset.label}`)}
+                      {t(lang, "setup_page.partyIdentityLockedToSelectedDataset", { currentDatasetLabelMSCurrentDataset: currentDataset.labelMS ?? currentDataset.label, currentDatasetLabel: currentDataset.label })}
                     </div>
                   </div>
                   <div className="grid gap-2">
                     <div className="border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgba(255,255,255,0.025)" }}>
-                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "NAMA PARTI", "PARTY NAME")}</div>
+                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "setup_page.partyName")}</div>
                       <div className="mt-1 text-[11px] font-bold leading-4 text-white">{partyName}</div>
                     </div>
                     <div className="border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgba(255,255,255,0.025)" }}>
-                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "SINGKATAN", "ABBREVIATION")}</div>
+                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "setup_page.abbreviation")}</div>
                       <div className="mt-1 text-[13px] font-black" style={{ color: partyColor }}>{partyAbbr}</div>
                     </div>
                   </div>
                   {/* Logo Preview */}
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "PRATONTON LOGO", "LOGO PREVIEW")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "setup_page.logoPreview")}</div>
                     <div
                       className="flex items-center justify-center h-20 text-4xl font-bold"
                       style={{
@@ -613,22 +614,17 @@ export default function SetupPage() {
               Runs after campaign settings so it already knows PRU vs PRN. */}
           {step === 3 && (
             <div className="space-y-3">
-              <TacticalPanel title={electionScope === "prn" ? t(lang, "BERTANDING KERUSI DUN", "CONTEST YOUR DUN SEAT") : t(lang, "BERTANDING KERUSI SENDIRI", "CONTEST YOUR OWN SEAT")}>
+              <TacticalPanel title={electionScope === "prn" ? t(lang, "setup_page.contestYourDunSeat") : t(lang, "setup_page.contestYourOwnSeat")}>
                 <div className="text-[13px] text-text-muted leading-relaxed mb-3">
                   {electionScope === "prn"
-                    ? t(lang,
-                        `Sebagai ${POSITIONS.find((p) => p.id === position)?.ms.toLowerCase() ?? position.toLowerCase()} ${partyName || "parti anda"}, anda juga perlu dicalonkan untuk kerusi DUN seperti calon lain. Pilih kawasan DUN mana di ${prnStateData?.name ?? prnStateId.toUpperCase()} yang anda akan bertanding secara peribadi — ini akan menjadi kawasan anda di Peta Bandar 3D.`,
-                        `As ${position.toLowerCase()} of ${partyName || "your party"}, you must be nominated for a DUN seat like any other candidate. Choose which DUN constituency in ${prnStateData?.name ?? prnStateId.toUpperCase()} you will personally contest — this becomes your kawasan in the 3D City Map.`)
-                    : t(lang,
-                        `Sebagai ${POSITIONS.find((p) => p.id === position)?.ms.toLowerCase() ?? position.toLowerCase()} ${partyName || "parti anda"}, anda juga perlu dicalonkan untuk kerusi seperti calon lain. Pilih kawasan mana di ${homeStateData?.name ?? homeState.toUpperCase()} yang anda akan bertanding secara peribadi.`,
-                        `As ${position.toLowerCase()} of ${partyName || "your party"}, you must be nominated for a parliamentary seat like any other candidate. Choose which constituency in ${homeStateData?.name ?? homeState.toUpperCase()} you will personally contest.`)}
+                    ? t(lang, "setup_page.asOfYouMustBeNominated", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", prnStateDataNamePrnStateId: prnStateData?.name ?? prnStateId.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })
+                    : t(lang, "setup_page.asOfYouMustBeNominated2", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", homeStateDataNameHomeState: homeStateData?.name ?? homeState.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })}
                 </div>
                 <div className="grid grid-cols-3 gap-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
                   {homeConstituencies.map((c) => {
                     const active = contestConstituencyId === c.id;
                     const safetyColor = c.safety === "safe" ? "var(--neon-green)" : c.safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
                     const winColor = c.winner === "mandat" ? "var(--cyan)" : c.winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
-                    const safetyMS = c.safety === "safe" ? "SELAMAT" : c.safety === "marginal" ? "MARGINAL" : "BAHAYA";
                     return (
                       <button
                         key={c.id}
@@ -645,8 +641,8 @@ export default function SetupPage() {
                           <span className="text-[9px] shrink-0" style={{ color: "#4a5568" }}>{c.code}</span>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[11px]">
-                          <span style={{ color: winColor }}>{c.mandat}% {t(lang, "SOKONGAN", "SUPPORT")}</span>
-                          <span className="uppercase font-bold" style={{ color: safetyColor }}>{t(lang, safetyMS, c.safety)}</span>
+                          <span style={{ color: winColor }}>{c.mandat}% {t(lang, "setup_page.support")}</span>
+                          <span className="uppercase font-bold" style={{ color: safetyColor }}>{t(lang, c.safety === "safe" ? "setup_page.safetySafe" : c.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")}</span>
                         </div>
                       </button>
                     );
@@ -655,24 +651,24 @@ export default function SetupPage() {
               </TacticalPanel>
 
               {contestConstituency && (
-                <TacticalPanel title={t(lang, "PENCALONAN ANDA", "YOUR CANDIDACY")} noPadding>
+                <TacticalPanel title={t(lang, "setup_page.yourCandidacy")} noPadding>
                   <div className="flex items-center justify-between px-4 py-3">
                     <div>
-                      <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "KERUSI DIPERTANDINGKAN", "CONTESTING SEAT")}</div>
+                      <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.contestingSeat")}</div>
                       <div className="text-[14px] font-bold text-white">{contestConstituency.name} ({contestConstituency.code})</div>
                     </div>
                     <div className="flex gap-6">
                       <div className="text-right">
-                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "SOKONGAN", "SUPPORT")}</div>
+                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.support")}</div>
                         <div className="text-[14px] font-bold" style={{ color: "var(--cyan)" }}>{contestConstituency.mandat}%</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "KESELAMATAN", "SAFETY")}</div>
+                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.safety")}</div>
                         <div
                           className="text-[14px] font-bold"
                           style={{ color: contestConstituency.safety === "safe" ? "var(--neon-green)" : contestConstituency.safety === "marginal" ? "var(--gold)" : "var(--neon-red)" }}
                         >
-                          {t(lang, contestConstituency.safety === "safe" ? "SELAMAT" : contestConstituency.safety === "marginal" ? "MARGINAL" : "BAHAYA", contestConstituency.safety.toUpperCase())}
+                          {t(lang, contestConstituency.safety === "safe" ? "setup_page.safetySafe" : contestConstituency.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")}
                         </div>
                       </div>
                     </div>
@@ -685,11 +681,11 @@ export default function SetupPage() {
           {/* Step 2: Campaign Settings */}
           {step === 2 && (
             <div className="space-y-4">
-              <TacticalPanel title={t(lang, "KEDUDUKAN IDEOLOGI", "IDEOLOGY POSITIONING")}>
+              <TacticalPanel title={t(lang, "setup_page.ideologyPositioning")}>
                 <div className="space-y-6">
                   <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 px-3 py-3">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "DASAR EKONOMI", "ECONOMIC POLICY")}</span>
+                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.economicPolicy")}</span>
                       <span className="min-w-9 rounded-sm border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-right text-[12px] text-cyan font-bold">{economicIdeology}</span>
                     </div>
                     <input
@@ -706,14 +702,14 @@ export default function SetupPage() {
                       }}
                     />
                     <div className="mt-2 flex items-center justify-between text-[11px] tracking-wider">
-                      <span className="text-neon-green">{t(lang, "← PROGRESIF", "← PROGRESSIVE")}</span>
-                      <span className="text-warn-orange">{t(lang, "KONSERVATIF →", "CONSERVATIVE →")}</span>
+                      <span className="text-neon-green">{t(lang, "setup_page.progressive")}</span>
+                      <span className="text-warn-orange">{t(lang, "setup_page.conservative")}</span>
                     </div>
                   </div>
 
                   <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 px-3 py-3">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "PENDIRIAN SOSIAL", "SOCIAL STANCE")}</span>
+                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.socialStance")}</span>
                       <span className="min-w-9 rounded-sm border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-right text-[12px] text-cyan font-bold">{socialIdeology}</span>
                     </div>
                     <input
@@ -730,34 +726,34 @@ export default function SetupPage() {
                       }}
                     />
                     <div className="mt-2 flex items-center justify-between text-[11px] tracking-wider">
-                      <span className="text-neon-green">{t(lang, "← PROGRESIF", "← PROGRESSIVE")}</span>
-                      <span className="text-warn-orange">{t(lang, "TRADISIONAL →", "TRADITIONAL →")}</span>
+                      <span className="text-neon-green">{t(lang, "setup_page.progressive")}</span>
+                      <span className="text-warn-orange">{t(lang, "setup_page.traditional")}</span>
                     </div>
                   </div>
                 </div>
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "PENERANGAN PARTI", "PARTY DESCRIPTION")}>
+              <TacticalPanel title={t(lang, "setup_page.partyDescription")}>
                 <textarea
                   value={partyDesc}
                   onChange={(e) => setPartyDesc(e.target.value)}
-                  placeholder={t(lang, "Terangkan misi dan nilai teras parti anda...", "Describe your party's core mission and values...")}
+                  placeholder={t(lang, "setup_page.describeYourPartySCoreMission")}
                   rows={4}
                   className="w-full resize-none text-[13px]"
                 />
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "MOD PILIHAN RAYA — PRU / PRN", "ELECTION MODE — PRU / PRN")}>
+              <TacticalPanel title={t(lang, "setup_page.electionModePruPrn")}>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: "pru" as const, titleMS: "PRU — PILIHAN RAYA UMUM", titleEN: "PRU — PILIHAN RAYA UMUM", subMS: "Kempen parlimen kebangsaan · semua kerusi Malaysia · bentuk kerajaan persekutuan", subEN: "National parliamentary campaign · all Malaysia seats · form federal government", state: "unlocked" as const },
+                    { id: "pru" as const, state: "unlocked" as const },
                     // "checking" while usePremiumStatus() is still loading —
                     // deliberately distinct from "locked" so this card
                     // doesn't flash 🔒 PREMIUM for an instant before
                     // possibly flipping to unlocked once the real answer
                     // comes back (see the constraint about not flashing the
                     // wrong state).
-                    { id: "prn" as const, titleMS: "PRN — PILIHAN RAYA NEGERI", titleEN: "PRN — PILIHAN RAYA NEGERI", subMS: "Kempen pilihan raya negeri · fokus satu negeri · naratif MB/kerajaan negeri", subEN: "State election campaign · focus one negeri · MB/state-government narrative", state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
+                    { id: "prn" as const, state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
                   ].map((mode) => {
                     const active = electionScope === mode.id;
                     const interactive = mode.state === "unlocked";
@@ -776,16 +772,16 @@ export default function SetupPage() {
                       >
                         {mode.state === "locked" && (
                           <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
-                            🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                            🔒 {t(lang, "setup_page.premium")}
                           </span>
                         )}
                         {mode.id === "prn" && mode.state === "unlocked" && (
                           <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
-                            ✓ {t(lang, "DIBUKA", "UNLOCKED")}
+                            ✓ {t(lang, "setup_page.unlocked")}
                           </span>
                         )}
-                        <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{t(lang, mode.titleMS, mode.titleEN)}</div>
-                        <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(lang, mode.subMS, mode.subEN)}</div>
+                        <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{t(lang, `setup_page.mode_${mode.id}_title`)}</div>
+                        <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(lang, `setup_page.mode_${mode.id}_sub`)}</div>
                       </button>
                     );
                   })}
@@ -793,34 +789,34 @@ export default function SetupPage() {
                 {!premiumLoading && !hasPremium && (
                   <div className="mt-3 flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
                     <div className="text-[11px] leading-relaxed text-text-muted">
-                      {t(lang, "Mod PRN adalah ciri Premium — beli sekali untuk buka selamanya.", "PRN mode is a Premium feature — buy once to unlock it permanently.")}
+                      {t(lang, "setup_page.prnModeIsAPremiumFeature")}
                     </div>
                     <UpgradeButton
                       priceId={PREMIUM_PRICE_IDS.prnMode}
                       mode="payment"
-                      label={t(lang, "BUKA MOD PRN", "UNLOCK PRN MODE")}
+                      label={t(lang, "setup_page.unlockPrnMode")}
                     />
                   </div>
                 )}
                 {electionScope === "prn" && (
                   <div className="mt-4 rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
-                    <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "PILIH NEGERI PRN", "SELECT PRN STATE")}</div>
+                    <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "setup_page.selectPrnState")}</div>
                     <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full text-[13px]">
                       {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} kerusi</option>)}
                     </select>
-                    <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>{t(lang, "Mod PRN akan menyorot negeri ini dalam bilik perang, isu negeri, dan taklimat peta taktikal.", "PRN mode will spotlight this negeri in the war room, state issues, and tactical map briefing.")}</div>
+                    <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>{t(lang, "setup_page.prnModeWillSpotlightThisNegeri")}</div>
                   </div>
                 )}
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "FOKUS REGIUN PERMULAAN", "STARTING REGION FOCUS")}>
+              <TacticalPanel title={t(lang, "setup_page.startingRegionFocus")}>
                 <div className="flex gap-6 mt-2">
                   {[
-                    { labelMS: "SEMENANJUNG MALAYSIA", labelEN: "PENINSULAR MALAYSIA", val: regionPeninsular, set: setRegionPeninsular },
-                    { labelMS: "SABAH", labelEN: "SABAH", val: regionSabah, set: setRegionSabah },
-                    { labelMS: "SARAWAK", labelEN: "SARAWAK", val: regionSarawak, set: setRegionSarawak },
-                  ].map(({ labelMS, labelEN, val, set }) => (
-                    <label key={labelEN} className="flex items-center gap-2 cursor-pointer">
+                    { id: "peninsular", val: regionPeninsular, set: setRegionPeninsular },
+                    { id: "sabah", val: regionSabah, set: setRegionSabah },
+                    { id: "sarawak", val: regionSarawak, set: setRegionSarawak },
+                  ].map(({ id, val, set }) => (
+                    <label key={id} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={val}
@@ -828,7 +824,7 @@ export default function SetupPage() {
                         className="w-4 h-4"
                         style={{ accentColor: "var(--cyan)" }}
                       />
-                      <span className="text-[13px] text-text-muted tracking-wider">{t(lang, labelMS, labelEN)}</span>
+                      <span className="text-[13px] text-text-muted tracking-wider">{t(lang, `setup_page.region_${id}`)}</span>
                     </label>
                   ))}
                 </div>
@@ -859,28 +855,28 @@ export default function SetupPage() {
                     >
                       {state === "locked" && (
                         <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
-                          🔒 {t(lang, "PREMIUM", "PREMIUM")}
+                          🔒 {t(lang, "setup_page.premium")}
                         </span>
                       )}
                       {isNightmare && state === "unlocked" && (
                         <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
-                          ✓ {t(lang, "DIBUKA", "UNLOCKED")}
+                          ✓ {t(lang, "setup_page.unlocked")}
                         </span>
                       )}
                       <div
                         className="text-sm font-bold tracking-widest mb-2"
                         style={{ color: difficulty === d.id ? "var(--gold)" : "#ffffff" }}
                       >
-                        {t(lang, d.labelMS, d.labelEN)}
+                        {t(lang, `setup_page.difficulty_${d.id}_label`)}
                       </div>
-                      <div className="text-[12px] text-text-muted mb-3 leading-relaxed">{t(lang, d.descMS, d.descEN)}</div>
+                      <div className="text-[12px] text-text-muted mb-3 leading-relaxed">{t(lang, `setup_page.difficulty_${d.id}_desc`)}</div>
                       <div className="space-y-1.5">
                         <div>
-                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "KEKUATAN PEMBANGKANG", "OPPOSITION STR.")}</div>
+                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "setup_page.oppositionStr")}</div>
                           <StatBar label="" value={d.opp} color="var(--neon-red)" animate={false} size="sm" />
                         </div>
                         <div>
-                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "CABARAN MEDIA", "MEDIA CHALLENGE")}</div>
+                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "setup_page.mediaChallenge")}</div>
                           <StatBar label="" value={d.media} color="var(--warn-orange)" animate={false} size="sm" />
                         </div>
                       </div>
@@ -891,21 +887,21 @@ export default function SetupPage() {
               {!premiumLoading && !hasPremium && (
                 <div className="flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
                   <div className="text-[11px] leading-relaxed text-text-muted">
-                    {t(lang, "Kesukaran Mimpi Ngeri adalah ciri Premium.", "Nightmare difficulty is a Premium feature.")}
+                    {t(lang, "setup_page.nightmareDifficultyIsAPremiumFeature")}
                   </div>
                   <UpgradeButton
                     priceId={PREMIUM_PRICE_IDS.premiumMonthly}
                     mode="subscription"
-                    label={t(lang, "DAPATKAN PREMIUM", "GET PREMIUM")}
+                    label={t(lang, "setup_page.getPremium")}
                   />
                 </div>
               )}
 
-              <TacticalPanel title={t(lang, "PENALAAN HALUS", "FINE TUNING")}>
+              <TacticalPanel title={t(lang, "setup_page.fineTuning")}>
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "KEKUATAN PEMBANGKANG", "OPPOSITION STRENGTH")}</span>
+                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.oppositionStrength")}</span>
                       <span className="text-[12px] text-neon-red font-bold">{oppStrength}%</span>
                     </div>
                     <input
@@ -924,7 +920,7 @@ export default function SetupPage() {
                   </div>
 
                   <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "BIAS MEDIA", "MEDIA BIAS")}</div>
+                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "setup_page.mediaBias")}</div>
                     <div className="flex gap-2">
                       {MEDIA_OPTIONS.map((m) => (
                         <button
@@ -938,15 +934,15 @@ export default function SetupPage() {
                             borderColor: mediaBias === m.id ? (m.id === "PRO-MANDAT" ? "var(--neon-green)" : m.id === "HOSTILE" ? "var(--neon-red)" : "var(--cyan)") : "var(--bar-empty)",
                           }}
                         >
-                          {t(lang, m.ms, m.en)}
+                          {t(lang, `setup_page.media_${m.id}`)}
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div className="flex gap-8 pt-2">
-                    <Toggle value={eventRandomness} onChange={setEventRandomness} label={t(lang, "KERAWAKAN PERISTIWA", "EVENT RANDOMNESS")} />
-                    <Toggle value={permanentConsequences} onChange={setPermanentConsequences} label={t(lang, "KESAN KEKAL", "PERMANENT CONSEQUENCES")} />
+                    <Toggle value={eventRandomness} onChange={setEventRandomness} label={t(lang, "setup_page.eventRandomness")} />
+                    <Toggle value={permanentConsequences} onChange={setPermanentConsequences} label={t(lang, "setup_page.permanentConsequences")} />
                   </div>
                 </div>
               </TacticalPanel>
@@ -957,22 +953,22 @@ export default function SetupPage() {
           {step === 5 && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <TacticalPanel title={t(lang, "PROFIL PEMIMPIN", "LEADER PROFILE")}>
+                <TacticalPanel title={t(lang, "setup_page.leaderProfile")}>
                   <div className="space-y-2">
                     <div className="flex justify-center mb-3">
                       <div style={{ width: "80px", height: "80px", border: "2px solid var(--cyan)", overflow: "hidden", background: "var(--bg)" }}>
-                        <img src={AVATARS[avatarIndex].src} alt={t(lang, "Avatar", "Avatar")} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       </div>
                     </div>
-                    <SummaryRow label={t(lang, "NAMA", "NAME")} value={leaderName} />
-                    <SummaryRow label={t(lang, "JAWATAN", "POSITION")} value={t(lang, POSITIONS.find((p) => p.id === position)?.ms ?? position, position)} />
-                    <SummaryRow label={t(lang, "PENGALAMAN", "EXPERIENCE")} value={t(lang, EXPERIENCE_OPTIONS.find((e) => e.id === experience)?.ms ?? experience.toUpperCase(), experience.toUpperCase())} />
-                    <SummaryRow label={t(lang, "NEGERI ASAL", "HOME STATE")} value={states.find((s) => s.id === homeState)?.name || homeState} />
-                    <SummaryRow label={t(lang, "KERUSI DIPERTANDINGKAN", "CONTESTING SEAT")} value={contestConstituency ? `${contestConstituency.name} (${contestConstituency.code})` : "—"} />
+                    <SummaryRow label={t(lang, "setup_page.name")} value={leaderName} />
+                    <SummaryRow label={t(lang, "setup_page.position")} value={t(lang, `setup_page.position_${position}`)} />
+                    <SummaryRow label={t(lang, "setup_page.experience")} value={t(lang, `setup_page.experience_${experience}`)} />
+                    <SummaryRow label={t(lang, "setup_page.homeState")} value={states.find((s) => s.id === homeState)?.name || homeState} />
+                    <SummaryRow label={t(lang, "setup_page.contestingSeat")} value={contestConstituency ? `${contestConstituency.name} (${contestConstituency.code})` : "—"} />
                   </div>
                 </TacticalPanel>
 
-                <TacticalPanel title={t(lang, "IDENTITI PARTI", "PARTY IDENTITY")}>
+                <TacticalPanel title={t(lang, "setup_page.partyIdentity")}>
                   <div className="space-y-2">
                     <div
                       className="flex items-center justify-center h-12 text-2xl font-bold mb-3"
@@ -980,40 +976,40 @@ export default function SetupPage() {
                     >
                       {partyAbbr[0] || "M"}
                     </div>
-                    <SummaryRow label={t(lang, "NAMA", "NAME")} value={partyName} />
-                    <SummaryRow label={t(lang, "SINGKATAN", "ABBR")} value={partyAbbr} />
+                    <SummaryRow label={t(lang, "setup_page.name")} value={partyName} />
+                    <SummaryRow label={t(lang, "setup_page.abbr")} value={partyAbbr} />
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "WARNA", "COLOR")}</span>
+                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.color")}</span>
                       <div className="w-5 h-5" style={{ background: partyColor }} />
                     </div>
                   </div>
                 </TacticalPanel>
 
-                <TacticalPanel title={t(lang, "TETAPAN PERMAINAN", "GAME SETTINGS")}>
+                <TacticalPanel title={t(lang, "setup_page.gameSettings")}>
                   <div className="space-y-2">
-                    <SummaryRow label={t(lang, "MOD DATA", "DATA MODE")} value={t(lang, selectedDataset === "real-malaysia" ? "MALAYSIA SEBENAR" : "FIKSYEN", selectedDataset === "real-malaysia" ? "REAL MALAYSIA" : "FICTIONAL")} />
-                    <SummaryRow label={t(lang, "MOD PILIHAN RAYA", "ELECTION MODE")} value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : t(lang, "PRU · KEBANGSAAN", "PRU · NATIONAL")} />
-                    <SummaryRow label={t(lang, "KESUKARAN", "DIFFICULTY")} value={t(lang, DIFFICULTIES.find((d) => d.id === difficulty)?.labelMS ?? difficulty.toUpperCase(), difficulty.toUpperCase())} />
-                    <SummaryRow label={t(lang, "KEKUATAN PEMBANGKANG", "OPP. STRENGTH")} value={`${oppStrength}%`} />
-                    <SummaryRow label={t(lang, "BIAS MEDIA", "MEDIA BIAS")} value={t(lang, MEDIA_OPTIONS.find((m) => m.id === mediaBias)?.ms ?? mediaBias, mediaBias)} />
-                    <SummaryRow label={t(lang, "KERAWAKAN", "RANDOMNESS")} value={t(lang, eventRandomness ? "HIDUP" : "MATI", eventRandomness ? "ON" : "OFF")} />
-                    <SummaryRow label={t(lang, "KESAN KEKAL", "PERM. EFFECTS")} value={t(lang, permanentConsequences ? "HIDUP" : "MATI", permanentConsequences ? "ON" : "OFF")} />
+                    <SummaryRow label={t(lang, "setup_page.dataMode")} value={t(lang, selectedDataset === "real-malaysia" ? "setup_page.dataModeReal" : "setup_page.dataModeFictional")} />
+                    <SummaryRow label={t(lang, "setup_page.electionMode")} value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : t(lang, "setup_page.pruNational")} />
+                    <SummaryRow label={t(lang, "setup_page.difficulty")} value={t(lang, `setup_page.difficulty_${difficulty}_label`)} />
+                    <SummaryRow label={t(lang, "setup_page.oppStrength")} value={`${oppStrength}%`} />
+                    <SummaryRow label={t(lang, "setup_page.mediaBias")} value={t(lang, `setup_page.media_${mediaBias}`)} />
+                    <SummaryRow label={t(lang, "setup_page.randomness")} value={t(lang, eventRandomness ? "setup_page.toggleOn" : "setup_page.toggleOff")} />
+                    <SummaryRow label={t(lang, "setup_page.permEffects")} value={t(lang, permanentConsequences ? "setup_page.toggleOn" : "setup_page.toggleOff")} />
                   </div>
                 </TacticalPanel>
               </div>
 
-              <TacticalPanel title={t(lang, "RINGKASAN ATRIBUT", "ATTRIBUTE SUMMARY")}>
+              <TacticalPanel title={t(lang, "setup_page.attributeSummary")}>
                 <div className="grid grid-cols-5 gap-4">
                   {[
-                    { labelMS: "PENGARUH", labelEN: "INFLUENCE", val: influence, color: "var(--cyan)" },
-                    { labelMS: "KARISMA", labelEN: "CHARISMA", val: charisma, color: "var(--gold)" },
-                    { labelMS: "KREDIBILITI", labelEN: "CREDIBILITY", val: credibility, color: "var(--neon-green)" },
-                    { labelMS: "RUNDINGAN", labelEN: "NEGOTIATION", val: negotiation, color: "var(--warn-orange)" },
-                    { labelMS: "STRATEGI", labelEN: "STRATEGY", val: strategy, color: "#8b5cf6" },
-                  ].map(({ labelMS, labelEN, val, color }) => (
-                    <div key={labelEN} className="text-center">
+                    { id: "influence", val: influence, color: "var(--cyan)" },
+                    { id: "charisma", val: charisma, color: "var(--gold)" },
+                    { id: "credibility", val: credibility, color: "var(--neon-green)" },
+                    { id: "negotiation", val: negotiation, color: "var(--warn-orange)" },
+                    { id: "strategy", val: strategy, color: "#8b5cf6" },
+                  ].map(({ id, val, color }) => (
+                    <div key={id} className="text-center">
                       <div className="text-2xl font-bold" style={{ color }}>{val}</div>
-                      <div className="text-[11px] text-text-muted mt-1">{t(lang, labelMS, labelEN)}</div>
+                      <div className="text-[11px] text-text-muted mt-1">{t(lang, `setup_page.attr_${id}`)}</div>
                     </div>
                   ))}
                 </div>
@@ -1030,7 +1026,7 @@ export default function SetupPage() {
                   boxShadow: "0 0 20px rgb(var(--gold-rgb) / 0.4)",
                 }}
               >
-                {isLaunching ? t(lang, "⟳ MEMUATKAN...", "⟳ LOADING...") : t(lang, "▶ LANCAR KEMPEN", "▶ LAUNCH CAMPAIGN")}
+                {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launchCampaign")}
               </button>
             </div>
           )}
@@ -1057,11 +1053,11 @@ export default function SetupPage() {
                   cursor: step === 0 ? "not-allowed" : "pointer",
                 }}
               >
-                {t(lang, "← KEMBALI", "← BACK")}
+                {t(lang, "setup_page.back")}
               </button>
 
               <div className="text-[12px] text-text-muted tracking-wider">
-                {t(lang, `LANGKAH ${step + 1} / 6`, `STEP ${step + 1} / 6`)}
+                {t(lang, "setup_page.step6", { step: step + 1 })}
               </div>
 
               {step < 5 ? (
@@ -1074,7 +1070,7 @@ export default function SetupPage() {
                     fontFamily: "Space Mono, monospace",
                   }}
                 >
-                  {t(lang, "SETERUSNYA →", "NEXT →")}
+                  {t(lang, "setup_page.next")}
                 </button>
               ) : (
                 <button
@@ -1088,7 +1084,7 @@ export default function SetupPage() {
                     boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)",
                   }}
                 >
-                  {isLaunching ? t(lang, "⟳ MEMUATKAN...", "⟳ LOADING...") : t(lang, "LANCAR →", "LAUNCH →")}
+                  {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launch")}
                 </button>
               )}
             </div>

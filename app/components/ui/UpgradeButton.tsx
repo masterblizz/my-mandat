@@ -29,7 +29,7 @@ export default function UpgradeButton({ priceId, mode, label, className, style }
     // pick up a newly-added one). Say so directly instead of sending an
     // empty priceId to /api/checkout and surfacing its generic 400.
     if (!priceId) {
-      setError(t(lang, "Produk ini belum dikonfigurasi (Price ID hilang).", "This product isn't configured yet (missing Price ID)."));
+      setError(t(lang, "components_ui_UpgradeButton.thisProductIsnTConfiguredYet"));
       return;
     }
 
@@ -45,13 +45,13 @@ export default function UpgradeButton({ priceId, mode, label, className, style }
       const data = await res.json();
 
       if (!res.ok || !data.url) {
-        throw new Error(data.error ?? t(lang, "Gagal mulakan pembayaran.", "Failed to start checkout."));
+        throw new Error(data.error ?? t(lang, "components_ui_UpgradeButton.failedToStartCheckout"));
       }
 
       window.location.href = data.url;
     } catch (err) {
       setLoading(false);
-      setError(err instanceof Error ? err.message : t(lang, "Ralat tidak dijangka.", "Unexpected error."));
+      setError(err instanceof Error ? err.message : t(lang, "components_ui_UpgradeButton.unexpectedError"));
     }
   }
 
@@ -71,7 +71,7 @@ export default function UpgradeButton({ priceId, mode, label, className, style }
           }
         }
       >
-        {loading ? t(lang, "MEMUATKAN…", "LOADING…") : label ?? t(lang, "BUKA PREMIUM", "UNLOCK PREMIUM")}
+        {loading ? t(lang, "components_ui_UpgradeButton.loading") : label ?? t(lang, "components_ui_UpgradeButton.unlockPremium")}
       </button>
       {error && (
         <div className="mt-1 text-[10px]" style={{ color: "var(--neon-red)" }}>

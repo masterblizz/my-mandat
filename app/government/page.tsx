@@ -17,10 +17,6 @@ type CrisisId = string;
 
 type Policy = {
   id: PolicyId;
-  titleMS: string;
-  titleEN: string;
-  detailMS: string;
-  detailEN: string;
   cost: number;
   approval: number;
   stability: number;
@@ -29,69 +25,63 @@ type Policy = {
 
 type Crisis = {
   id: CrisisId;
-  titleMS: string;
-  titleEN: string;
-  detailMS: string;
-  detailEN: string;
   pressure: number;
-  choices: { labelMS: string; labelEN: string; approval: number; stability: number; trust: number }[];
+  choices: { approval: number; stability: number; trust: number }[];
 };
 
 const FEDERAL_POLICIES: Policy[] = [
-  { id: "cost", titleMS: "Pakej Kos Sara Hidup", titleEN: "Cost of Living Package", detailMS: "Subsidi bersasar, bantuan tunai dan kawalan harga barang asas.", detailEN: "Targeted subsidy, cash aid and essential price control.", cost: 420000, approval: 7, stability: 1, trust: 5 },
-  { id: "jobs", titleMS: "Pelan Kerja Anak Muda", titleEN: "Youth Jobs Plan", detailMS: "Insentif pekerjaan, latihan digital dan gaji permulaan graduan.", detailEN: "Hiring incentives, digital training and graduate starter wage support.", cost: 320000, approval: 5, stability: 1, trust: 4 },
-  { id: "antiCorruption", titleMS: "Reformasi Anti-Rasuah", titleEN: "Anti-Corruption Reform", detailMS: "Audit GLC, procurement terbuka dan perlindungan pemberi maklumat.", detailEN: "GLC audit, open procurement and whistleblower protection.", cost: 180000, approval: 4, stability: -2, trust: 8 },
-  { id: "rural", titleMS: "Infrastruktur Luar Bandar", titleEN: "Rural Infrastructure", detailMS: "Jalan kampung, klinik desa, internet dan bekalan air negeri pinggir.", detailEN: "Village roads, rural clinics, internet and water supply in peripheral states.", cost: 500000, approval: 6, stability: 2, trust: 3 },
-  { id: "federalState", titleMS: "Perjanjian Persekutuan-Negeri", titleEN: "Federal-State Compact", detailMS: "Dana pembangunan negeri, MA63 dan mekanisme rundingan MB/KM.", detailEN: "State development fund, MA63 and MB/CM negotiation mechanism.", cost: 260000, approval: 3, stability: 6, trust: 4 },
+  { id: "cost", cost: 420000, approval: 7, stability: 1, trust: 5 },
+  { id: "jobs", cost: 320000, approval: 5, stability: 1, trust: 4 },
+  { id: "antiCorruption", cost: 180000, approval: 4, stability: -2, trust: 8 },
+  { id: "rural", cost: 500000, approval: 6, stability: 2, trust: 3 },
+  { id: "federalState", cost: 260000, approval: 3, stability: 6, trust: 4 },
 ];
 
 const STATE_POLICIES: Policy[] = [
-  { id: "cost", titleMS: "Bantuan Kos Hidup Negeri", titleEN: "State Cost of Living Aid", detailMS: "Bantuan tunai negeri, air percuma dan subsidi pasar tani.", detailEN: "State cash aid, free water allocation and farmers' market subsidy.", cost: 180000, approval: 7, stability: 1, trust: 5 },
-  { id: "jobs", titleMS: "Pelan Kerja & Latihan Negeri", titleEN: "State Jobs & Skills Plan", detailMS: "Insentif majikan tempatan, latihan vokasional dan geran usahawan muda.", detailEN: "Local employer incentives, vocational training and youth enterprise grants.", cost: 150000, approval: 5, stability: 1, trust: 4 },
-  { id: "antiCorruption", titleMS: "Integriti & Tender Terbuka", titleEN: "Integrity & Open Tender", detailMS: "Audit anak syarikat negeri, tender terbuka dan pendedahan kontrak.", detailEN: "Audit of state subsidiaries, open tender and contract disclosure.", cost: 90000, approval: 4, stability: -2, trust: 8 },
-  { id: "rural", titleMS: "Infrastruktur Kampung & Bandar", titleEN: "Village & Town Infrastructure", detailMS: "Jalan kampung, klinik desa, sistem saliran dan bekalan air negeri.", detailEN: "Village roads, rural clinics, drainage systems and state water supply.", cost: 240000, approval: 6, stability: 2, trust: 3 },
-  { id: "federalState", titleMS: "Rundingan Peruntukan Persekutuan", titleEN: "Federal Allocation Talks", detailMS: "Tuntut peruntukan pembangunan, projek tebatan banjir dan hak negeri.", detailEN: "Push for development allocations, flood mitigation projects and state entitlements.", cost: 60000, approval: 3, stability: 6, trust: 4 },
+  { id: "cost", cost: 180000, approval: 7, stability: 1, trust: 5 },
+  { id: "jobs", cost: 150000, approval: 5, stability: 1, trust: 4 },
+  { id: "antiCorruption", cost: 90000, approval: 4, stability: -2, trust: 8 },
+  { id: "rural", cost: 240000, approval: 6, stability: 2, trust: 3 },
+  { id: "federalState", cost: 60000, approval: 3, stability: 6, trust: 4 },
 ];
 
 const FEDERAL_CRISES: Crisis[] = [
-  { id: "livingCost", titleMS: "Harga barang naik selepas PRU", titleEN: "Prices rise after election", detailMS: "Media menekan kerajaan baru; rakyat mahu tindakan cepat.", detailEN: "Media pressure rises; voters demand fast action.", pressure: 68, choices: [
-    { labelMS: "Umum bantuan segera", labelEN: "Announce immediate aid", approval: 6, stability: 0, trust: 3 },
-    { labelMS: "Tunggu bajet penuh", labelEN: "Wait for full budget", approval: -4, stability: 2, trust: -1 },
+  { id: "livingCost", pressure: 68, choices: [
+    { approval: 6, stability: 0, trust: 3 },
+    { approval: -4, stability: 2, trust: -1 },
   ] },
-  { id: "flood", titleMS: "Banjir besar di Pantai Timur", titleEN: "Major flood in East Coast", detailMS: "Agensi bantuan perlukan arahan pusat dan dana kecemasan.", detailEN: "Relief agencies need central orders and emergency funding.", pressure: 61, choices: [
-    { labelMS: "Gerak taskforce nasional", labelEN: "Deploy national taskforce", approval: 4, stability: 4, trust: 5 },
-    { labelMS: "Serah kepada negeri", labelEN: "Leave it to state level", approval: -3, stability: -2, trust: -4 },
+  { id: "flood", pressure: 61, choices: [
+    { approval: 4, stability: 4, trust: 5 },
+    { approval: -3, stability: -2, trust: -4 },
   ] },
-  { id: "coalition", titleMS: "Rakan koalisi tuntut jawatan", titleEN: "Coalition partner demands posts", detailMS: "Blok kecil mahu lebih peranan dalam keputusan kabinet.", detailEN: "A smaller bloc wants more say in cabinet decisions.", pressure: 72, choices: [
-    { labelMS: "Beri konsesi dasar", labelEN: "Offer policy concession", approval: -1, stability: 7, trust: 0 },
-    { labelMS: "Tolak dan disiplinkan", labelEN: "Reject and discipline", approval: 2, stability: -6, trust: 1 },
+  { id: "coalition", pressure: 72, choices: [
+    { approval: -1, stability: 7, trust: 0 },
+    { approval: 2, stability: -6, trust: 1 },
   ] },
-  { id: "minister", titleMS: "Isu integriti menteri viral", titleEN: "Minister integrity issue goes viral", detailMS: "Opposition minta PM jelaskan kedudukan menteri terbabit.", detailEN: "Opposition asks PM to clarify the minister's position.", pressure: 76, choices: [
-    { labelMS: "Siasat terbuka", labelEN: "Open investigation", approval: 3, stability: -1, trust: 7 },
-    { labelMS: "Pertahan menteri", labelEN: "Defend minister", approval: -5, stability: 2, trust: -6 },
+  { id: "minister", pressure: 76, choices: [
+    { approval: 3, stability: -1, trust: 7 },
+    { approval: -5, stability: 2, trust: -6 },
   ] },
 ];
 
-function getStateCrises(headTitle: string, stateName: string): Crisis[] {
-  return [
-    { id: "livingCost", titleMS: "Harga barang naik selepas PRN", titleEN: "Prices rise after the state election", detailMS: "Media negeri menekan kerajaan negeri baharu; pengundi mahu tindakan cepat.", detailEN: "State media pressures the new state government; voters demand fast action.", pressure: 64, choices: [
-      { labelMS: "Umum bantuan segera", labelEN: "Announce immediate aid", approval: 6, stability: 0, trust: 3 },
-      { labelMS: "Tunggu bajet negeri", labelEN: "Wait for the state budget", approval: -4, stability: 2, trust: -1 },
-    ] },
-    { id: "flood", titleMS: `Banjir besar melanda ${stateName}`, titleEN: `Major flood hits ${stateName}`, detailMS: "Agensi negeri perlukan arahan EXCO dan dana kecemasan negeri.", detailEN: "State agencies need EXCO direction and state emergency funding.", pressure: 61, choices: [
-      { labelMS: "Gerak taskforce negeri", labelEN: "Deploy state taskforce", approval: 4, stability: 4, trust: 5 },
-      { labelMS: "Serah kepada pihak berkuasa tempatan", labelEN: "Leave it to local authorities", approval: -3, stability: -2, trust: -4 },
-    ] },
-    { id: "coalition", titleMS: "Rakan koalisi tuntut kerusi EXCO", titleEN: "Coalition partner demands EXCO seats", detailMS: "Blok kecil DUN mahu lebih peranan dalam keputusan EXCO.", detailEN: "A small DUN bloc wants more say in EXCO decisions.", pressure: 70, choices: [
-      { labelMS: "Beri konsesi portfolio", labelEN: "Offer a portfolio concession", approval: -1, stability: 7, trust: 0 },
-      { labelMS: "Tolak dan disiplinkan", labelEN: "Reject and discipline", approval: 2, stability: -6, trust: 1 },
-    ] },
-    { id: "exco", titleMS: "Isu integriti Ahli EXCO viral", titleEN: "EXCO member integrity issue goes viral", detailMS: `Pembangkang DUN minta ${headTitle} jelaskan kedudukan Ahli EXCO terbabit.`, detailEN: `The DUN opposition asks the ${headTitle} to clarify the EXCO member's position.`, pressure: 73, choices: [
-      { labelMS: "Siasat terbuka", labelEN: "Open investigation", approval: 3, stability: -1, trust: 7 },
-      { labelMS: "Pertahan Ahli EXCO", labelEN: "Defend the EXCO member", approval: -5, stability: 2, trust: -6 },
-    ] },
-  ];
-}
+const STATE_CRISES: Crisis[] = [
+  { id: "livingCost", pressure: 64, choices: [
+    { approval: 6, stability: 0, trust: 3 },
+    { approval: -4, stability: 2, trust: -1 },
+  ] },
+  { id: "flood", pressure: 61, choices: [
+    { approval: 4, stability: 4, trust: 5 },
+    { approval: -3, stability: -2, trust: -4 },
+  ] },
+  { id: "coalition", pressure: 70, choices: [
+    { approval: -1, stability: 7, trust: 0 },
+    { approval: 2, stability: -6, trust: 1 },
+  ] },
+  { id: "exco", pressure: 73, choices: [
+    { approval: 3, stability: -1, trust: 7 },
+    { approval: -5, stability: 2, trust: -6 },
+  ] },
+];
 
 function clamp(value: number) {
   return Math.max(0, Math.min(100, value));
@@ -122,8 +112,9 @@ export default function GovernmentPage() {
   );
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
   const isPrn = terms.isPrn;
+  const scope = isPrn ? "state" : "federal";
   const policies = isPrn ? STATE_POLICIES : FEDERAL_POLICIES;
-  const crises = useMemo(() => isPrn ? getStateCrises(terms.headTitle, terms.stateName) : FEDERAL_CRISES, [isPrn, terms.headTitle, terms.stateName]);
+  const crises = isPrn ? STATE_CRISES : FEDERAL_CRISES;
   const seatsWon = outcome.seatsWon;
   const totalSeats = outcome.totalSeats;
   const majorityTarget = outcome.majorityTarget;
@@ -162,62 +153,62 @@ export default function GovernmentPage() {
       <main className="pt-[56px] pb-[58px] px-6 w-full">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, `${terms.governmentName} DITUBUHKAN · FASA MEMERINTAH`, `${terms.governmentName} FORMED · GOVERNING PHASE`)}</div>
+            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "government_page.formedGoverningPhase", { termsGovernmentName: terms.governmentName })}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>
-              {isPrn ? t(lang, `MEMERINTAH NEGERI ${terms.stateName.toUpperCase()}`, `GOVERN ${terms.stateName.toUpperCase()}`) : t(lang, "MEMERINTAH NEGARA", "GOVERN THE COUNTRY")}
+              {isPrn ? t(lang, "government_page.govern", { termsStateName: terms.stateName.toUpperCase() }) : t(lang, "government_page.governTheCountry")}
             </h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>
-              {terms.headTitle} · {leader.partyAbbr} · {seatsWon}/{totalSeats} {t(lang, `KERUSI ${terms.seatLabel}`, `${terms.seatLabel} SEATS`)} · {t(lang, "HARI PEMERINTAHAN", "GOVERNING DAY")} {termDay}
+              {terms.headTitle} · {leader.partyAbbr} · {seatsWon}/{totalSeats} {t(lang, "government_page.seats", { termsSeatLabel: terms.seatLabel })} · {t(lang, "government_page.governingDay")} {termDay}
             </div>
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/cabinet")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {terms.executiveBody}</button>
-            <button onClick={() => router.push("/kawasan")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "BANGUNKAN KAWASAN", "DEVELOP CONSTITUENCY")}</button>
-            <button onClick={() => navigate("/career")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--neon-green-rgb,0 255 136)/0.42)", color: "var(--neon-green)", background: "rgb(0 255 136 / 0.06)" }}>{isPending ? t(lang, "MEMUATKAN...", "LOADING...") : t(lang, "URUS PENGGAL", "MANAGE TERM")}</button>
-            <span className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(255 176 0 / 0.32)", color: "var(--warn-orange)", background: "rgb(255 176 0 / 0.06)" }}>{t(lang, "WAR ROOM DIKUNCI", "WAR ROOM LOCKED")}</span>
+            <button onClick={() => router.push("/kawasan")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "government_page.developConstituency")}</button>
+            <button onClick={() => navigate("/career")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--neon-green-rgb,0 255 136)/0.42)", color: "var(--neon-green)", background: "rgb(0 255 136 / 0.06)" }}>{isPending ? t(lang, "government_page.loading") : t(lang, "government_page.manageTerm")}</button>
+            <span className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(255 176 0 / 0.32)", color: "var(--warn-orange)", background: "rgb(255 176 0 / 0.06)" }}>{t(lang, "government_page.warRoomLocked")}</span>
           </div>
         </div>
 
         {canGovern && (
           <div className="mb-4 border px-4 py-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.34)", background: "linear-gradient(90deg, rgb(var(--gold-rgb)/0.09), rgba(3,8,15,0.72))" }}>
-            <div className="text-[11px] font-black tracking-[0.24em]" style={{ color: "var(--gold)" }}>{t(lang, "ALIRAN STORYLINE", "STORYLINE FLOW")}</div>
+            <div className="text-[11px] font-black tracking-[0.24em]" style={{ color: "var(--gold)" }}>{t(lang, "government_page.storylineFlow")}</div>
             <div className="mt-1 text-[13px] text-text-muted">
               {isPrn
-                ? t(lang, `Barisan EXCO ${terms.governmentName} telah dibentuk. Mod pilihan raya ditutup; War Room dikunci sehingga tetingkap PRN seterusnya. Fokus kini ialah mentadbir negeri, melaksanakan dasar, mengurus krisis dan mengekalkan mandat DUN.`, `The ${terms.governmentName} EXCO line-up is formed. Election mode is closed; War Room is locked until the next state election window. Focus now shifts to running the state, policy delivery, crisis management and holding the DUN mandate.`)
-                : t(lang, "Kabinet telah dibentuk. Mod pilihan raya ditutup; War Room dikunci sehingga tetingkap PRU/PRN seterusnya. Fokus kini ialah memerintah, melaksanakan dasar, mengurus krisis dan mengekalkan mandat.", "Cabinet is formed. Election mode is closed; War Room is locked until the next GE/PRN window. Focus now shifts to governing, policy delivery, crisis management and mandate survival.")}
+                ? t(lang, "government_page.theExcoLineUpIsFormed", { termsGovernmentName: terms.governmentName })
+                : t(lang, "government_page.cabinetIsFormedElectionModeIs")}
             </div>
           </div>
         )}
 
         {!canGovern ? (
-          <TacticalPanel title={t(lang, `${terms.governmentName} BELUM TERBENTUK`, `${terms.governmentName} NOT FORMED`)}>
+          <TacticalPanel title={t(lang, "government_page.notFormed", { termsGovernmentName: terms.governmentName })}>
             <div className="py-10 text-center">
               <div className="text-5xl font-black" style={{ color: "var(--neon-red)" }}>{seatsWon}/{majorityTarget}</div>
-              <div className="mt-3 text-sm text-text-muted">{t(lang, "Capai majoriti dahulu sebelum memasuki fasa pemerintahan.", "Reach majority first before entering government phase.")}</div>
+              <div className="mt-3 text-sm text-text-muted">{t(lang, "government_page.reachMajorityFirstBeforeEnteringGovernment")}</div>
             </div>
           </TacticalPanel>
         ) : (
           <div className="grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)_390px]">
             <div className="space-y-4">
-              <TacticalPanel title={t(lang, "STATUS MANDAT", "MANDATE STATUS")}>
+              <TacticalPanel title={t(lang, "government_page.mandateStatus")}>
                 <div className="text-5xl font-black" style={{ color: leader.partyColor }}>{seatsWon}</div>
-                <div className="mt-1 text-[12px] text-text-muted tracking-wider">{t(lang, "kerusi kerajaan", "government seats")}</div>
+                <div className="mt-1 text-[12px] text-text-muted tracking-wider">{t(lang, "government_page.governmentSeats")}</div>
                 <div className="mt-3 h-3 overflow-hidden" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.2)", background: "rgba(255,255,255,0.04)" }}>
                   <div className="h-full" style={{ width: `${Math.min(100, seatsWon / Math.max(1, totalSeats) * 100)}%`, background: `linear-gradient(90deg, ${leader.partyColor}, var(--gold))` }} />
                 </div>
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "INDEKS PEMERINTAHAN", "GOVERNING INDEX")}>
+              <TacticalPanel title={t(lang, "government_page.governingIndex")}>
                 <div className="grid grid-cols-2 gap-2">
-                  <MetricCard label={t(lang, "Approval", "Approval")} value={approval} color="var(--neon-green)" />
-                  <MetricCard label={t(lang, "Trust", "Trust")} value={publicTrust} color="var(--cyan)" />
-                  <MetricCard label={t(lang, "Koalisi", "Coalition")} value={coalitionStability} color="var(--gold)" />
-                  <MetricCard label={t(lang, "Dana", "Funds")} value={Math.round(fiscalSpace / 10000)} color="var(--warn-orange)" suffix="k" />
+                  <MetricCard label={t(lang, "government_page.approval")} value={approval} color="var(--neon-green)" />
+                  <MetricCard label={t(lang, "government_page.trust")} value={publicTrust} color="var(--cyan)" />
+                  <MetricCard label={t(lang, "government_page.coalition")} value={coalitionStability} color="var(--gold)" />
+                  <MetricCard label={t(lang, "government_page.funds")} value={Math.round(fiscalSpace / 10000)} color="var(--warn-orange)" suffix="k" />
                 </div>
               </TacticalPanel>
             </div>
 
-            <TacticalPanel title={t(lang, "AGENDA DASAR 100 HARI", "100-DAY POLICY AGENDA")} noPadding>
+            <TacticalPanel title={t(lang, "government_page._100DayPolicyAgenda")} noPadding>
               <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-4 space-y-3">
                 {policies.map((policy) => {
                   const active = activePolicies.includes(policy.id);
@@ -230,8 +221,8 @@ export default function GovernmentPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="text-[14px] font-black tracking-wider text-white">{t(lang, policy.titleMS, policy.titleEN)}</div>
-                          <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, policy.detailMS, policy.detailEN)}</div>
+                          <div className="text-[14px] font-black tracking-wider text-white">{t(lang, `government_page.policy_${scope}_${policy.id}_title`)}</div>
+                          <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, `government_page.policy_${scope}_${policy.id}_detail`)}</div>
                           <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold tracking-wider">
                             <span style={{ color: "var(--warn-orange)" }}>RM {formatNumber(policy.cost)}</span>
                             <span style={{ color: "var(--neon-green)" }}>Approval +{policy.approval}</span>
@@ -239,7 +230,7 @@ export default function GovernmentPage() {
                             <span style={{ color: policy.stability >= 0 ? "var(--gold)" : "var(--neon-red)" }}>Coalition {policy.stability >= 0 ? "+" : ""}{policy.stability}</span>
                           </div>
                         </div>
-                        <div className="text-[10px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--text-muted)" }}>{active ? t(lang, "AKTIF", "ACTIVE") : t(lang, "PILIH", "SELECT")}</div>
+                        <div className="text-[10px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--text-muted)" }}>{active ? t(lang, "government_page.active") : t(lang, "government_page.select")}</div>
                       </div>
                     </button>
                   );
@@ -248,33 +239,33 @@ export default function GovernmentPage() {
             </TacticalPanel>
 
             <div className="space-y-4">
-              <TacticalPanel title={t(lang, "BILIK KRISIS", "CRISIS ROOM")}>
-                <div className="text-[10px] font-bold tracking-[0.22em] text-text-muted">{isPrn ? t(lang, "TEKANAN NEGERI", "STATE PRESSURE") : t(lang, "TEKANAN NASIONAL", "NATIONAL PRESSURE")}</div>
+              <TacticalPanel title={t(lang, "government_page.crisisRoom")}>
+                <div className="text-[10px] font-bold tracking-[0.22em] text-text-muted">{isPrn ? t(lang, "government_page.statePressure") : t(lang, "government_page.nationalPressure")}</div>
                 <div className="mt-1 text-4xl font-black" style={{ color: "var(--warn-orange)" }}>{currentCrisis.pressure}</div>
-                <div className="mt-3 text-[15px] font-black text-white">{t(lang, currentCrisis.titleMS, currentCrisis.titleEN)}</div>
-                <div className="mt-2 text-[12px] leading-relaxed text-text-muted">{t(lang, currentCrisis.detailMS, currentCrisis.detailEN)}</div>
+                <div className="mt-3 text-[15px] font-black text-white">{t(lang, `government_page.crisis_${scope}_${currentCrisis.id}_title`, { stateName: terms.stateName })}</div>
+                <div className="mt-2 text-[12px] leading-relaxed text-text-muted">{t(lang, `government_page.crisis_${scope}_${currentCrisis.id}_detail`, { headTitle: terms.headTitle })}</div>
                 <div className="mt-4 space-y-2">
-                  {currentCrisis.choices.map((choice) => (
-                    <button key={choice.labelEN} onClick={() => respond(choice)} className="w-full border px-3 py-2 text-left text-[11px] font-bold tracking-wider transition hover:scale-[1.01]" style={{ borderColor: "rgb(var(--cyan-rgb)/0.22)", color: "var(--cyan)", background: "rgba(0,212,255,0.045)" }}>
-                      {t(lang, choice.labelMS, choice.labelEN)}
+                  {currentCrisis.choices.map((choice, index) => (
+                    <button key={index} onClick={() => respond(choice)} className="w-full border px-3 py-2 text-left text-[11px] font-bold tracking-wider transition hover:scale-[1.01]" style={{ borderColor: "rgb(var(--cyan-rgb)/0.22)", color: "var(--cyan)", background: "rgba(0,212,255,0.045)" }}>
+                      {t(lang, `government_page.crisis_${scope}_${currentCrisis.id}_choice${index}`)}
                     </button>
                   ))}
                 </div>
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "RINGKASAN TERM", "TERM SUMMARY")}>
+              <TacticalPanel title={t(lang, "government_page.termSummary")}>
                 <div className="space-y-2 text-[11px] text-text-muted leading-relaxed">
-                  <div>{t(lang, "Agenda aktif", "Active agenda")}: <span className="font-black text-white">{activePolicies.length}</span></div>
-                  <div>{t(lang, "Kos dasar", "Policy cost")}: <span className="font-black" style={{ color: "var(--warn-orange)" }}>RM {formatNumber(policyCost)}</span></div>
-                  <div>{t(lang, "Baki fiskal", "Fiscal space")}: <span className="font-black" style={{ color: fiscalSpace > 0 ? "var(--neon-green)" : "var(--neon-red)" }}>RM {formatNumber(fiscalSpace)}</span></div>
-                  <div>{t(lang, "Mode", "Mode")}: <span className="font-black text-white">{settings.electionScope.toUpperCase()}</span></div>
+                  <div>{t(lang, "government_page.activeAgenda")}: <span className="font-black text-white">{activePolicies.length}</span></div>
+                  <div>{t(lang, "government_page.policyCost")}: <span className="font-black" style={{ color: "var(--warn-orange)" }}>RM {formatNumber(policyCost)}</span></div>
+                  <div>{t(lang, "government_page.fiscalSpace")}: <span className="font-black" style={{ color: fiscalSpace > 0 ? "var(--neon-green)" : "var(--neon-red)" }}>RM {formatNumber(fiscalSpace)}</span></div>
+                  <div>{t(lang, "government_page.mode")}: <span className="font-black text-white">{settings.electionScope.toUpperCase()}</span></div>
                 </div>
               </TacticalPanel>
             </div>
           </div>
         )}
       </main>
-      <StatusBar leftText={`${t(lang, "FASA 2 · PEMERINTAHAN", "PHASE 2 · GOVERNMENT")} · ${terms.governmentName} · ${difficulty.toUpperCase()}`} rightText={`${leader.partyAbbr} ${seatsWon} ${t(lang, `KERUSI ${terms.seatLabel}`, `${terms.seatLabel} SEATS`)} · Approval ${approval}%`} />
+      <StatusBar leftText={`${t(lang, "government_page.phase2Government")} · ${terms.governmentName} · ${difficulty.toUpperCase()}`} rightText={`${leader.partyAbbr} ${seatsWon} ${t(lang, "government_page.seats", { termsSeatLabel: terms.seatLabel })} · Approval ${approval}%`} />
     </div>
   );
 }

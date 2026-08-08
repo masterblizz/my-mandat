@@ -112,7 +112,7 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
   if (!pathD) {
     return (
       <div className="flex items-center justify-center" style={{ height: 380 }}>
-        <LoadingSpinner label={t(lang, "// MEMUATKAN PETA...", "// LOADING MAP...")} />
+        <LoadingSpinner label={t(lang, "components_map_StateZoomMap.loadingMap")} />
       </div>
     );
   }
@@ -183,12 +183,12 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
             <span className="shrink-0 text-[8px] text-text-muted">{hoveredDot.seat.code}</span>
           </div>
           <div className="flex items-center justify-between text-[10px]">
-            <span style={{ color: dotColor(hoveredDot.seat) }}>{hoveredDot.seat.mandat}% {t(lang, "SOKONGAN", "SUPPORT")}</span>
+            <span style={{ color: dotColor(hoveredDot.seat) }}>{hoveredDot.seat.mandat}% {t(lang, "components_map_StateZoomMap.support")}</span>
             <span
               className="font-bold uppercase"
               style={{ color: hoveredDot.seat.safety === "safe" ? "var(--neon-green)" : hoveredDot.seat.safety === "marginal" ? "var(--gold)" : "var(--neon-red)" }}
             >
-              {t(lang, hoveredDot.seat.safety === "safe" ? "SELAMAT" : hoveredDot.seat.safety === "marginal" ? "MARGINAL" : "BAHAYA", hoveredDot.seat.safety)}
+              {t(lang, hoveredDot.seat.safety === "safe" ? "components_map_StateZoomMap.safetySafe" : hoveredDot.seat.safety === "marginal" ? "components_map_StateZoomMap.safetyMarginal" : "components_map_StateZoomMap.safetyDanger")}
             </span>
           </div>
         </div>
@@ -196,13 +196,13 @@ export default function StateZoomMap({ state, onSeatClick }: Props) {
 
       <div className="flex gap-4 mt-1.5 justify-center">
         {[
-          { color: "var(--cyan)", labelMS: "MENANG", labelEN: "WINNING" },
-          { color: "var(--gold)", labelMS: "BERTANDING", labelEN: "CONTESTED" },
-          { color: "var(--neon-red)", labelMS: "KETINGGALAN", labelEN: "TRAILING" },
+          { color: "var(--cyan)", key: "legendWinning" },
+          { color: "var(--gold)", key: "legendContested" },
+          { color: "var(--neon-red)", key: "legendTrailing" },
         ].map((item) => (
-          <div key={item.labelEN} className="flex items-center gap-1.5">
+          <div key={item.key} className="flex items-center gap-1.5">
             <div className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-            <span className="text-[11px] text-text-muted tracking-wider">{t(lang, item.labelMS, item.labelEN)}</span>
+            <span className="text-[11px] text-text-muted tracking-wider">{t(lang, `components_map_StateZoomMap.${item.key}`)}</span>
           </div>
         ))}
       </div>

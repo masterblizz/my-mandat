@@ -11,7 +11,7 @@ export function isRulerState(stateId: string): boolean {
 }
 
 export function stateHeadTitle(stateId: string, lang: Lang): string {
-  return isRulerState(stateId) ? t(lang, "MENTERI BESAR", "MENTERI BESAR") : t(lang, "KETUA MENTERI", "CHIEF MINISTER");
+  return isRulerState(stateId) ? t(lang, "utils_governmentTerms.menteriBesar") : t(lang, "utils_governmentTerms.chiefMinister");
 }
 
 export type GovernmentTerms = {
@@ -43,17 +43,17 @@ export function getGovernmentTerms(lang: Lang, electionScope: ElectionScope, sta
   if (electionScope !== "prn" || !state) {
     return {
       isPrn: false,
-      headTitle: t(lang, "PERDANA MENTERI", "PRIME MINISTER"),
+      headTitle: t(lang, "utils_governmentTerms.primeMinister"),
       headAbbr: "PM",
-      legislatorTitle: t(lang, "AHLI PARLIMEN", "MP"),
-      executiveBody: t(lang, "KABINET", "CABINET"),
-      executiveMember: t(lang, "MENTERI", "MINISTER"),
-      governmentName: t(lang, "KERAJAAN PERSEKUTUAN", "FEDERAL GOVERNMENT"),
-      assemblyName: t(lang, "DEWAN RAKYAT", "DEWAN RAKYAT"),
+      legislatorTitle: t(lang, "utils_governmentTerms.mp"),
+      executiveBody: t(lang, "utils_governmentTerms.cabinet"),
+      executiveMember: t(lang, "utils_governmentTerms.minister"),
+      governmentName: t(lang, "utils_governmentTerms.federalGovernment"),
+      assemblyName: t(lang, "utils_governmentTerms.dewanRakyat"),
       appointingAuthority: "ISTANA NEGARA",
-      seatLabel: t(lang, "PARLIMEN", "PARLIAMENT"),
+      seatLabel: t(lang, "utils_governmentTerms.parliament"),
       scopeLabel: "PRU16",
-      stateName: t(lang, "Malaysia", "Malaysia"),
+      stateName: t(lang, "utils_governmentTerms.malaysia"),
     };
   }
 
@@ -64,12 +64,12 @@ export function getGovernmentTerms(lang: Lang, electionScope: ElectionScope, sta
     headAbbr: isRulerState(state.id) ? "MB" : "KM",
     legislatorTitle: "ADUN",
     executiveBody: "EXCO",
-    executiveMember: t(lang, "AHLI EXCO", "EXCO MEMBER"),
-    governmentName: t(lang, `KERAJAAN NEGERI ${upperName}`, `${upperName} STATE GOVERNMENT`),
-    assemblyName: t(lang, "DEWAN UNDANGAN NEGERI (DUN)", "STATE ASSEMBLY (DUN)"),
+    executiveMember: t(lang, "utils_governmentTerms.excoMember"),
+    governmentName: t(lang, "utils_governmentTerms.stateGovernment", { upperName: upperName }),
+    assemblyName: t(lang, "utils_governmentTerms.stateAssemblyDun"),
     appointingAuthority: isRulerState(state.id)
-      ? t(lang, `ISTANA ${upperName}`, `${upperName} ROYAL PALACE`)
-      : t(lang, `YANG DIPERTUA NEGERI ${upperName}`, `${upperName} GOVERNOR'S OFFICE`),
+      ? t(lang, "utils_governmentTerms.royalPalace", { upperName: upperName })
+      : t(lang, "utils_governmentTerms.governorSOffice", { upperName: upperName }),
     seatLabel: "DUN",
     scopeLabel: `PRN ${upperName}`,
     stateName: state.name,

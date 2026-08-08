@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
       supabase = createClient();
     } catch {
       setLoading(false);
-      setError(t(lang, "Set semula kata laluan belum dikonfigurasi untuk deployment ini.", "Password reset isn't configured for this deployment yet."));
+      setError(t(lang, "forgot_password_page.passwordResetIsnTConfiguredFor"));
       return;
     }
 
@@ -43,16 +43,12 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthShell
-        title={t(lang, "SEMAK EMEL ANDA", "CHECK YOUR EMAIL")}
-        subtitle={t(lang, "Pautan set semula kata laluan telah dihantar.", "A password reset link is on its way.")}
+        title={t(lang, "forgot_password_page.checkYourEmail")}
+        subtitle={t(lang, "forgot_password_page.aPasswordResetLinkIsOn")}
       >
         <div className="space-y-4 text-center">
           <p className="text-[12px] leading-6" style={{ color: "#d7e7f5" }}>
-            {t(
-              lang,
-              `Jika ${email} berdaftar, pautan set semula kata laluan telah dihantar. Sahkan emel anda untuk teruskan.`,
-              `If ${email} is registered, a password reset link has been sent. Check your inbox to continue.`
-            )}
+            {t(lang, "forgot_password_page.ifIsRegisteredAPasswordReset", { email: email })}
           </p>
           <a
             href="/login"
@@ -64,7 +60,7 @@ export default function ForgotPasswordPage() {
               boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
             }}
           >
-            {t(lang, "KE LOG MASUK »", "GO TO LOGIN »")}
+            {t(lang, "forgot_password_page.goToLogin")}
           </a>
         </div>
       </AuthShell>
@@ -73,8 +69,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title={t(lang, "SET SEMULA KATA LALUAN", "RESET PASSWORD")}
-      subtitle={t(lang, "Masukkan emel untuk terima pautan set semula.", "Enter your email to receive a reset link.")}
+      title={t(lang, "forgot_password_page.resetPassword")}
+      subtitle={t(lang, "forgot_password_page.enterYourEmailToReceiveA")}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -88,7 +84,7 @@ export default function ForgotPasswordPage() {
 
         <div>
           <label className="mb-1 block text-[9px] font-bold tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
-            {t(lang, "EMEL", "EMAIL")}
+            {t(lang, "forgot_password_page.email")}
           </label>
           <input
             type="email"
@@ -111,12 +107,12 @@ export default function ForgotPasswordPage() {
             boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.28)",
           }}
         >
-          {loading ? t(lang, "MENGHANTAR…", "SENDING…") : t(lang, "HANTAR PAUTAN »", "SEND LINK »")}
+          {loading ? t(lang, "forgot_password_page.sending") : t(lang, "forgot_password_page.sendLink")}
         </button>
 
         <p className="pt-1 text-center text-[10px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>
           <a href="/login" className="font-bold" style={{ color: "var(--cyan)" }}>
-            {t(lang, "Kembali ke log masuk", "Back to login")}
+            {t(lang, "forgot_password_page.backToLogin")}
           </a>
         </p>
       </form>

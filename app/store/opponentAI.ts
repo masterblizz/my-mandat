@@ -41,6 +41,15 @@ export interface AIInput {
   difficulty: "easy" | "normal" | "hard" | "nightmare";
   recentPlayerGains: string[]; // stateIds where player trended up last day
   scopeStateName?: string; // set when this is a PRN (single-state) campaign
+  // Seat-weighted average of yesterday's per-state trend, squashed to roughly
+  // -1 (player struggling) .. +1 (player surging). Nudges intensity on top
+  // of the difficulty setting so the campaign stays tense either way —
+  // without this, a big early lead just snowballs untouched.
+  playerMomentum: number;
+  // State ids the AI has already hit (geographic pressure) in the last 2
+  // days — de-prioritized so pressure spreads out instead of repeatedly
+  // hammering whichever single state scores highest.
+  recentTargetIds: string[];
 }
 
 // ── Narrative pools ───────────────────────────────────────────────────────────
@@ -168,16 +177,27 @@ function diffMult(d: AIInput["difficulty"]): number {
   return { easy: 0.45, normal: 0.72, hard: 1.1, nightmare: 1.55 }[d];
 }
 
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+// Small, capped nudge on top of the difficulty multiplier — the difficulty
+// setting still dominates overall intensity, this just keeps a runaway
+// leader under more pressure and eases off a struggling player.
+function momentumMult(playerMomentum: number): number {
+  return clamp(1 + playerMomentum * 0.2, 0.85, 1.25);
+}
+
 // ── Main AI function ──────────────────────────────────────────────────────────
 
 export function runOpponentAI(input: AIInput): OpponentResult {
   const {
     day, totalDays, states, activeStateIds, oppositionStrength,
     difficulty, recentPlayerGains, playerDigitalOps, playerCeramahOps, playerBorneoOps,
-    scopeStateName,
+    scopeStateName, playerMomentum, recentTargetIds,
   } = input;
 
-  const mult = (oppositionStrength / 100) * diffMult(difficulty);
+  const mult = (oppositionStrength / 100) * diffMult(difficulty) * momentumMult(playerMomentum);
   const progress = day / totalDays;
   const actions: OpponentAction[] = [];
   const stateDebuffs: Record<string, number> = {};
@@ -186,14 +206,16 @@ export function runOpponentAI(input: AIInput): OpponentResult {
   const nextId = () => `opp-${day}-${++seq}`;
 
   // ── 1. GEOGRAPHIC PRESSURE ─────────────────────────────────────────────────
-  // Score each state: neglected + contested + seats + counter-push priority
+  // Score each state: neglected + contested + seats + counter-push priority,
+  // halved for states already hit in the last 2 days so pressure spreads out.
   const scored = states
     .map((s) => {
       const neglect = !activeStateIds.has(s.id) ? 2.2 : 1.0;
       const marginal = s.status === "contested" ? 1.7 : s.status === "winning" ? 1.4 : 0.7;
       const seatW = s.seats / 8;
       const counter = recentPlayerGains.includes(s.id) ? 1.5 : 1.0;
-      return { s, score: neglect * marginal * seatW * counter };
+      const repeat = recentTargetIds.includes(s.id) ? 0.5 : 1.0;
+      return { s, score: neglect * marginal * seatW * counter * repeat };
     })
     .sort((a, b) => b.score - a.score);
 
@@ -289,7 +311,8 @@ export function runOpponentAI(input: AIInput): OpponentResult {
   // ── 2c. VIRAL SOCIAL MEDIA FLOOD ────────────────────────────────────────────
   // High-frequency, low-magnitude chip damage — social media churns constantly,
   // unlike the punchier one-off scandal/media_blitz beats. Can fire from day one.
-  const viralProb = mult * (progress > 0.1 ? 0.22 : 0.1);
+  // A surging player draws extra online pile-on beyond what `mult` already adds.
+  const viralProb = mult * (progress > 0.1 ? 0.22 : 0.1) + Math.max(0, playerMomentum) * 0.04;
   if (Math.random() < viralProb) {
     const dmg = Math.round(mult * 0.5 * 10) / 10;
     nationalDamage += dmg;
@@ -306,8 +329,9 @@ export function runOpponentAI(input: AIInput): OpponentResult {
   }
 
   // ── 3. SCANDAL / MEDIA ATTACK ──────────────────────────────────────────────
-  // Probability ramps up in the second half of the campaign
-  const scandalProb = mult * (progress > 0.5 ? 0.24 : 0.09);
+  // Probability ramps up in the second half of the campaign. Front-runner
+  // scrutiny: a surging player draws extra scandal attention on top of `mult`.
+  const scandalProb = mult * (progress > 0.5 ? 0.24 : 0.09) + Math.max(0, playerMomentum) * 0.05;
   if (Math.random() < scandalProb) {
     const dmg = Math.round(mult * 1.7 * 10) / 10;
     nationalDamage += dmg;

@@ -96,14 +96,14 @@ function PurchaseConfirmationContent() {
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
       <StatusBar
-        leftText={t(lang, "» PENGESAHAN PEMBELIAN", "» PURCHASE CONFIRMATION")}
-        rightText={t(lang, "STRIPE CHECKOUT", "STRIPE CHECKOUT")}
+        leftText={t(lang, "purchase_confirmation_page.purchaseConfirmation")}
+        rightText={t(lang, "purchase_confirmation_page.stripeCheckout")}
       />
 
       <main className="flex min-h-screen items-center justify-center px-6 pt-[56px] pb-[52px]">
         <div className="w-full max-w-[440px]">
           <TacticalPanel
-            title={t(lang, "STATUS PEMBAYARAN", "PAYMENT STATUS")}
+            title={t(lang, "purchase_confirmation_page.paymentStatus")}
             goldBorder={status === "success"}
           >
             {(status === "checking" || status === "pending") && (
@@ -112,8 +112,8 @@ function PurchaseConfirmationContent() {
                   size={40}
                   label={
                     status === "checking"
-                      ? t(lang, "Mengesahkan pembayaran anda...", "Verifying your payment...")
-                      : t(lang, "Sedang memproses pembayaran anda, sila tunggu sebentar...", "Processing your payment, please wait a moment...")
+                      ? t(lang, "purchase_confirmation_page.verifyingYourPayment")
+                      : t(lang, "purchase_confirmation_page.processingYourPaymentPleaseWaitA")
                   }
                 />
               </div>
@@ -122,14 +122,10 @@ function PurchaseConfirmationContent() {
             {status === "timeout" && (
               <div className="py-4 text-center">
                 <div className="mb-4 text-[12px] leading-6" style={{ color: "var(--gold)" }}>
-                  {t(
-                    lang,
-                    "Pembayaran anda sedang diproses. Refresh halaman ini dalam beberapa minit, atau hubungi support kalau isu berterusan.",
-                    "Your payment is still being processed. Refresh this page in a few minutes, or contact support if the issue persists."
-                  )}
+                  {t(lang, "purchase_confirmation_page.yourPaymentIsStillBeingProcessed")}
                 </div>
                 <ActionButton onClick={() => window.location.reload()} tone="cyan">
-                  {t(lang, "MUAT SEMULA", "REFRESH")}
+                  {t(lang, "purchase_confirmation_page.refresh")}
                 </ActionButton>
               </div>
             )}
@@ -138,15 +134,15 @@ function PurchaseConfirmationContent() {
               <div className="py-4 text-center">
                 <div className="mb-3 text-[36px] leading-none">✅</div>
                 <div className="mb-2 text-[15px] font-black tracking-wider" style={{ color: "var(--neon-green)" }}>
-                  {t(lang, "Pembelian Berjaya!", "Purchase Successful!")}
+                  {t(lang, "purchase_confirmation_page.purchaseSuccessful")}
                 </div>
                 <div className="mb-5 text-[12px] leading-5" style={{ color: "var(--text-muted)" }}>
                   {productName
-                    ? t(lang, `${productName} telah dibuka.`, `${productName} has been unlocked.`)
-                    : t(lang, "Ciri premium anda telah dibuka.", "Your premium feature has been unlocked.")}
+                    ? t(lang, "purchase_confirmation_page.hasBeenUnlocked", { productName: productName })
+                    : t(lang, "purchase_confirmation_page.yourPremiumFeatureHasBeenUnlocked")}
                 </div>
                 <ActionButton onClick={() => router.push("/setup")}>
-                  {t(lang, "KEMBALI KE PERMAINAN", "BACK TO GAME")}
+                  {t(lang, "purchase_confirmation_page.backToGame")}
                 </ActionButton>
               </div>
             )}
@@ -154,14 +150,10 @@ function PurchaseConfirmationContent() {
             {status === "error" && (
               <div className="py-4 text-center">
                 <div className="mb-4 text-[12px] leading-6" style={{ color: "var(--neon-red)" }}>
-                  {t(
-                    lang,
-                    "Sesi pembayaran tidak sah atau tidak dijumpai.",
-                    "This payment session is invalid or couldn't be found."
-                  )}
+                  {t(lang, "purchase_confirmation_page.thisPaymentSessionIsInvalidOr")}
                 </div>
                 <ActionButton onClick={() => router.push("/menu")} tone="cyan">
-                  {t(lang, "KEMBALI KE MENU", "BACK TO MENU")}
+                  {t(lang, "purchase_confirmation_page.backToMenu")}
                 </ActionButton>
               </div>
             )}
