@@ -98,7 +98,14 @@ function StateFlag({ stateId }: { stateId: string }) {
       style={{
         width: 384,
         height: 240,
-        objectFit: "cover",
+        // "cover" was cropping several flags (Terengganu, Johor, Sabah,
+        // Sarawak, Kedah, Negeri Sembilan) — their source SVGs' own
+        // aspect ratio (and, for some, padding around the flag rectangle
+        // within their canvas) doesn't match this box's 384:240 (1.6:1),
+        // so cover's crop-to-fill cut real flag content off. "contain"
+        // always shows the whole flag, letterboxed on PANEL instead.
+        objectFit: "contain",
+        background: PANEL,
         border: `1px solid ${BORDER}`,
         boxShadow: "0 0 12px rgba(85,220,255,0.15)",
         opacity: status === "loaded" ? 1 : 0,
@@ -166,10 +173,9 @@ export default function AuthBackground() {
   // already avoids for exactly this reason: showing them here would read
   // as a fake in-progress campaign before the player has even logged in.
   const seatLists = useMemo(() => {
-    if (!activeState) return { parlimen: [], dun: [] };
+    if (!activeState) return { parlimen: [] };
     return {
       parlimen: generateConstituencies(activeState, "parliament").map((c) => ({ code: c.code, name: c.name, voters: c.voters })),
-      dun: generateConstituencies(activeState, "dun").map((c) => ({ code: c.code, name: c.name, voters: c.voters })),
     };
   }, [activeState]);
 
@@ -350,7 +356,7 @@ export default function AuthBackground() {
           style={{
             bottom: 74,
             left: 24,
-            width: 230,
+            width: 260,
             background: PANEL,
             backdropFilter: "blur(6px)",
             border: `1px solid ${BORDER}`,
@@ -363,29 +369,14 @@ export default function AuthBackground() {
           <div style={{ fontSize: 9, color: CYAN, marginBottom: 8 }}>
             {formatNumber(activeState.registeredVoters)} {t(lang, "JUMLAH PENGUNDI", "TOTAL VOTERS")}
           </div>
-          <div style={{ maxHeight: 190, overflowY: "auto" }}>
+          <div>
             {seatLists.parlimen.length > 0 && (
               <>
                 <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginTop: 2 }}>
                   {t(lang, "PARLIMEN", "PARLIAMENT")}
                 </div>
                 {seatLists.parlimen.map((s) => (
-                  <div key={s.code} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, color: TEXT_DIM, padding: "1px 0" }}>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                      {s.code} {s.name}
-                    </span>
-                    <span style={{ color: GOLD, flexShrink: 0 }}>{formatNumber(s.voters)}</span>
-                  </div>
-                ))}
-              </>
-            )}
-            {seatLists.dun.length > 0 && (
-              <>
-                <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginTop: 6 }}>
-                  {t(lang, "DUN", "DUN")}
-                </div>
-                {seatLists.dun.map((s) => (
-                  <div key={s.code} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, color: TEXT_DIM, padding: "1px 0" }}>
+                  <div key={s.code} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, color: TEXT_DIM, padding: 0, lineHeight: "13px" }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                       {s.code} {s.name}
                     </span>
