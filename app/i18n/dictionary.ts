@@ -13,6 +13,7 @@ import components_campaign_CeramahSceneModal from "./strings/components_campaign
 import components_charts_SeatDonut from "./strings/components_charts_SeatDonut";
 import components_layout_AmbientMusic from "./strings/components_layout_AmbientMusic";
 import components_layout_Header from "./strings/components_layout_Header";
+import components_layout_LangThemeToggle from "./strings/components_layout_LangThemeToggle";
 import components_layout_StatusBar from "./strings/components_layout_StatusBar";
 import components_map_StateZoomMap from "./strings/components_map_StateZoomMap";
 import components_menu_CreditsModal from "./strings/components_menu_CreditsModal";
@@ -58,6 +59,7 @@ export const dictionary: Record<string, Record<string, { ms: string; en: string 
   components_charts_SeatDonut,
   components_layout_AmbientMusic,
   components_layout_Header,
+  components_layout_LangThemeToggle,
   components_layout_StatusBar,
   components_map_StateZoomMap,
   components_menu_CreditsModal,

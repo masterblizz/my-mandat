@@ -12,6 +12,8 @@ const components_auth_TacticalAuthShell = {
   indian: { ms: "India", en: "Indian" },
   other: { ms: "Lain-lain", en: "Other" },
   sysOnline: { ms: "SIS DALAM TALIAN", en: "SYS ONLINE" },
+  switchToLight: { ms: "Tukar ke tema cerah", en: "Switch to light theme" },
+  switchToDark: { ms: "Tukar ke tema gelap", en: "Switch to dark theme" },
 };
 
 export default components_auth_TacticalAuthShell;

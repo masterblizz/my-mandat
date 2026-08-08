@@ -163,8 +163,8 @@ export default function AuthShell({ title, subtitle, children, footNote, showBac
           <img src="/logo-peti-undi.png" alt="My Mandat" width={48} height={48} style={{ filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
           <div className="leading-none">
             <div className="whitespace-nowrap">
-              <span className="text-[27px] font-black" style={{ color: "#55dcff", textShadow: "0 0 24px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>
-              <span className="text-[27px] font-black" style={{ color: "#ffb22c", textShadow: "0 0 28px rgb(var(--gold-rgb) / 0.45)" }}>MANDAT</span>
+              <span className="text-[27px] font-black" style={{ color: "var(--cyan)", textShadow: "0 0 24px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>
+              <span className="text-[27px] font-black" style={{ color: "var(--gold)", textShadow: "0 0 28px rgb(var(--gold-rgb) / 0.45)" }}>MANDAT</span>
             </div>
             <div className="text-[8px] font-bold tracking-[0.34em]" style={{ color: "rgb(var(--gold-rgb) / 0.55)" }}>
               {t(lang, "components_auth_AuthShell.campaignCommandSimulator")}

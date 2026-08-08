@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import CreditsModal from "../components/menu/CreditsModal";
 import Skyline from "../components/layout/Skyline";
+import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
 import { advisors } from "../data/advisors";
@@ -302,6 +303,7 @@ export default function MainMenuPage() {
         <div className="flex items-center gap-3">
           <span className="font-bold tracking-[0.15em] text-white tabular-nums">{clock}</span>
           <span className="flex items-center gap-1 font-bold" style={{ color: "var(--neon-green)" }}><span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "var(--neon-green)" }} />{t(lang, "menu_page.sysOnline")}</span>
+          <LangThemeToggle />
         </div>
       </header>
 

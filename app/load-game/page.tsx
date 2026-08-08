@@ -14,6 +14,7 @@ import {
 import { useGameStore } from "../store/gameStore";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { useLang, t, type Lang } from "../i18n/useLang";
+import LangThemeToggle from "../components/layout/LangThemeToggle";
 
 
 function formatSavedAt(value: string, lang: Lang) {
@@ -145,13 +146,16 @@ export default function LoadGamePage() {
               <h1 className="mt-2 text-[34px] font-black tracking-[-0.04em] text-white">{t(lang, "load_game_page.saveSlotCommand")}</h1>
               <div className="mt-1 text-[11px] tracking-[0.18em]" style={{ color: "#7d91a5" }}>{status}</div>
             </div>
-            <button
-              onClick={() => router.push("/")}
-              className="border px-4 py-2 text-[10px] font-black tracking-[0.2em] transition hover:scale-[1.02]"
-              style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / 0.045)" }}
-            >
-              {t(lang, "load_game_page.mainMenu")}
-            </button>
+            <div className="flex items-center gap-3">
+              <LangThemeToggle />
+              <button
+                onClick={() => router.push("/")}
+                className="border px-4 py-2 text-[10px] font-black tracking-[0.2em] transition hover:scale-[1.02]"
+                style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / 0.045)" }}
+              >
+                {t(lang, "load_game_page.mainMenu")}
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">

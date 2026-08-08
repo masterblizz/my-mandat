@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
+import LangThemeToggle from "./LangThemeToggle";
 
 const WAR_ROOM_FLOW_ROUTES = [
   "/calendar",
@@ -169,6 +170,7 @@ export default function Header() {
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neon-green" />
           {t(lang, "components_layout_Header.sysOnline")}
         </span>
+        <LangThemeToggle />
       </div>
     </header>
   );

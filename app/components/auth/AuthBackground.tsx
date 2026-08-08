@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RED, CYAN, GOLD, TEXT_DIM, TEXT_FAINT, PANEL, BORDER } from "./theme";
+import { RED, CYAN, GOLD, TEXT, TEXT_DIM, TEXT_FAINT, PANEL, BORDER } from "./theme";
 import { plexMono } from "./fonts";
 import { useLang, t } from "../../i18n/useLang";
 import { states } from "../../data/states";
@@ -107,7 +107,7 @@ function StateFlag({ stateId }: { stateId: string }) {
         objectFit: "contain",
         background: PANEL,
         border: `1px solid ${BORDER}`,
-        boxShadow: "0 0 12px rgba(85,220,255,0.15)",
+        boxShadow: "0 0 12px rgb(var(--auth-cyan-rgb) / 0.15)",
         opacity: status === "loaded" ? 1 : 0,
         transition: "opacity 0.2s",
       }}
@@ -185,7 +185,7 @@ export default function AuthBackground() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 1100px 800px at 60% 46%, rgba(0,212,255,0.20), transparent 62%), radial-gradient(ellipse 700px 600px at 20% 85%, rgba(255,178,44,0.08), transparent 60%), #04060c",
+            "radial-gradient(ellipse 1100px 800px at 60% 46%, rgb(var(--auth-wash-rgb) / 0.20), transparent 62%), radial-gradient(ellipse 700px 600px at 20% 85%, rgb(var(--auth-gold-rgb) / 0.08), transparent 60%), var(--auth-bg)",
         }}
       />
 
@@ -211,8 +211,8 @@ export default function AuthBackground() {
             <path
               key={svgId}
               d={d}
-              fill={activeId === gameId ? "rgba(85,220,255,0.22)" : "rgba(85,220,255,0.06)"}
-              stroke={activeId === gameId ? CYAN : "rgba(85,220,255,0.22)"}
+              fill={activeId === gameId ? "rgb(var(--auth-cyan-rgb) / 0.22)" : "rgb(var(--auth-cyan-rgb) / 0.06)"}
+              stroke={activeId === gameId ? CYAN : "rgb(var(--auth-cyan-rgb) / 0.22)"}
               strokeWidth={activeId === gameId ? 1.2 : 0.6}
               filter={activeId === gameId ? "url(#mm-auth-state-glow)" : undefined}
               style={{ cursor: "pointer", transition: "fill 0.2s, stroke 0.2s" }}
@@ -227,8 +227,8 @@ export default function AuthBackground() {
             <path
               key={svgId}
               d={d}
-              fill={activeId === gameId ? "rgba(85,220,255,0.22)" : "rgba(85,220,255,0.06)"}
-              stroke={activeId === gameId ? CYAN : "rgba(85,220,255,0.22)"}
+              fill={activeId === gameId ? "rgb(var(--auth-cyan-rgb) / 0.22)" : "rgb(var(--auth-cyan-rgb) / 0.06)"}
+              stroke={activeId === gameId ? CYAN : "rgb(var(--auth-cyan-rgb) / 0.22)"}
               strokeWidth={activeId === gameId ? 1.2 : 0.6}
               filter={activeId === gameId ? "url(#mm-auth-state-glow)" : undefined}
               style={{ cursor: "pointer", transition: "fill 0.2s, stroke 0.2s" }}
@@ -269,7 +269,7 @@ export default function AuthBackground() {
         <circle cx="380" cy="380" r="80" fill="none" stroke={RED} strokeWidth="1" strokeDasharray="2 6" />
         <line x1="380" y1="30" x2="380" y2="730" stroke={RED} strokeWidth="1" />
         <line x1="30" y1="380" x2="730" y2="380" stroke={RED} strokeWidth="1" />
-        <path d="M 380 380 L 380 30 A 350 350 0 0 1 627 133 Z" fill="rgba(193,31,44,0.12)" />
+        <path d="M 380 380 L 380 30 A 350 350 0 0 1 627 133 Z" fill="rgb(var(--auth-red-rgb) / 0.12)" />
       </svg>
 
       {hoveredState && (
@@ -289,7 +289,7 @@ export default function AuthBackground() {
             boxShadow: "0 0 24px rgba(0,0,0,0.5)",
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#f2f4f8", marginBottom: 2 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: TEXT, marginBottom: 2 }}>
             {STATE_CAPITALS[hoveredState.id] ?? hoveredState.name}
           </div>
           <div style={{ fontSize: 9, color: GOLD, letterSpacing: 1, marginBottom: 8 }}>
@@ -365,7 +365,7 @@ export default function AuthBackground() {
             boxShadow: "0 0 24px rgba(0,0,0,0.5)",
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#f2f4f8", marginBottom: 2 }}>{activeState.name}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: TEXT, marginBottom: 2 }}>{activeState.name}</div>
           <div style={{ fontSize: 9, color: CYAN, marginBottom: 8 }}>
             {formatNumber(activeState.registeredVoters)} {t(lang, "components_auth_AuthBackground.totalVoters")}
           </div>

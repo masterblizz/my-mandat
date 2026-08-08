@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
-import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED } from "../components/auth/TacticalAuthShell";
+import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, ERROR_TEXT } from "../components/auth/TacticalAuthShell";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -151,7 +151,7 @@ export default function RegisterPage() {
       {error && (
         <p
           className={plexMono.className}
-          style={{ marginBottom: 16, padding: "10px 12px", fontSize: 11, lineHeight: 1.6, border: `1px solid ${RED}`, background: "rgba(193,31,44,0.1)", color: "#ff8a93" }}
+          style={{ marginBottom: 16, padding: "10px 12px", fontSize: 11, lineHeight: 1.6, border: `1px solid ${RED}`, background: "rgb(var(--auth-red-rgb) / 0.1)", color: ERROR_TEXT }}
         >
           {error}
         </p>
@@ -229,7 +229,7 @@ export default function RegisterPage() {
           style={{
             width: "100%",
             background: "transparent",
-            color: "#c4cbd6",
+            color: TEXT,
             border: `1px solid ${BORDER}`,
             padding: 10,
             fontSize: 11,

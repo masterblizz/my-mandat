@@ -27,6 +27,27 @@
   --scrollbar-thumb: rgb(var(--cyan-rgb) / 0.2);
   --toggle-off: #1a2333;
   --input-bg: #0d1117;
+
+  /* /login & /register (TacticalAuthShell + AuthBackground) — a distinct
+     palette from the rest of the app since this screen intentionally reads
+     as a fixed "war room" HUD, but still needs its own light variant now
+     that the theme toggle appears there too. */
+  --auth-bg: #04060c;
+  --auth-bg-rgb: 4 6 12;
+  --auth-panel: rgba(10, 15, 24, 0.9);
+  --auth-border: #263042;
+  --auth-input-bg: #0d1320;
+  --auth-text: #e5e9f0;
+  --auth-text-dim: #8b95a5;
+  --auth-text-faint: #5b6576;
+  --auth-cyan-rgb: 85 220 255;
+  --auth-gold-rgb: 255 178 44;
+  --auth-red-rgb: 193 31 44;
+  --auth-green-rgb: 34 197 94;
+  --auth-wash-rgb: 0 212 255;
+  --auth-ticker-muted: #3d4656;
+  --auth-hairline: #1c2432;
+  --auth-error-text: #ff8a93;
 }
 
 [data-theme="light"] {
@@ -46,6 +67,23 @@
   --scrollbar-thumb: rgb(var(--cyan-rgb) / 0.25);
   --toggle-off: #cbd5e1;
   --input-bg: #e2e8f0;
+
+  --auth-bg: #eef2f7;
+  --auth-bg-rgb: 238 242 247;
+  --auth-panel: rgba(255, 255, 255, 0.88);
+  --auth-border: #c3cbd8;
+  --auth-input-bg: #ffffff;
+  --auth-text: #0f1720;
+  --auth-text-dim: #45526a;
+  --auth-text-faint: #66738c;
+  --auth-cyan-rgb: 4 120 158;
+  --auth-gold-rgb: 158 104 0;
+  --auth-red-rgb: 179 34 44;
+  --auth-green-rgb: 21 128 61;
+  --auth-wash-rgb: 20 120 170;
+  --auth-ticker-muted: #8391a8;
+  --auth-hairline: #d3dae4;
+  --auth-error-text: #a3212f;
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */

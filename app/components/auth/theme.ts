@@ -4,14 +4,19 @@
 // (TacticalAuthShell renders <AuthBackground />, so the reverse import
 // would eval AuthBackground's top-level color usage before
 // TacticalAuthShell finishes initializing its own exports).
-export const BG = "#04060c";
-export const PANEL = "rgba(10,15,24,0.9)";
-export const BORDER = "#263042";
-export const INPUT_BG = "#0d1320";
-export const TEXT = "#e5e9f0";
-export const TEXT_DIM = "#8b95a5";
-export const TEXT_FAINT = "#5b6576";
-export const CYAN = "#55dcff";
-export const GOLD = "#ffb22c";
-export const RED = "#c11f2c";
-export const GREEN = "#22c55e";
+// Values are CSS var() references (see [data-theme] rules in globals.css),
+// not raw hex, so every consumer of these constants automatically follows
+// the dark/light theme toggle without needing its own hook subscription —
+// the browser resolves the var against whatever data-theme is set on <html>.
+export const BG = "var(--auth-bg)";
+export const PANEL = "var(--auth-panel)";
+export const BORDER = "var(--auth-border)";
+export const INPUT_BG = "var(--auth-input-bg)";
+export const TEXT = "var(--auth-text)";
+export const TEXT_DIM = "var(--auth-text-dim)";
+export const TEXT_FAINT = "var(--auth-text-faint)";
+export const CYAN = "rgb(var(--auth-cyan-rgb))";
+export const GOLD = "rgb(var(--auth-gold-rgb))";
+export const RED = "rgb(var(--auth-red-rgb))";
+export const GREEN = "rgb(var(--auth-green-rgb))";
+export const ERROR_TEXT = "var(--auth-error-text)";

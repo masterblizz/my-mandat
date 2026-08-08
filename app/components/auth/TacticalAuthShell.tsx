@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
 import AuthBackground from "./AuthBackground";
-import { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN } from "./theme";
+import { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN, ERROR_TEXT } from "./theme";
 import { plexMono, inter } from "./fonts";
 import { getNationalStats } from "../../data/states";
 import { formatNumber } from "../../utils/format";
@@ -14,11 +14,11 @@ import { formatNumber } from "../../utils/format";
 // ("Peta taktikal + kad tengah"), the app's native dark cyan/gold/red HUD
 // look — radar dial, breaking-news ticker, glowing map backdrop (see
 // AuthBackground), corner-bracketed card.
-export { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN };
+export { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN, ERROR_TEXT };
 export { plexMono, inter };
 
 // Ticker separator/timestamp tone — distinct from TEXT_FAINT, used only here.
-const TICKER_MUTED = "#3d4656";
+const TICKER_MUTED = "var(--auth-ticker-muted)";
 
 function LangToggle() {
   const lang = useLang();
@@ -41,7 +41,7 @@ function LangToggle() {
               letterSpacing: 1,
               border: `1px solid ${active ? GOLD : BORDER}`,
               color: active ? GOLD : TEXT_FAINT,
-              background: active ? "rgba(255,178,44,0.08)" : "transparent",
+              background: active ? "rgb(var(--auth-gold-rgb) / 0.08)" : "transparent",
             }}
           >
             {code.toUpperCase()}
@@ -49,6 +49,31 @@ function LangToggle() {
         );
       })}
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const lang = useLang();
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label={theme === "dark" ? t(lang, "components_auth_TacticalAuthShell.switchToLight") : t(lang, "components_auth_TacticalAuthShell.switchToDark")}
+      title={theme === "dark" ? t(lang, "components_auth_TacticalAuthShell.switchToLight") : t(lang, "components_auth_TacticalAuthShell.switchToDark")}
+      className="absolute right-8 z-20"
+      style={{
+        top: 128,
+        padding: "3px 8px",
+        fontSize: 11,
+        border: `1px solid ${BORDER}`,
+        color: CYAN,
+        background: "transparent",
+      }}
+    >
+      {theme === "dark" ? "☀" : "☾"}
+    </button>
   );
 }
 
@@ -82,7 +107,7 @@ function NewsTicker({ lang }: { lang: Lang }) {
   return (
     <div
       className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex items-center overflow-hidden"
-      style={{ height: 34, background: "rgba(4,6,12,0.85)", borderBottom: `1px solid #1c2432`, padding: "0 24px" }}
+      style={{ height: 34, background: "rgb(var(--auth-bg-rgb) / 0.85)", borderBottom: "1px solid var(--auth-hairline)", padding: "0 24px" }}
     >
       <div
         className={`${plexMono.className} mm-auth-ticker-track flex gap-2.5`}
@@ -175,7 +200,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
         <img
           src="/logo-peti-undi.png"
           alt="My Mandat"
-          style={{ width: 26, height: 26, filter: "drop-shadow(0 0 8px rgba(0,212,255,0.5))" }}
+          style={{ width: 26, height: 26, filter: "drop-shadow(0 0 8px rgb(var(--auth-wash-rgb) / 0.5))" }}
         />
         <div style={{ fontSize: 15, fontWeight: 800 }}>
           <span style={{ color: CYAN }}>MY </span>
@@ -197,6 +222,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
       </div>
 
       <LangToggle />
+      <ThemeToggle />
 
       <div className="relative z-10 flex w-full flex-col items-center" style={{ gap: 14 }}>
         <MalaysiaInfoPanel lang={lang} maxWidth={cardWidth} />
@@ -214,7 +240,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
             <div className={plexMono.className} style={{ fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 10 }}>
               {eyebrow}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#f2f4f8" }}>{heading}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: TEXT }}>{heading}</div>
           </div>
 
           {children}
