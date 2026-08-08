@@ -10,6 +10,7 @@ import { useLang, t } from "../i18n/useLang";
 import { advisors } from "../data/advisors";
 import { formatNumber } from "../utils/format";
 import { generateConstituencies } from "../data/constituencies";
+import { ADVISOR_POOL, advisorPoolAnswer } from "../data/advisorPool";
 
 type ChatMessage = { role: "user" | "assistant"; content: string; source?: "ai" | "offline" };
 
@@ -22,7 +23,20 @@ export default function AdvisorPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"ai" | "offline" | null>(null);
+  // Checked once on mount (see GET /api/advisor) so free text can be
+  // disabled and the Q&A pool shown *before* the player wastes a question
+  // on a dead connection — null while the check is still in flight.
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/advisor")
+      .then((res) => res.json())
+      .then((data) => { if (!cancelled) setAiAvailable(!!data.available); })
+      .catch(() => { if (!cancelled) setAiAvailable(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const isPrn = settings.electionScope === "prn";
   const prnState = isPrn ? states.find((state) => state.id === settings.prnStateId) ?? states[0] : null;
@@ -86,10 +100,31 @@ export default function AdvisorPage() {
   const availablePromptKeys = QUICK_PROMPT_KEYS.filter(
     (key) => !askedTexts.has(t(lang, `advisor_page.quickPrompt_${key}`))
   );
+  const availablePoolEntries = ADVISOR_POOL.filter(
+    (entry) => !askedTexts.has(t(lang, entry.questionMS, entry.questionEN))
+  );
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
+
+  // AI unreachable: skip the network round-trip entirely — offlineAdvice()
+  // can't read the actual question anyway, so a live request would just
+  // return the same canned text after a pointless wait. Answer instantly
+  // from the pool instead.
+  function askPoolQuestion(entry: (typeof ADVISOR_POOL)[number]) {
+    const question = t(lang, entry.questionMS, entry.questionEN);
+    const answer = advisorPoolAnswer(entry, {
+      day, totalDays, funds: resources.funds, manpower: resources.manpower, projectedSeats, majorityTarget, totalSeats: seatTotal,
+      weakStates: weakAreas, support, mediaSentiment, isPrn, opponentThreatLevel: { label: threatLevel.label, labelMS: threatLevel.labelMS },
+      recentOpponentActions,
+    }, lang);
+    setMessages((current) => [
+      ...current,
+      { role: "user", content: question },
+      { role: "assistant", content: answer, source: "offline" },
+    ]);
+  }
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -133,12 +168,20 @@ export default function AdvisorPage() {
     send(input);
   }
 
-  const modeLabel = mode === "ai"
+  // Once a real message has been sent, `mode` (per-response) wins; before
+  // that, fall back to the upfront availability check so the badge already
+  // reads OFFLINE (and free text is disabled) without needing a wasted
+  // first question to discover it.
+  const effectiveMode = mode ?? (aiAvailable === false ? "offline" : null);
+  const modeLabel = effectiveMode === "ai"
     ? t(lang, "advisor_page.aiOnline")
-    : mode === "offline"
+    : effectiveMode === "offline"
     ? t(lang, "advisor_page.simulationModeOffline")
+    : aiAvailable === null
+    ? t(lang, "advisor_page.checkingStatus")
     : t(lang, "advisor_page.ready");
-  const modeColor = mode === "ai" ? "var(--neon-green)" : mode === "offline" ? "var(--warn-orange)" : "var(--cyan)";
+  const modeColor = effectiveMode === "ai" ? "var(--neon-green)" : effectiveMode === "offline" ? "var(--warn-orange)" : "var(--cyan)";
+  const freeTextDisabled = busy || aiAvailable === false;
 
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 15% 0%, rgb(var(--cyan-rgb)/0.10), transparent 32%), var(--bg)" }}>
@@ -198,39 +241,65 @@ export default function AdvisorPage() {
               )}
             </div>
             <div className="border-t p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}>
-              {availablePromptKeys.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {availablePromptKeys.map((promptKey) => (
+              {aiAvailable === false ? (
+                <>
+                  <div className="mb-2 text-[10px] leading-relaxed text-text-muted">
+                    {t(lang, "advisor_page.aiUnavailablePickQuestion")}
+                  </div>
+                  {availablePoolEntries.length > 0 ? (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {availablePoolEntries.map((entry) => (
+                        <button
+                          key={entry.id}
+                          onClick={() => askPoolQuestion(entry)}
+                          className="border px-2 py-1 text-[10px] font-bold tracking-wider"
+                          style={{ borderColor: "rgb(var(--gold-rgb)/0.35)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.05)" }}
+                        >
+                          {t(lang, entry.questionMS, entry.questionEN)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mb-2 text-[10px] text-text-muted">{t(lang, "advisor_page.allQuestionsAsked")}</div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {availablePromptKeys.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {availablePromptKeys.map((promptKey) => (
+                        <button
+                          key={promptKey}
+                          onClick={() => send(t(lang, `advisor_page.quickPrompt_${promptKey}`))}
+                          disabled={busy}
+                          className="border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
+                          style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.05)" }}
+                        >
+                          {t(lang, `advisor_page.quickPrompt_${promptKey}`)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <form onSubmit={onSubmit} className="flex gap-2">
+                    <input
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      placeholder={t(lang, "advisor_page.typeAnOrderOrStrategyQuestion")}
+                      className="min-w-0 flex-1 border bg-transparent px-3 py-2 text-[12px] text-white outline-none disabled:opacity-40"
+                      style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", fontFamily: "Space Mono, monospace" }}
+                      disabled={freeTextDisabled}
+                    />
                     <button
-                      key={promptKey}
-                      onClick={() => send(t(lang, `advisor_page.quickPrompt_${promptKey}`))}
-                      disabled={busy}
-                      className="border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
-                      style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.05)" }}
+                      type="submit"
+                      disabled={freeTextDisabled || !input.trim()}
+                      className="border px-4 py-2 text-[11px] font-black tracking-widest disabled:opacity-40"
+                      style={{ borderColor: "rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}
                     >
-                      {t(lang, `advisor_page.quickPrompt_${promptKey}`)}
+                      {t(lang, "advisor_page.send")}
                     </button>
-                  ))}
-                </div>
+                  </form>
+                </>
               )}
-              <form onSubmit={onSubmit} className="flex gap-2">
-                <input
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder={t(lang, "advisor_page.typeAnOrderOrStrategyQuestion")}
-                  className="min-w-0 flex-1 border bg-transparent px-3 py-2 text-[12px] text-white outline-none"
-                  style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", fontFamily: "Space Mono, monospace" }}
-                  disabled={busy}
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !input.trim()}
-                  className="border px-4 py-2 text-[11px] font-black tracking-widest disabled:opacity-40"
-                  style={{ borderColor: "rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}
-                >
-                  {t(lang, "advisor_page.send")}
-                </button>
-              </form>
             </div>
           </TacticalPanel>
 
@@ -277,7 +346,7 @@ export default function AdvisorPage() {
       </main>
       <StatusBar
         leftText={t(lang, "advisor_page.aiAdvisorAlpha1WarRoom")}
-        rightText={mode === "ai" ? "MANDAT//AI · CLAUDE" : t(lang, "advisor_page.localSimulationMode")}
+        rightText={effectiveMode === "ai" ? "MANDAT//AI · CLAUDE" : t(lang, "advisor_page.localSimulationMode")}
       />
     </div>
   );

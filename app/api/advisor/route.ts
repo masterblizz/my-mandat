@@ -166,3 +166,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ source: "offline", reply: offlineAdvice(gameState, lang), note: "api_error" });
   }
 }
+
+// Cheap upfront availability check — the advisor page calls this once on
+// mount so it can disable free-text input and switch to the pre-written
+// Q&A pool *before* the player wastes a question on a dead connection,
+// rather than only discovering "offline" after their first real send().
+// A minimal real request (not just an env-var presence check) is
+// necessary: the key can be configured but the account still out of
+// credits (see AuthenticationError/insufficient-credit handling above),
+// which only surfaces once a real call is attempted.
+export async function GET() {
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+    return NextResponse.json({ available: false });
+  }
+  const client = new Anthropic();
+  try {
+    await client.messages.create({
+      model: MODEL,
+      max_tokens: 1,
+      messages: [{ role: "user", content: "ping" }],
+    });
+    return NextResponse.json({ available: true });
+  } catch {
+    return NextResponse.json({ available: false });
+  }
+}

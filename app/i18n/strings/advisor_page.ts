@@ -33,6 +33,10 @@ const advisor_page = {
   quickPrompt_focusStates: { ms: "Negeri mana patut saya fokuskan minggu ini?", en: "Which states should I focus on this week?" },
   quickPrompt_funds: { ms: "Macam mana nak guna baki dana dengan bijak?", en: "How should I spend the remaining funds?" },
   quickPrompt_finalDays: { ms: "Strategi untuk hari-hari terakhir kempen?", en: "Strategy for the final days of the campaign?" },
+  checkingStatus: { ms: "MENYEMAK STATUS", en: "CHECKING STATUS" },
+  aiUnavailablePickQuestion: { ms: "AI tidak tersedia buat masa ini — pilih soalan di bawah untuk jawapan segera.", en: "AI is currently unavailable — pick a question below for an instant answer." },
+  suggestedQuestions: { ms: "SOALAN DICADANGKAN", en: "SUGGESTED QUESTIONS" },
+  allQuestionsAsked: { ms: "Semua soalan dalam senarai telah ditanya.", en: "All questions in the list have been asked." },
 };
 
 export default advisor_page;
