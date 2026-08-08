@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/utils/governmentTerms.ts.
-export default {
+const utils_governmentTerms = {
   menteriBesar: { ms: "MENTERI BESAR", en: "MENTERI BESAR" },
   chiefMinister: { ms: "KETUA MENTERI", en: "CHIEF MINISTER" },
   primeMinister: { ms: "PERDANA MENTERI", en: "PRIME MINISTER" },
@@ -16,3 +16,5 @@ export default {
   royalPalace: { ms: "ISTANA {upperName}", en: "{upperName} ROYAL PALACE" },
   governorSOffice: { ms: "YANG DIPERTUA NEGERI {upperName}", en: "{upperName} GOVERNOR'S OFFICE" },
 };
+
+export default utils_governmentTerms;

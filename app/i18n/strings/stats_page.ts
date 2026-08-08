@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/stats/page.tsx.
-export default {
+const stats_page = {
   easy: { ms: "MUDAH", en: "EASY" },
   normal: { ms: "NORMAL", en: "NORMAL" },
   hard: { ms: "SUKAR", en: "HARD" },
@@ -48,3 +48,5 @@ export default {
   outcome_lose: { ms: "KALAH", en: "LOSE" },
   outcome_incomplete: { ms: "TAK SELESAI", en: "INCOMPLETE" },
 };
+
+export default stats_page;

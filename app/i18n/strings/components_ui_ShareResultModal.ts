@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/components/ui/ShareResultModal.tsx.
-export default {
+const components_ui_ShareResultModal = {
   seats: { ms: "KERUSI", en: "SEATS" },
   majorityTarget: { ms: "SASARAN MAJORITI {dataMajorityTarget}", en: "MAJORITY TARGET {dataMajorityTarget}" },
   nationalSupport: { ms: "SOKONGAN KEBANGSAAN", en: "NATIONAL SUPPORT" },
@@ -15,3 +15,5 @@ export default {
   downloadImage: { ms: "MUAT TURUN IMEJ", en: "DOWNLOAD IMAGE" },
   copyImage: { ms: "SALIN IMEJ", en: "COPY IMAGE" },
 };
+
+export default components_ui_ShareResultModal;

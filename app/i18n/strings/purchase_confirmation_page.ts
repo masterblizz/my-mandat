@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/purchase-confirmation/page.tsx.
-export default {
+const purchase_confirmation_page = {
   purchaseConfirmation: { ms: "» PENGESAHAN PEMBELIAN", en: "» PURCHASE CONFIRMATION" },
   stripeCheckout: { ms: "STRIPE CHECKOUT", en: "STRIPE CHECKOUT" },
   paymentStatus: { ms: "STATUS PEMBAYARAN", en: "PAYMENT STATUS" },
@@ -14,3 +14,5 @@ export default {
   thisPaymentSessionIsInvalidOr: { ms: "Sesi pembayaran tidak sah atau tidak dijumpai.", en: "This payment session is invalid or couldn't be found." },
   backToMenu: { ms: "KEMBALI KE MENU", en: "BACK TO MENU" },
 };
+
+export default purchase_confirmation_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/kawasan/page.tsx.
-export default {
+const kawasan_page = {
   welfare: { ms: "RAKYAT", en: "WELFARE" },
   economy: { ms: "EKONOMI", en: "ECONOMY" },
   done: { ms: "{prerequisite} siap", en: "{prerequisite} done" },
@@ -131,3 +131,5 @@ export default {
 
   projectApprovedAlert: { ms: "{project} approved in {zone}, {seat}.", en: "{project} approved in {zone}, {seat}." },
 };
+
+export default kawasan_page;

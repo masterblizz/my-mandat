@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/components/auth/TacticalAuthShell.tsx.
-export default {
+const components_auth_TacticalAuthShell = {
   selangorStillTooCloseToCall: { ms: "SELANGOR MASIH TERLALU RAPAT UNTUK DIRAMAL", en: "SELANGOR STILL TOO CLOSE TO CALL" },
   borneoBlocWatchedByAllCoalitions: { ms: "BLOK BORNEO DIPANTAU SEMUA KOALISI", en: "BORNEO BLOC WATCHED BY ALL COALITIONS" },
   socialWarRoomDetectsSwing: { ms: "WAR ROOM MEDIA SOSIAL KESAN SWING", en: "SOCIAL WAR ROOM DETECTS SWING" },
@@ -13,3 +13,5 @@ export default {
   other: { ms: "Lain-lain", en: "Other" },
   sysOnline: { ms: "SIS DALAM TALIAN", en: "SYS ONLINE" },
 };
+
+export default components_auth_TacticalAuthShell;

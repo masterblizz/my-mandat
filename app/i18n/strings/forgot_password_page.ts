@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/forgot-password/page.tsx.
-export default {
+const forgot_password_page = {
   passwordResetIsnTConfiguredFor: { ms: "Set semula kata laluan belum dikonfigurasi untuk deployment ini.", en: "Password reset isn't configured for this deployment yet." },
   checkYourEmail: { ms: "SEMAK EMEL ANDA", en: "CHECK YOUR EMAIL" },
   aPasswordResetLinkIsOn: { ms: "Pautan set semula kata laluan telah dihantar.", en: "A password reset link is on its way." },
@@ -12,3 +12,5 @@ export default {
   sendLink: { ms: "HANTAR PAUTAN »", en: "SEND LINK »" },
   backToLogin: { ms: "Kembali ke log masuk", en: "Back to login" },
 };
+
+export default forgot_password_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/components/auth/AuthBackground.tsx.
-export default {
+const components_auth_AuthBackground = {
   stateCapitalOf: { ms: "IBU NEGERI ", en: "STATE CAPITAL OF " },
   population: { ms: "PENDUDUK", en: "POPULATION" },
   parlSeats: { ms: "KERUSI PARLIMEN", en: "PARL. SEATS" },
@@ -12,3 +12,5 @@ export default {
   totalVoters: { ms: "JUMLAH PENGUNDI", en: "TOTAL VOTERS" },
   parliament: { ms: "PARLIMEN", en: "PARLIAMENT" },
 };
+
+export default components_auth_AuthBackground;

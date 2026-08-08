@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/sandbox/page.tsx.
-export default {
+const sandbox_page = {
   phase4MalaysiaPoliticalSandbox: { ms: "FASA 4 · SANDBOX POLITIK MALAYSIA", en: "PHASE 4 · MALAYSIA POLITICAL SANDBOX" },
   nationalSimulation: { ms: "SIMULASI NEGARA", en: "NATIONAL SIMULATION" },
   legacyMap: { ms: "PETA LEGASI", en: "LEGACY MAP" },
@@ -50,3 +50,5 @@ export default {
   scenarioLabel_economicPressure: { ms: "Tekanan Ekonomi Nasional", en: "National Economic Pressure" },
   scenarioLabel_competitive: { ms: "Sandbox Malaysia Kompetitif", en: "Competitive Malaysia Sandbox" },
 };
+
+export default sandbox_page;

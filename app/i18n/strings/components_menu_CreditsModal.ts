@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/components/menu/CreditsModal.tsx.
-export default {
+const components_menu_CreditsModal = {
   myMandatOperationCredits: { ms: "Kredit operasi MY MANDAT", en: "MY MANDAT operation credits" },
   classifiedOperationClosed: { ms: "SULIT — OPERASI TAMAT", en: "CLASSIFIED — OPERATION CLOSED" },
   close: { ms: "TUTUP", en: "CLOSE" },
@@ -17,3 +17,5 @@ export default {
   rosterUiDesignWho: { ms: "Cyan / Gold War Room Interface", en: "Cyan / Gold War Room Interface" },
   rosterElectionSimulationWho: { ms: "Aliran Kempen, Negeri, Kerusi & Gabungan", en: "Campaign Flow, States, Seats & Coalitions" },
 };
+
+export default components_menu_CreditsModal;

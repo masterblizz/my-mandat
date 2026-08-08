@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/results/page.tsx.
-export default {
+const results_page = {
   others: { ms: "LAIN-LAIN", en: "OTHERS" },
   parliament: { ms: "PARLIMEN", en: "PARLIAMENT" },
   stateGovernmentFormed: { ms: "KERAJAAN NEGERI DIBENTUK", en: "STATE GOVERNMENT FORMED" },
@@ -77,3 +77,5 @@ export default {
   achievementPrnCampaignComplete: { ms: "KEMPEN PRN SELESAI", en: "PRN CAMPAIGN COMPLETE" },
   achievementFullCampaignComplete: { ms: "KEMPEN PENUH SELESAI", en: "FULL CAMPAIGN COMPLETE" },
 };
+
+export default results_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/career/page.tsx.
-export default {
+const career_page = {
   survival: { ms: "{termsGovernmentName} Bertahan", en: "{termsGovernmentName} Survival" },
   oppositionComeback: { ms: "Kebangkitan Pembangkang", en: "Opposition Comeback" },
   phase3MultiTermPoliticalCareer: { ms: "FASA 3 · KERJAYA POLITIK BERBILANG PENGGAL", en: "PHASE 3 · MULTI-TERM POLITICAL CAREER" },
@@ -54,3 +54,5 @@ export default {
   faction_borneo_label: { ms: "Blok Borneo", en: "Borneo Bloc" },
   faction_borneo_demand: { ms: "MA63 dan autonomi pembangunan", en: "MA63 and development autonomy" },
 };
+
+export default career_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/swearing-in/page.tsx.
-export default {
+const swearing_in_page = {
   swearingInCeremony: { ms: "ISTIADAT ANGKAT SUMPAH", en: "SWEARING-IN CEREMONY" },
   official: { ms: "{termsExecutiveBody} RASMI", en: "OFFICIAL {termsExecutiveBody}" },
   seats: { ms: "kerusi {termsSeatLabel}", en: "{termsSeatLabel} seats" },
@@ -17,3 +17,5 @@ export default {
   swornIn: { ms: "{termsExecutiveBody} ANGKAT SUMPAH", en: "{termsExecutiveBody} SWORN IN" },
   first100DaysReady: { ms: "{leaderPartyAbbr} · 100 Hari Pertama Sedia", en: "{leaderPartyAbbr} · First 100 Days Ready" },
 };
+
+export default swearing_in_page;

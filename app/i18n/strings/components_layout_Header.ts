@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/components/layout/Header.tsx.
-export default {
+const components_layout_Header = {
   tacticalOps: { ms: "- OPS TAKTIKAL", en: "- TACTICAL OPS" },
   premium: { ms: "PREMIUM", en: "PREMIUM" },
   back: { ms: "KEMBALI", en: "BACK" },
@@ -11,3 +11,5 @@ export default {
   generalElectionCommandSimulator: { ms: "PILIHAN RAYA UMUM - SIMULATOR ARAHAN", en: "GENERAL ELECTION - COMMAND SIMULATOR" },
   sysOnline: { ms: "SISTEM DALAM TALIAN", en: "SYS ONLINE" },
 };
+
+export default components_layout_Header;

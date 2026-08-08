@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/settings/page.tsx.
-export default {
+const settings_page = {
   gameplaySettings: { ms: "TETAPAN PERMAINAN", en: "GAMEPLAY SETTINGS" },
   campaignLength: { ms: "TEMPOH KEMPEN", en: "CAMPAIGN LENGTH" },
   fullCampaign: { ms: "Kempen Penuh", en: "Full Campaign" },
@@ -95,3 +95,5 @@ export default {
   shortcutCampaignHq: { ms: "MARKAS KEMPEN", en: "CAMPAIGN HQ" },
   shortcutPollingData: { ms: "DATA TINJAUAN", en: "POLLING DATA" },
 };
+
+export default settings_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/cabinet/page.tsx.
-export default {
+const cabinet_page = {
   formationAfter: { ms: "PEMBENTUKAN {termsGovernmentName} SELEPAS {termsScopeLabel}", en: "{termsGovernmentName} FORMATION AFTER {termsScopeLabel}" },
   form: { ms: "BENTUK {termsExecutiveBody}", en: "FORM {termsExecutiveBody}" },
   seats: { ms: "KERUSI {termsSeatLabel}", en: "{termsSeatLabel} SEATS" },
@@ -66,3 +66,5 @@ export default {
   effectTrust: { ms: "Trust", en: "Trust" },
   effectScandalRisk: { ms: "Risiko skandal", en: "Scandal risk" },
 };
+
+export default cabinet_page;

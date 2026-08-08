@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/messaging/page.tsx.
-export default {
+const messaging_page = {
   active: { ms: "AKTIF", en: "ACTIVE" },
   running: { ms: "BERJALAN", en: "RUNNING" },
   scheduled: { ms: "DIJADUALKAN", en: "SCHEDULED" },
@@ -29,3 +29,5 @@ export default {
   deployed: { ms: "✓ DILANCARKAN", en: "✓ DEPLOYED" },
   deployAllCampaigns: { ms: "LANCAR SEMUA KEMPEN", en: "DEPLOY ALL CAMPAIGNS" },
 };
+
+export default messaging_page;

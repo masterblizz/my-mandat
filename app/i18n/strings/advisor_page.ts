@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/advisor/page.tsx.
-export default {
+const advisor_page = {
   noResponseTryAgain: { ms: "Tiada respons. Cuba lagi.", en: "No response. Try again." },
   connectionLostTryAgainShortly: { ms: "Talian terputus. Cuba semula sebentar lagi.", en: "Connection lost. Try again shortly." },
   aiOnline: { ms: "AI DALAM TALIAN", en: "AI ONLINE" },
@@ -34,3 +34,5 @@ export default {
   quickPrompt_funds: { ms: "Macam mana nak guna baki dana dengan bijak?", en: "How should I spend the remaining funds?" },
   quickPrompt_finalDays: { ms: "Strategi untuk hari-hari terakhir kempen?", en: "Strategy for the final days of the campaign?" },
 };
+
+export default advisor_page;

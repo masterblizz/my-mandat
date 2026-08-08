@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/opposition/page.tsx.
-export default {
+const opposition_page = {
   failedToFormOppositionMode: { ms: "GAGAL BENTUK {termsGovernmentName} · MOD PEMBANGKANG", en: "FAILED TO FORM {termsGovernmentName} · OPPOSITION MODE" },
   buildComeback: { ms: "BINA COMEBACK", en: "BUILD COMEBACK" },
   seats: { ms: "kerusi {termsSeatLabel}", en: "{termsSeatLabel} seats" },
@@ -26,3 +26,5 @@ export default {
   strategy_state_prk_title: { ms: "Sasar PRK DUN", en: "Target DUN By-Elections" },
   strategy_state_prk_detail: { ms: "Cari kerusi DUN kosong untuk menunjukkan momentum comeback sebelum PRN seterusnya.", en: "Target vacant DUN seats to show comeback momentum before the next state election." },
 };
+
+export default opposition_page;

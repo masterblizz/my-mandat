@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/load-game/page.tsx.
-export default {
+const load_game_page = {
   unknownTime: { ms: "MASA TIDAK DIKETAHUI", en: "UNKNOWN TIME" },
   scanLocalSaveSlots: { ms: "MENGIMBAS SLOT SIMPAN TEMPATAN", en: "SCAN LOCAL SAVE SLOTS" },
   saveSlotDetected: { ms: "{recordsLength}/{mAX_SAVE_SLOTS} SLOT SIMPAN DIKESAN", en: "{recordsLength}/{mAX_SAVE_SLOTS} SAVE SLOT DETECTED" },
@@ -40,3 +40,5 @@ export default {
   sentimentNegative: { ms: "NEGATIF", en: "NEGATIVE" },
   sentimentNeutral: { ms: "NEUTRAL", en: "NEUTRAL" },
 };
+
+export default load_game_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/warroom/page.tsx.
-export default {
+const warroom_page = {
   oppositionIntel: { ms: "INTEL PEMBANGKANG", en: "OPPOSITION INTEL" },
   threatLevel: { ms: "TAHAP ANCAMAN", en: "THREAT LEVEL" },
   targetedStates: { ms: "NEGERI DISASARKAN", en: "TARGETED STATES" },
@@ -74,3 +74,5 @@ export default {
   timelineLegendCurrent: { ms: "SEMASA", en: "CURRENT" },
   timelineLegendUpcoming: { ms: "AKAN DATANG", en: "UPCOMING" },
 };
+
+export default warroom_page;

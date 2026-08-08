@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/postmortem/page.tsx.
-export default {
+const postmortem_page = {
   mandateRejectedPartyPostMortem: { ms: "MANDAT DITOLAK · POST-MORTEM PARTI", en: "MANDATE REJECTED · PARTY POST-MORTEM" },
   rebuildTheParty: { ms: "BINA SEMULA PARTI", en: "REBUILD THE PARTY" },
   seatsOnly: { ms: "kerusi sahaja", en: "seats only" },
@@ -15,3 +15,5 @@ export default {
   reform_rebrand_title: { ms: "Rebrand Parti", en: "Party Rebrand" },
   reform_youth_title: { ms: "Rekrut Pemimpin Muda", en: "Recruit Young Leaders" },
 };
+
+export default postmortem_page;

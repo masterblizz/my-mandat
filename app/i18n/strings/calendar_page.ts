@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/calendar/page.tsx.
-export default {
+const calendar_page = {
   event: { ms: "PERISTIWA", en: "EVENT" },
   media: { ms: "MEDIA", en: "MEDIA" },
   operation: { ms: "OPERASI", en: "OPERATION" },
@@ -105,3 +105,5 @@ export default {
   statMediaAppearances: { ms: "PENAMPILAN MEDIA", en: "MEDIA APPEARANCES" },
   statOperativesDeployed: { ms: "OPERATIF DIGERAKKAN", en: "OPERATIVES DEPLOYED" },
 };
+
+export default calendar_page;

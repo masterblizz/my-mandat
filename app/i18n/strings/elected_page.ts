@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/elected/page.tsx.
-export default {
+const elected_page = {
   parliament: { ms: "PARLIMEN", en: "PARLIAMENT" },
   memberOfParliament: { ms: "AHLI PARLIMEN", en: "MEMBER OF PARLIAMENT" },
   noPersonalSeatResultToDisplay: { ms: "Tiada keputusan kerusi peribadi untuk dipaparkan.", en: "No personal seat result to display." },
@@ -22,3 +22,5 @@ export default {
   continueConfirmMandate: { ms: "TERUSKAN → SAHKAN MANDAT", en: "CONTINUE → CONFIRM MANDATE" },
   majority2: { ms: "{partyDisplay} · MAJORITI {formatNumberOwnSeatMajorityVotes}", en: "{partyDisplay} · MAJORITY {formatNumberOwnSeatMajorityVotes}" },
 };
+
+export default elected_page;

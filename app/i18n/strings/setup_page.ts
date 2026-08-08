@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/setup/page.tsx.
-export default {
+const setup_page = {
   purchaseCancelled: { ms: "Pembelian dibatalkan.", en: "Purchase cancelled." },
   chooseWhichPoliticalNamesPartiesAppear: { ms: "Pilih nama dan parti politik yang muncul dalam kempen anda", en: "Choose which political names & parties appear in your campaign" },
   selected: { ms: "DIPILIH", en: "SELECTED" },
@@ -124,3 +124,5 @@ export default {
   toggleOn: { ms: "HIDUP", en: "ON" },
   toggleOff: { ms: "MATI", en: "OFF" },
 };
+
+export default setup_page;

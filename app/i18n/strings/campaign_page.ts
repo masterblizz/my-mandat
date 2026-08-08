@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/campaign/page.tsx.
-export default {
+const campaign_page = {
   active: { ms: "AKTIF", en: "ACTIVE" },
   ongoing: { ms: "BERTERUSAN", en: "ONGOING" },
   planned: { ms: "DIRANCANG", en: "PLANNED" },
@@ -148,3 +148,5 @@ export default {
   tab_SCHEDULE: { ms: "JADUAL", en: "SCHEDULE" },
   tab_MESSAGING: { ms: "PESANAN", en: "MESSAGING" },
 };
+
+export default campaign_page;

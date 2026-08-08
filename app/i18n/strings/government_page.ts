@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/government/page.tsx.
-export default {
+const government_page = {
   formedGoverningPhase: { ms: "{termsGovernmentName} DITUBUHKAN · FASA MEMERINTAH", en: "{termsGovernmentName} FORMED · GOVERNING PHASE" },
   govern: { ms: "MEMERINTAH NEGERI {termsStateName}", en: "GOVERN {termsStateName}" },
   governTheCountry: { ms: "MEMERINTAH NEGARA", en: "GOVERN THE COUNTRY" },
@@ -90,3 +90,5 @@ export default {
   crisis_state_exco_choice0: { ms: "Siasat terbuka", en: "Open investigation" },
   crisis_state_exco_choice1: { ms: "Pertahan Ahli EXCO", en: "Defend the EXCO member" },
 };
+
+export default government_page;

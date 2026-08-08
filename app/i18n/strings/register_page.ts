@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/register/page.tsx.
-export default {
+const register_page = {
   registrationIsnTConfiguredForThis: { ms: "Pendaftaran belum dikonfigurasi untuk deployment ini.", en: "Registration isn't configured for this deployment yet." },
   electionCampaignSimulator: { ms: "SIMULATOR KEMPEN PILIHAN RAYA", en: "ELECTION CAMPAIGN SIMULATOR" },
   checkYourEmail: { ms: "Semak Emel Anda", en: "Check Your Email" },
@@ -18,3 +18,5 @@ export default {
   alreadyHaveAnAccount: { ms: "DAH ADA AKAUN? ", en: "ALREADY HAVE AN ACCOUNT? " },
   logInHere: { ms: "LOG MASUK DI SINI", en: "LOG IN HERE" },
 };
+
+export default register_page;

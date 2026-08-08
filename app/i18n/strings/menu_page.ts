@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/menu/page.tsx.
-export default {
+const menu_page = {
   noSavedCampaign: { ms: "Tiada kempen tersimpan", en: "No saved campaign" },
   tacticalOps: { ms: "OPS TAKTIKAL", en: "TACTICAL OPS" },
   stateElectionCommandSimulator: { ms: "PILIHAN RAYA NEGERI · {prnStateName} · SIMULATOR ARAHAN", en: "STATE ELECTION · {prnStateName} · COMMAND SIMULATOR" },
@@ -75,3 +75,5 @@ export default {
   sentiment_negative: { ms: "NEGATIF", en: "NEGATIVE" },
   sentiment_neutral: { ms: "NEUTRAL", en: "NEUTRAL" },
 };
+
+export default menu_page;

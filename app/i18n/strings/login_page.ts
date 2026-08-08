@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/login/page.tsx.
-export default {
+const login_page = {
   loginIsnTConfiguredForThis: { ms: "Log masuk belum dikonfigurasi untuk deployment ini.", en: "Login isn't configured for this deployment yet." },
   electionCampaignSimulator: { ms: "SIMULATOR KEMPEN PILIHAN RAYA", en: "ELECTION CAMPAIGN SIMULATOR" },
   logInToMymandat: { ms: "Log Masuk ke MyMandat", en: "Log In to MyMandat" },
@@ -16,3 +16,5 @@ export default {
   noAccount: { ms: "TIADA AKAUN? ", en: "NO ACCOUNT? " },
   registerNow: { ms: "DAFTAR SEKARANG", en: "REGISTER NOW" },
 };
+
+export default login_page;

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/reset-password/page.tsx.
-export default {
+const reset_password_page = {
   passwordResetIsnTConfiguredFor: { ms: "Set semula kata laluan belum dikonfigurasi untuk deployment ini.", en: "Password reset isn't configured for this deployment yet." },
   thisResetLinkIsInvalidOr: { ms: "Pautan set semula tidak sah atau telah tamat tempoh. Minta pautan baharu.", en: "This reset link is invalid or has expired. Request a new one." },
   passwordsDonTMatch: { ms: "Kata laluan tidak sepadan.", en: "Passwords don't match." },
@@ -12,3 +12,5 @@ export default {
   updating: { ms: "MENGEMASKINI…", en: "UPDATING…" },
   updatePassword: { ms: "KEMASKINI KATA LALUAN »", en: "UPDATE PASSWORD »" },
 };
+
+export default reset_password_page;

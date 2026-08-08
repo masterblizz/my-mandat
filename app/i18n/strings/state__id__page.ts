@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/state/[id]/page.tsx.
-export default {
+const state__id__page = {
   veryHigh: { ms: "SANGAT TINGGI", en: "VERY HIGH" },
   high: { ms: "TINGGI", en: "HIGH" },
   moderate: { ms: "SEDERHANA", en: "MODERATE" },
@@ -106,3 +106,5 @@ export default {
   opStatusPlanned: { ms: "DIRANCANG", en: "planned" },
   opStatusCompleted: { ms: "SELESAI", en: "completed" },
 };
+
+export default state__id__page;

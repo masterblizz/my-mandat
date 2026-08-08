@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/polling/page.tsx.
-export default {
+const polling_page = {
   oppositionParty: { ms: "PARTI LAWAN", en: "OPPOSITION PARTY" },
   others: { ms: "LAIN-LAIN", en: "OTHERS" },
   bestCase: { ms: "KES TERBAIK", en: "BEST CASE" },
@@ -98,3 +98,5 @@ export default {
   directionAway: { ms: "▼ MENJAUHI MANDAT", en: "▼ AWAY FROM MANDAT" },
   directionUncertain: { ms: "◆ TIDAK PASTI", en: "◆ UNCERTAIN" },
 };
+
+export default polling_page;

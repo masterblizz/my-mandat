@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/formation/page.tsx.
-export default {
+const formation_page = {
   majorityCanBeProvenIsReady: { ms: "Majoriti boleh dibuktikan. {termsAppointingAuthority} bersedia menerima nama {termsHeadTitle} dan barisan {termsExecutiveBody}.", en: "Majority can be proven. {termsAppointingAuthority} is ready to receive the {termsHeadTitle} nominee and the {termsExecutiveBody} line-up." },
   supportIsInsufficientNegotiatePartnersOr: { ms: "Sokongan belum cukup. Runding rakan koalisi atau bersedia menjadi pembangkang.", en: "Support is insufficient. Negotiate partners or prepare for opposition." },
   formation: { ms: "PEMBENTUKAN {termsGovernmentName}", en: "{termsGovernmentName} FORMATION" },
@@ -38,3 +38,5 @@ export default {
   partner_state_regional_name: { ms: "Wakil Rakyat Luar Bandar", en: "Rural Assemblymen" },
   partner_state_regional_demand: { ms: "projek jalan kampung dan hal ehwal tanah", en: "village road projects and land matters" },
 };
+
+export default formation_page;

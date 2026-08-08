@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
-import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
+import type { FeatureCollection, MultiPolygon } from "geojson";
 import { StateData } from "../../data/states";
 import { generateConstituencies, type Constituency } from "../../data/constituencies";
 import { useLang, t } from "../../i18n/useLang";
@@ -13,7 +13,6 @@ interface Props {
 }
 
 type StateProps = { id: string; name: string };
-type StateFeature = Feature<MultiPolygon, StateProps>;
 type StateFeatureCollection = FeatureCollection<MultiPolygon, StateProps>;
 
 interface DunPoint {

@@ -1,5 +1,5 @@
 // Extracted by i18n codemod from app/mandate/page.tsx.
-export default {
+const mandate_page = {
   stateVotersHaveGivenYourParty: { ms: "Pengundi negeri memberi mandat jelas kepada parti anda. Langkah seterusnya ialah mengesahkan sokongan majoriti DUN di {termsAppointingAuthority} sebelum {termsHeadTitle} mengangkat sumpah dan barisan EXCO dibentuk.", en: "State voters have given your party a clear mandate. The next step is to prove the DUN majority at the {termsAppointingAuthority} before the {termsHeadTitle} is sworn in and the EXCO line-up is formed." },
   votersHaveGivenYourPartyA: { ms: "Rakyat memberi mandat jelas kepada parti anda. Langkah seterusnya ialah mengesahkan sokongan di Istana Negara sebelum kabinet pertama dibentuk.", en: "Voters have given your party a clear mandate. The next step is to confirm confidence at Istana Negara before forming the first cabinet." },
   confirmStateMandate: { ms: "SAHKAN MANDAT NEGERI", en: "CONFIRM STATE MANDATE" },
@@ -40,3 +40,5 @@ export default {
   status_prn_opposition: { ms: "PEMBANGKANG NEGERI KUAT", en: "STRONG STATE OPPOSITION" },
   status_prn_collapse: { ms: "MANDAT NEGERI DITOLAK", en: "STATE MANDATE REJECTED" },
 };
+
+export default mandate_page;
