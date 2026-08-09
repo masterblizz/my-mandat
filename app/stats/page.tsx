@@ -124,7 +124,7 @@ function RecordRow({ record, selected, onSelect, lang }: {
               {record.notes && (
                 <div className="flex flex-col gap-1 flex-1">
                   <div style={{ color: "var(--text-muted)" }}>{t(lang, "stats_page.notes")}</div>
-                  <div className="italic" style={{ color: "#8899aa" }}>{record.notes}</div>
+                  <div className="italic" style={{ color: "var(--text-muted)" }}>{record.notes}</div>
                 </div>
               )}
             </div>

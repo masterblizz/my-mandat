@@ -130,7 +130,7 @@ export default function LoadGamePage() {
       className="relative min-h-screen overflow-hidden px-8 py-7"
       style={{
         background:
-          "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.04), transparent 26%), #05080e",
+          "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.04), transparent 26%), var(--bg)",
         color: "var(--text-primary)",
         fontFamily: "'Space Mono', 'Chakra Petch', monospace",
       }}
@@ -139,12 +139,12 @@ export default function LoadGamePage() {
       <div className="pointer-events-none absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.018), rgba(255,255,255,0.018) 1px, transparent 1px, transparent 4px)" }} />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-56px)] max-w-6xl items-center justify-center">
-        <div className="w-full border p-6" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", background: "linear-gradient(135deg, rgba(3,8,15,0.92), rgba(3,8,15,0.72))", boxShadow: "0 0 42px rgb(var(--cyan-rgb) / 0.08), inset 0 0 34px rgb(var(--cyan-rgb) / 0.035)" }}>
+        <div className="w-full border p-6" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", background: "linear-gradient(135deg, rgb(var(--bg-rgb) / 0.92), rgb(var(--bg-rgb) / 0.72))", boxShadow: "0 0 42px rgb(var(--cyan-rgb) / 0.08), inset 0 0 34px rgb(var(--cyan-rgb) / 0.035)" }}>
           <div className="mb-6 flex items-center justify-between gap-4 border-b pb-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)" }}>
             <div>
               <div className="text-[10px] font-black tracking-[0.42em]" style={{ color: "var(--gold)" }}>{t(lang, "load_game_page.loadSaveGame")}</div>
               <h1 className="mt-2 text-[34px] font-black tracking-[-0.04em] text-white">{t(lang, "load_game_page.saveSlotCommand")}</h1>
-              <div className="mt-1 text-[11px] tracking-[0.18em]" style={{ color: "#7d91a5" }}>{status}</div>
+              <div className="mt-1 text-[11px] tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{status}</div>
             </div>
             <div className="flex items-center gap-3">
               <LangThemeToggle />
@@ -171,7 +171,7 @@ export default function LoadGamePage() {
                     className="group border p-4 text-left transition hover:scale-[1.005]"
                     style={{
                       borderColor: active ? "rgb(var(--gold-rgb) / 0.75)" : slot ? "rgb(var(--cyan-rgb) / 0.20)" : "rgb(136 153 170 / 0.18)",
-                      background: active ? "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgba(3,8,15,0.78))" : slot ? "rgba(3,8,15,0.58)" : "rgba(255,255,255,0.025)",
+                      background: active ? "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgb(var(--bg-rgb) / 0.78))" : slot ? "rgb(var(--bg-rgb) / 0.58)" : "rgba(255,255,255,0.025)",
                       boxShadow: active ? "0 0 26px rgb(var(--gold-rgb) / 0.18)" : "none",
                       opacity: slot ? 1 : 0.74,
                     }}
@@ -184,7 +184,7 @@ export default function LoadGamePage() {
                         <div className="mt-2 text-[20px] font-black tracking-[0.12em] text-white">
                           {slot ? t(lang, "load_game_page.day", { slotStateLeader: slot.state.leader.partyAbbr, slotStateDay: slot.state.day, slotStateTotalDays: slot.state.totalDays }) : t(lang, "load_game_page.emptySlot")}
                         </div>
-                        <div className="mt-1 text-[10px] tracking-[0.18em]" style={{ color: "#7d91a5" }}>
+                        <div className="mt-1 text-[10px] tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>
                           {slot ? t(lang, "load_game_page.saved", { formatSavedAtSlotSavedAt: formatSavedAt(slot.savedAt, lang) }) : t(lang, "load_game_page.availableForManualSaveOrNew")}
                         </div>
                       </div>
@@ -214,14 +214,14 @@ export default function LoadGamePage() {
               })}
             </div>
 
-            <aside className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.22)", background: "rgba(3,8,15,0.58)" }}>
+            <aside className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.22)", background: "rgb(var(--bg-rgb) / 0.58)" }}>
               <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--cyan)" }}>{t(lang, "load_game_page.selectedSlot")}</div>
               <div className="mt-3 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.30)", background: "rgb(var(--gold-rgb) / 0.065)" }}>
                 <div className="text-[9px] font-black tracking-[0.24em]" style={{ color: "var(--gold)" }}>{t(lang, "load_game_page.slot")} {selectedSlotNumber.toString().padStart(2, "0")}</div>
                 <div className="mt-2 text-[22px] font-black text-white">{selectedSlot ? selectedSlot.state.leader.partyAbbr : t(lang, "load_game_page.empty")}</div>
-                <div className="text-[11px] leading-5" style={{ color: "#90a4b8" }}>{selectedSlot ? selectedSlot.state.leader.party : t(lang, "load_game_page.emptySlotCanBePickedFor")}</div>
+                <div className="text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>{selectedSlot ? selectedSlot.state.leader.party : t(lang, "load_game_page.emptySlotCanBePickedFor")}</div>
               </div>
-              <div className="mt-4 space-y-2 text-[10px] leading-5" style={{ color: "#90a4b8" }}>
+              <div className="mt-4 space-y-2 text-[10px] leading-5" style={{ color: "var(--text-muted)" }}>
                 <p>{t(lang, "load_game_page.maximumSaveSlotsAllEmptySlots", { mAX_SAVE_SLOTS: MAX_SAVE_SLOTS })}</p>
                 <p>{t(lang, "load_game_page.autosaveWillRewriteTheActiveCampaign")}</p>
                 <p>{t(lang, "load_game_page.manualSaveCanPickAnySlot")}</p>

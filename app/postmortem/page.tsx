@@ -51,7 +51,7 @@ export default function PostmortemPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {REFORMS.map((reform) => {
                 const active = selected.includes(reform.id);
-                return <button key={reform.id} onClick={() => setSelected((items) => items.includes(reform.id) ? items.filter((item) => item !== reform.id) : [...items, reform.id])} className="border p-4 text-left" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgba(3,8,15,0.72)" }}><div className="text-[14px] font-black text-white">{t(lang, `postmortem_page.reform_${reform.id}_title`)}</div><div className="mt-2 text-[10px] font-bold" style={{ color: "var(--gold)" }}>Survival +{reform.effect}</div></button>;
+                return <button key={reform.id} onClick={() => setSelected((items) => items.includes(reform.id) ? items.filter((item) => item !== reform.id) : [...items, reform.id])} className="border p-4 text-left" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}><div className="text-[14px] font-black text-white">{t(lang, `postmortem_page.reform_${reform.id}_title`)}</div><div className="mt-2 text-[10px] font-bold" style={{ color: "var(--gold)" }}>Survival +{reform.effect}</div></button>;
               })}
             </div>
           </TacticalPanel>

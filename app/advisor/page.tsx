@@ -196,10 +196,10 @@ export default function AdvisorPage() {
             <div className="mt-1 text-[11px] tracking-wider" style={{ color: "var(--gold)" }}>{alpha.role} · {alpha.specialty}</div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: "rgb(var(--gold-rgb)/0.4)", color: "var(--gold)", background: "rgba(3,8,15,0.6)" }}>
+            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: "rgb(var(--gold-rgb)/0.4)", color: "var(--gold)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
               {isPrn ? `${t(lang, "advisor_page.stateFocus")} · ${prnState?.name?.toUpperCase() ?? settings.prnStateId.toUpperCase()}` : t(lang, "advisor_page.nationalFocusPru")}
             </div>
-            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: `color-mix(in srgb, ${modeColor} 45%, transparent)`, color: modeColor, background: "rgba(3,8,15,0.6)" }}>
+            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: `color-mix(in srgb, ${modeColor} 45%, transparent)`, color: modeColor, background: "rgb(var(--bg-rgb) / 0.6)" }}>
               <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full align-middle" style={{ background: modeColor }} />
               {modeLabel}
             </div>
@@ -223,7 +223,7 @@ export default function AdvisorPage() {
                     className="max-w-[78%] border px-3 py-2 text-[12px] leading-relaxed"
                     style={message.role === "user"
                       ? { borderColor: "rgb(var(--gold-rgb)/0.4)", background: "rgb(var(--gold-rgb)/0.08)", color: "var(--text)" }
-                      : { borderColor: "rgb(var(--cyan-rgb)/0.3)", background: "rgba(3,8,15,0.72)", color: "var(--text)" }}
+                      : { borderColor: "rgb(var(--cyan-rgb)/0.3)", background: "rgb(var(--bg-rgb) / 0.72)", color: "var(--text)" }}
                   >
                     <div className="mb-1 text-[8px] font-black tracking-[0.2em]" style={{ color: message.role === "user" ? "var(--gold)" : "var(--cyan)" }}>
                       {message.role === "user" ? leader.name : `${alpha.codename}${message.source === "offline" ? t(lang, "advisor_page.sim") : ""}`}
@@ -234,7 +234,7 @@ export default function AdvisorPage() {
               ))}
               {busy && (
                 <div className="flex justify-start">
-                  <div className="border px-3 py-2 text-[12px]" style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", background: "rgba(3,8,15,0.72)", color: "var(--cyan)" }}>
+                  <div className="border px-3 py-2 text-[12px]" style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", background: "rgb(var(--bg-rgb) / 0.72)", color: "var(--cyan)" }}>
                     <span className="animate-pulse tracking-[0.3em]">{t(lang, "advisor_page.analysing")} ▮▮▮</span>
                   </div>
                 </div>

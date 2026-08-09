@@ -67,7 +67,7 @@ export default function OppositionPage() {
               {strategies.map((strategy) => {
                 const selected = active.includes(strategy.id);
                 return (
-                  <button key={strategy.id} onClick={() => setActive((items) => items.includes(strategy.id) ? items.filter((item) => item !== strategy.id) : [...items, strategy.id])} className="border p-4 text-left" style={{ borderColor: selected ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: selected ? "rgb(var(--gold-rgb)/0.10)" : "rgba(3,8,15,0.72)" }}>
+                  <button key={strategy.id} onClick={() => setActive((items) => items.includes(strategy.id) ? items.filter((item) => item !== strategy.id) : [...items, strategy.id])} className="border p-4 text-left" style={{ borderColor: selected ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: selected ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}>
                     <div className="text-[14px] font-black tracking-wider text-white">{t(lang, `opposition_page.strategy_${strategyScope}_${strategy.id}_title`)}</div>
                     <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(lang, `opposition_page.strategy_${strategyScope}_${strategy.id}_detail`)}</div>
                     <div className="mt-3 text-[10px] font-bold" style={{ color: "var(--gold)" }}>Momentum +{strategy.momentum}</div>

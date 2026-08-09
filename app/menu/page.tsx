@@ -82,7 +82,7 @@ function IntelPanel({ title, children, tone = "cyan" }: { title: string; childre
       className="relative overflow-hidden"
       style={{
         border: `1px solid rgb(${rgb} / 0.22)`,
-        background: `linear-gradient(135deg, rgb(${rgb} / 0.055), rgba(3, 8, 15, 0.56))`,
+        background: `linear-gradient(135deg, rgb(${rgb} / 0.055), rgb(var(--bg-rgb) / 0.56))`,
         boxShadow: `inset 0 0 28px rgb(${rgb} / 0.035)`,
       }}
     >
@@ -252,7 +252,7 @@ export default function MainMenuPage() {
       className="relative min-h-screen overflow-hidden"
       style={{
         background:
-          "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.035), transparent 26%), #05080e",
+          "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.035), transparent 26%), var(--bg)",
         color: "var(--text-primary)",
         fontFamily: "'Space Mono', 'Chakra Petch', monospace",
       }}
@@ -289,14 +289,14 @@ export default function MainMenuPage() {
 
       <header
         className="relative z-20 flex h-7 items-center justify-between border-b px-5 text-[10px] uppercase"
-        style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "rgba(3, 7, 13, 0.82)", letterSpacing: "0.24em" }}
+        style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "rgb(var(--bg-rgb) / 0.82)", letterSpacing: "0.24em" }}
       >
         <div className="flex items-center gap-3">
           <span style={{ color: "var(--cyan)" }}>◇</span>
           <span className="font-bold tracking-[0.18em] text-white">MANDAT//AI</span>
           <span style={{ color: "var(--text-muted)" }}>· {t(lang, "menu_page.tacticalOps")}</span>
         </div>
-        <div className="hidden md:block" style={{ color: "rgb(136 153 170 / 0.72)" }}>
+        <div className="hidden md:block" style={{ color: "var(--text-muted)" }}>
           {isPrn
             ? t(lang, "menu_page.stateElectionCommandSimulator", { prnStateName: prnState?.name?.toUpperCase() ?? "" })
             : t(lang, "menu_page.generalElectionCommandSimulator")}
@@ -314,24 +314,24 @@ export default function MainMenuPage() {
             <MalaysiaMap states={highlightedStates} compact showLabels={false} showHotspots tooltipPlacement="menu-static" onStateClick={() => undefined} />
           </div>
         </div>
-        <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgba(5,8,14,0.24) 42%, rgba(5,8,14,0.78) 100%)" }} />
+        <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgb(var(--bg-rgb) / 0.24) 42%, rgb(var(--bg-rgb) / 0.78) 100%)" }} />
         <div className="mm-particles z-[1]" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1]" style={{ left: 300 }}>
           <Skyline opacity={0.5} />
         </div>
 
-        <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgba(4,8,14,0.96), rgba(4,8,14,0.88) 72%, rgba(4,8,14,0.62))" }}>
+        <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgb(var(--bg-rgb) / 0.96), rgb(var(--bg-rgb) / 0.88) 72%, rgb(var(--bg-rgb) / 0.62))" }}>
           <div className="mb-3 flex items-center gap-3">
-            <Image src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(0 212 255 / 0.4))" }} />
+            <Image src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(var(--cyan-rgb) / 0.4))" }} />
             <div>
               <h1 className="whitespace-nowrap leading-none tracking-[-0.03em]">
-                <span className="text-[38px] font-black" style={{ color: "#55dcff", textShadow: "0 0 32px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>
-                <span className="text-[38px] font-black" style={{ color: "#ffb22c", textShadow: "0 0 38px rgb(var(--gold-rgb) / 0.45)" }}>MANDAT</span>
+                <span className="text-[38px] font-black" style={{ color: "var(--cyan)", textShadow: "0 0 32px rgb(var(--cyan-rgb) / 0.45)" }}>MY </span>
+                <span className="text-[38px] font-black" style={{ color: "var(--gold)", textShadow: "0 0 38px rgb(var(--gold-rgb) / 0.45)" }}>MANDAT</span>
               </h1>
               <div className="text-[9px] font-bold tracking-[0.38em]" style={{ color: "rgb(var(--gold-rgb) / 0.55)" }}>{t(lang, "menu_page.campaignCommandSimulator")}</div>
             </div>
           </div>
-          <p className="mb-3 max-w-[395px] text-[11px] leading-5" style={{ color: "#7d91a5" }}>
+          <p className="mb-3 max-w-[395px] text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
             {isPrn
               ? t(lang, "menu_page.theMachineIsLiveInPlay", { prnStateName: prnState?.name ?? "Negeri", seatTotal: seatTotal, prnStateName2: prnState?.name ?? "The state" })
               : t(lang, "menu_page.theMachineIsLiveFourteenStates")}
@@ -348,8 +348,8 @@ export default function MainMenuPage() {
                   title={item.disabled ? item.sub : undefined}
                   className="group flex h-8 items-center justify-between border px-5 text-left transition-all duration-150 disabled:cursor-not-allowed"
                   style={{
-                    borderColor: item.danger ? "rgb(255 68 68 / 0.24)" : isSelected ? "rgb(var(--gold-rgb) / 0.92)" : "rgb(var(--cyan-rgb) / 0.16)",
-                    background: isSelected ? "linear-gradient(90deg, #ffb42f, #f7a81f)" : item.danger ? "rgb(255 68 68 / 0.035)" : "rgba(4, 12, 19, 0.66)",
+                    borderColor: item.danger ? "rgb(var(--neon-red-rgb) / 0.24)" : isSelected ? "rgb(var(--gold-rgb) / 0.92)" : "rgb(var(--cyan-rgb) / 0.16)",
+                    background: isSelected ? "linear-gradient(90deg, var(--gold), rgb(var(--gold-rgb) / 0.82))" : item.danger ? "rgb(var(--neon-red-rgb) / 0.035)" : "rgb(var(--bg-rgb) / 0.66)",
                     color,
                     boxShadow: isSelected ? "0 0 28px rgb(var(--gold-rgb) / 0.33)" : "none",
                     opacity: item.disabled ? 0.4 : 1,
@@ -376,7 +376,7 @@ export default function MainMenuPage() {
             className="mt-2 border px-4 py-1.5"
             style={{
               borderColor: "rgb(var(--cyan-rgb) / 0.20)",
-              background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgba(3,8,15,0.62))",
+              background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgb(var(--bg-rgb) / 0.62))",
               boxShadow: "inset 0 0 22px rgb(var(--cyan-rgb) / 0.035)",
             }}
           >
@@ -401,16 +401,16 @@ export default function MainMenuPage() {
           <div className="mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <div className="text-[21px] font-black" style={{ color: "var(--cyan)" }}>{mounted ? projectedSeats : Math.round(seatTotal * 0.48)}<span className="text-[12px]" style={{ color: "#6f8092" }}>/{seatTotal}</span></div>
-                <div className="text-[10px] tracking-[0.25em]" style={{ color: "#64778b" }}>{t(lang, "menu_page.seats")}</div>
+                <div className="text-[21px] font-black" style={{ color: "var(--cyan)" }}>{mounted ? projectedSeats : Math.round(seatTotal * 0.48)}<span className="text-[12px]" style={{ color: "var(--text-muted)" }}>/{seatTotal}</span></div>
+                <div className="text-[10px] tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.seats")}</div>
               </div>
               <div>
                 <div className="text-[21px] font-black text-white">{nationalSupport.mandat}%</div>
-                <div className="text-[10px] tracking-[0.25em]" style={{ color: "#64778b" }}>{t(lang, "menu_page.support")}</div>
+                <div className="text-[10px] tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.support")}</div>
               </div>
               <div>
                 <div className="truncate text-[17px] font-black" style={{ color: mediaSentiment === "positive" ? "var(--neon-green)" : mediaSentiment === "negative" ? "var(--neon-red)" : "var(--gold)" }}>{t(lang, `menu_page.sentiment_${mediaSentiment}`)}</div>
-                <div className="text-[10px] tracking-[0.25em]" style={{ color: "#64778b" }}>{t(lang, "menu_page.sentiment")}</div>
+                <div className="text-[10px] tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.sentiment")}</div>
               </div>
             </div>
           </div>
@@ -436,14 +436,14 @@ export default function MainMenuPage() {
                       background: ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "transparent",
                       boxShadow: ev.done ? "0 0 6px var(--neon-green)" : ev.active ? "0 0 6px var(--gold)" : "none",
                     }} />
-                    {i < 4 && <div className="w-px flex-1" style={{ background: ev.done ? "rgb(0 255 136 / 0.25)" : "rgb(var(--cyan-rgb) / 0.10)" }} />}
+                    {i < 4 && <div className="w-px flex-1" style={{ background: ev.done ? "rgb(var(--neon-green-rgb) / 0.25)" : "rgb(var(--cyan-rgb) / 0.10)" }} />}
                   </div>
                   <div className="pb-3">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[9px] font-bold tracking-[0.18em]" style={{ color: ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "#4a5e72" }}>{ev.day}</span>
-                      <span className="text-[9px] font-black tracking-[0.14em]" style={{ color: ev.done ? "#c8e6c9" : ev.active ? "var(--gold)" : "#8899aa" }}>{t(lang, ev.labelKey)}</span>
+                      <span className="text-[9px] font-bold tracking-[0.18em]" style={{ color: ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "var(--text-muted)" }}>{ev.day}</span>
+                      <span className="text-[9px] font-black tracking-[0.14em]" style={{ color: ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "var(--text-muted)" }}>{t(lang, ev.labelKey)}</span>
                     </div>
-                    <div className="text-[8px] tracking-[0.16em]" style={{ color: "#3d5166" }}>{ev.date} 2025</div>
+                    <div className="text-[8px] tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>{ev.date} 2025</div>
                   </div>
                 </div>
               ))}
@@ -453,37 +453,37 @@ export default function MainMenuPage() {
           {/* Coalition Watch */}
           <div className="mt-2 border px-4 py-3" style={{
             borderColor: "rgb(var(--gold-rgb) / 0.18)",
-            background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.04), rgba(3,8,15,0.62))",
+            background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.04), rgb(var(--bg-rgb) / 0.62))",
           }}>
             <div className="mb-2 text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>{t(lang, "menu_page.coalitionWatch")}</div>
             <div className="flex flex-col gap-1.5">
               {(mounted ? [
                 { name: leader.partyAbbr || "MANDAT", seats: projectedSeats, color: leader.partyColor || "var(--cyan)", pct: Math.round((projectedSeats / seatTotal) * 100) },
                 { name: "PEMBANGKANG", seats: seatTotal - projectedSeats - Math.round((seatTotal * nationalSupport.others) / 100), color: "var(--neon-red)", pct: Math.round(((seatTotal - projectedSeats - Math.round((seatTotal * nationalSupport.others) / 100)) / seatTotal) * 100) },
-                { name: "BEBAS / LAIN", seats: Math.round((seatTotal * nationalSupport.others) / 100), color: "#a78bfa", pct: Math.round(nationalSupport.others) },
+                { name: "BEBAS / LAIN", seats: Math.round((seatTotal * nationalSupport.others) / 100), color: "rgb(var(--flow-purple-rgb))", pct: Math.round(nationalSupport.others) },
               ] : [
                 { name: "MANDAT", seats: Math.round(seatTotal * 0.5), color: "var(--cyan)", pct: 50 },
                 { name: "PEMBANGKANG", seats: Math.round(seatTotal * 0.37), color: "var(--neon-red)", pct: 37 },
-                { name: "BEBAS / LAIN", seats: Math.round(seatTotal * 0.13), color: "#a78bfa", pct: 13 },
+                { name: "BEBAS / LAIN", seats: Math.round(seatTotal * 0.13), color: "rgb(var(--flow-purple-rgb))", pct: 13 },
               ]).map((c, i) => (
                 <div key={i}>
                   <div className="mb-0.5 flex items-center justify-between">
                     <span className="text-[8px] font-bold tracking-[0.14em]" style={{ color: c.color }}>{c.name}</span>
-                    <span className="text-[9px] font-black" style={{ color: c.color }}>{c.seats} <span className="text-[7px] font-normal" style={{ color: "#4a5e72" }}>{t(lang, "menu_page.seats2")}</span></span>
+                    <span className="text-[9px] font-black" style={{ color: c.color }}>{c.seats} <span className="text-[7px] font-normal" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.seats2")}</span></span>
                   </div>
-                  <div className="h-[3px] w-full rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+                  <div className="h-[3px] w-full rounded-full" style={{ background: "rgb(var(--cyan-rgb) / 0.10)" }}>
                     <div className="h-full rounded-full transition-all" style={{ width: `${c.pct}%`, background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 text-[8px] tracking-[0.14em]" style={{ color: "#3d5166" }}>{t(lang, "menu_page.majorityRequiredSeats", { majorityTarget: majorityTarget })}</div>
+            <div className="mt-2 text-[8px] tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.majorityRequiredSeats", { majorityTarget: majorityTarget })}</div>
           </div>
         </aside>
 
         <div className="pointer-events-none relative z-10 min-w-0 overflow-hidden">
           <CornerFrame />
-          <div className="absolute left-4 top-3 z-10 text-[10px] tracking-[0.34em]" style={{ color: "rgb(136 153 170 / 0.42)" }}>
+          <div className="absolute left-4 top-3 z-10 text-[10px] tracking-[0.34em]" style={{ color: "var(--text-muted)" }}>
             ↳ {isPrn
               ? t(lang, "menu_page.tacticalMapSeats", { prnStateName: prnState?.name?.toUpperCase() ?? "NEGERI", seatTotal: seatTotal, prnStateName2: prnState?.name?.toUpperCase() ?? "STATE" })
               : t(lang, "menu_page.tacticalMapMalaysia222Seats")}
@@ -492,19 +492,19 @@ export default function MainMenuPage() {
           <div
             className="absolute left-8 right-60 top-11 z-20 flex h-9 items-center overflow-hidden border"
             style={{
-              borderColor: "rgb(255 68 68 / 0.34)",
-              background: "linear-gradient(90deg, rgba(255,68,68,0.16), rgba(3,8,15,0.72) 24%, rgba(3,8,15,0.48))",
-              boxShadow: "0 0 24px rgb(255 68 68 / 0.10), inset 0 0 20px rgb(255 68 68 / 0.035)",
+              borderColor: "rgb(var(--neon-red-rgb) / 0.34)",
+              background: "linear-gradient(90deg, rgb(var(--neon-red-rgb) / 0.16), rgb(var(--bg-rgb) / 0.72) 24%, rgb(var(--bg-rgb) / 0.48))",
+              boxShadow: "0 0 24px rgb(var(--neon-red-rgb) / 0.10), inset 0 0 20px rgb(var(--neon-red-rgb) / 0.035)",
             }}
           >
-            <div className="flex h-full shrink-0 items-center gap-2 px-3" style={{ background: "rgb(255 68 68 / 0.18)", color: "var(--neon-red)" }}>
+            <div className="flex h-full shrink-0 items-center gap-2 px-3" style={{ background: "rgb(var(--neon-red-rgb) / 0.18)", color: "var(--neon-red)" }}>
               <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--neon-red)", boxShadow: "0 0 10px var(--neon-red)" }} />
               <span className="text-[10px] font-black tracking-[0.28em]">{t(lang, "menu_page.liveNews")}</span>
             </div>
             <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
               <div
                 className="inline-flex items-center gap-8 pl-6 text-[10px] font-bold tracking-[0.22em]"
-                style={{ color: "#d7e7f5", animation: "mymandat-live-news-scroll 24s linear infinite" }}
+                style={{ color: "var(--text-primary)", animation: "mymandat-live-news-scroll 24s linear infinite" }}
               >
                 {[...liveNewsItems, ...liveNewsItems].map((item, index) => (
                   <span key={`${item}-${index}`} className="inline-flex items-center gap-8">
@@ -545,7 +545,7 @@ export default function MainMenuPage() {
             className="absolute bottom-32 left-8 z-10 w-[360px] border px-5 py-4"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.32)",
-              background: "linear-gradient(135deg, rgba(240,165,0,0.10), rgba(3,8,15,0.72))",
+              background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.10), rgb(var(--bg-rgb) / 0.72))",
               boxShadow: "0 0 28px rgb(var(--gold-rgb) / 0.10), inset 0 0 30px rgb(var(--gold-rgb) / 0.04)",
             }}
           >
@@ -558,21 +558,21 @@ export default function MainMenuPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <div className="text-[26px] font-black leading-none" style={{ color: "var(--gold)", textShadow: "0 0 18px rgb(var(--gold-rgb) / 0.45)" }}>{mounted ? daysLeft : totalDays}</div>
-                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "menu_page.daysLeft")}</div>
+                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.daysLeft")}</div>
               </div>
               <div>
                 <div className="text-[26px] font-black leading-none" style={{ color: "var(--cyan)" }}>{seatTotal}</div>
-                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "menu_page.seats")}</div>
+                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.seats")}</div>
               </div>
               <div>
                 <div className="text-[26px] font-black leading-none" style={{ color: "var(--neon-green)" }}>{majorityTarget}</div>
-                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "#718397" }}>{t(lang, "menu_page.majority")}</div>
+                <div className="mt-1 text-[8px] tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.majority")}</div>
               </div>
             </div>
             <div className="mt-4 h-1.5 overflow-hidden" style={{ background: "rgb(var(--cyan-rgb) / 0.10)" }}>
               <div className="mm-bar h-full" style={{ width: `${mounted ? campaignProgress : 0}%`, background: "linear-gradient(90deg, var(--gold), var(--cyan))", transition: "width 0.6s ease-out" }} />
             </div>
-            <div className="mt-2 flex justify-between text-[8px] tracking-[0.2em]" style={{ color: "#718397" }}>
+            <div className="mt-2 flex justify-between text-[8px] tracking-[0.2em]" style={{ color: "var(--text-muted)" }}>
               <span>{t(lang, "menu_page.campaignWindow")}</span>
               <span style={{ color: "var(--gold)" }}>T–{mounted ? daysLeft : totalDays} / {mounted ? campaignProgress : 0}%</span>
             </div>
@@ -580,7 +580,7 @@ export default function MainMenuPage() {
 
           <div className="absolute right-5 top-6 z-10 flex w-48 flex-col gap-2.5">
             <IntelPanel title={t(lang, "menu_page.liveBrief")}>
-              <p className="text-[10px] leading-[1.55]" style={{ color: "#93a6b8" }}>
+              <p className="text-[10px] leading-[1.55]" style={{ color: "var(--text-muted)" }}>
                 {t(lang, "menu_page.parliamentDissolvedNominationIsCompletedFirst")}
               </p>
             </IntelPanel>
@@ -589,7 +589,7 @@ export default function MainMenuPage() {
               <div className="space-y-2">
                 {statusRows.map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-3 text-[8px]">
-                    <span className="whitespace-nowrap tracking-[0.14em]" style={{ color: "#75879b" }}>{row.label}</span>
+                    <span className="whitespace-nowrap tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>{row.label}</span>
                     <span className="whitespace-nowrap text-right font-black tracking-[0.1em]" style={{ color: row.color }}>{row.value}</span>
                   </div>
                 ))}
@@ -598,7 +598,7 @@ export default function MainMenuPage() {
 
             <IntelPanel title={t(lang, "menu_page.objective")} tone="gold">
               <div className="flex items-end justify-between gap-3">
-                <div className="text-[9px] leading-[1.6] tracking-[0.22em]" style={{ color: "#718397" }}>
+                <div className="text-[9px] leading-[1.6] tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>
                   <div>{t(lang, "menu_page.seatsToFormGovernment")}</div>
                   <div>{t(lang, "menu_page.secured0")}</div>
                 </div>
@@ -630,18 +630,18 @@ export default function MainMenuPage() {
                 ]).map((s) => (
                   <div key={s.negeri}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[7.5px] font-bold tracking-[0.10em]" style={{ color: "#8899aa" }}>{s.negeri}</span>
+                      <span className="text-[7.5px] font-bold tracking-[0.10em]" style={{ color: "var(--text-muted)" }}>{s.negeri}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[7px] tracking-[0.08em]" style={{ color: "#4a5e72" }}>{s.kerusi}{t(lang, "menu_page.s")}</span>
+                        <span className="text-[7px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>{s.kerusi}{t(lang, "menu_page.s")}</span>
                         <span className="text-[7.5px] font-black" style={{ color: "var(--cyan)" }}>{s.juta.toFixed(1)}{t(lang, "menu_page.m")}</span>
                       </div>
                     </div>
-                    <div className="mt-0.5 h-[2px] w-full rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    <div className="mt-0.5 h-[2px] w-full rounded-full" style={{ background: "rgb(var(--cyan-rgb) / 0.10)" }}>
                       <div className="h-full rounded-full" style={{ width: `${(s.juta / s.max) * 100}%`, background: "linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.7), rgb(var(--cyan-rgb) / 0.35))" }} />
                     </div>
                   </div>
                 ))}
-                <div className="pt-1 text-[7px] tracking-[0.14em]" style={{ color: "#2d3f52" }}>
+                <div className="pt-1 text-[7px] tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>
                   {isPrn && prnState
                     ? t(lang, "menu_page.totalMVoters", { prnStateRegisteredVotersToFixed: (prnState.registeredVoters / 1_000_000).toFixed(1), prnStateName: prnState.name.toUpperCase() })
                     : t(lang, "menu_page.total159mVotersEc2025")}
@@ -674,9 +674,9 @@ export default function MainMenuPage() {
                   const statusColor = s.status === "WIN" ? "var(--neon-green)" : s.status === "LOSE" ? "var(--neon-red)" : "var(--gold)";
                   return (
                     <div key={s.negeri} className="flex items-center justify-between gap-1">
-                      <span className="w-[72px] truncate text-[7.5px] tracking-[0.08em]" style={{ color: "#7a8fa3" }}>{s.negeri}</span>
+                      <span className="w-[72px] truncate text-[7.5px] tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>{s.negeri}</span>
                       <div className="flex flex-1 items-center gap-1">
-                        <div className="h-[2px] flex-1 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <div className="h-[2px] flex-1 rounded-full" style={{ background: "rgb(var(--cyan-rgb) / 0.10)" }}>
                           <div className="h-full rounded-full" style={{ width: `${(s.proj / s.kerusi) * 100}%`, background: statusColor, boxShadow: `0 0 4px ${statusColor}` }} />
                         </div>
                         <span className="w-[18px] text-right text-[7.5px] font-black" style={{ color: statusColor }}>{s.proj}</span>
@@ -686,7 +686,7 @@ export default function MainMenuPage() {
                   );
                 })}
                 <div className="mt-1 flex items-center justify-between border-t pt-1" style={{ borderColor: "rgb(var(--gold-rgb) / 0.15)" }}>
-                  <span className="text-[7px] tracking-[0.14em]" style={{ color: "#4a5e72" }}>{t(lang, "menu_page.totalProjection")}</span>
+                  <span className="text-[7px] tracking-[0.14em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.totalProjection")}</span>
                   <span className="text-[10px] font-black" style={{ color: "var(--gold)" }}>{isPrn ? `${projectedSeats} / ${seatTotal}` : "99 / 222"}</span>
                 </div>
               </div>
@@ -697,10 +697,10 @@ export default function MainMenuPage() {
 
       <footer
         className="relative z-20 flex h-[26px] items-center justify-between border-t px-5 text-[9px] uppercase"
-        style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)", background: "rgba(2, 7, 12, 0.96)", letterSpacing: "0.24em" }}
+        style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)", background: "rgb(var(--bg-rgb) / 0.96)", letterSpacing: "0.24em" }}
       >
-        <span><span style={{ color: "var(--gold)" }}>➤ {t(lang, "menu_page.ready")}</span><span style={{ color: "#637589" }}> · {t(lang, "menu_page.startCampaignToBegin")}</span></span>
-        <span style={{ color: "#637589" }}>↑↓ {t(lang, "menu_page.navigate")} · ↵ {t(lang, "menu_page.select")}</span>
+        <span><span style={{ color: "var(--gold)" }}>➤ {t(lang, "menu_page.ready")}</span><span style={{ color: "var(--text-muted)" }}> · {t(lang, "menu_page.startCampaignToBegin")}</span></span>
+        <span style={{ color: "var(--text-muted)" }}>↑↓ {t(lang, "menu_page.navigate")} · ↵ {t(lang, "menu_page.select")}</span>
       </footer>
     </main>
   );

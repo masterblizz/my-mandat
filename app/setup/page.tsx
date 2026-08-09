@@ -261,7 +261,7 @@ export default function SetupPage() {
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
       {notice && (
-        <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--cyan-rgb)/0.45)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.14), rgba(3,8,15,0.96))", color: "var(--cyan)", fontFamily: "Space Mono, monospace" }}>
+        <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--cyan-rgb)/0.45)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.14), rgb(var(--bg-rgb) / 0.96))", color: "var(--cyan)", fontFamily: "Space Mono, monospace" }}>
           {notice}
         </div>
       )}
@@ -330,7 +330,7 @@ export default function SetupPage() {
                       <div className="text-[22px] mb-3">{isReal ? "🇲🇾" : "🎮"}</div>
                       <div
                         className="text-[15px] font-bold tracking-wider mb-2 uppercase"
-                        style={{ color: selected ? accentColor : "#fff" }}
+                        style={{ color: selected ? accentColor : "var(--text-primary)" }}
                       >
                         {t(lang, ds.labelMS ?? ds.label, ds.label)}
                       </div>
@@ -642,7 +642,7 @@ export default function SetupPage() {
                         }}
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-[13px] font-bold truncate" style={{ color: active ? "var(--gold)" : "#fff" }}>{c.name}</span>
+                          <span className="text-[13px] font-bold truncate" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>{c.name}</span>
                           <span className="text-[9px] shrink-0" style={{ color: "#4a5568" }}>{c.code}</span>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[11px]">
@@ -872,7 +872,7 @@ export default function SetupPage() {
                       )}
                       <div
                         className="text-sm font-bold tracking-widest mb-2"
-                        style={{ color: difficulty === d.id ? "var(--gold)" : "#ffffff" }}
+                        style={{ color: difficulty === d.id ? "var(--gold)" : "var(--text-primary)" }}
                       >
                         {t(lang, `setup_page.difficulty_${d.id}_label`)}
                       </div>

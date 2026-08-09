@@ -219,7 +219,7 @@ function CabinetPortrait({
       className={`${dims} group relative shrink-0 overflow-hidden rounded-[2px]`}
       style={{
         border: `1px solid ${tone}`,
-        background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(3,8,15,0.88)), radial-gradient(circle at 50% 18%, rgb(var(--cyan-rgb)/0.22), transparent 48%)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgb(var(--bg-rgb) / 0.88)), radial-gradient(circle at 50% 18%, rgb(var(--cyan-rgb)/0.22), transparent 48%)",
         boxShadow: `0 0 18px ${tone}28, inset 0 0 18px rgba(255,255,255,0.035)`,
       }}
     >
@@ -463,7 +463,7 @@ export default function CabinetPage() {
               <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-4">
                 <div className="relative mx-auto max-w-[980px]">
                   <div className="flex justify-center">
-                    <div className="relative flex min-w-[280px] items-center gap-3 border p-4 text-left" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgba(3,8,15,0.88))", boxShadow: "0 0 24px rgb(var(--gold-rgb)/0.13)" }}>
+                    <div className="relative flex min-w-[280px] items-center gap-3 border p-4 text-left" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--bg-rgb) / 0.88))", boxShadow: "0 0 24px rgb(var(--gold-rgb)/0.13)" }}>
                       <CabinetPortrait src={LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0]} alt={`${leader.name} avatar`} size="lg" tone="var(--gold)" partyColor={leader.partyColor} label={terms.headAbbr} />
                       <div className="min-w-0">
                         <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>{isPrn ? terms.headTitle : postTitle(PM_POST)}</div>
@@ -489,7 +489,7 @@ export default function CabinetPage() {
                               className="relative border p-3 text-left transition hover:scale-[1.01]"
                               style={{
                                 borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.28)",
-                                background: active ? "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--cyan-rgb)/0.055))" : "rgba(3,8,15,0.72)",
+                                background: active ? "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--cyan-rgb)/0.055))" : "rgb(var(--bg-rgb) / 0.72)",
                                 boxShadow: active ? "0 0 22px rgb(var(--gold-rgb)/0.18)" : "inset 0 0 16px rgb(var(--cyan-rgb)/0.035)",
                               }}
                             >
@@ -518,7 +518,7 @@ export default function CabinetPage() {
                     {ministrySectors.map(({ sector, posts }) => {
                       const sectorColor = SECTOR_COLORS[sector];
                       return (
-                        <div key={sector} className="border p-3" style={{ borderColor: `${sectorColor}55`, background: "linear-gradient(180deg, rgba(255,255,255,0.026), rgba(3,8,15,0.64))" }}>
+                        <div key={sector} className="border p-3" style={{ borderColor: `${sectorColor}55`, background: "linear-gradient(180deg, rgba(255,255,255,0.026), rgb(var(--bg-rgb) / 0.64))" }}>
                           <div className="mb-3 flex items-center justify-between border-b pb-2" style={{ borderColor: `${sectorColor}33` }}>
                             <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: sectorColor }}>{sectorLabel(sector)}</div>
                             <div className="text-[9px] text-text-muted">{posts.length} {t(lang, "cabinet_page.portfolio")}</div>
@@ -535,7 +535,7 @@ export default function CabinetPage() {
                                   className="relative w-full overflow-hidden border p-3 text-left transition hover:scale-[1.01]"
                                   style={{
                                     borderColor: active ? sectorColor : "rgb(var(--cyan-rgb)/0.13)",
-                                    background: active ? `${sectorColor}18` : "rgba(3,8,15,0.62)",
+                                    background: active ? `${sectorColor}18` : "rgb(var(--bg-rgb) / 0.62)",
                                     boxShadow: active ? `0 0 18px ${sectorColor}20` : "none",
                                   }}
                                 >
@@ -586,7 +586,7 @@ export default function CabinetPage() {
                           className="relative w-full overflow-hidden border p-3 text-left transition hover:scale-[1.006]"
                           style={{
                             borderColor: appointedHere ? "rgb(var(--gold-rgb)/0.72)" : alreadyAssigned ? "rgba(255,255,255,0.08)" : "rgb(var(--cyan-rgb)/0.16)",
-                            background: appointedHere ? "rgb(var(--gold-rgb)/0.12)" : alreadyAssigned ? "rgba(255,255,255,0.025)" : "rgba(3,8,15,0.72)",
+                            background: appointedHere ? "rgb(var(--gold-rgb)/0.12)" : alreadyAssigned ? "rgba(255,255,255,0.025)" : "rgb(var(--bg-rgb) / 0.72)",
                             opacity: alreadyAssigned ? 0.58 : 1,
                           }}
                         >

@@ -171,7 +171,7 @@ const defaultLeader: LeaderProfile = {
   position: "PRESIDENT",
   party: "PARTI MANDAT MY",
   partyAbbr: "MANDAT",
-  partyColor: "#00d4ff",
+  partyColor: "var(--cyan)",
   avatarIndex: 0,
   influence: 85,
   charisma: 72,

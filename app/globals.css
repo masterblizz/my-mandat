@@ -9,6 +9,7 @@
 :root {
   /* Dark theme (default) */
   --bg: #080c14;
+  --bg-rgb: 8 12 20;
   --panel: #0d1117;
   --panel-dark: #111827;
   --cyan-rgb: 0 212 255;
@@ -27,6 +28,8 @@
   --scrollbar-thumb: rgb(var(--cyan-rgb) / 0.2);
   --toggle-off: #1a2333;
   --input-bg: #0d1117;
+  --flow-purple-rgb: 167 139 250;
+  --flow-mint-rgb: 52 211 153;
 
   /* /login & /register (TacticalAuthShell + AuthBackground) — a distinct
      palette from the rest of the app since this screen intentionally reads
@@ -51,22 +54,26 @@
 }
 
 [data-theme="light"] {
-  --bg: #f0f4f8;
-  --panel: #e2e8f0;
-  --panel-dark: #d4dce8;
+  --bg: #ffffff;
+  --bg-rgb: 255 255 255;
+  --panel: #f7f9fc;
+  --panel-dark: #eef2f6;
   --cyan-rgb: 0 106 168;
   --gold-rgb: 161 106 0;
   --text-primary: #0f172a;
   --text-muted: #64748b;
   --neon-green-rgb: 21 128 61;
   --neon-green: #15803d;
+  --neon-red-rgb: 220 38 38;
   --neon-red: #dc2626;
   --warn-orange: #c2410c;
   --bar-empty: #cbd5e1;
-  --scrollbar-track: #f0f4f8;
+  --scrollbar-track: #ffffff;
   --scrollbar-thumb: rgb(var(--cyan-rgb) / 0.25);
   --toggle-off: #cbd5e1;
-  --input-bg: #e2e8f0;
+  --flow-purple-rgb: 124 58 237;
+  --flow-mint-rgb: 4 120 87;
+  --input-bg: #f7f9fc;
 
   --auth-bg: #eef2f7;
   --auth-bg-rgb: 238 242 247;
@@ -81,7 +88,7 @@
   --auth-red-rgb: 179 34 44;
   --auth-green-rgb: 21 128 61;
   --auth-wash-rgb: 20 120 170;
-  --auth-ticker-muted: #8391a8;
+  --auth-ticker-muted: #5c6676;
   --auth-hairline: #d3dae4;
   --auth-error-text: #a3212f;
 }
@@ -1109,17 +1116,37 @@ input[type="range"].range-red::-moz-range-thumb {
    waypoint) — the order a naive read would get backwards. Each leg between
    waypoints is a straight line and each waypoint's heading is constant
    across the leg it starts, so plain linear keyframe interpolation for
-   both position and rotation draws the route (and the turn) exactly — no
-   path/offset-path or extra JS tweening needed. */
+   both position draws each leg exactly — no path/offset-path or extra JS
+   tweening needed.
+
+   Rotation, unlike position, does NOT interpolate across the same 40%-60%
+   span as the p1->p2 chamfer — it only starts turning at 46% and finishes
+   by 54% (--kw-lrt-x1a/y1a and -x1b/y1b, p1a/p1b in page.tsx, sit 30%/70%
+   along that same chamfer so position keeps moving smoothly through the
+   turn regardless). Interpolating rotation across the full width of the
+   chamfer window used to mean the box's heading only matched its actual
+   direction of travel at the exact midpoint (50%) — everywhere else in
+   that window the box was pointed up to 45deg off its real heading, which
+   swings the far end of this long (63px), narrow (14px) consist past the
+   34px-wide elevated deck's own edge. Narrowing the turn to a tight window
+   right at the corner's own pivot keeps the box's heading pinned to each
+   straight leg's constant heading for nearly all of the corner crossing,
+   so the same 90deg turn happens over much less distance/time — any
+   momentary overhang during the turn is now small instead of spanning the
+   whole chamfer. */
 @keyframes kw-drive-l {
   0% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)) rotate(var(--kw-lrt-r0, 0deg)); }
   40% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)) rotate(var(--kw-lrt-r1, 0deg)); }
+  46% { transform: translate(var(--kw-lrt-x1a, 0px), var(--kw-lrt-y1a, 0px)) rotate(var(--kw-lrt-r1, 0deg)); }
+  54% { transform: translate(var(--kw-lrt-x1b, 0px), var(--kw-lrt-y1b, 0px)) rotate(var(--kw-lrt-r2, 0deg)); }
   60% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)) rotate(var(--kw-lrt-r2, 0deg)); }
   100% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)) rotate(var(--kw-lrt-r3, 0deg)); }
 }
 @keyframes kw-drive-l-rev {
   0% { transform: translate(var(--kw-lrt-x3, 0px), var(--kw-lrt-y3, 0px)) rotate(calc(var(--kw-lrt-r3, 0deg) + 180deg)); }
   40% { transform: translate(var(--kw-lrt-x2, 0px), var(--kw-lrt-y2, 0px)) rotate(calc(var(--kw-lrt-r2, 0deg) + 180deg)); }
+  46% { transform: translate(var(--kw-lrt-x1b, 0px), var(--kw-lrt-y1b, 0px)) rotate(calc(var(--kw-lrt-r2, 0deg) + 180deg)); }
+  54% { transform: translate(var(--kw-lrt-x1a, 0px), var(--kw-lrt-y1a, 0px)) rotate(calc(var(--kw-lrt-r1, 0deg) + 180deg)); }
   60% { transform: translate(var(--kw-lrt-x1, 0px), var(--kw-lrt-y1, 0px)) rotate(calc(var(--kw-lrt-r1, 0deg) + 180deg)); }
   100% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)) rotate(calc(var(--kw-lrt-r0, 0deg) + 180deg)); }
 }

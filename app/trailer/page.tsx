@@ -348,7 +348,7 @@ export default function TrailerPage() {
         <div style={{ textAlign: "center", maxWidth: 380, padding: "0 24px" }}>
           <div style={{ fontSize: 11, color: "var(--cyan)", letterSpacing: "0.45em", marginBottom: 14 }}>{"// GAME TRAILER · TIKTOK EDITION"}</div>
           <div style={{ fontSize: 58, fontWeight: 700, letterSpacing: "0.08em", marginBottom: 6 }}>
-            <span style={{ color: "var(--text-primary)" }}>MY </span>
+            <span style={{ color: "#ffffff" }}>MY </span>
             <span style={{ color: "var(--gold)", textShadow: "0 0 28px rgb(var(--gold-rgb) / 0.7)" }}>MANDAT</span>
           </div>
           <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.25em", marginBottom: 32 }}>20-SECOND PROMOTIONAL TRAILER</div>
@@ -419,7 +419,7 @@ export default function TrailerPage() {
               MALAYSIA · CAMPAIGN COMMAND
             </motion.div>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
-              <motion.span style={{ fontSize: 96, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.06em", lineHeight: 1 }}
+              <motion.span style={{ fontSize: 96, fontWeight: 700, color: "#ffffff", letterSpacing: "0.06em", lineHeight: 1 }}
                 initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45 }}>MY</motion.span>
               <motion.span style={{ fontSize: 96, fontWeight: 700, color: "var(--gold)", letterSpacing: "0.06em", lineHeight: 1, textShadow: "0 0 60px rgb(var(--gold-rgb) / 1), 0 0 120px rgb(var(--gold-rgb) / 0.5)" }}
                 initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, delay: 0.08 }}>MANDAT</motion.span>
@@ -518,7 +518,7 @@ export default function TrailerPage() {
               <div style={{ fontSize: 12, color: "var(--neon-red)", letterSpacing: "0.4em", marginBottom: 12, textAlign: "center" }}>
                 !! CRISIS EVENT !!
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.1em", marginBottom: 6, textAlign: "center", lineHeight: 1.3 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#ffffff", letterSpacing: "0.1em", marginBottom: 6, textAlign: "center", lineHeight: 1.3 }}>
                 VIRAL SOCIAL MEDIA SCANDAL
               </div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", lineHeight: 1.8, marginBottom: 16, textAlign: "center" }}>
@@ -583,7 +583,7 @@ export default function TrailerPage() {
             <motion.div style={{ fontSize: 132, fontWeight: 700, lineHeight: 1, color: "var(--gold)", textShadow: "0 0 80px rgb(var(--gold-rgb) / 0.9),0 0 160px rgb(var(--gold-rgb) / 0.4)" }}
               initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.45, type: "spring", stiffness: 130 }}>112</motion.div>
-            <motion.div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.14em", marginTop: 10 }}
+            <motion.div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff", letterSpacing: "0.14em", marginTop: 10 }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
               SEATS TO FORM GOVERNMENT
             </motion.div>
@@ -629,7 +629,7 @@ export default function TrailerPage() {
             <motion.div style={{ fontSize: 11, color: "rgb(var(--cyan-rgb) / 0.5)", letterSpacing: "0.5em", marginBottom: 20 }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>MALAYSIA · 2025</motion.div>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10, marginBottom: 10 }}>
-              <motion.span style={{ fontSize: 84, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.06em" }}
+              <motion.span style={{ fontSize: 84, fontWeight: 700, color: "#ffffff", letterSpacing: "0.06em" }}
                 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>MY</motion.span>
               <motion.span style={{ fontSize: 84, fontWeight: 700, color: "var(--gold)", letterSpacing: "0.06em", textShadow: "0 0 60px rgb(var(--gold-rgb) / 1),0 0 120px rgb(var(--gold-rgb) / 0.5)" }}
                 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5 }}>MANDAT</motion.span>
@@ -653,7 +653,7 @@ export default function TrailerPage() {
             <motion.div style={{ fontSize: 12, color: "var(--cyan)", letterSpacing: "0.45em", marginBottom: 14 }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>AVAILABLE NOW · FREE</motion.div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "baseline", marginBottom: 6 }}>
-              <motion.span style={{ fontSize: 70, fontWeight: 700, color: "var(--text-primary)" }}
+              <motion.span style={{ fontSize: 70, fontWeight: 700, color: "#ffffff" }}
                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}>MY</motion.span>
               <motion.span style={{ fontSize: 70, fontWeight: 700, color: "var(--gold)", textShadow: "0 0 40px rgb(var(--gold-rgb) / 0.9)" }}
                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}>MANDAT</motion.span>

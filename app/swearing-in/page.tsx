@@ -59,7 +59,7 @@ export default function SwearingInPage() {
           <TacticalPanel title={t(lang, "swearing_in_page.keyLineup")}>
             <div className="grid gap-3 md:grid-cols-3">
               {keyMinisters.map(({ post, member }) => (
-                <div key={post!.id} className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "rgba(3,8,15,0.74)" }}>
+                <div key={post!.id} className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "rgb(var(--bg-rgb) / 0.74)" }}>
                   <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{t(lang, post!.titleMS, post!.titleEN)}</div>
                   <div className="mt-2 text-[14px] font-black text-white">{member!.name}</div>
                   <div className="mt-1 text-[11px] text-text-muted">{member!.homeState} · {member!.specialty}</div>

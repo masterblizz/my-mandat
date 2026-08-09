@@ -46,7 +46,7 @@ function clamp(value: number) {
 
 function Meter({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="border p-3" style={{ borderColor: `${color}55`, background: "rgba(3,8,15,0.72)" }}>
+    <div className="border p-3" style={{ borderColor: `${color}55`, background: "rgb(var(--bg-rgb) / 0.72)" }}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{label}</span>
         <span className="text-xl font-black" style={{ color }}>{value}</span>
@@ -172,7 +172,7 @@ export default function CareerPage() {
                     key={action.id}
                     onClick={() => toggleAction(action.id)}
                     className="w-full border p-4 text-left transition hover:scale-[1.005]"
-                    style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgba(3,8,15,0.72)" }}
+                    style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-black" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.25)", color: active ? "var(--gold)" : "var(--cyan)" }}>{index + 1}</div>

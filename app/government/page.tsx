@@ -89,7 +89,7 @@ function clamp(value: number) {
 
 function MetricCard({ label, value, color, suffix = "%" }: { label: string; value: number; color: string; suffix?: string }) {
   return (
-    <div className="border p-3" style={{ borderColor: `${color}55`, background: "rgba(3,8,15,0.68)" }}>
+    <div className="border p-3" style={{ borderColor: `${color}55`, background: "rgb(var(--bg-rgb) / 0.68)" }}>
       <div className="text-[10px] font-bold tracking-[0.22em] text-text-muted">{label}</div>
       <div className="mt-2 text-3xl font-black" style={{ color }}>{value}{suffix}</div>
       <div className="mt-2 h-2 overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
@@ -170,7 +170,7 @@ export default function GovernmentPage() {
         </div>
 
         {canGovern && (
-          <div className="mb-4 border px-4 py-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.34)", background: "linear-gradient(90deg, rgb(var(--gold-rgb)/0.09), rgba(3,8,15,0.72))" }}>
+          <div className="mb-4 border px-4 py-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.34)", background: "linear-gradient(90deg, rgb(var(--gold-rgb)/0.09), rgb(var(--bg-rgb) / 0.72))" }}>
             <div className="text-[11px] font-black tracking-[0.24em]" style={{ color: "var(--gold)" }}>{t(lang, "government_page.storylineFlow")}</div>
             <div className="mt-1 text-[13px] text-text-muted">
               {isPrn
@@ -217,7 +217,7 @@ export default function GovernmentPage() {
                       key={policy.id}
                       onClick={() => togglePolicy(policy.id)}
                       className="w-full border p-4 text-left transition hover:scale-[1.005]"
-                      style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgba(3,8,15,0.72)" }}
+                      style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>

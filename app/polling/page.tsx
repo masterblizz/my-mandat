@@ -130,7 +130,7 @@ export default function PollingPage() {
               onClick={() => setActiveTab(tab)}
               className="px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
               style={{
-                color: activeTab === tab ? "#ffffff" : "var(--text-muted)",
+                color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
                 borderBottom: activeTab === tab ? "2px solid var(--gold)" : "2px solid transparent",
                 background: "none",
                 marginBottom: "-1px",
@@ -241,7 +241,7 @@ export default function PollingPage() {
                           }}
                         >
                           <div className="text-white tracking-wider uppercase">{s.shortName}</div>
-                          <div className="text-center font-bold" style={{ color: s.mandatSupport === maxVal ? "var(--cyan)" : "#ffffff" }}>
+                          <div className="text-center font-bold" style={{ color: s.mandatSupport === maxVal ? "var(--cyan)" : "var(--text-primary)" }}>
                             {formatNumber(s.mandatSupport)}
                           </div>
                           <div className="text-center" style={{ color: s.lawanSupport === maxVal ? "var(--warn-orange)" : "var(--text-muted)" }}>

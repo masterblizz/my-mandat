@@ -200,7 +200,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
                     className="flex items-center gap-2 px-2 py-1.5 text-[12px] tracking-wider uppercase transition-colors text-left"
                     style={{
                       border: selected ? "1px solid var(--gold)" : "1px solid rgb(var(--cyan-rgb) / 0.15)",
-                      color: selected ? "#ffffff" : "var(--text-muted)",
+                      color: selected ? "var(--text-primary)" : "var(--text-muted)",
                       background: selected ? "rgb(var(--gold-rgb) / 0.08)" : "none",
                       cursor: "pointer",
                     }}
@@ -838,7 +838,7 @@ function NominationTab() {
                 background: isActive ? "rgb(var(--gold-rgb)/0.07)" : "transparent",
               }}
             >
-              <div className="text-[12px] font-bold tracking-wider" style={{ color: isActive ? "#fff" : "var(--text-muted)" }}>
+              <div className="text-[12px] font-bold tracking-wider" style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}>
                 {s.shortName}
               </div>
               <div className="text-[10px] mt-0.5" style={{ color: pColor }}>{nominated}/{total}</div>
@@ -875,7 +875,7 @@ function NominationTab() {
               <div className="flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: scColor(c.safety) }} />
-                  <span className="text-[12px] font-bold truncate" style={{ color: isActive ? "#fff" : "var(--text-muted)" }}>
+                  <span className="text-[12px] font-bold truncate" style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}>
                     {c.name}
                   </span>
                 </div>
@@ -933,7 +933,7 @@ function NominationTab() {
               </button>
             </div>
           </div>
-          <div className="mt-2 text-[10px] leading-relaxed" style={{ color: "#94a3b8" }}>
+          <div className="mt-2 text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
             {advisorNote}
           </div>
         </div>
@@ -1255,7 +1255,7 @@ export default function CampaignPage() {
               onClick={() => setActiveTab(tab)}
               className="px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
               style={{
-                color: activeTab === tab ? "#ffffff" : "var(--text-muted)",
+                color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
                 borderBottom: activeTab === tab ? "2px solid var(--gold)" : "2px solid transparent",
                 background: "none",
                 marginBottom: "-1px",
@@ -1281,7 +1281,7 @@ export default function CampaignPage() {
               </div>
               <div className="space-y-1.5 max-h-[360px] overflow-y-auto">
                 {campaignStates.map((s) => (
-                  <button key={s.id} onClick={() => setSelectedMiniGameState(s.id)} className="w-full px-3 py-2 text-left text-[12px]" style={{ border: selectedMiniGameState === s.id ? "1px solid var(--cyan)" : "1px solid rgb(var(--cyan-rgb)/0.12)", color: selectedMiniGameState === s.id ? "#fff" : "var(--text-muted)", background: selectedMiniGameState === s.id ? "rgb(var(--cyan-rgb)/0.07)" : "transparent" }}>
+                  <button key={s.id} onClick={() => setSelectedMiniGameState(s.id)} className="w-full px-3 py-2 text-left text-[12px]" style={{ border: selectedMiniGameState === s.id ? "1px solid var(--cyan)" : "1px solid rgb(var(--cyan-rgb)/0.12)", color: selectedMiniGameState === s.id ? "var(--text-primary)" : "var(--text-muted)", background: selectedMiniGameState === s.id ? "rgb(var(--cyan-rgb)/0.07)" : "transparent" }}>
                     <div className="flex justify-between"><span className="font-bold">{s.name}</span><span>{s.mandatSupport}%</span></div>
                     <div className="mt-1 h-1.5" style={{ background: "var(--bar-empty)" }}><div className="h-1.5" style={{ width: `${s.mandatSupport}%`, background: "var(--cyan)" }} /></div>
                   </button>

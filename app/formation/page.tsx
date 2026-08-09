@@ -76,7 +76,7 @@ export default function FormationPage() {
               {partnerPool.map((partner) => {
                 const active = partners.includes(partner.id);
                 return (
-                  <button key={partner.id} onClick={() => togglePartner(partner.id)} className="w-full border p-4 text-left transition hover:scale-[1.005]" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgba(3,8,15,0.72)" }}>
+                  <button key={partner.id} onClick={() => togglePartner(partner.id)} className="w-full border p-4 text-left transition hover:scale-[1.005]" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="text-[14px] font-black tracking-wider text-white">{t(lang, `formation_page.partner_${partnerScope}_${partner.id}_name`)}</div>

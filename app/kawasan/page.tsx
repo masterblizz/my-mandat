@@ -978,9 +978,26 @@ interface TransitRoute { p0: RoutePoint; p1: RoutePoint; p2: RoutePoint; p3: Rou
 const NO_TURN: [number, number, number, number] = [0, 0, 0, 0];
 
 const TransitTrain = memo(function TransitTrain({ z, dur, delay, rev, route, rot = NO_TURN }: { z: number; dur: string; delay?: string; rev?: boolean; route: TransitRoute; rot?: [number, number, number, number] }) {
+  // Rotation used to interpolate from r1 to r2 across the ENTIRE 40%-60%
+  // chamfer window (same span as the p1->p2 position lerp) — meaning for
+  // most of that window the box's heading didn't match its actual direction
+  // of travel (they only agreed exactly at the 50% midpoint). For a long,
+  // narrow consist (63x14px) on a narrow deck (34px), that mismatch swings
+  // the far end of the box past the deck's edge — most visibly right as it
+  // commits to the new leg, which read as the train "leaving the track"
+  // when turning onto the vertical leg. Fix: keep the box's heading pinned
+  // to each leg's own constant heading for as much of the chamfer as
+  // possible, and only let it swing through the turn over a short window
+  // tight around the corner's own pivot point (p1a/p1b, 30%/70% along the
+  // p1->p2 chamfer) — the same visual turn, over much less distance, so any
+  // momentary overhang is small instead of spanning the whole corner.
+  const p1a = { x: route.p1.x + (route.p2.x - route.p1.x) * 0.3, y: route.p1.y + (route.p2.y - route.p1.y) * 0.3 };
+  const p1b = { x: route.p1.x + (route.p2.x - route.p1.x) * 0.7, y: route.p1.y + (route.p2.y - route.p1.y) * 0.7 };
   const routeVars = {
     ["--kw-lrt-x0" as string]: `${route.p0.x}px`, ["--kw-lrt-y0" as string]: `${route.p0.y}px`,
     ["--kw-lrt-x1" as string]: `${route.p1.x}px`, ["--kw-lrt-y1" as string]: `${route.p1.y}px`,
+    ["--kw-lrt-x1a" as string]: `${p1a.x}px`, ["--kw-lrt-y1a" as string]: `${p1a.y}px`,
+    ["--kw-lrt-x1b" as string]: `${p1b.x}px`, ["--kw-lrt-y1b" as string]: `${p1b.y}px`,
     ["--kw-lrt-x2" as string]: `${route.p2.x}px`, ["--kw-lrt-y2" as string]: `${route.p2.y}px`,
     ["--kw-lrt-x3" as string]: `${route.p3.x}px`, ["--kw-lrt-y3" as string]: `${route.p3.y}px`,
     ["--kw-lrt-r0" as string]: `${rot[0]}deg`, ["--kw-lrt-r1" as string]: `${rot[1]}deg`,
@@ -2385,7 +2402,7 @@ export default function KawasanDevelopmentPage() {
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 20% 0%, rgb(var(--cyan-rgb)/0.12), transparent 30%), radial-gradient(circle at 85% 8%, rgb(var(--gold-rgb)/0.10), transparent 24%), var(--bg)" }}>
       <Header />
       {notice && (
-        <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.16), rgba(3,8,15,0.96))", color: "var(--gold)", fontFamily: "Space Mono, monospace" }}>
+        <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.16), rgb(var(--bg-rgb) / 0.96))", color: "var(--gold)", fontFamily: "Space Mono, monospace" }}>
           {notice}
         </div>
       )}
@@ -2397,7 +2414,7 @@ export default function KawasanDevelopmentPage() {
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.population)} {t(lang, "kawasan_page.population")} · {formatNumber(ownSeat.voters)} {t(lang, "kawasan_page.voters")} · {densityLabel}</div>
             {!hasWonElection && (
-              <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "rgba(203,213,225,0.85)", background: "rgba(10,14,22,0.72)" }}>
+              <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.72)" }}>
                 🔒 {t(lang, "kawasan_page.developmentLockedWinYourElectionTo")}
               </div>
             )}
@@ -2407,21 +2424,21 @@ export default function KawasanDevelopmentPage() {
             {hasWonElection ? (
               <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
             ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
             )}
             {hasWonElection ? (
               <button onClick={() => router.push("/government")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
             ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "rgba(148,163,184,0.85)", background: "rgba(10,14,22,0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
             )}
           </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black text-white">{totalProjects}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgba(3,8,15,0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{totalProjects}</div></div>
+          <div className="border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
@@ -2450,7 +2467,7 @@ export default function KawasanDevelopmentPage() {
                       placeholder={t(lang, "kawasan_page.writeYourPledgesAndPolicyFocus")}
                       rows={4}
                       className="w-full resize-none text-[12px]"
-                      style={{ background: "rgba(3,8,15,0.72)", border: "1px solid rgb(var(--cyan-rgb)/0.2)", color: "var(--text)", padding: "8px" }}
+                      style={{ background: "rgb(var(--bg-rgb) / 0.72)", border: "1px solid rgb(var(--cyan-rgb)/0.2)", color: "var(--text-primary)", padding: "8px" }}
                     />
                     <button
                       onClick={saveManifesto}
@@ -2462,7 +2479,7 @@ export default function KawasanDevelopmentPage() {
                     </button>
                   </div>
 
-                  <div className="border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                  <div className="border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
                     <div className="mb-2 text-[10px] font-black tracking-widest text-text-muted">
                       {t(lang, "kawasan_page.quickCampaignLaunch", { homeStateName: homeState?.name?.toUpperCase() ?? "" })}
                     </div>
@@ -2477,7 +2494,7 @@ export default function KawasanDevelopmentPage() {
                             disabled={!affordable}
                             title={`RM ${formatNumber(template.fundsCost)} · ${template.manpowerCost} MAN`}
                             className="border p-2 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
-                            style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)", background: "rgba(3,8,15,0.6)" }}
+                            style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)", background: "rgb(var(--bg-rgb) / 0.6)" }}
                           >
                             <div className="text-[10px] font-black tracking-wider" style={{ color: "var(--cyan)" }}>{t(lang, `kawasan_page.opLabel_${type}`)}</div>
                             <div className="mt-0.5 text-[9px] text-text-muted">RM {formatNumber(template.fundsCost)} · +{template.supportGain}%/{t(lang, "kawasan_page.day")}</div>
@@ -2504,7 +2521,7 @@ export default function KawasanDevelopmentPage() {
               noPadding
             >
               {selectedZone && (
-                <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.07), rgba(3,8,15,0.72))" }}>
+                <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.07), rgb(var(--bg-rgb) / 0.72))" }}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-lg font-black text-white">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div>
@@ -2539,12 +2556,12 @@ export default function KawasanDevelopmentPage() {
                   const done = selectedZone?.projects.includes(project.id) ?? false;
                   const locked = done ? null : lockReason(project, selectedZone, lang);
                   const affordable = resources.funds >= project.cost;
-                  const accent = done ? "var(--neon-green)" : locked ? "rgba(148,163,184,0.85)" : affordable ? "var(--gold)" : "var(--neon-red)";
+                  const accent = done ? "var(--neon-green)" : locked ? "var(--text-muted)" : affordable ? "var(--gold)" : "var(--neon-red)";
                   return (
-                    <button key={project.id} onClick={() => runProject(project)} disabled={done || !!locked || !affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: locked ? 0.45 : done || !affordable ? 0.55 : 1, borderColor: done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : affordable ? "rgb(var(--cyan-rgb)/0.22)" : "rgb(255 68 68 / 0.25)", background: done ? "rgb(0 255 136 / 0.06)" : locked ? "rgba(10,14,22,0.72)" : "rgba(3,8,15,0.72)" }}>
+                    <button key={project.id} onClick={() => runProject(project)} disabled={done || !!locked || !affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: locked ? 0.45 : done || !affordable ? 0.55 : 1, borderColor: done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : affordable ? "rgb(var(--cyan-rgb)/0.22)" : "rgb(255 68 68 / 0.25)", background: done ? "rgb(0 255 136 / 0.06)" : locked ? "rgb(var(--bg-rgb) / 0.72)" : "rgb(var(--bg-rgb) / 0.72)" }}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-[12px] font-black tracking-wider" style={{ color: locked ? "rgba(203,213,225,0.75)" : "#fff" }}>{locked ? "🔒" : project.icon} {t(lang, `kawasan_page.projectTitle_${project.id}`)}</div>
+                          <div className="text-[12px] font-black tracking-wider" style={{ color: locked ? "var(--text-muted)" : "var(--text-primary)" }}>{locked ? "🔒" : project.icon} {t(lang, `kawasan_page.projectTitle_${project.id}`)}</div>
                           <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{t(lang, `kawasan_page.projectDetail_${project.id}`)}</div>
                         </div>
                         <div className="shrink-0 text-right text-[10px] font-black tracking-widest" style={{ color: accent }}>

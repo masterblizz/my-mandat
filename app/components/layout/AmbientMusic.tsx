@@ -119,7 +119,7 @@ export default function AmbientMusic() {
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
-              background: "rgba(3,8,15,.78)",
+              background: "rgb(var(--bg-rgb) / 0.78)",
               borderRight: "none",
             }}
             title={t(lang, "components_layout_AmbientMusic.previousTrack")}
@@ -131,7 +131,7 @@ export default function AmbientMusic() {
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
-              background: "rgba(3,8,15,.78)",
+              background: "rgb(var(--bg-rgb) / 0.78)",
               minWidth: "86px",
               textAlign: "center",
             }}
@@ -144,7 +144,7 @@ export default function AmbientMusic() {
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
-              background: "rgba(3,8,15,.78)",
+              background: "rgb(var(--bg-rgb) / 0.78)",
               borderLeft: "none",
               borderRight: "none",
             }}
@@ -179,9 +179,9 @@ export default function AmbientMusic() {
             ? "rgb(var(--gold-rgb) / 0.45)"
             : "rgb(var(--cyan-rgb) / 0.24)",
           background: musicEnabled && !error
-            ? "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.16), rgba(3,8,15,.86))"
-            : "rgba(3,8,15,.72)",
-          color: musicEnabled && !error ? "var(--gold)" : "#718397",
+            ? "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.16), rgb(var(--bg-rgb) / 0.86))"
+            : "rgb(var(--bg-rgb) / 0.72)",
+          color: musicEnabled && !error ? "var(--gold)" : "var(--text-muted)",
           boxShadow: musicEnabled && !error ? "0 0 18px rgb(var(--gold-rgb) / 0.16)" : "none",
         }}
         title={t(lang, "components_layout_AmbientMusic.toggleBackgroundMusic")}

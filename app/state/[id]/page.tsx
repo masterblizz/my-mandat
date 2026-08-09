@@ -308,7 +308,7 @@ export default function StatePage() {
                 onClick={() => setActiveTab(tab)}
                 className="w-full text-left px-4 py-2.5 text-[12px] tracking-wider uppercase transition-all"
                 style={{
-                  color: activeTab === tab ? "#ffffff" : "var(--text-muted)",
+                  color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
                   borderLeft: activeTab === tab ? "3px solid var(--gold)" : "3px solid transparent",
                   background: activeTab === tab ? "rgb(var(--gold-rgb) / 0.06)" : "transparent",
                 }}

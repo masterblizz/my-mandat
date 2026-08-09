@@ -122,8 +122,8 @@ function chipStyle(type: EventType) {
   if (type === "event")
     return { background: "rgb(var(--gold-rgb) / 0.18)", border: "1px solid var(--gold)", color: "var(--gold)" };
   if (type === "media")
-    return { background: "#002a3a", border: "1px solid var(--cyan)", color: "var(--cyan)" };
-  return { background: "#00280a", border: "1px solid var(--neon-green)", color: "var(--neon-green)" };
+    return { background: "rgb(var(--cyan-rgb) / 0.18)", border: "1px solid var(--cyan)", color: "var(--cyan)" };
+  return { background: "rgb(var(--neon-green-rgb) / 0.18)", border: "1px solid var(--neon-green)", color: "var(--neon-green)" };
 }
 
 function typeBadgeColor(type: EventType) {
@@ -134,8 +134,8 @@ function typeBadgeColor(type: EventType) {
 
 function typeBadgeBg(type: EventType) {
   if (type === "event") return "rgb(var(--gold-rgb) / 0.18)";
-  if (type === "media") return "#002a3a";
-  return "#00280a";
+  if (type === "media") return "rgb(var(--cyan-rgb) / 0.18)";
+  return "rgb(var(--neon-green-rgb) / 0.18)";
 }
 
 function typeLabel(lang: Lang, type: EventType) {
@@ -577,7 +577,7 @@ export default function CalendarPage() {
                           fontSize: "11px",
                           fontFamily: "'Space Mono', monospace",
                           fontWeight: "bold",
-                          color: isToday ? "var(--cyan)" : isCurrentWeek ? "var(--gold)" : "#8899aa",
+                          color: isToday ? "var(--cyan)" : isCurrentWeek ? "var(--gold)" : "var(--text-muted)",
                           lineHeight: 1,
                         }}
                       >

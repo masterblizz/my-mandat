@@ -119,7 +119,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                       key={topicOption.id}
                       onClick={() => handleTopicSelect(topicOption)}
                       className="px-3 py-3 text-center text-[12px] font-bold tracking-wide"
-                      style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "#fff", background: "rgb(var(--cyan-rgb)/0.06)", cursor: "pointer" }}
+                      style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "var(--text-primary)", background: "rgb(var(--cyan-rgb)/0.06)", cursor: "pointer" }}
                     >
                       {t(lang, topicOption.labelMS, topicOption.labelEN)}
                     </button>

@@ -466,7 +466,7 @@ export default function ResultsPage() {
                           outline: isSelected ? "1px solid rgb(var(--cyan-rgb) / 0.25)" : "none",
                         }}
                       >
-                        <td className="py-2 px-3 text-white font-bold">
+                        <td className="py-2 px-3 text-text-primary font-bold">
                           <button
                             type="button"
                             onClick={(event) => {
@@ -474,7 +474,7 @@ export default function ResultsPage() {
                               setSelectedStateId(s.id);
                             }}
                             className="text-left font-bold tracking-wider hover:underline"
-                            style={{ color: isSelected ? "var(--cyan)" : "#ffffff" }}
+                            style={{ color: isSelected ? "var(--cyan)" : "var(--text-primary)" }}
                           >
                             {s.shortName}
                           </button>
@@ -605,7 +605,7 @@ export default function ResultsPage() {
                     </div>
                     <span
                       className="text-[12px] tracking-wider"
-                      style={{ color: achieved ? "#ffffff" : "#4a5568" }}
+                      style={{ color: achieved ? "var(--text-primary)" : "#4a5568" }}
                     >
                       {t(lang, labelKey)}
                     </span>

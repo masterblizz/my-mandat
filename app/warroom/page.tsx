@@ -199,10 +199,10 @@ function FlipValue({ value }: { value: string | number }) {
 }
 
 const FLOW_TONE: Record<string, { bg: string; border: string; color: string }> = {
-  purple: { bg: "rgba(139,92,246,0.10)", border: "rgba(139,92,246,0.45)", color: "#a78bfa" },
-  mint: { bg: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.42)", color: "#34d399" },
+  purple: { bg: "rgb(var(--flow-purple-rgb) / 0.10)", border: "rgb(var(--flow-purple-rgb) / 0.45)", color: "rgb(var(--flow-purple-rgb))" },
+  mint: { bg: "rgb(var(--flow-mint-rgb) / 0.10)", border: "rgb(var(--flow-mint-rgb) / 0.42)", color: "rgb(var(--flow-mint-rgb))" },
   gold: { bg: "rgb(var(--gold-rgb) / 0.10)", border: "rgb(var(--gold-rgb) / 0.42)", color: "var(--gold)" },
-  neutral: { bg: "rgba(148,163,184,0.10)", border: "rgba(148,163,184,0.36)", color: "#cbd5e1" },
+  neutral: { bg: "rgba(148,163,184,0.10)", border: "rgba(148,163,184,0.36)", color: "var(--text-muted)" },
   red: { bg: "rgba(255,68,68,0.10)", border: "rgba(255,68,68,0.42)", color: "var(--neon-red)" },
   green: { bg: "rgba(0,255,136,0.10)", border: "rgba(0,255,136,0.42)", color: "var(--neon-green)" },
   blue: { bg: "rgb(var(--cyan-rgb) / 0.10)", border: "rgb(var(--cyan-rgb) / 0.42)", color: "var(--cyan)" },
@@ -225,17 +225,17 @@ function ElectionFlowPanel({ day, totalDays, lang, electionScope, prnStateName }
           <div className="mt-2 text-lg font-black tracking-widest" style={{ color: "var(--cyan)", fontFamily: "Space Mono, monospace" }}>
             {label}
           </div>
-          <div className="mt-2 text-[12px] leading-relaxed" style={{ color: "#9fb0c2" }}>
+          <div className="mt-2 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
             {description}
           </div>
           <div className="mt-4 h-2 overflow-hidden" style={{ background: "rgb(var(--cyan-rgb) / 0.10)", border: "1px solid rgb(var(--cyan-rgb) / 0.18)" }}>
             <div className="h-full" style={{ width: `${status.progress}%`, background: "linear-gradient(90deg, var(--cyan), var(--gold))" }} />
           </div>
-          <div className="mt-2 flex justify-between text-[10px] tracking-widest" style={{ color: "#718397" }}>
+          <div className="mt-2 flex justify-between text-[10px] tracking-widest" style={{ color: "var(--text-muted)" }}>
             <span>{lang === "ms" ? "KEMAJUAN FASA" : "PHASE PROGRESS"}</span>
             <span style={{ color: "var(--gold)" }}>{status.progress}%</span>
           </div>
-          <div className="mt-3 text-[10px] tracking-widest" style={{ color: "#718397" }}>
+          <div className="mt-3 text-[10px] tracking-widest" style={{ color: "var(--text-muted)" }}>
             NEXT: <span style={{ color: "var(--text-primary)" }}>{nextTitle}</span>
           </div>
         </div>
@@ -260,7 +260,7 @@ function ElectionFlowPanel({ day, totalDays, lang, electionScope, prnStateName }
               >
                 <div className="text-[8px] font-bold tracking-[0.16em]" style={{ color: tone.color }}>{stepPeriod.toUpperCase()}</div>
                 <div className="mt-1 text-[10px] font-bold leading-snug text-white">{stepTitle}</div>
-                <div className="mt-1 text-[8px] leading-snug" style={{ color: "#8495a8" }}>{stepDesc}</div>
+                <div className="mt-1 text-[8px] leading-snug" style={{ color: "var(--text-muted)" }}>{stepDesc}</div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {stepGameplay.slice(0, 2).map((item) => (
                     <span key={item} className="px-1.5 py-0.5 text-[7px] font-bold" style={{ color: tone.color, border: `1px solid ${tone.border}`, background: "rgba(0,0,0,0.18)" }}>
@@ -404,7 +404,7 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
                       )}
                       <span className="ml-1" style={{ color: "var(--text-muted)", fontWeight: "normal" }}>D{action.day}</span>
                     </div>
-                    <div className="text-[9px] leading-snug" style={{ color: "#93a6b8" }}>{narrative}</div>
+                    <div className="text-[9px] leading-snug" style={{ color: "var(--text-muted)" }}>{narrative}</div>
                     {action.lawanBoost > 0 && (
                       <div className="mt-0.5 text-[8px] font-bold" style={{ color: "var(--neon-red)" }}>
                         ▲ LAWAN +{action.lawanBoost}%
@@ -687,8 +687,8 @@ export default function WarroomPage() {
           style={{
             borderColor: manualSaveNotice.startsWith("SAVE FAILED") ? "rgb(255 68 68 / 0.55)" : "rgb(var(--gold-rgb) / 0.65)",
             background: manualSaveNotice.startsWith("SAVE FAILED")
-              ? "linear-gradient(135deg, rgba(255,68,68,0.18), rgba(3,8,15,0.94))"
-              : "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.18), rgba(3,8,15,0.94))",
+              ? "linear-gradient(135deg, rgba(255,68,68,0.18), rgb(var(--bg-rgb) / 0.94))"
+              : "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.18), rgb(var(--bg-rgb) / 0.94))",
             color: manualSaveNotice.startsWith("SAVE FAILED") ? "var(--neon-red)" : "var(--gold)",
             boxShadow: manualSaveNotice.startsWith("SAVE FAILED") ? "0 0 26px rgb(255 68 68 / 0.18)" : "0 0 26px rgb(var(--gold-rgb) / 0.22)",
             fontFamily: "Space Mono, monospace",
@@ -908,7 +908,7 @@ export default function WarroomPage() {
                   { day: "T-0",  tarikh: "12 JUL 2025", labelKey: "timelinePollingLabel",     subKey: "timelinePollingSub",       done: false, active: day >= POLLING_DAY  },
                 ].map((ev, i) => {
                   const dotColor = ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.35)";
-                  const labelColor = ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "#8899aa";
+                  const labelColor = ev.done ? "var(--neon-green)" : ev.active ? "var(--gold)" : "var(--text-muted)";
                   const bgColor = ev.done ? "rgba(0,255,136,0.06)" : ev.active ? "rgba(240,165,0,0.06)" : "rgba(0,212,255,0.03)";
                   const borderColor = ev.done ? "rgba(0,255,136,0.25)" : ev.active ? "rgba(240,165,0,0.25)" : "rgb(var(--cyan-rgb) / 0.10)";
                   return (
@@ -1173,10 +1173,10 @@ export default function WarroomPage() {
                       >
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-[10px] font-bold tracking-widest" style={{ color: toneColor }}>{news.time}</span>
-                          <span className="text-[8px] font-bold tracking-[0.16em]" style={{ color: "#718397" }}>{news.outlet.toUpperCase()}</span>
+                          <span className="text-[8px] font-bold tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>{news.outlet.toUpperCase()}</span>
                         </div>
                         <div className="text-[12px] font-bold leading-snug text-white">{newsHeadline}</div>
-                        <div className="mt-1 text-[10px] leading-relaxed" style={{ color: "#93a6b8" }}>{newsSummary}</div>
+                        <div className="mt-1 text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>{newsSummary}</div>
                         {isPoliticalReaction(news) && (
                           <div className="mt-2 space-y-1 border-l pl-2" style={{ borderColor: "rgb(var(--gold-rgb) / 0.28)" }}>
                             <div className="text-[9px] leading-snug" style={{ color: "var(--neon-red)" }}>
@@ -1188,7 +1188,7 @@ export default function WarroomPage() {
                           </div>
                         )}
                         <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <span className="text-[8px] tracking-widest" style={{ color: "#718397" }}>{news.state ?? (electionScope === "prn" ? (prnState?.name ?? (lang === "ms" ? "NEGERI" : "STATE")) : (lang === "ms" ? "NASIONAL" : "NATIONAL"))}</span>
+                          <span className="text-[8px] tracking-widest" style={{ color: "var(--text-muted)" }}>{news.state ?? (electionScope === "prn" ? (prnState?.name ?? (lang === "ms" ? "NEGERI" : "STATE")) : (lang === "ms" ? "NASIONAL" : "NATIONAL"))}</span>
                           <span className="text-[8px] font-bold tracking-widest" style={{ color: toneColor }}>{news.impact}</span>
                         </div>
                       </motion.div>

@@ -88,7 +88,7 @@ export default function MessagingPage() {
                         background: isSelected ? "rgb(var(--gold-rgb) / 0.05)" : "transparent",
                       }}
                     >
-                      <div className="text-[13px] font-bold tracking-wider uppercase" style={{ color: isSelected ? "var(--gold)" : "#ffffff" }}>
+                      <div className="text-[13px] font-bold tracking-wider uppercase" style={{ color: isSelected ? "var(--gold)" : "var(--text-primary)" }}>
                         {lang === "ms" ? msg.titleBM : msg.titleEN}
                       </div>
                       <StatBar
