@@ -1010,8 +1010,13 @@ const TransitTrain = memo(function TransitTrain({ z, dur, delay, rev, route, rot
           {/* Contact glow: a soft cyan halo under the whole consist, always
               on (not gated to night like street lamps) — a plain small box
               this size otherwise reads as random city clutter rather than
-              "this is the transit line" at a glance. */}
-          <div className="absolute" style={{ left: -12, top: -12, width: TRAIN_W + 24, height: TRAIN_LEN + 24, borderRadius: 8, background: "radial-gradient(ellipse, rgba(56,189,248,0.75), transparent 72%)", filter: "blur(2px)" }} />
+              "this is the transit line" at a glance. Kept tight to the
+              consist's own footprint (was +24px/blur 2px, ballooning into a
+              soft blob from top-down camera angles that swallowed the train
+              body itself) — a thinner, lower-opacity halo reads as "glow
+              coming off a train" instead of "glowing puddle with a train
+              somewhere inside it". */}
+          <div className="absolute" style={{ left: -5, top: -5, width: TRAIN_W + 10, height: TRAIN_LEN + 10, borderRadius: 6, background: "radial-gradient(ellipse, rgba(56,189,248,0.5), transparent 78%)", filter: "blur(1px)" }} />
           {Array.from({ length: TRAIN_CAR_COUNT }, (_, i) => {
             const carTop = i * (TRAIN_CAR_LEN + TRAIN_CAR_GAP);
             // Real LRT rolling stock (Kelana Jaya/Ampang line included) runs
@@ -1057,12 +1062,26 @@ const TransitTrain = memo(function TransitTrain({ z, dur, delay, rev, route, rot
                   <div className="absolute" style={{ left: 0, right: 0, top: "50%", height: 2, background: "var(--gold, #f0a500)", boxShadow: "0 0 3px rgba(240,165,0,0.8)" }} />
                   <div className="absolute" style={{ left: 0, right: 0, top: "57%", bottom: 0, background: "linear-gradient(180deg, #38bdf8, #0369a1)" }} />
                 </div>
-                {/* roof: plain cap, not the focus — the side livery band above is.
-                    Kept the same saturated cyan as the body (not white/silver)
-                    so the whole consist stays visually distinct from nearby
-                    buildings that already use pale grey/white walls — a light
-                    silver train blended straight into them. */}
-                <div className="absolute" style={{ left: 0, top: 0, width: TRAIN_W, height: TRAIN_CAR_LEN, background: "linear-gradient(180deg, #7dd3fc, #0284c7)", transform: `translateZ(${TRAIN_WALL_H}px)` }} />
+                {/* roof: the side livery band is still the primary face, but
+                    from the camera's mostly-overhead angle (and especially
+                    zoomed out) the roof is what's actually on-screen most of
+                    the time, and a flat gradient cap read as anonymous city
+                    clutter against nearby light-coloured rooftops — easy to
+                    lose entirely under the contact glow. A centred gold seam
+                    (matching the side band's own accent) plus a brighter
+                    highlight edge gives the roof its own legible silhouette
+                    without needing extra DOM nodes. */}
+                <div
+                  className="absolute"
+                  style={{
+                    left: 0, top: 0, width: TRAIN_W, height: TRAIN_CAR_LEN,
+                    transform: `translateZ(${TRAIN_WALL_H}px)`,
+                    background:
+                      "linear-gradient(90deg, transparent 0 42%, var(--gold, #f0a500) 42% 58%, transparent 58% 100%), " +
+                      "linear-gradient(180deg, #bae6fd, #7dd3fc 30%, #0284c7)",
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.35)",
+                  }}
+                />
                 {/* coupler: a short dark connector bridging the gap to the
                     next carriage, so the gap reads as a mechanical joint
                     instead of a random slice missing out of the consist. */}
@@ -1109,20 +1128,62 @@ const TransitPylon = memo(function TransitPylon({ left, top, deckZ }: { left: nu
 
 // An LRT/MRT platform: low slab + 2-pole canopy + a name-tag billboard,
 // centred on (x, y) so it can sit beside either a horizontal or vertical
-// deck run without needing an axis-specific variant.
+// deck run without needing an axis-specific variant. Plus a ground-level
+// entrance accent (thin glowing shaft from street to platform, same "thin
+// primitive spanning the full deck height" pattern TransitPylon already
+// proves safe against this scene's perspective-culling bug — see the deck
+// segmentation comment above) so the station reads as connected down to
+// street level instead of floating with no way up.
 const TransitStation = memo(function TransitStation({ x, y, deckZ, tag }: { x: number; y: number; deckZ: number; tag: string }) {
   return (
     <div className="kw-3d absolute" style={{ left: x - 27, top: y - 15, width: 54, height: 30 }}>
       <div className="absolute kw-face-lit" style={{ left: 0, top: 30, width: 54, height: 9, transformOrigin: "top", transform: `translateZ(${deckZ}px) rotateX(90deg)`, background: "linear-gradient(180deg, #cbd5e1, #64748b)" }} />
       <div className="absolute kw-face-shadow" style={{ left: 54, top: 0, width: 9, height: 30, transformOrigin: "left", transform: `translateZ(${deckZ}px) rotateY(-90deg)`, background: "linear-gradient(90deg, #64748b, #334155)" }} />
       <div className="absolute" style={{ left: 0, top: 0, width: 54, height: 30, background: "linear-gradient(135deg, #e2e8f0, #94a3b8)", border: "1px solid rgba(30,41,59,0.4)", transform: `translateZ(${deckZ + 9}px)` }} />
-      {/* canopy: a slim overhanging roof on 2 thin poles, held above the platform slab */}
+      {/* entrance shaft: a slim glowing glass-and-steel column from street
+          level up to the platform underside, at the platform's own SW
+          corner — off the pylons' own x/y crossings (stations sit at LEG
+          MIDPOINTS, pylons at road crossings) so it can't collide with a
+          real support column. Reuses TransitPylon's proven-safe thin-column
+          shape rather than the plain-concrete finish, so it reads as glass/
+          lit rather than another structural pier. */}
+      <div className="kw-3d absolute" style={{ left: -2, top: 26, width: 8, height: 8 }}>
+        <div className="absolute kw-face-lit" style={{ left: 0, top: 8, width: 8, height: deckZ - 2, transformOrigin: "top", transform: "rotateX(90deg)", background: "linear-gradient(180deg, rgba(125,211,252,0.5), rgba(8,47,73,0.65))", boxShadow: "0 0 6px rgba(56,189,248,0.4)" }} />
+        <div className="absolute kw-face-shadow" style={{ left: 8, top: 0, width: deckZ - 2, height: 8, transformOrigin: "left", transform: "rotateY(-90deg)", background: "linear-gradient(90deg, rgba(14,116,144,0.55), rgba(8,47,73,0.7))" }} />
+      </div>
+      {/* canopy: a slim overhanging roof on 2 thin poles, held above the
+          platform slab. A centred gold ridge (matching the train's own gold
+          seam, tying the two structures together as one transit system) and
+          brighter, steady edge glow — the previous flat translucent panel
+          all but disappeared into the skyline at normal play zoom; a bare
+          rectangle also read as generic rather than specifically a canopy. */}
       <div className="absolute" style={{ left: 6, top: 6, width: 2, height: 16, transformOrigin: "top", transform: `translateZ(${deckZ + 9}px) rotateX(90deg)`, background: "#334155" }} />
       <div className="absolute" style={{ left: 46, top: 6, width: 2, height: 16, transformOrigin: "top", transform: `translateZ(${deckZ + 9}px) rotateX(90deg)`, background: "#334155" }} />
-      <div className="absolute" style={{ left: -6, top: -4, width: 66, height: 22, background: "linear-gradient(135deg, rgba(125,211,252,0.55), rgba(14,116,144,0.55))", border: "1px solid rgba(125,211,252,0.6)", borderRadius: 3, transform: `translateZ(${deckZ + 25}px)` }} />
+      <div
+        className="absolute"
+        style={{
+          left: -6, top: -4, width: 66, height: 22, borderRadius: 3,
+          background:
+            "linear-gradient(90deg, transparent 0 46%, var(--gold, #f0a500) 46% 54%, transparent 54% 100%), " +
+            "linear-gradient(135deg, rgba(186,230,253,0.65), rgba(14,116,144,0.6))",
+          border: "1px solid rgba(186,230,253,0.75)",
+          boxShadow: "0 0 8px rgba(56,189,248,0.5), inset 0 1px 0 rgba(255,255,255,0.3)",
+          transform: `translateZ(${deckZ + 25}px)`,
+        }}
+      />
+      {/* billboard: a small always-on transit dot ahead of the line tag —
+          steady, not the aircraft-warning kw-blink used elsewhere, since
+          this needs to read as "here's the station" at a glance rather than
+          intermittently. */}
       <div className="kw-3d absolute" style={{ left: 27, top: -8, width: 0, height: 0, transform: `translateZ(${deckZ + 27}px)` }}>
         <div className="kw-bill">
-          <span className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider" style={{ background: "rgba(3,8,15,0.82)", color: "#7dd3fc", border: "1px solid rgba(125,211,252,0.5)" }}>{tag}</span>
+          <span
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+            style={{ background: "rgba(3,8,15,0.85)", color: "#e0f2fe", border: "1px solid rgba(125,211,252,0.6)", boxShadow: "0 0 6px rgba(56,189,248,0.4)" }}
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "#7dd3fc", boxShadow: "0 0 4px 1px rgba(125,211,252,0.9)" }} />
+            {tag}
+          </span>
         </div>
       </div>
     </div>

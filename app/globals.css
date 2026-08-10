@@ -898,9 +898,17 @@ input[type="range"].range-red::-moz-range-thumb {
    perpendicular to a vertical run (horizontal bands, left/right rail
    border); -h ties run perpendicular to a horizontal run (vertical bands,
    top/bottom rail border) — same rule, axis of everything swapped. */
+/* Two solid, non-repeating rail lines (bright silver-blue, thin) layered
+   over the sleeper ties — the ties alone compressed into near-invisible
+   noise at normal play zoom, and nothing on the deck read as an actual
+   *track* until you zoomed in hard. The rail-line gradient is listed first
+   (painted on top) with the sleeper pattern and body gradient beneath;
+   ties also darkened/widened slightly (0.4->0.6 alpha, 3px->4px) so they
+   still hold up on their own at that same normal zoom. */
 .kw-lrt-deck-v {
   background:
-    repeating-linear-gradient(0deg, rgba(15,23,42,0.4) 0 3px, transparent 3px 22px),
+    linear-gradient(90deg, transparent 0 27%, #e0f2fe 27% 30%, transparent 30% 70%, #e0f2fe 70% 73%, transparent 73% 100%),
+    repeating-linear-gradient(0deg, rgba(15,23,42,0.6) 0 4px, transparent 4px 22px),
     linear-gradient(90deg, #64748b, #334155, #64748b);
   border-left: 3px solid #7dd3fc;
   border-right: 3px solid #7dd3fc;
@@ -913,7 +921,8 @@ input[type="range"].range-red::-moz-range-thumb {
 }
 .kw-lrt-deck-h {
   background:
-    repeating-linear-gradient(90deg, rgba(15,23,42,0.4) 0 3px, transparent 3px 22px),
+    linear-gradient(180deg, transparent 0 27%, #e0f2fe 27% 30%, transparent 30% 70%, #e0f2fe 70% 73%, transparent 73% 100%),
+    repeating-linear-gradient(90deg, rgba(15,23,42,0.6) 0 4px, transparent 4px 22px),
     linear-gradient(0deg, #64748b, #334155, #64748b);
   border-top: 3px solid #7dd3fc;
   border-bottom: 3px solid #7dd3fc;
