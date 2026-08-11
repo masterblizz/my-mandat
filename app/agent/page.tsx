@@ -33,11 +33,11 @@ export default function AgentPage() {
 
     const data = await res.json();
     setBranch(data.branch);
-    setLog((l) => l + `Sandbox: ${data.sandboxId}\nBranch: ${data.branch}\n\n`);
+    setLog((l) => l + `Sandbox: ${data.sandboxName}\nBranch: ${data.branch}\n\n`);
 
     pollRef.current = setInterval(async () => {
       const statusRes = await fetch(
-        `/api/agent/status?sandboxId=${data.sandboxId}&commandId=${data.commandId}`,
+        `/api/agent/status?commandId=${data.commandId}`,
         { headers: { Authorization: `Bearer ${secret}` } }
       );
       const status = await statusRes.json();

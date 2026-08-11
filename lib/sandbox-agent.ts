@@ -72,11 +72,11 @@ export async function startAgentTask(prompt: string) {
     env: { ANTHROPIC_API_KEY },
   });
 
-  return { sandboxId: sandbox.sandboxId, commandId: command.cmdId, branch };
+  return { sandboxName: AGENT_SANDBOX_NAME, commandId: command.cmdId, branch };
 }
 
-export async function getTaskStatus(sandboxId: string, commandId: string) {
-  const sandbox = await Sandbox.get({ sandboxId });
+export async function getTaskStatus(commandId: string) {
+  const sandbox = await Sandbox.get({ name: AGENT_SANDBOX_NAME });
   // Verify against current SDK: retrieving a detached command's live status
   // and accumulated stdout/stderr. As of the sandbox SDK reference, commands
   // expose a way to await/poll completion and stream logs — confirm the
