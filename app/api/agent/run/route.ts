@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await startAgentTask(prompt);
     return NextResponse.json({ status: "started", ...result });
-  } catch (err: any) {
+  }catch (err) {
     console.error("failed to start agent task:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : "unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
