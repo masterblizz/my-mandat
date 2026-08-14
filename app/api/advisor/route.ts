@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientKey } from "../../utils/rateLimit";
 
 export const runtime = "nodejs";
+
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 // Live game snapshot sent by the client with every question, injected
 // into the model's context so advice is grounded in the actual run.
@@ -105,6 +109,14 @@ function offlineAdvice(state: AdvisorGameState, lang: string): string {
 const MODEL = "claude-opus-5";
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(getClientKey(request), RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests, please slow down." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   let body: { messages?: ChatMessage[]; gameState?: AdvisorGameState; lang?: string };
   try {
     body = await request.json();
@@ -175,10 +187,21 @@ export async function POST(request: NextRequest) {
 // necessary: the key can be configured but the account still out of
 // credits (see AuthenticationError/insufficient-credit handling above),
 // which only surfaces once a real call is attempted.
+// Cached across requests so the ping above only actually hits the API
+// once per window — the advisor page calls GET on every mount, and without
+// this every page load/refresh would burn a real API call.
+const AVAILABILITY_CACHE_MS = 5 * 60_000;
+let availabilityCache: { available: boolean; checkedAt: number } | null = null;
+
 export async function GET() {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
     return NextResponse.json({ available: false });
   }
+
+  if (availabilityCache && Date.now() - availabilityCache.checkedAt < AVAILABILITY_CACHE_MS) {
+    return NextResponse.json({ available: availabilityCache.available, cached: true });
+  }
+
   const client = new Anthropic();
   try {
     await client.messages.create({
@@ -186,8 +209,10 @@ export async function GET() {
       max_tokens: 1,
       messages: [{ role: "user", content: "ping" }],
     });
+    availabilityCache = { available: true, checkedAt: Date.now() };
     return NextResponse.json({ available: true });
   } catch {
+    availabilityCache = { available: false, checkedAt: Date.now() };
     return NextResponse.json({ available: false });
   }
 }

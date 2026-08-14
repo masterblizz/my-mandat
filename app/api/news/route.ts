@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientKey } from "../../utils/rateLimit";
 
 export const runtime = "nodejs";
+
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 // Snapshot of what actually happened on a campaign day, sent by the client
 // right after advanceDay() resolves — grounds the generated item in real
@@ -62,6 +66,14 @@ const NEWS_TOOL: Anthropic.Tool = {
 };
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(getClientKey(request), RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests, please slow down." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   let body: { snapshot?: NewsDaySnapshot };
   try {
     body = await request.json();
