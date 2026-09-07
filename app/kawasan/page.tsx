@@ -493,6 +493,62 @@ const STILT_H = 14;
 // window-light tint too, which reads as broken rather than varied.
 const VARIABLE_TINT_TYPES = new Set<BType>(["house", "kampung", "terrace", "shophouse", "shop", "stall"]);
 
+// Low-rise homes get a real gabled roof instead of the flat kw-face-roof
+// cap every other type shares — a flat lid on a 20px-tall house was the
+// single biggest "toy block" tell next to the detailed towers. Every other
+// type still takes the flat cap unchanged.
+const PITCHED_ROOF_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
+// Ridge rise (peak height above the eaves). Deliberately shallow relative
+// to the wall heights of these types (~20-40px) so it reads as a suburban
+// hip/gable, not an A-frame, and so the whole roof assembly — which is
+// translateZ'd off spec.h — travels as one piece under FACE_TRANSITION
+// when a building grows on project approval.
+const RIDGE_RISE = 15;
+
+// Two-slope gable roof for PITCHED_ROOF_TYPES. The ridge runs down the
+// middle of the SHORTER footprint axis; each slope is a planar face hinged
+// up from an eave with the same translateZ'd rotateX/rotateY wall-hinge
+// composition used for the walls, the rooftop AC condenser and the kampung
+// stilt platform — just tipped to a shallow pitch instead of a full 90deg.
+// Both slopes render palette.top; their light/dark difference comes from
+// the shared kw-face-lit / kw-face-shadow "sun from the south" ::after
+// washes (same single light source as the walls), NOT a hand-rolled
+// per-slope gradient. FACE_TRANSITION on every piece keeps the roof growing
+// in step with the walls. The thin ridge beam carries the score-tint accent
+// the flat cap used to show (roof colour -> zone sentiment, see
+// scoreTintRGB) so swapping the cap doesn't drop that signal, and it hides
+// the seam where the two slopes meet.
+const PitchedRoof = memo(function PitchedRoof({ w, d, h, baseZ, top, wall, side, tintFilter, accent }: { w: number; d: number; h: number; baseZ: number; top: string; wall: string; side: string; tintFilter?: string; accent: CSSProperties }) {
+  const ridgeAlongY = w <= d; // shorter axis is W -> ridge runs N-S (down Y)
+  const half = (ridgeAlongY ? w : d) / 2;
+  const slant = Math.hypot(half, RIDGE_RISE);
+  const angle = (Math.atan2(RIDGE_RISE, half) * 180) / Math.PI;
+  const z = baseZ + h;
+  return ridgeAlongY ? (
+    <>
+      {/* west slope (faces the light) + east slope (shadow side), hinged at
+          the two eaves and tipped up to meet at the ridge at x = w/2 */}
+      <div className="absolute kw-face-lit" style={{ left: 0, top: 0, width: slant, height: d, transformOrigin: "left", transform: `translateZ(${z}px) rotateY(-${angle}deg)`, background: top, filter: tintFilter, transition: FACE_TRANSITION }} />
+      <div className="absolute kw-face-shadow" style={{ left: w - slant, top: 0, width: slant, height: d, transformOrigin: "right", transform: `translateZ(${z}px) rotateY(${angle}deg)`, background: top, filter: tintFilter, transition: FACE_TRANSITION }} />
+      {/* south gable: triangular wall infill under the slopes at the
+          camera-facing end (wall colour + kw-face-lit, continuing the south
+          wall right below it) so the roof doesn't read as hollow */}
+      <div className="absolute kw-face-lit" style={{ left: 0, top: d, width: w, height: RIDGE_RISE, transformOrigin: "top", transform: `translateZ(${z}px) rotateX(90deg)`, background: wall, filter: tintFilter, clipPath: "polygon(0 0, 100% 0, 50% 100%)", transition: FACE_TRANSITION }} />
+      <div className="absolute" style={{ left: w / 2 - 1, top: 0, width: 2, height: d, background: top, transform: `translateZ(${z + RIDGE_RISE}px)`, transition: FACE_TRANSITION, ...accent }} />
+    </>
+  ) : (
+    <>
+      {/* south slope (faces the light) + north slope (shadow side), meeting
+          at the ridge at y = d/2 */}
+      <div className="absolute kw-face-shadow" style={{ left: 0, top: 0, width: w, height: slant, transformOrigin: "top", transform: `translateZ(${z}px) rotateX(${angle}deg)`, background: top, filter: tintFilter, transition: FACE_TRANSITION }} />
+      <div className="absolute kw-face-lit" style={{ left: 0, top: d - slant, width: w, height: slant, transformOrigin: "bottom", transform: `translateZ(${z}px) rotateX(-${angle}deg)`, background: top, filter: tintFilter, transition: FACE_TRANSITION }} />
+      {/* east gable infill (camera-facing end when the ridge runs E-W) */}
+      <div className="absolute kw-face-shadow" style={{ left: w, top: 0, width: RIDGE_RISE, height: d, transformOrigin: "left", transform: `translateZ(${z}px) rotateY(-90deg)`, background: side, filter: tintFilter, clipPath: "polygon(0 0, 100% 50%, 0 100%)", transition: FACE_TRANSITION }} />
+      <div className="absolute" style={{ left: 0, top: d / 2 - 1, width: w, height: 2, background: top, transform: `translateZ(${z + RIDGE_RISE}px)`, transition: FACE_TRANSITION, ...accent }} />
+    </>
+  );
+});
+
 const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec; scoreColor?: string }) {
   const { x, y } = slotPos(spec.slot);
   const palette = PALETTES[spec.type];
@@ -562,31 +618,55 @@ const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec;
               {palette.win && <div className="kw-win" style={{ opacity: 0.55 }} />}
               {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45 - 1.2}s` }} />}
             </div>
-            <div
-              className="absolute inset-0 kw-face-roof"
-              style={{
-                background: palette.top,
-                // Roof accent reads the zone's live sentiment score (smooth
-                // red->gold->green, see scoreTintRGB) so building colour
-                // maps to zone health without touching the type-based wall
-                // palette above (which stays the readability cue for what
-                // a building IS). spec.glow buildings (flags/facilities)
-                // keep their own fixed green "new project" marker instead.
-                border: spec.glow ? "2px solid rgba(0,255,136,0.7)" : scoreColor ? `2px solid rgba(${scoreColor},0.65)` : "1px solid rgba(255,255,255,0.18)",
-                boxShadow: spec.glow ? "0 0 20px rgba(0,255,136,0.35)" : scoreColor ? `0 0 12px rgba(${scoreColor},0.3)` : undefined,
-                // Stadium's roof texture is already an elliptical pitch
-                // gradient (see PALETTES.stadium) — it was sitting inside a
-                // sharp-cornered rectangular cap, which cut the ellipse off
-                // at the corners instead of reading as an actual oval bowl.
-                // Rounding the cap itself (plus the wall tops above, for a
-                // matching silhouette) turns that into a real oval footprint
-                // without needing curved-wall-segment geometry.
-                borderRadius: spec.type === "stadium" ? "50%" : undefined,
-                transform: `translateZ(${stiltH + spec.h}px)`,
-                filter: tintFilter,
-                transition: FACE_TRANSITION,
-              }}
-            />
+            {PITCHED_ROOF_TYPES.has(spec.type) ? (
+              // house/terrace/kampung: real gabled roof (see PitchedRoof).
+              // The score-tint / glow accent that lived on the flat cap's
+              // border moves to PitchedRoof's ridge beam so the "roof colour
+              // -> zone sentiment" signal survives the swap.
+              <PitchedRoof
+                w={spec.w}
+                d={spec.d}
+                h={spec.h}
+                baseZ={stiltH}
+                top={palette.top}
+                wall={palette.wall}
+                side={palette.side}
+                tintFilter={tintFilter}
+                accent={
+                  spec.glow
+                    ? { border: "1px solid rgba(0,255,136,0.7)", boxShadow: "0 0 12px rgba(0,255,136,0.35)" }
+                    : scoreColor
+                    ? { border: `1px solid rgba(${scoreColor},0.65)`, boxShadow: `0 0 8px rgba(${scoreColor},0.3)` }
+                    : { border: "1px solid rgba(255,255,255,0.18)" }
+                }
+              />
+            ) : (
+              <div
+                className="absolute inset-0 kw-face-roof"
+                style={{
+                  background: palette.top,
+                  // Roof accent reads the zone's live sentiment score (smooth
+                  // red->gold->green, see scoreTintRGB) so building colour
+                  // maps to zone health without touching the type-based wall
+                  // palette above (which stays the readability cue for what
+                  // a building IS). spec.glow buildings (flags/facilities)
+                  // keep their own fixed green "new project" marker instead.
+                  border: spec.glow ? "2px solid rgba(0,255,136,0.7)" : scoreColor ? `2px solid rgba(${scoreColor},0.65)` : "1px solid rgba(255,255,255,0.18)",
+                  boxShadow: spec.glow ? "0 0 20px rgba(0,255,136,0.35)" : scoreColor ? `0 0 12px rgba(${scoreColor},0.3)` : undefined,
+                  // Stadium's roof texture is already an elliptical pitch
+                  // gradient (see PALETTES.stadium) — it was sitting inside a
+                  // sharp-cornered rectangular cap, which cut the ellipse off
+                  // at the corners instead of reading as an actual oval bowl.
+                  // Rounding the cap itself (plus the wall tops above, for a
+                  // matching silhouette) turns that into a real oval footprint
+                  // without needing curved-wall-segment geometry.
+                  borderRadius: spec.type === "stadium" ? "50%" : undefined,
+                  transform: `translateZ(${stiltH + spec.h}px)`,
+                  filter: tintFilter,
+                  transition: FACE_TRANSITION,
+                }}
+              />
+            )}
             {/* Shophouse five-foot-way: a low overhang slab near the south
                 wall, protruding slightly past the footprint — same flat-cap-
                 at-translateZ technique as the roof above, just shorter. */}
