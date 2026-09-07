@@ -358,6 +358,38 @@ function footprint(type: BType) {
   return { w: 48, d: 42 };
 }
 
+// footprint(type) is one fixed {w,d} per type, so every instance of a type
+// is pixel-identical — at zoomed-out (gridSize 10-12) scale a street of
+// eight identical "house" boxes reads as stamped clones. jitterFootprint
+// adds a deterministic +/-8-12% wobble to w and d, seeded from the zone id
+// AND the building's slot (same stable-seed style as seedFrom(zone.id) /
+// Building3D's csSeed — never Math.random, so it's identical on every
+// render and every reload). Both inputs matter: zone id alone would scale
+// every building in a zone the same way; slot alone would clone the same
+// wobble across zones. FLAT_TYPES (sawah/pond/field/plaza) are excluded —
+// they abut edge-to-edge as ground cover, so size variance there reads as
+// sloppy tiling, not organic.
+const SLOT_PITCH = 72; // must track slotPos()'s fixed grid spacing
+const SLOT_GAP = 7;    // min clearance kept to the next slot at full +jitter
+function jitterFootprint(type: BType, zoneId: string, slot: number): { w: number; d: number } {
+  const base = footprint(type);
+  if (FLAT_TYPES.includes(type)) return base;
+  // 0..96, stable per (zone, slot); two near-independent draws for w and d.
+  const seed = (seedFrom(zoneId) + slot * 31) % 97;
+  const jw = (((seed % 7) - 3) / 3);                  // -1..1 in thirds
+  const jd = (((Math.floor(seed / 7) % 7) - 3) / 3);  // -1..1 in thirds
+  // Amplitude is normally 12%, but clamped so base + jitter still leaves
+  // SLOT_GAP px before the neighbouring slot. Every current non-flat
+  // footprint tops out at w/d 58 (factory/warehouse/mall/stadium), which
+  // still permits the full 12% (58*1.12 = 65 <= 72-7) — the clamp is a
+  // guard for any future wider type.
+  const amp = (px: number) => Math.max(0.08, Math.min(0.12, (SLOT_PITCH - SLOT_GAP - px) / px));
+  return {
+    w: Math.round(base.w * (1 + jw * amp(base.w))),
+    d: Math.round(base.d * (1 + jd * amp(base.d))),
+  };
+}
+
 // Heights track zone metrics, so approving a project visibly grows
 // the skyline (faces carry a CSS transition on height/transform).
 function buildingHeight(type: BType, zone: Zone) {
@@ -429,7 +461,7 @@ const ZONE_FILLER: Record<ZoneKind, BType[]> = {
 };
 
 function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): BSpec[] {
-  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => ({ type, slot, ...footprint(type), h: buildingHeight(type, zone), flag: zone.kind === "urban" && index === 0 }));
+  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => ({ type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone), flag: zone.kind === "urban" && index === 0 }));
   const used = new Set(base.map((b) => b.slot));
   const free = [1, 3, 5, 7, 8, 6, 2, 0].filter((slot) => !used.has(slot));
   const fillers: BType[] = traits.paddy && (zone.kind === "village" || zone.kind === "river")
@@ -442,21 +474,22 @@ function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): BSpec[]
     : zone.kind === "commercial" && density >= 0.8 ? 1 : 0;
   const skyscrapers: BSpec[] = Array.from({ length: Math.min(skyscraperCount, free.length - 2) }, () => {
     const slot = free.pop() as number;
-    return { type: "skyscraper" as BType, slot, ...footprint("skyscraper"), h: buildingHeight("skyscraper", zone) };
+    return { type: "skyscraper" as BType, slot, ...jitterFootprint("skyscraper", zone.id, slot), h: buildingHeight("skyscraper", zone) };
   });
   const extraBoost = (traits.industrial && zone.kind === "industry") || (traits.paddy && zone.kind === "village") ? 2 : 0;
   const extraCount = Math.min(Math.round(density * 3) + extraBoost, Math.max(0, free.length - 2));
   const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) => {
     const type = fillers[(seed + index) % fillers.length];
     const slot = free.pop() as number;
-    return { type, slot, ...footprint(type), h: buildingHeight(type, zone) };
+    return { type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone) };
   });
   const facilities: BSpec[] = zone.projects.map((projectId, index) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
+    const slot = free[index % free.length];
     return {
       type,
-      slot: free[index % free.length],
-      ...footprint(type),
+      slot,
+      ...jitterFootprint(type, zone.id, slot),
       h: buildingHeight(type, zone),
       icon: PROJECTS.find((project) => project.id === projectId)?.icon,
       glow: true,
