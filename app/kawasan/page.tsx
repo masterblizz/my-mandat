@@ -588,6 +588,41 @@ const PitchedRoof = memo(function PitchedRoof({ w, d, h, baseZ, top, wall, side,
   );
 });
 
+// tower / skyscraper / antenna get an ORGANIC lit-window map instead of the
+// shared kw-win-lit repeating gradient. kw-win-lit alone lights every unit
+// on a face on the same twinkle beat (offset only by a per-building
+// animationDelay) — it reads as a blinking sign, not a tower with a mixed
+// occupied/dark floor grid. litWindowMap bakes a seeded scatter of ~40%
+// "lit" cells into ONE background-image (a handful of small radial-gradient
+// dots — never one node per window; see the FPS/compositor note on the
+// contact-shadow block) so the pattern is stable per building (seed =
+// csSeed, same determinism as the hue jitter) yet differs building to
+// building. Only these three types — the other win:true palettes
+// (shop/school/clinic/mall/factory/shophouse/terrace) keep the simpler
+// two-layer treatment below, which suits their squat proportions.
+const WINDOW_TOWERS = new Set<BType>(["tower", "skyscraper", "antenna"]);
+const WIN_MAP_COLS = 4;
+const WIN_MAP_ROWS = 6;
+function litWindowMap(seed: number): string {
+  // Deterministic LCG walk over a small cell grid — no Math.random, so the
+  // same seed yields the same lit/dark pattern on every render and reload.
+  let s = (seed % 97) + 1;
+  const dots: string[] = [];
+  for (let r = 0; r < WIN_MAP_ROWS; r++) {
+    for (let c = 0; c < WIN_MAP_COLS; c++) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      if ((s >>> 9) % 10 < 4) { // ~40% of cells lit
+        const px = 8 + (c * 84) / (WIN_MAP_COLS - 1);
+        const py = 6 + (r * 88) / (WIN_MAP_ROWS - 1);
+        dots.push(`radial-gradient(circle at ${px.toFixed(0)}% ${py.toFixed(0)}%, rgba(255,206,120,0.92) 0 2px, rgba(255,206,120,0.3) 2px 3.4px, transparent 3.6px)`);
+      }
+    }
+  }
+  // A low seed can light zero cells — force one so no tower goes fully dark.
+  if (!dots.length) dots.push("radial-gradient(circle at 30% 24%, rgba(255,206,120,0.9) 0 2px, transparent 3px)");
+  return dots.join(",");
+}
+
 const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec; scoreColor?: string }) {
   const { x, y } = slotPos(spec.slot);
   const palette = PALETTES[spec.type];
@@ -651,11 +686,15 @@ const Building3D = memo(function Building3D({ spec, scoreColor }: { spec: BSpec;
                 complaint, not the height variance itself. */}
             <div className={`absolute kw-face-lit kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: 0, top: spec.d, width: spec.w, height: spec.h, transformOrigin: "top", transform: `translateZ(${stiltH}px) rotateX(90deg)`, background: palette.wall, filter: tintFilter, borderRadius: spec.type === "stadium" ? "45% 45% 0 0" : undefined, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" />}
-              {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45}s` }} />}
+              {palette.win && (WINDOW_TOWERS.has(spec.type)
+                ? <div className="kw-win-lit" style={{ backgroundImage: litWindowMap(csSeed), animationDelay: `${csSeed * -0.11}s` }} />
+                : <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45}s` }} />)}
             </div>
             <div className={`absolute kw-face-shadow kw-face-edge ${palette.win ? "" : "kw-face-plain"}`} style={{ left: spec.w, top: 0, width: spec.h, height: spec.d, transformOrigin: "left", transform: `translateZ(${stiltH}px) rotateY(-90deg)`, background: palette.side, filter: tintFilter, borderRadius: spec.type === "stadium" ? "45% 45% 0 0" : undefined, transition: FACE_TRANSITION }}>
               {palette.win && <div className="kw-win" style={{ opacity: 0.55 }} />}
-              {palette.win && <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45 - 1.2}s` }} />}
+              {palette.win && (WINDOW_TOWERS.has(spec.type)
+                ? <div className="kw-win-lit" style={{ backgroundImage: litWindowMap(csSeed + 13), animationDelay: `${csSeed * -0.11 - 1.2}s` }} />
+                : <div className="kw-win-lit" style={{ animationDelay: `${spec.slot * -0.45 - 1.2}s` }} />)}
             </div>
             {PITCHED_ROOF_TYPES.has(spec.type) ? (
               // house/terrace/kampung: real gabled roof (see PitchedRoof).
