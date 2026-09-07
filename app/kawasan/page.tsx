@@ -508,6 +508,12 @@ function zoneGround(kind: ZoneKind) {
   return "linear-gradient(135deg, #31404f, #1a2530)";
 }
 
+// Parking pads (rendered in ZonePlot next to the buildings): only the
+// busier commercial zone kinds get them, and only beside these street-level
+// retail types — kept sparse on purpose so the plot doesn't turn to tarmac.
+const PARKING_ZONE_KINDS = new Set<ZoneKind>(["commercial", "market", "urban"]);
+const PARKING_HOST_TYPES = new Set<BType>(["shop", "stall", "shophouse"]);
+
 const FACE_TRANSITION = "height 0.7s, width 0.7s, transform 0.7s";
 
 // Kampung houses sit on a stilt platform below the wall/roof tier — same
@@ -1368,12 +1374,54 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
             footprint — the road/plot pitch (ROAD_GAP 280 vs PLOT 240) has
             zero spare width to steal a strip from the road side without
             reflowing every zone position, so this reads as a curb without
-            needing any of that. */}
-        <span className="absolute left-0 right-0 bottom-0 block" style={{ height: 5, background: "linear-gradient(180deg, rgba(226,232,240,0.55), rgba(148,163,184,0.3))" }} />
-        <span className="absolute top-0 bottom-0 right-0 block" style={{ width: 5, background: "linear-gradient(90deg, rgba(226,232,240,0.45), rgba(148,163,184,0.25))" }} />
+            needing any of that. The first gradient layer draws thin paver
+            joints across the strip so it reads as laid slabs, distinct from
+            zoneGround's per-kind dirt/asphalt colouring rather than just a
+            paler band of it. */}
+        <span className="absolute left-0 right-0 bottom-0 block" style={{ height: 5, background: "repeating-linear-gradient(90deg, transparent 0 13px, rgba(71,85,105,0.45) 13px 14px), linear-gradient(180deg, rgba(226,232,240,0.55), rgba(148,163,184,0.3))" }} />
+        <span className="absolute top-0 bottom-0 right-0 block" style={{ width: 5, background: "repeating-linear-gradient(0deg, transparent 0 13px, rgba(71,85,105,0.45) 13px 14px), linear-gradient(90deg, rgba(226,232,240,0.45), rgba(148,163,184,0.25))" }} />
         {zone.kind === "river" && <span className="kw-water absolute block" style={{ left: -1, right: -1, top: "40%", height: 34, opacity: 0.9 }} />}
       </button>
       {buildings.map((spec, index) => <Building3D key={`${zone.id}-${spec.slot}-${spec.type}-${index}`} spec={spec} scoreColor={scoreRgb} />)}
+      {/* Parking pads: a small asphalt apron on the south (open-ground) side
+          of 1-2 retail buildings — commercial/market/urban only (see
+          PARKING_ZONE_KINDS) and deliberately not one per shop, so the plot
+          doesn't fill with tarmac. Flat tile at a low translateZ, same
+          ground-plane technique as the shophouse five-foot-way and the
+          plaza flatTile; the asphalt + faint bay-line read is a
+          repeating-linear-gradient (cf. warehouse's roof texture), no
+          filter cost. Pure ground cosmetic — reads the already-computed
+          buildings list and their (possibly jittered) footprints, touches
+          no PLOT/ROAD_GAP/slotPos layout math. Pad stays inside its host
+          slot's own 72px cell: y + d + 2 + 12 clears the next slot row even
+          at max footprint jitter. */}
+      {PARKING_ZONE_KINDS.has(zone.kind) && (() => {
+        const retail = buildings.filter((b) => PARKING_HOST_TYPES.has(b.type));
+        if (!retail.length) return null;
+        const s = seedFrom(zone.id);
+        // Stable pick of host buildings; 2 pads only once a plot has enough
+        // retail to spare, otherwise just 1.
+        const idx = Array.from(new Set([s % retail.length, (s + Math.ceil(retail.length / 2)) % retail.length])).slice(0, retail.length >= 3 ? 2 : 1);
+        return idx.map((i) => {
+          const b = retail[i];
+          const { x, y } = slotPos(b.slot);
+          return (
+            <div key={`park-${b.slot}`} className="kw-3d absolute" style={{ left: x - 3, top: y + b.d + 2, width: b.w + 6, height: 12, pointerEvents: "none" }}>
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0 1px, transparent 1px 13px), " +
+                    "repeating-linear-gradient(0deg, #3f3f46 0 6px, #2f2f35 6px 12px)",
+                  border: "1px solid rgba(0,0,0,0.4)",
+                  borderRadius: 2,
+                  transform: "translateZ(1px)",
+                }}
+              />
+            </div>
+          );
+        });
+      })()}
       {twin && (() => {
         const left = slotPos(twin[0].slot).x + twin[0].w;
         const width = slotPos(twin[1].slot).x - left;
