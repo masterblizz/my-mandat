@@ -23,6 +23,8 @@ import {
   TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour,
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
+import { PostFX } from "./postfx";
+import { defaultQualityForGridSize } from "./quality";
 import { t, type Lang } from "../i18n/useLang";
 
 export type City3DMapGLProps = {
@@ -82,6 +84,7 @@ export default function City3DMapGL({
 
   const span = worldSize(gridSize);
   const distance = span * 0.95;
+  const quality = defaultQualityForGridSize(gridSize);
 
   const applyFitZoom = useCallback(() => {
     const w = hudRef.current?.clientWidth ?? 900;
@@ -135,7 +138,7 @@ export default function City3DMapGL({
       <Canvas
         shadows
         dpr={[1, 2]}
-        gl={{ antialias: true, toneMappingExposure: 1.15 }}
+        gl={{ antialias: true, toneMappingExposure: 1.15, preserveDrawingBuffer: true }}
         style={{ position: "absolute", inset: 0 }}
         camera={{ position: [distance, distance, distance], fov: 35, near: 1, far: 40000 }}
         onCreated={({ camera }) => {
@@ -163,6 +166,7 @@ export default function City3DMapGL({
           hudRef={hudRef}
           onPerf={showPerf ? setPerf : undefined}
         />
+        <PostFX tod={tod} quality={quality} />
       </Canvas>
 
       {/* score legend (top-left) — hidden when the container is phone-narrow */}

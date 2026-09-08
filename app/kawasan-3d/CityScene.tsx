@@ -5,7 +5,7 @@
 // rig, and an optional dev perf probe. Shared by the /kawasan-3d sandbox
 // harness (Scene.tsx) and the drop-in City3DMapGL.
 
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { CameraRig, type CamState } from "./CameraRig";
 import {
@@ -134,21 +134,44 @@ function Buildings({
 
 function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
   const gl = useThree((s) => s.gl);
-  const acc = useRef({ frames: 0, t: performance.now() });
+  const acc = useRef({ frames: 0, t: performance.now(), calls: 0, tris: 0 });
+
+  // Phase E note: once PostFX's <EffectComposer> is mounted (r3f render
+  // priority 1), it becomes the thing calling gl.render() each frame —
+  // possibly several times, once per internal pass (scene pass, each
+  // effect pass, ...). Three resets gl.info.render at the START of every
+  // individual render() call, so by default this probe would only ever
+  // see the LAST pass's tiny numbers (a full-screen composite quad: 1
+  // draw, ~0 triangles) instead of the frame's real cost. Fix: disable
+  // autoReset once, run this probe at a HIGHER priority so it executes
+  // after the composer has finished all of this frame's passes, read the
+  // now-accumulated totals, then reset manually for the next frame.
+  useEffect(() => {
+    gl.info.autoReset = false;
+    return () => {
+      gl.info.autoReset = true;
+    };
+  }, [gl]);
+
   useFrame(() => {
+    acc.current.calls += gl.info.render.calls;
+    acc.current.tris += gl.info.render.triangles;
+    gl.info.reset();
     acc.current.frames++;
     const now = performance.now();
     const dt = now - acc.current.t;
     if (dt >= 500) {
       onSample({
         fps: Math.round((acc.current.frames * 1000) / dt),
-        calls: gl.info.render.calls,
-        tris: gl.info.render.triangles,
+        calls: Math.round(acc.current.calls / acc.current.frames),
+        tris: Math.round(acc.current.tris / acc.current.frames),
       });
       acc.current.frames = 0;
+      acc.current.calls = 0;
+      acc.current.tris = 0;
       acc.current.t = now;
     }
-  });
+  }, 2); // after PostFX's EffectComposer (priority 1)
   return null;
 }
 

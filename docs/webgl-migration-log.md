@@ -399,3 +399,121 @@ across every tile of that type, so blade *count* is free — always exactly
 signal and both moved by exactly the predicted amount.
 
 Committed as: `feat(kawasan-3d): Phase D instanced vegetation wind sway`.
+
+**Side discovery while starting Phase E**: `package.json`/
+`package-lock.json` had `three`, `@react-three/fiber`, `@react-three/drei`
+sitting as uncommitted changes this whole time (installed alongside
+`app/kawasan-3d` in whatever prior session built it, never committed).
+Every commit so far in this log was quietly relying on those being
+present in `node_modules` without being declared in the committed
+manifest — a fresh `npm ci` would have failed on missing modules despite
+the committed source already importing them. Checked the diff was scoped
+to exactly those packages (confirmed — nothing unrelated riding along)
+and committed it as `fix(kawasan-3d): commit the three/r3f/drei/
+postprocessing deps`, bundled with this phase's actual new dependency
+(`@react-three/postprocessing`) since both needed the same fix.
+
+**What was built**: `app/kawasan-3d/postfx.tsx` — an `<EffectComposer>`
+(from `@react-three/postprocessing@2.19.1`, pinned exact rather than `^`,
+since the current `3.x` line requires fiber >=9/react 19 and would break
+this repo) added alongside `<CityScene>` inside the existing `<Canvas>`:
+
+- **Bloom**: intensity and luminance threshold both driven by
+  `TOD_ENV[tod].winLit + .lamp` (the same day/dusk/night gate already
+  used for lit-window and street-lamp emissive intensity) — day stays
+  near-threshold-free (high threshold, low intensity) since a bright sky
+  has nothing worth blooming, dusk/night lower the threshold and raise
+  intensity so the existing emissive windows/lamps pick up an actual
+  glow halo instead of just being a flat bright colour.
+- **ToneMapping**: ACES Filmic via the `postprocessing` library's own
+  `ToneMapping` effect, replacing the Canvas's bare
+  `toneMappingExposure` tweak as the sole tone control.
+- **SSAO (N8AO)**: gated behind `quality === "high"` from the new
+  `quality.ts` scaffold (see below) — **not** shipped unconditionally.
+  `defaultQualityForGridSize` currently maps Rural/Semi-urban → "high"
+  (SSAO on), Metro → "medium", Dense metro → "low" (SSAO off at the two
+  densities that matter most for the perf ceiling).
+- `quality.ts` was introduced now (a Phase F concept) specifically
+  because Phase E's SSAO needed a real gate on day one rather than a
+  throwaway boolean Phase F would have to rip out; it currently only
+  drives this one on/off switch; Phase F extends it to shadow resolution
+  and foliage density and re-validates the tier thresholds against
+  fuller measurements.
+
+**Two real bugs found and fixed while verifying this phase** (both via
+the same discipline: don't trust a single "looks fine" signal, cross-check
+draw-call/triangle telemetry against actual screenshots):
+
+1. **Perf HUD was silently reporting garbage the instant PostFX mounted.**
+   `EffectComposer` renders at r3f priority 1, which also makes it the
+   sole thing calling `gl.render()` each frame (r3f defers its own
+   auto-render once any priority > 0 callback exists) — and it does so
+   several times per frame, once per internal pass. Three.js resets
+   `gl.info.render` at the start of *every individual* `render()` call,
+   so `PerfProbe` (previously priority-0, reading `gl.info` with no
+   coordination) was only ever seeing the LAST pass's numbers — a
+   full-screen composite quad, reported as "1 draw, 0 triangles"
+   regardless of actual scene complexity. Fixed by setting
+   `gl.info.autoReset = false` and moving `PerfProbe` to priority 2 (runs
+   after PostFX), so it now reads the frame's *accumulated* total across
+   every pass, then manually resets for the next frame. Caught this
+   because the very first Phase E screenshot's HUD read "1 draws" and
+   that number was obviously wrong for a rendered city, not because the
+   number was merely different — a genuinely-lower draw count from an
+   optimization would have looked plausible and been easy to miss.
+2. **Screenshots came back completely blank for 2 of the 4 densities**,
+   alternating (Rural blank, Semi-urban fine, Metro blank, Dense fine) —
+   the SAME densities across two independent re-runs, but the *content*
+   (draw calls / triangle counts read from `gl.info`, which — per bug #1's
+   fix — genuinely reflect what was drawn) was identical and correct both
+   times. That ruled out an actual rendering failure and pointed at
+   readback: this `<Canvas>` never set `preserveDrawingBuffer`, which is
+   fine for continuous rendering (the browser can freely discard the
+   backbuffer between frames) but is a known gotcha for anything that
+   reads the canvas back at an arbitrary moment — a screenshot, `.toBlob()`,
+   Playwright's CDP capture. This never surfaced in Phases A-D because
+   nothing was compositing through an extra render-target blit; once
+   PostFX's final pass started doing that blit-to-canvas, the window in
+   which a readback could catch an already-cleared buffer became real.
+   Fixed with `preserveDrawingBuffer: true` on the Canvas's `gl` prop.
+   This is worth having correct for more than my own test harness — the
+   GDD's improvement-suggestions doc mentions "no share/leaderboard" as a
+   gap, and any future "share your city" screenshot feature would hit
+   this exact bug the moment it shipped alongside post-processing.
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean.
+- Playwright screenshots at all 4 densities, re-verified AFTER both
+  fixes above: all four render correctly, bloom/tone-mapping visible as
+  a subtle glow/filmic-contrast shift, no z-fighting, no missing
+  geometry, no camera clipping.
+- Reproducibility check: ran the full 4-density pass twice before
+  diagnosing the blank-screenshot bug; identical draws/triangles both
+  times at every density, which is what let me conclude the renderer was
+  fine and the bug was in readback timing, not rendering.
+- Draw calls rose ~40-48 at every density (adding a fixed-size
+  post-processing pass chain: Bloom's mip-blur chain + ToneMapping +,
+  where active, N8AO) and triangles rose ~50-65% proportionally across
+  all four densities. I did not fully root-cause the exact source inside
+  `postprocessing`/`n8ao`'s internals of why triangles rose by that much
+  even at the two densities with SSAO off (a few full-screen quads alone
+  wouldn't explain thousands of extra triangles) — flagging this
+  explicitly as unresolved rather than asserting a cause I didn't verify.
+  What I did verify directly: the increase is consistent across two
+  independent runs, screenshots show no visual artifacts from it, and
+  fps did not measurably drop at Dense metro (7 vs. Phase D's 5, within
+  this environment's noise band) — so there's no evidence of a real
+  regression, just an honestly-reported open question about where the
+  extra triangle throughput comes from.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 9 | 114 | 6.4k |
+| Semi-urban 8×8 | 8 | 146 | 11.3k |
+| Metro 10×10 | 7 | 208 | 21.7k |
+| Dense metro 12×12 | 7 | 255 | 36.7k |
+
+\*SwiftShader — see caveat at top of log.
+
+Committed as: `feat(kawasan-3d): Phase E post-processing (bloom, tone
+mapping, tiered SSAO)`.
