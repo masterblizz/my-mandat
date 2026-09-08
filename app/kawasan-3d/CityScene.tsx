@@ -18,6 +18,7 @@ import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
+import { Trees } from "./trees";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -236,6 +237,7 @@ function Grid({
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} />
+      <Trees placed={placed} empties={empties} traits={traits} />
       {placed.map(({ zone, cx, cz }) => (
         <ZoneTile
           key={zone.id}

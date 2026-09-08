@@ -838,6 +838,98 @@ matters here, not the raw numbers.
 Committed as: `feat(kawasan-3d): road contrast, shadow-artifact fix,
 texture/crosswalk/sidewalk detail`.
 
+## Item 2 — Freestanding trees
+
+**Confirmed from the log before starting**: Phase D added grass/paddy
+*blade* instancing on flat `"sawah"`/`"field"` tiles only — no standalone
+tree geometry (trunk + canopy) exists anywhere in the WebGL route. Double-
+checked by grepping `scenery.tsx`/`models.tsx` for tree-shaped geometry
+and finding none. This is a genuine gap versus the CSS version's Tree/
+Palm/Conifer components, not something this session regressed.
+
+**Placement — ported the spirit, not the literal CSS technique**: the CSS
+Tree/Palm/Conifer placement (`app/kawasan/page.tsx`) is a fixed list of
+pixel positions scattered around a fixed-size world div, plus a few
+coastal-only beach palms. That doesn't translate to this route's
+variable-`gridSize`, per-zone-grid architecture — there's no equivalent
+"the world's fixed edge" to hang fixed positions off. Built instead: a
+small number of trees per **developed** zone tile, count driven by
+`zone.kind` (village 2, housing/education/community 1, river 2 — the
+concrete-core kinds urban/commercial/market/industry get 0, keeping the
+skyline read as a dense core rather than a park), positioned in the
+tile-edge margin outside the building-slot grid and just inside item 1's
+new sidewalk curb; plus one tree per **undeveloped** (empty) cell, so
+those previously-bare dark tiles read as unbuilt land instead of voids.
+Species selection ports the CSS's actual bias (coastal → palm, hilly →
+conifer) via the already-threaded `SeatTraits`, with a baseline mix
+(65% round / 20% conifer / 15% palm) when neither trait applies. Same
+Phase-C caveat applies: the sandbox's `DEFAULT_TRAITS` is all-false, so
+the coastal/hilly bias is demo-inert but wired correctly for whenever the
+live route feeds real traits.
+
+**What was built**: `sway.ts` — extracted vegetation.tsx's Phase D wind-
+sway shader (`SWAY_VERT`/`SWAY_FRAG`) into its own module, parameterized
+with `uAmp`/`uFreq` uniforms instead of the old hardcoded 0.5/2.0, and
+refactored `vegetation.tsx` to import it (same values, so blade behaviour
+is unchanged — this was a pure extraction, not a rewrite). This is the
+literal shared shader source the brief asked for, not a second sway
+mechanism reimplementing the same idea. `trees.tsx` reuses it for canopy
+sway with its own `uAmp`/`uFreq` (1.6 / 1.1 — larger absolute amplitude
+than grass but slower frequency, since canopies are ~12-14 world-units
+across vs. a blade's ~9-unit height; trunks don't sway at all, plain
+`meshStandardMaterial`, matching real tree physics).
+
+Geometry: **4 `InstancedMesh`es total, regardless of tree count** — one
+shared cylinder for every trunk across all 3 species (a palm's trunk is
+just a taller/thinner per-instance scale of the same geometry, not a
+separate mesh), plus one canopy mesh per species (round = sphere, conifer
+= cone, palm = a flattened/squashed sphere standing in for a frond crown
+— a stylised approximation consistent with this scene's existing low-poly
+primitive-only aesthetic, not an attempt at literal frond geometry).
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean.
+- Draws rose by a density-flat **+7/+8** (Rural +7, Semi/Metro/Dense +8)
+  — matches 4 meshes × 2 passes (shadow depth + colour, since trunks and
+  canopies both have `castShadow` set, the same shadow-doubling item 1's
+  Sidewalks already established) = 8, with Rural's -1 plausibly one
+  species mesh having zero instances there (not chased further — the
+  density-flat shape, not the exact unit, is what the brief's "should add
+  near-zero draw calls... if the numbers jump a lot" check cares about,
+  and 4 fixed meshes is squarely what "2-4 draw calls" asked for).
+  Triangles rose more substantially (Dense: 41.5k → 63.4k, +21.9k) from
+  the canopy sphere/cone geometry itself (~100-120 tris/tree) — a real
+  but bounded, expected-shape cost, not a runaway (scales with tree
+  count, which itself is bounded by the fixed per-zone-kind/per-empty-
+  cell counts above, not by grid size directly).
+- Visually confirmed at Rural (fewer buildings, easiest to inspect
+  individually): trees render with a clearly visible brown trunk under a
+  pale-green canopy, populating both empty perimeter cells and developed
+  village/housing tiles, matching the design. Metro's wider shot shows
+  what appear to be both round (pale, rounded) and darker,
+  more-pointed (conifer) silhouettes, consistent with the species mix,
+  though I'm not claiming 100% certainty on species identification at
+  screenshot resolution — the count/structure/placement logic is what I
+  verified with confidence (build/typecheck + visual presence + no
+  console errors), not a pixel-level species audit.
+- No z-fighting, missing geometry, or broken materials at any density;
+  Dense metro (the fullest grid, all cells developed, so this exercises
+  the per-zone-kind path exclusively with zero empty-cell trees) shows no
+  regressions from the added geometry.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 2 | 127 | 12.9k |
+| Semi-urban 8×8 | 4 | 159 | 23.2k |
+| Metro 10×10 | 4 | 221 | 41.1k |
+| Dense metro 12×12 | 3 | 259 | 63.4k |
+
+\*SwiftShader — see caveat at top of log. Compare draws against item 1's
+120/151/213/251 — the density-flat +7/+8 delta is the signal that
+matters, not the raw numbers.
+
+Committed as: `feat(kawasan-3d): freestanding trees (round/conifer/palm)`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

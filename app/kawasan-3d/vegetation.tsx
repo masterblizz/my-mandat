@@ -21,6 +21,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BuildingInstance } from "./models";
+import { SWAY_VERT, SWAY_FRAG } from "./sway";
 
 const BLADES_PER_TILE = 14;
 const BLADE_W = 3.2;
@@ -47,28 +48,6 @@ function rngFrom(seed: number) {
   return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 }
 
-const VERT = /* glsl */ `
-  uniform float uTime;
-  varying float vT;
-  void main() {
-    vT = position.y + 0.5; // geometry is a centred unit plane -> 0 at base, 1 at tip
-    vec3 pos = position;
-    vec3 instOrigin = instanceMatrix[3].xyz; // per-instance world-ish position, for phase offset
-    float phase = instOrigin.x * 0.15 + instOrigin.z * 0.15;
-    pos.x += sin(uTime * 2.0 + phase) * 0.5 * vT;
-    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(pos, 1.0);
-  }
-`;
-const FRAG = /* glsl */ `
-  precision mediump float;
-  uniform vec3 uColorBase;
-  uniform vec3 uColorTip;
-  varying float vT;
-  void main() {
-    gl_FragColor = vec4(mix(uColorBase, uColorTip, vT), 1.0);
-  }
-`;
-
 export function Vegetation({
   items, groundY, type, density = 1,
 }: {
@@ -87,6 +66,8 @@ export function Vegetation({
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
+      uAmp: { value: 0.5 },
+      uFreq: { value: 2.0 },
       uColorBase: { value: new THREE.Color(colors.base) },
       uColorTip: { value: new THREE.Color(colors.tip) },
     }),
@@ -131,8 +112,8 @@ export function Vegetation({
     >
       <planeGeometry args={[1, 1]} />
       <shaderMaterial
-        vertexShader={VERT}
-        fragmentShader={FRAG}
+        vertexShader={SWAY_VERT}
+        fragmentShader={SWAY_FRAG}
         uniforms={uniforms}
         side={THREE.DoubleSide}
       />
