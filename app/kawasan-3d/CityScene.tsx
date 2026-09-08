@@ -20,6 +20,9 @@ import { Crosswalks, Sidewalks } from "./roadDetail";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
+import {
+  isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
+} from "./ground";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -46,13 +49,18 @@ const ROAD_COLOR = "#5a6270";
 export type PerfSample = { fps: number; calls: number; tris: number };
 
 function ZoneTile({
-  zone, cx, cz, selected, onSelect,
+  zone, cx, cz, seed, selected, onSelect,
 }: {
-  zone: Zone; cx: number; cz: number; selected: boolean; onSelect: (id: string) => void;
+  zone: Zone; cx: number; cz: number; seed: number; selected: boolean; onSelect: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const gl = useThree((s) => s.gl);
   const setCursor = (c: string) => { gl.domElement.style.cursor = c; };
+  const grass = isGrassKind(zone.kind);
+  // One shared noise texture, cloned per tile (see ground.ts) — memoised
+  // so a hover/select re-render doesn't rebuild it, disposed on unmount.
+  const grassTex = useMemo(() => (grass ? grassTextureFor(seed) : null), [grass, seed]);
+  useEffect(() => () => grassTex?.dispose(), [grassTex]);
   return (
     <mesh
       position={[cx, TILE_H / 2, cz]}
@@ -63,10 +71,25 @@ function ZoneTile({
     >
       <boxGeometry args={[PLOT, TILE_H, PLOT]} />
       <meshStandardMaterial
-        color={zoneGroundColor(zone.kind)}
+        color={grass ? grassColor(zone.kind, seed) : zoneGroundColor(zone.kind)}
+        map={grassTex}
+        roughness={grass ? 0.95 : 1}
         emissive={selected ? "#7dd3fc" : hovered ? "#1e293b" : "#000000"}
         emissiveIntensity={selected ? 0.5 : hovered ? 0.6 : 0}
       />
+    </mesh>
+  );
+}
+
+// Undeveloped cell: drier scrub grass instead of the old flat navy plane,
+// same one-shared-texture-cloned-per-tile treatment as the grass ZoneTiles.
+function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
+  const tex = useMemo(() => grassTextureFor(seed), [seed]);
+  useEffect(() => () => tex.dispose(), [tex]);
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.4, cz]} receiveShadow>
+      <planeGeometry args={[PLOT - 16, PLOT - 16]} />
+      <meshStandardMaterial color={undevelopedGrassColor(seed)} map={tex} roughness={1} />
     </mesh>
   );
 }
@@ -228,10 +251,7 @@ function Grid({
   return (
     <group>
       {empties.map(({ col, row, cx, cz }) => (
-        <mesh key={`e${col}-${row}`} rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.4, cz]}>
-          <planeGeometry args={[PLOT - 16, PLOT - 16]} />
-          <meshStandardMaterial color="#141b26" />
-        </mesh>
+        <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} />
       ))}
       {vRoads.map((x, i) => (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
@@ -248,12 +268,13 @@ function Grid({
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} />
       <Trees placed={placed} empties={empties} traits={traits} />
-      {placed.map(({ zone, cx, cz }) => (
+      {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
           key={zone.id}
           zone={zone}
           cx={cx}
           cz={cz}
+          seed={col * 1000 + row + 1}
           selected={zone.id === selectedId}
           onSelect={onSelect}
         />

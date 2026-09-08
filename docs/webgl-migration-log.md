@@ -1138,6 +1138,81 @@ the bright side of the intended aesthetic rather than wrong.
 Committed as: `feat(kawasan-3d): lit-window emissive maps for procedural
 buildings`.
 
+## Item 6 — Ground / grass colour and variation (task part A)
+
+New three-part brief (A ground/grass, B multi-cell footprints, C
+roundabout), done in order with a commit + harness pass per part. This
+is part A.
+
+### What was wrong, and what changed
+
+The zone-tile ground colours (`zoneGroundColor()`, `cityData.ts`) are the
+darker stop of each CSS gradient — `housing` `#1d2a24`, `village`
+`#17331d`, `education`/`community` `#132a24` — which under this scene's
+lighting read as flat dark olive/navy, not grass. New `ground.ts`:
+
+- `isGrassKind()` — only `housing` / `village` / `education` / `community`
+  get grass. `urban` / `commercial` / `market` / `industry` / `river`
+  keep their existing `zoneGroundColor()` value untouched (the legend and
+  the minimap score coding read against those per-kind hues — flattening
+  them was explicitly out of scope).
+- `grassColor(kind, seed)` — a brighter natural-lawn green per kind
+  (`#3f5a36`..`#47613c`), plus a small deterministic per-tile HSL jitter
+  so neighbouring lawns differ tile-to-tile.
+- `undevelopedGrassColor(seed)` — the empty cells (was a flat `#141b26`
+  navy plane) become a drier, slightly yellow-green scrub so unbuilt land
+  still reads distinct from a kept lawn.
+- One shared 128² canvas noise texture (`roadTexture.ts` / `windows.ts`
+  cache idiom — mid-grey base so it multiplies the colour ±~18%, a few
+  big soft wrapped blobs + fine speckle), `grassTextureFor(seed)` hands
+  out a `.clone()` per tile with a deterministic quarter-turn
+  rotation / offset / repeat so the mottle doesn't visibly tile.
+
+Wired into `CityScene.tsx`: `ZoneTile` picks grass vs palette colour and
+attaches the cloned texture as `map` for grass kinds; the empty-cell
+plane is now an `<EmptyCell>` with the same treatment. Both `useMemo` the
+clone and dispose it on unmount. The zone tiles are already one mesh
+each (they carry hover/select state) and empty cells were already one
+mesh each, so **nothing here adds a draw call or a triangle**.
+
+### On the score-tint compositing the brief asked about
+
+The brief flagged that the BAIK/SEDERHANA/KRITIKAL score tint
+"presumably" tints these same tiles and needs to compose with the grass
+rather than fight it. Checked: in the current WebGL build the score tint
+(`scoreTint()`, `City3DMapGL.tsx`) is applied **only to the minimap
+cells** — the 3D `ZoneTile` material has never carried it (its only
+non-base term is the cyan selected / grey hover emissive). So there is
+no compositing conflict to resolve today. The grass is nonetheless
+layered so a future 3D score tint would drop in cleanly: base grass
+`color` × noise `map` as the ground, leaving `emissive` (or a second
+colour multiply) free for the tint. Noted here rather than silently
+skipped.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, draws 165 / 197 / 259 / 301 and triangles 13.5 / 24.6 / 44.7 /
+70.7 k — identical to item 5 (±1 draw of SwiftShader noise), confirming
+the zero-cost claim. Visually (day, Metro + Rural): the residential /
+village / school / community tiles now read as distinct mottled green
+lawns, each a slightly different shade, with the empty cells a drier
+khaki-green; the commercial / industrial / urban / river tiles are
+unchanged dark palette, so the zone-kind coding still holds; the minimap
+score tint is unaffected. No z-fighting.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 8 | 165 | 13.5k |
+| Semi-urban 8×8 | 6 | 197 | 24.6k |
+| Metro 10×10 | 10 | 259 | 44.7k |
+| Dense metro 12×12 | 3 | 301 | 70.7k |
+
+\*SwiftShader — noise, see caveat at top.
+
+Committed as: `feat(kawasan-3d): grass tone + patchy variation for green
+zone kinds`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
