@@ -335,3 +335,67 @@ texture for all of them.
 signal here; both track the expected box→water swap exactly.
 
 Committed as: `feat(kawasan-3d): Phase C water shader for pond tiles`.
+
+## Phase D — Vegetation wind sway
+
+**What was built**: `app/kawasan-3d/vegetation.tsx` — instanced grass
+blades for "field" tiles and paddy blades for "sawah" tiles, layered ON
+TOP of the existing flat colour box for that tile (the box still reads as
+the paddy floor / turf underneath; blades are new detail, not a
+replacement — chosen specifically to keep this phase additive with zero
+risk to the already-working flat-tile rendering). Same cost shape as
+Phase C: one `InstancedMesh` per ground-cover type covering every blade
+across every tile of that type, so blade *count* is free — always exactly
+1 draw call per type regardless of how many sawah/field tiles exist.
+
+- Wind sway is computed **per-vertex** off one shared `uTime` uniform:
+  `pos.x += sin(uTime * 2.0 + phase) * 0.5 * heightFraction`, where
+  `heightFraction` is 0 at the blade base and 1 at the tip (so the base
+  stays planted and the sway grows toward the tip, the standard
+  "grass shader" trick) and `phase` comes from the instance's own
+  position (`instanceMatrix[3].xyz`) so the sway reads as a wave passing
+  across the field rather than every blade bobbing in lockstep. The CPU
+  sets each blade's transform once at layout and never touches it again
+  — the only per-frame cost is one uniform update.
+- Deliberately capped each blade's random Y-rotation to a small ±0.3 rad
+  jitter instead of a full 0..2π spread. Sway is applied in the blade's
+  *local* space before the instance's rotation is applied, so a blade
+  rotated further from "upright" would sway in a more different-looking
+  direction — small rotation jitter keeps enough organic variation to
+  not look stamped, while keeping the sway direction visually coherent
+  across a whole field. (A fully general solution — applying sway in
+  world space after the instance transform — was possible but added a
+  second matrix-math path alongside Phase C's convention for no visible
+  benefit given the jitter is already small; not worth the extra
+  complexity here.)
+- Exposed a `density` prop (0..1, defaults to 1, scales blades-per-tile)
+  specifically so Phase F can gate foliage density by quality tier
+  without touching this file again.
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean.
+- Playwright screenshots at all 4 densities confirm the intended visual
+  change directly (unlike Phase C's water, which I couldn't visually
+  pick out of a wide shot) — the Rural screenshot clearly shows small
+  green blade specks scattered across what were previously flat solid
+  green rectangles; Dense metro shows the same with no z-fighting,
+  missing geometry, broken materials, or camera clipping.
+- Draw calls rose by exactly **+2** at every density (73→75 Rural,
+  105→107 Semi-urban, 161→163 Metro, 207→209 Dense metro) — exactly the
+  expected +1 for the sawah InstancedMesh and +1 for the field
+  InstancedMesh, confirming the "cost is O(1) draw calls regardless of
+  tile count" design held in practice, not just in theory. Triangles
+  rose by a modest, expected amount (19.6k→22.3k at Dense metro, +2.7k)
+  from the added blade geometry.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 2 | 75 | 4.2k |
+| Semi-urban 8×8 | 4 | 107 | 7.2k |
+| Metro 10×10 | 6 | 163 | 13.4k |
+| Dense metro 12×12 | 5 | 209 | 22.3k |
+
+\*SwiftShader — see caveat at top of log; draws/tris are the trustworthy
+signal and both moved by exactly the predicted amount.
+
+Committed as: `feat(kawasan-3d): Phase D instanced vegetation wind sway`.

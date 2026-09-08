@@ -15,6 +15,7 @@ import {
   CityEnvironment, StreetLamps, Traffic, Lrt, ZoneBeacon, type Weather,
 } from "./scenery";
 import { WaterPatches } from "./water";
+import { Vegetation } from "./vegetation";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
@@ -94,7 +95,18 @@ function Buildings({
         const color = BUILDING_COLOR[type];
         const variantUrls = available.get(type);
         if (!variantUrls?.length) {
-          return <InstancedBoxes key={`${type}-box`} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />;
+          const box = <InstancedBoxes key={`${type}-box`} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />;
+          if (type === "sawah" || type === "field") {
+            // Blades sit ON TOP of the flat ground box (still the paddy
+            // floor / turf colour underneath), not instead of it.
+            return (
+              <group key={`${type}-group`}>
+                {box}
+                <Vegetation items={items} groundY={GROUND_Y + FLAT_BOX_H} type={type} />
+              </group>
+            );
+          }
+          return box;
         }
         // Split into one bucket per variant — InstancedMesh needs a single
         // geometry, so each (type, variant) pair gets its own instanced
