@@ -7,12 +7,13 @@
 // single-track road carries no markings; dense metro gets a 3-lane
 // boulevard with a median), yellow dashed dividers, light curb edges.
 //
-// NOTE: there was no existing canvas-texture pattern in the WebGL route to
-// reuse here — the "organic lit-window map" this was expected to follow
-// is a CSS-only technique (app/kawasan/page.tsx), and this route's own
-// window-lighting (models.tsx's InstancedBoxes) is a flat per-instance
-// emissive tint, not a texture. This file is the first canvas-texture
-// generator in app/kawasan-3d/.
+// NOTE: this was the first canvas-texture generator in app/kawasan-3d/ —
+// there was no existing pattern to reuse, since the CSS "organic
+// lit-window map" is a CSS-only technique and this route's original
+// window-lighting (models.tsx's InstancedBoxes) was a flat per-instance
+// emissive tint. windows.ts later ported that lit-window map here as a
+// real emissiveMap for the procedural buildings, following this file's
+// module-level canvas cache + CanvasTexture idiom.
 
 import * as THREE from "three";
 

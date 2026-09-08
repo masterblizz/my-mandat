@@ -1052,6 +1052,92 @@ clean perf shape, and zero console errors.
 Committed as: `feat(kawasan-3d): procedural gable-roof / setback building
 detail`.
 
+## Item 5 — Window lights ("more detail and polish")
+
+A follow-on polish pass after the 4-item list, not part of the original
+brief. The single biggest remaining gap between the WebGL night scene and
+both the CSS route and a real city: buildings had no windows. At
+dusk/night they got a flat whole-body emissive tint (`InstancedBoxes`'
+`winLit` param, and item 4's procedural material carried the same idea) —
+a building-shaped glow, not a tower with a mixed occupied/dark floor
+grid. `roadTexture.ts`'s own header even flagged this ("this route's
+window-lighting is a flat per-instance emissive tint, not a texture").
+
+### What it is
+
+New `windows.ts`: a canvas → `CanvasTexture` emissiveMap, one per
+`(type, variant)`, following `roadTexture.ts`'s module-level-cache +
+`CanvasTexture` idiom (the first canvas-texture generator this route
+grew). It is the texture port of the CSS route's `litWindowMap`
+(`app/kawasan/page.tsx`) — same deterministic LCG walk and the same
+multiplier/increment/mask constants, seeded off `(type, variant)`, ~40%
+of cells lit, in the CSS version's exact warm `rgb(255,206,120)` — drawn
+near-black everywhere else (emissiveMap multiplies `emissive`, so black =
+no contribution) with a soft halo so the Phase E bloom has something to
+catch. `wrapT` + a per-type `repeat.y` tiles the floor grid up tall
+walls (skyscraper 6×, house 1×).
+
+Wired into `procedural.tsx` (the types that matter most for a skyline —
+tower / skyscraper / shophouse and house / terrace / kampung — all route
+through there now). The wall material gets the emissiveMap; its
+`emissiveIntensity` starts at 0 and is driven by `winLit` in an effect,
+so **daytime is byte-for-byte unchanged** (verified — see below) and a
+TOD toggle doesn't rebuild materials. Gain is higher for the setback
+towers (crisp bright grid) than the domestic gable types (gentler
+lived-in glow).
+
+### The draw-call regression, and the fix
+
+First attempt split every box into 6 per-face geometry groups so only the
+vertical faces would be windowed (no glowing roof deck / gable slope).
+three emits **one draw call per group even when adjacent groups share a
+material**, so draws exploded: Rural 148 → 387, Dense 283 → 589
+(~+250 across the board — density-flat but a ~2.5× scene-wide blowup, well
+past item 2's "should add near-zero draw calls" bar). Fix: drop the
+per-face split. Setback templates go back to a single material for the
+whole shell — a faint window grid on a tower roof-deck reads fine as
+rooftop lights, and 1 material = 1 draw. Only the **gable roof** keeps a
+2-group split (box walls = windowed, extruded roof slope = plain), since
+a glowing pitched roof is the one genuinely wrong-looking surface and
+there are at most 9 gable InstancedMeshes. Re-run: Rural 166, Semi 197,
+Metro 259, Dense 301 — **+18 vs item 4 at every density** (the ~9 gable
+meshes' second group, ×2 for the shadow pass). Triangles unchanged
+(13.5 / 24.6 / 44.7 / 70.7 k — identical to item 4, no geometry change).
+Zero console errors.
+
+| density | fps* | draws | tris | Δdraws vs item 4 |
+|---|---|---|---|---|
+| Rural 6×6 | 1 | 166 | 13.5k | +18 |
+| Semi-urban 8×8 | 3 | 197 | 24.6k | +18 |
+| Metro 10×10 | 3 | 259 | 44.7k | +18 |
+| Dense metro 12×12 | 4 | 301 | 70.7k | +18 |
+
+\*SwiftShader — noise, see caveat at top.
+
+### Visual
+
+Night (Rural + Metro, camera dropped low and zoomed into the skyline):
+setback towers carry a full window grid climbing the shell — warm lit
+cells scattered through blue-tinted glass, the bloom catching them, and a
+visibly different pattern building to building. Gable houses show one or
+two warm windows low on the wall with the **roof slope staying dark** —
+the 2-group split doing its job — and the softer gain reads domestic
+next to the commercial towers. Plain-box civic/industrial types
+(factory, warehouse, school, …) are untouched, still dark — expected,
+they don't route through `procedural.tsx`. Day: buildings are flat solid
+colour with **no glow anywhere** (`winLit` 0 → `emissiveIntensity` 0),
+confirming zero daytime impact.
+
+Not carried further this pass: per-instance pattern variety (all
+instances in one InstancedMesh share the `(type, variant)` texture — a
+UV-offset atlas keyed off an instanced attribute is the way there);
+window lights on the plain-box civic types; the downtown-core towers
+read a touch hot once halo bleed + bloom stack on the ~40% lit base, on
+the bright side of the intended aesthetic rather than wrong.
+
+Committed as: `feat(kawasan-3d): lit-window emissive maps for procedural
+buildings`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

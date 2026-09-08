@@ -41,17 +41,36 @@
 // InstancedMesh-per-(type,variant) pattern Phase A already established
 // for GLTF models — this file adds a geometry SOURCE, not a new
 // instancing strategy.
+//
+// Detail pass: each template carries two material groups — windowed wall
+// faces + plain roof/caps — so the wall slot can take a seeded
+// lit-window emissiveMap (windows.ts, the texture port of the CSS
+// route's organic litWindowMap) that replaces the old flat whole-body
+// dusk/night glow. Intensity is gated by winLit, so daytime is unchanged
+// (emissiveIntensity 0).
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useHeightTween, InstancedBoxes, type BuildingInstance } from "./models";
+import { getWindowTexture } from "./windows";
 import { pickVariantIndex, type BType } from "./cityData";
 
 const GABLE_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
 const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse"]);
 export const PROCEDURAL_TYPES = new Set<BType>([...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES)]);
 export const PROCEDURAL_VARIANT_COUNT = 3;
+
+// Gable templates carry two geometry groups so the sloped roof can take a
+// plain material while the walls take the lit-window emissiveMap — a
+// glowing gable slope reads wrong, and it's the one clearly-wrong surface
+// (the box's own top face is hidden under the roof). Kept to exactly two
+// contiguous groups (box, then roof) so three emits 2 draws per mesh, not
+// one per face. Setback templates stay single-material: a window grid on
+// a tower roof-deck reads acceptably as rooftop lights, and one material
+// = one draw, so the tall-building path adds zero draw calls.
+const MAT_WALL = 0;
+const MAT_ROOF = 1;
 
 function stripToPositionNormalUv(g: THREE.BufferGeometry) {
   for (const attr of Object.keys(g.attributes)) {
@@ -95,8 +114,19 @@ function buildGableTemplate(riseFrac: number, wallFrac: number): THREE.BufferGeo
   const roof = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
   roof.translate(0, 0, -0.5);
 
-  const merged = mergeGeometries([stripToPositionNormalUv(wall), stripToPositionNormalUv(roof)], false);
-  return merged ?? wall;
+  // Merge WITHOUT groups, then add exactly two contiguous groups by known
+  // vertex count — the wall box first, the extruded roof second — rather
+  // than trusting mergeGeometries' own group handling (its per-input
+  // materialIndex remap has changed between three versions).
+  const wallFlat = stripToPositionNormalUv(wall);
+  const roofFlat = stripToPositionNormalUv(roof);
+  const merged = mergeGeometries([wallFlat, roofFlat], false);
+  if (!merged) { wall.clearGroups(); return wall; }
+  const wallVerts = wallFlat.getAttribute("position").count;
+  merged.clearGroups();
+  merged.addGroup(0, wallVerts, MAT_WALL);
+  merged.addGroup(wallVerts, roofFlat.getAttribute("position").count, MAT_ROOF);
+  return merged;
 }
 
 // Stacked setback: a full-footprint lower block + a narrower upper block.
@@ -106,8 +136,14 @@ function buildSetbackTemplate(lowerFrac: number, setbackFrac: number): THREE.Buf
   const upperH = 1 - lowerFrac;
   const upper = new THREE.BoxGeometry(setbackFrac, upperH, setbackFrac);
   upper.translate(0, lowerFrac + upperH / 2, 0);
-  const merged = mergeGeometries([stripToPositionNormalUv(lower), stripToPositionNormalUv(upper)], false);
-  return merged ?? lower;
+  const merged = mergeGeometries(
+    [stripToPositionNormalUv(lower), stripToPositionNormalUv(upper)],
+    false,
+  );
+  if (!merged) return lower;
+  // Single material for the whole shell — see the MAT_WALL/MAT_ROOF note.
+  merged.clearGroups();
+  return merged;
 }
 
 // variant 0/1/2 -> shallow/medium/steep pitch (gable) or subtle/medium/
@@ -193,6 +229,44 @@ function ProceduralVariant({
     }
   }, [type, variant]);
 
+  // Wall material carries the lit-window emissiveMap (windows.ts);
+  // emissiveIntensity starts at 0 and is driven by the winLit effect
+  // below so a time-of-day change doesn't rebuild materials. Gable
+  // templates have two groups (MAT_WALL, MAT_ROOF) and get a material
+  // array; setback templates are single-material.
+  const isGable = GABLE_TYPES.has(type);
+  const materials = useMemo(() => {
+    const wall = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.82,
+      emissive: new THREE.Color("#fff1d8"),
+      emissiveMap: getWindowTexture(type, variant),
+      emissiveIntensity: 0,
+    });
+    if (!isGable) return wall;
+    const roof = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(color).multiplyScalar(0.8),
+      roughness: 0.92,
+    });
+    const arr: THREE.Material[] = [];
+    arr[MAT_WALL] = wall;
+    arr[MAT_ROOF] = roof;
+    return arr;
+  }, [type, variant, color, isGable]);
+
+  useEffect(() => {
+    // Towers read best with windows clearly brighter than the wall; the
+    // domestic gable types want a gentler, lived-in glow.
+    const gain = isGable ? 0.75 : 1.3;
+    const wall = (Array.isArray(materials) ? materials[MAT_WALL] : materials) as THREE.MeshStandardMaterial;
+    wall.emissiveIntensity = winLit * gain;
+  }, [materials, winLit, isGable]);
+
+  useEffect(
+    () => () => (Array.isArray(materials) ? materials : [materials]).forEach((m) => m.dispose()),
+    [materials],
+  );
+
   const writeMatrix = (i: number, h: number) => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -226,10 +300,9 @@ function ProceduralVariant({
       ref={ref}
       key={`proc-${type}-${variant}-${items.length}`}
       args={[geometry, undefined, items.length]}
+      material={materials}
       castShadow
       receiveShadow
-    >
-      <meshStandardMaterial color={color} emissive="#ffb066" emissiveIntensity={winLit * 0.06} />
-    </instancedMesh>
+    />
   );
 }
