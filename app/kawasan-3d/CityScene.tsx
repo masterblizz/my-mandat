@@ -16,6 +16,8 @@ import {
 } from "./scenery";
 import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
+import { Crosswalks, Sidewalks } from "./roadDetail";
+import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -29,6 +31,15 @@ const TILE_H = 4;
 const ROAD_W = ROAD_GAP - PLOT;
 const GROUND_Y = TILE_H;
 const FLAT_BOX_H = 3;
+// Neutral asphalt gray, picked for contrast against every zoneGroundColor()
+// value (all cluster around luminance ~25-37) and the empty-cell ground
+// (#141b26) — this used to be #1b2331, which is within a couple of RGB
+// units of zoneGroundColor's "urban"/default (#1a2530), so roads visually
+// merged into the most common zone-tile colour. Kept TOD-independent
+// (unlike zone tiles) since real asphalt doesn't change hue with time of
+// day, only its lit brightness — and a fixed neutral colour holds contrast
+// against every TOD's zone palette by construction, not by coincidence.
+const ROAD_COLOR = "#5a6270";
 
 export type PerfSample = { fps: number; calls: number; tris: number };
 
@@ -190,6 +201,19 @@ function Grid({
   const vRoads = useMemo(() => roadsV(gridSize).map((x) => x - centre + ROAD_W / 2), [gridSize, centre]);
   const hRoads = useMemo(() => roadsH(gridSize).map((y) => y - centre + ROAD_W / 2), [gridSize, centre]);
 
+  // Cached-by-lane-count textures (see roadTexture.ts) — only the repeat
+  // needs setting per grid, since only one map/CityScene is ever mounted
+  // at a time in this app (switching density presets unmounts the old
+  // Grid before the new one renders), so mutating the shared cached
+  // texture's `.repeat` in place is safe here; a multi-instance host would
+  // need to clone instead.
+  const roadTex = useMemo(() => getRoadTextures(density), [density]);
+  useEffect(() => {
+    const rep = span / ROAD_TEXTURE_WORLD_LENGTH;
+    roadTex.vertical.repeat.set(1, rep);
+    roadTex.horizontal.repeat.set(rep, 1);
+  }, [roadTex, span]);
+
   return (
     <group>
       {empties.map(({ col, row, cx, cz }) => (
@@ -201,15 +225,17 @@ function Grid({
       {vRoads.map((x, i) => (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
           <planeGeometry args={[ROAD_W, span]} />
-          <meshStandardMaterial color="#1b2331" />
+          <meshStandardMaterial color={ROAD_COLOR} map={roadTex.vertical} />
         </mesh>
       ))}
       {hRoads.map((z, i) => (
         <mesh key={`h${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.8, z]} receiveShadow>
           <planeGeometry args={[span, ROAD_W]} />
-          <meshStandardMaterial color="#1b2331" />
+          <meshStandardMaterial color={ROAD_COLOR} map={roadTex.horizontal} />
         </mesh>
       ))}
+      <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
+      <Sidewalks placed={placed} />
       {placed.map(({ zone, cx, cz }) => (
         <ZoneTile
           key={zone.id}

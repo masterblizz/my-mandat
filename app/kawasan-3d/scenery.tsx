@@ -89,8 +89,17 @@ export function CityEnvironment({
       )}
 
       {/* perimeter ground sheet — large enough to fill the lower view so
-          the sky dome's sub-horizon half (and its stars) never shows */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]} receiveShadow>
+          the sky dome's sub-horizon half (and its stars) never shows.
+          Deliberately NOT receiveShadow: this plane is span*8 across, far
+          bigger than the directional light's shadow-camera frustum below
+          (+/-span*0.75) — sampling the shadow map beyond that frustum
+          clamps to its edge texels, which smears the city's own shadow
+          pattern outward into a field of scattered dark blobs all the way
+          to the horizon (see docs/webgl-migration-log.md). Nothing that
+          casts a shadow exists out here anyway (all buildings sit well
+          inside the frustum), so there's no real shadow information this
+          plane is supposed to be showing in the first place. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]}>
         <planeGeometry args={[span * 8, span * 8]} />
         <meshStandardMaterial color={wet ? overcast(env.ground, 0.4) : env.ground} />
       </mesh>

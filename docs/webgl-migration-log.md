@@ -632,6 +632,212 @@ post-fx cost)`.
 
 ---
 
+## Item 1 — Roads: contrast, a shadow artifact, and real road detail
+
+New session, post-Phase-F. The user gave this as a 4-item follow-up list
+(roads / trees / grass-confirmation / procedural buildings); this section
+covers item 1, which grew substantially via two follow-up messages sent
+mid-work — the log entry below reflects that arc as it actually happened
+rather than pretending it was scoped like this from the start.
+
+### 1a — Roads invisible against the ground: colour contrast, not geometry
+
+Investigated the three hypotheses in order, per the brief:
+- **Z-fighting**: road planes sit at y=0.8, empty-cell ground at y=0.4,
+  zone tiles span y=0-4, the perimeter sheet at y=-1 — all cleanly
+  separated, and roads/empty-cells don't spatially overlap (roads run in
+  the `ROAD_GAP - PLOT` gaps between plot columns, empty-cell tiles fill
+  the plot footprints themselves). No flicker observed. Ruled out.
+- **Phase C-F interference (roads accidentally getting grass, etc.)**:
+  roads are built directly in `Grid()` as their own plane meshes, entirely
+  separate from `Buildings()`/`zoneBuildings()`, which is the only place
+  `Vegetation` (Phase D) attaches to `"sawah"`/`"field"` instances. Roads
+  can't structurally receive grass. Ruled out by code inspection alone.
+- **Colour/contrast**: confirmed. Road colour was `#1b2331`; the default/
+  urban `zoneGroundColor()` (the most common zone tile colour, used by
+  `"urban"` and as the fallback) is `#1a2530` — within 1-2 RGB units per
+  channel, i.e. functionally the same colour. Since both are lit by the
+  same TOD lighting, this mismatch holds regardless of time of day (they
+  scale together). This was the actual cause.
+
+**Fix**: introduced a named `ROAD_COLOR` constant (`CityScene.tsx`) —
+`#5a6270`, a neutral asphalt gray chosen for contrast against every
+`zoneGroundColor()` value (all cluster around luminance ~25-37) and kept
+deliberately TOD-independent (real asphalt doesn't change hue with time
+of day, only its lit brightness). Verified via a before/after crop of the
+same road segment at Metro density, and again at dusk/night — roads read
+clearly as a distinct light-gray lattice in all three.
+
+### 1b — Floating-road hypothesis: investigated, disproven, real bug found instead
+
+The user's hypothesis (roads drawn across the full square grid while
+zones only populate a circular/diamond subset, leaving road segments
+suspended over ground-less space) was worth taking seriously, so I
+checked the actual generation math before touching anything:
+
+- `emptyCells()` (`cityData.ts`) loops the **full** `gridSize × gridSize`
+  square (`row < gridSize`, `col < gridSize`) and fills every cell NOT
+  occupied by a developed zone with a plain ground plane. So ground — zone
+  tile or empty-cell plane — genuinely exists everywhere within the
+  square; there is no literal hole. The "circular cluster" look in the
+  minimap is `assignZonePositions()`'s centre-outward fill order painting
+  sentiment-tinted colour in the middle and leaving perimeter cells
+  neutral gray — a colouring artifact, not a missing-ground one.
+- Road plane lengths (`span`, i.e. `worldSize(gridSize)`) are sized to
+  exactly match the square's true extent, and `roadsH`'s one extra
+  boundary line lands exactly at the last row's far edge, not past it.
+  **The hypothesis, as literally stated, does not hold** — verified by
+  reading the exact math, not just asserting it.
+
+That said, zooming the camera all the way out (past the developed
+footprint, at the user's request to check every zoom level) revealed a
+**real** bug in the same area: a field of scattered dark rectangular
+blobs fading toward the horizon, well beyond the last road line. Cropped
+in and traced it to the perimeter ground sheet (`scenery.tsx`) — a
+`span * 8` plane with `receiveShadow` set, while the directional light's
+shadow camera frustum only covers `±span * 0.75`. Shadow-map sampling
+beyond that frustum clamps to the map's edge texels (three.js's default
+wrap mode), which smears the city's own shadow pattern outward across
+the oversized plane instead of leaving it unshadowed. This is a shadow-
+sampling artifact having nothing to do with road/ground coverage, but it
+sat in exactly the region the user was looking at, which is almost
+certainly what read as "something's wrong out past the city."
+
+**Fix**: removed `receiveShadow` from the perimeter sheet. Nothing that
+casts a shadow exists that far out (every building sits well inside the
+frustum) — the plane was never displaying real shadow information, just
+sampling artifacts. Re-verified at all 4 densities, zoomed out to the
+same extent: the blob field is gone, ground reads as a clean flat colour
+past the developed grid, and the road lattice still correctly stops at
+the grid boundary (confirming 1b's disproof again from the fixed state).
+
+**Camera zoom-out cap** (requested as a secondary safety net): checked
+`CAM_CLAMP.zoom` (`cityData.ts`) — floor is 0.55. The zoom-out screenshots
+above were taken by clicking "Zoom out" 8 times, which hits that floor
+after ~4 clicks (`0.9 × 0.87⁴ ≈ 0.52`, clamped to 0.55) — so those
+screenshots already show the worst case the UI allows. At that floor the
+developed footprint still fills a comfortable majority of the frame in
+every density's screenshot. Concluded no change needed: the existing cap
+was already sensible, and the actual problem (the shadow artifact) is
+fixed at its source rather than hidden by preventing the camera from
+reaching the view where it was visible.
+
+### 1c — Real road detail: texture, crosswalks, sidewalks
+
+Read the CSS reference first, as asked (`app/kawasan/page.tsx`'s
+`laneBg()`/`.kw-road-x`/`.kw-road-y`, and the zebra-crossing + ZonePlot-
+sidewalk blocks). Two things worth flagging before the build notes:
+
+- **The "organic lit-window map" canvas-texture technique this was
+  expected to reuse doesn't exist in the WebGL route.** That technique is
+  CSS-only (`app/kawasan/page.tsx`); this route's window-lighting
+  (`models.tsx`'s `InstancedBoxes`) is a flat per-instance emissive tint,
+  not a texture. There was nothing to reuse — `roadTexture.ts` is the
+  first canvas-texture generator in `app/kawasan-3d/`.
+- **The CSS sidewalk is inset within each zone tile's own south/east
+  edge**, not added to the road gap — `ROAD_GAP (280) - PLOT (240) =
+  ROAD_W (40)` exactly, zero spare width on the road side. Reading this
+  before building saved me from putting sidewalk geometry somewhere that
+  doesn't physically have room for it in this layout.
+
+**What was built**:
+- `roadTexture.ts` — `getRoadTextures(density)` returns a `{vertical,
+  horizontal}` `CanvasTexture` pair (one canvas, one rotated 90° via
+  `.center`/`.rotation` for the other orientation, since `vRoads` and
+  `hRoads` planes have swapped width/length axes) drawn once per lane
+  count and cached. Lane count/median thresholds are copied verbatim from
+  the CSS `LANE_OFFSETS` cutoffs: 0 markings below density 0.3, 1 dashed
+  line to 0.62, 2 to 0.85, 3 with a median at ≥0.85. Base canvas is white
+  so the plane's own `ROAD_COLOR` material colour tints it (asphalt tone
+  stays a single source of truth with 1a's fix); curb strips and dashed/
+  solid lane paint are drawn in colour on top. `getCrosswalkTexture()` is
+  a second, much smaller shared texture (white stripes on transparent).
+- `roadDetail.tsx` — `Crosswalks` (one `InstancedMesh`, 2 decal instances
+  per qualifying junction — the two differ only in which local axis
+  carries the "long" scale, not by an extra rotation, sidestepping a
+  Euler-composition-order question I wasn't confident enough to reason
+  through blind) and `Sidewalks` (two `InstancedMesh`, one for every
+  developed tile's south-edge curb, one for every tile's east-edge curb).
+  Crosswalk qualification ports the CSS logic (junction borders an
+  education/community-kind zone) exactly, not just its visual result.
+- Wired into `Grid()` (`CityScene.tsx`): road planes now carry
+  `map={roadTex.vertical|horizontal}` alongside the existing `ROAD_COLOR`;
+  `<Crosswalks>`/`<Sidewalks>` added as siblings.
+- **Traffic**: did not touch `scenery.tsx`'s `Traffic` component. Its car
+  positions are computed from `ROAD_GAP`/`PLOT`/`roadsV`/`roadsH`
+  (`cityData.ts`), none of which changed this session (only road mesh
+  `material.map`/`color` changed — not geometry dimensions or the
+  position formulas) — so it's provably unaffected, not just assumed
+  fine. Confirmed no console errors across every screenshot pass in this
+  section, which would have surfaced a runtime break had one occurred.
+
+**Two real bugs found while verifying this** (same discipline as Phases
+E-F: cross-check the number against the screenshot, don't trust either
+alone):
+1. **Sidewalks were invisible** — draw calls barely moved after adding
+   them. Root cause: `Sidewalks`' two `InstancedMesh`es scale a unit
+   `boxGeometry` per-instance but never called `computeBoundingSphere()`
+   afterward, so frustum culling used the tiny default bounding sphere
+   (computed from the *unscaled* geometry) and culled the whole mesh out
+   almost everywhere. Every other per-instance-scaled `InstancedMesh` in
+   this codebase (`models.tsx`, `water.tsx`, `vegetation.tsx`) already
+   does this recompute — missed it on the first pass here. Fixed by
+   adding the same call; confirmed via draw-call delta after the fix.
+2. **A debug `console.log` I added to `Crosswalks` to diagnose #1 didn't
+   show up for two separate HMR cycles**, even after confirming no page
+   errors. Not a code bug — a repeat of the WSL `/mnt/c` file-watching
+   staleness this log has flagged before (Phase F's `.next` 500), this
+   time manifesting as "edits silently not picked up" rather than a
+   build error. Fixed by a full stop-dev/`rm -rf .next`/restart cycle,
+   after which the log line appeared immediately (36 qualifying
+   junctions at the default Metro preset). Worth restating since it's
+   now bitten this session in two different-looking ways: **when a
+   just-made edit doesn't seem to be reflected at all** (not "reflected
+   incorrectly" — just plain absent, no error either), suspect stale
+   `.next`/HMR before suspecting the edit itself.
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean.
+- Draws rose by a small, **density-independent** amount at every step —
+  the actual signature the brief asked me to watch for
+  (`draws should add near-zero ... if the numbers jump a lot, something
+  strayed from the design`): +5 (Semi-urban/Metro/Dense) to +6 (Rural).
+  This is exactly 1 (Crosswalks, when non-empty) + 2×2 (Sidewalks' two
+  `InstancedMesh`es, each rendered twice — once for the shadow-map depth
+  pass, once for the colour pass, since both have `castShadow` set) = 5,
+  matching every density but Rural's +6, which I did not chase down to
+  the exact extra unit (small enough, and consistent with the "why
+  doesn't matter, it's still O(1) not O(n)" conclusion, to not be worth
+  more time against the actual ask here). Road texturing itself added
+  **zero** extra draws, as designed (same planes, now with a `map` set).
+- Crosswalk decals and sidewalk curbs are **clearly confirmed visually**
+  — a zoomed screenshot at Metro density shows a distinct white "+"
+  decal at a qualifying junction and continuous light-gray curb strips
+  outlining every developed tile. The finer yellow lane-dash markings
+  inside the road texture were **not** clearly resolvable in SwiftShader
+  screenshots at any zoom level I tried (asphalt noise and curb strips
+  ARE visible, so the texture is being sampled — just not enough pixel
+  budget left for the thin dash detail under software rasterization).
+  Flagging this the same way Phase C flagged not being able to visually
+  pick out the water shader: relying on code review (the dash-drawing
+  logic is the same straightforward canvas 2D fillRect pattern as the
+  curb strips, which do render correctly) rather than claiming a
+  screenshot confirmation I don't actually have for that one element.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 2 | 120 | 7.1k |
+| Semi-urban 8×8 | 3 | 151 | 13.0k |
+| Metro 10×10 | 3 | 213 | 25.0k |
+| Dense metro 12×12 | 4 | 251 | 41.5k |
+
+\*SwiftShader — see caveat at top of log. Compare draws against Phase F's
+114/146/208/246 — the density-flat +5/+6 delta is the signal that
+matters here, not the raw numbers.
+
+Committed as: `feat(kawasan-3d): road contrast, shadow-artifact fix,
+texture/crosswalk/sidewalk detail`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
