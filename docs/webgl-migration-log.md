@@ -930,6 +930,28 @@ matters, not the raw numbers.
 
 Committed as: `feat(kawasan-3d): freestanding trees (round/conifer/palm)`.
 
+## Item 3 — Grass: re-verified, not rebuilt
+
+Per the brief, Phase D already built this (`vegetation.tsx`'s instanced
+grass/paddy blades on `"sawah"`/`"field"` tiles) — this item was
+verification-only, no code change, so there's nothing to commit
+separately (same "folds into the surrounding work" treatment Phase B got
+back when it turned out to need no new code).
+
+Cropped into a `"field"` tile from item 2's own Rural screenshot (already
+on disk, no new capture needed) and confirmed individual pointed blade
+shapes are clearly visible on the bright-green patch — the same
+recognisable silhouette as Phase D's original verification, sitting
+correctly alongside item 1's road/sidewalk work and item 2's new trees
+with no visible interference between any of them (the round tree in the
+same crop, item 2's addition, renders cleanly next to the grass blades
+with no z-fighting or overlap issues). **Confirmed working, not
+regressed** by anything in items 1 or 2 — `vegetation.tsx` itself was
+only touched for item 2's shader-extraction refactor (moving the sway
+GLSL into `sway.ts`), which is a pure move with the same uniform values,
+not a behavioural change, and this visual check corroborates that it
+didn't accidentally change anything.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
