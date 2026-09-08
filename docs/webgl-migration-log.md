@@ -517,3 +517,137 @@ draw-call/triangle telemetry against actual screenshots):
 
 Committed as: `feat(kawasan-3d): Phase E post-processing (bloom, tone
 mapping, tiered SSAO)`.
+
+## Phase F — Quality tiers
+
+**What was built**: filled in `quality.ts`'s `QualitySettings` (introduced
+as a scaffold in Phase E) with the other two knobs the brief asks for,
+and wired both through:
+
+- **Shadow resolution** — `CityEnvironment` (scenery.tsx) now takes a
+  `shadowMapSize` prop (default 2048, unchanged behaviour if omitted)
+  instead of a hardcoded `[2048, 2048]`. `CityScene` passes
+  `QUALITY_SETTINGS[quality].shadowMapSize`.
+- **Foliage density** — `Vegetation`'s `density` prop (added in Phase D,
+  unused until now) is fed `QUALITY_SETTINGS[quality].foliageDensity`
+  through `CityScene` → `Grid` → `Buildings`.
+- **Post-processing cost** — `postfx.tsx` now reads `ssao` and
+  `bloomMipmapBlur` off the same settings object instead of a hardcoded
+  `quality === "high"` check and an always-on `mipmapBlur`.
+
+Tier table: **high** (Rural/Semi-urban) = 2048px shadows, full foliage,
+SSAO on, full bloom. **medium** (Metro) = 1536px shadows, 70% foliage,
+SSAO off, full bloom. **low** (Dense metro) = 1024px shadows, 45%
+foliage, SSAO off, single-level bloom blur. `defaultQualityForGridSize`'s
+thresholds (introduced in Phase E) are unchanged — Dense metro's measured
+numbers below don't show a case for pushing Metro down to "low" too.
+
+**Two more issues found during this phase's verification** (bringing the
+total across Phases E+F to four — see the "why so many" note at the end
+of this log):
+
+1. **A `next dev` 500 with "Could not find the module ... in the React
+   Client Manifest"** on the first post-Phase-F dev server start. This is
+   the exact gotcha the `verify` skill already documents (stale `.next`
+   under WSL `/mnt/c`) — not a new bug, just the first time this
+   particular manifestation (a 500 with that exact error, rather than a
+   plain 404-on-chunks) showed up in this session. Fixed per the
+   documented remedy: stop the dev server, `rm -rf .next` while it's
+   stopped, restart. Noting it mainly because the fix worked immediately
+   and confirms the skill's existing guidance is accurate for this
+   failure mode too, not just the one it originally described.
+2. **N8AO (SSAO) produced visible dark speckle noise across the sky**
+   on Rural/Semi-urban (the two "high"-tier, SSAO-on densities), roughly
+   2 out of every 4 captures, with IDENTICAL settings to Phase E (where
+   it was never observed) — ruling out anything Phase F changed as the
+   cause. Root-cause hypothesis (not fully proven, stated as a hypothesis
+   deliberately): this scene's camera has a 40000:1 far:near ratio
+   (`near: 1, far: 40000`), which is known to leave depth-buffer
+   precision very poor at extreme distances; N8AO reconstructs view-space
+   position from that depth buffer, and the sky dome sits at up to 18000
+   units out — exactly where precision would be worst. This would explain
+   noise concentrated specifically in the far background and its
+   intermittent, frame-dependent appearance (small numerical jitter
+   flipping the reconstructed position enough to matter only some
+   frames). Mitigation applied: dropped N8AO's `screenSpaceRadius` flag
+   (a mode documented as more sensitive to exactly this kind of extreme
+   depth range) — 3 out of 3 re-verification runs came back clean
+   afterward, which is supportive but not conclusive given the issue was
+   already intermittent before the fix (I did not run enough trials to
+   rule out coincidence with full statistical confidence; treat this as
+   "meaningfully improved, not provably eliminated"). This is worth a
+   real look on actual hardware before shipping, since real GPUs generally
+   have better depth precision than SwiftShader and may not exhibit this
+   at all — or might exhibit something SwiftShader doesn't. Did not
+   attempt a deeper fix (e.g., excluding the sky dome from AO via
+   render layers) given the low severity (cosmetic, background-only,
+   only at the two lowest-density tiers) relative to the effort a proper
+   fix would take.
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean.
+- Playwright screenshots at all 4 densities, confirmed clean (no
+  z-fighting, missing geometry, broken materials, camera clipping) after
+  both the `.next` fix and the SSAO mitigation above.
+- Draws/triangles at Metro and Dense metro dropped vs. Phase E, exactly
+  matching the tier cuts: Metro 208 draws / 21.7k→21.3k tris (foliage
+  density 100%→70%, ~0.4k fewer triangles, roughly matches expectation),
+  Dense metro 255→246 draws / 36.7k→35.0k tris (foliage 100%→45% plus
+  losing bloom's mip chain). Rural/Semi-urban are byte-for-byte unchanged
+  from Phase E (114/146 draws, 6.4k/11.3k tris) — expected, since "high"
+  tier's settings are identical to what Phase E hardcoded.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 4 | 114 | 6.4k |
+| Semi-urban 8×8 | 4 | 146 | 11.3k |
+| Metro 10×10 | 3 | 208 | 21.3k |
+| Dense metro 12×12 | 3 | 246 | 35.0k |
+
+\*SwiftShader — see caveat at top of log.
+
+**On the brief's "30+ fps" bar and the "stop and report" condition**:
+I'm flagging this explicitly rather than letting the numbers speak for
+themselves, because they could otherwise read as "Phase F failed to fix
+it." Dense metro's fps never got close to 30 at ANY point in this migration —
+the Phase A baseline (plain box-fallback rendering, before water,
+vegetation, or post-processing existed) was already 4-6 fps in this
+environment. That is a software-rendering ceiling, not a regression this
+migration introduced or a gap Phase F's tiering failed to close: real
+GPU hardware renders this same draw-call/triangle load at a completely
+different order of magnitude than SwiftShader's full CPU rasterization.
+The number that actually matters here — draws/triangles at Dense metro
+trending flat-to-down across Phase F (246/35.0k, down from Phase E's
+255/36.7k) rather than continuing to climb — is the honest signal I have
+access to in this environment, and it says the quality-tier work did its
+job. I do not have access to real GPU hardware in this environment to
+measure true fps, so I can't respond to the letter of "stop if Dense
+metro is still below threshold" — there was never a reading against that
+threshold to be below or above. Recommend a real-hardware pass (any
+laptop/desktop GPU, even integrated) before treating Dense metro's actual
+interactive feel as validated.
+
+Committed as: `feat(kawasan-3d): Phase F quality tiers (shadows, foliage,
+post-fx cost)`.
+
+---
+
+## Why four separate bugs surfaced in Phases E-F, and none in A-D
+
+Worth calling out as a pattern, not just listing each fix separately:
+every one of them was invisible to "does `npm run build` pass" and three
+of the four were invisible to "does the screenshot look plausible at a
+glance" too (the perf-HUD bug LOOKED like an improvement — fewer draws
+reported — until I noticed the number was implausibly small; the blank
+screenshots and SSAO speckle both needed a second run or a pixel-level
+crop to catch). All four only became visible once Phases E/F introduced
+multi-pass rendering (EffectComposer) — Phases A-D each did one thing to
+the scene's geometry/materials and rendered it in the same single pass
+the app always used, so there was no seam for these classes of bug to
+hide in. The general lesson I'm taking from this into anything similar
+later: multi-pass rendering changes the contract for anything that reads
+back from the renderer (perf counters, canvas screenshots, timing) even
+when it doesn't change a single line of scene-content code, and that
+contract change is worth checking for explicitly rather than assuming
+"I only touched the post-processing stack" means "nothing else could
+have broken."

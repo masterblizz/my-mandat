@@ -165,6 +165,7 @@ export default function City3DMapGL({
           distance={distance}
           hudRef={hudRef}
           onPerf={showPerf ? setPerf : undefined}
+          quality={quality}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>

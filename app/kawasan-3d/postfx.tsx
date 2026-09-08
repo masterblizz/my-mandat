@@ -19,10 +19,11 @@
 import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import { TOD_ENV, type Tod } from "./cityData";
-import type { QualityTier } from "./quality";
+import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 
 export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
   const env = TOD_ENV[tod];
+  const settings = QUALITY_SETTINGS[quality];
   const glow = env.winLit + env.lamp; // 0 (day) .. ~1.9 (night)
   const bloomIntensity = 0.22 + glow * 0.5;
   const bloomThreshold = tod === "day" ? 0.86 : 0.5;
@@ -35,11 +36,11 @@ export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
       intensity={bloomIntensity}
       luminanceThreshold={bloomThreshold}
       luminanceSmoothing={0.3}
-      mipmapBlur
+      mipmapBlur={settings.bloomMipmapBlur}
     />,
     <ToneMapping key="tonemap" mode={ToneMappingMode.ACES_FILMIC} />,
   ];
-  if (quality === "high") {
+  if (settings.ssao) {
     effects.push(
       <N8AO
         key="ssao"
@@ -48,7 +49,6 @@ export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
         distanceFalloff={1}
         quality="performance"
         halfRes
-        screenSpaceRadius
       />,
     );
   }

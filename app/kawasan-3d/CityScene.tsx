@@ -16,6 +16,7 @@ import {
 } from "./scenery";
 import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
+import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
@@ -58,9 +59,10 @@ function ZoneTile({
 }
 
 function Buildings({
-  placed, density, traits, winLit, tod,
+  placed, density, traits, winLit, tod, foliageDensity,
 }: {
   placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number; tod: Tod;
+  foliageDensity: number;
 }) {
   const { available } = useModelAvailability();
 
@@ -102,7 +104,7 @@ function Buildings({
             return (
               <group key={`${type}-group`}>
                 {box}
-                <Vegetation items={items} groundY={GROUND_Y + FLAT_BOX_H} type={type} />
+                <Vegetation items={items} groundY={GROUND_Y + FLAT_BOX_H} type={type} density={foliageDensity} />
               </group>
             );
           }
@@ -176,10 +178,11 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 }
 
 function Grid({
-  placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod,
+  placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
+  foliageDensity: number;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -217,7 +220,7 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} />
+      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} />
     </group>
   );
 }
@@ -225,7 +228,7 @@ function Grid({
 export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
-  camRef, movedRef, distance, hudRef, onPerf,
+  camRef, movedRef, distance, hudRef, onPerf, quality,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -243,7 +246,9 @@ export function CityScene({
   distance: number;
   hudRef?: MutableRefObject<HTMLDivElement | null>;
   onPerf?: (s: PerfSample) => void;
+  quality: QualityTier;
 }) {
+  const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
   const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
   const byId = useMemo(() => {
@@ -260,7 +265,7 @@ export function CityScene({
 
   return (
     <>
-      <CityEnvironment tod={tod} span={span} weather={weather} />
+      <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
       <Grid
         placed={placed}
         zones={zones}
@@ -271,6 +276,7 @@ export function CityScene({
         selectedId={selectedId}
         onSelect={onSelect}
         tod={tod}
+        foliageDensity={qs.foliageDensity}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} />
       <Traffic gridSize={gridSize} />

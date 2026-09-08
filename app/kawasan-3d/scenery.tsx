@@ -40,9 +40,11 @@ function overcast(hex: string, amount: number) {
 
 // ── environment ─────────────────────────────────────────────────────
 export function CityEnvironment({
-  tod, span, weather = "clear",
+  tod, span, weather = "clear", shadowMapSize = 2048,
 }: {
   tod: Tod; span: number; weather?: Weather;
+  /** Phase F quality-tier knob — see quality.ts. */
+  shadowMapSize?: number;
 }) {
   const env = TOD_ENV[tod];
   const wet = weather === "rain";
@@ -117,7 +119,7 @@ export function CityEnvironment({
         color={wet ? "#c8d0da" : env.sunColor}
         intensity={sunI}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-bias={-0.0004}
         shadow-normalBias={2}
         shadow-camera-near={span * 0.2}
