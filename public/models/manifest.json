@@ -1,0 +1,4 @@
+{
+  "models": [],
+  "_comment": "List BType keys here as you add <key>.glb files in this folder (e.g. [\"house\", \"tower\"]). Use \"*\" once every MODEL_MAP entry has its base file. Keys must match app/kawasan-3d/cityData.ts MODEL_MAP. Optional variants: \"house-2\", \"house-3\" for house-2.glb / house-3.glb alongside house.glb — see README.md."
+}
