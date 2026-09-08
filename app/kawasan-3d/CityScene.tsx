@@ -19,6 +19,7 @@ import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
+import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -109,18 +110,27 @@ function Buildings({
         const color = BUILDING_COLOR[type];
         const variantUrls = available.get(type);
         if (!variantUrls?.length) {
-          const box = <InstancedBoxes key={`${type}-box`} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />;
           if (type === "sawah" || type === "field") {
             // Blades sit ON TOP of the flat ground box (still the paddy
-            // floor / turf colour underneath), not instead of it.
+            // floor / turf colour underneath), not instead of it. Flat
+            // ground-cover types never get procedural detail — a "roof"
+            // or "setback" makes no sense for a paddy tile.
             return (
               <group key={`${type}-group`}>
-                {box}
+                <InstancedBoxes items={items} groundY={GROUND_Y} color={color} winLit={winLit} />
                 <Vegetation items={items} groundY={GROUND_Y + FLAT_BOX_H} type={type} density={foliageDensity} />
               </group>
             );
           }
-          return box;
+          // Tier 2: procedural gabled-roof / setback geometry for the
+          // types that have it (see procedural.tsx), else the plain box
+          // stays the fallback — model > procedural > box.
+          if (PROCEDURAL_TYPES.has(type)) {
+            return (
+              <ProceduralBuildings key={`${type}-proc`} type={type} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />
+            );
+          }
+          return <InstancedBoxes key={`${type}-box`} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />;
         }
         // Split into one bucket per variant — InstancedMesh needs a single
         // geometry, so each (type, variant) pair gets its own instanced

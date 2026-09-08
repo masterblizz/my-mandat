@@ -102,7 +102,7 @@ export function useModelAvailability(): { ready: boolean; available: Map<BType, 
 // Keeps a per-key "current height", lerps it toward the target each frame,
 // and calls onWrite(index, currentHeight) for the dirty instances so the
 // caller can rewrite just those matrices.
-function useHeightTween(
+export function useHeightTween(
   items: BuildingInstance[],
   write: (i: number, h: number) => void,
   commit: () => void,

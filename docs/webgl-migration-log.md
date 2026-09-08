@@ -952,6 +952,106 @@ GLSL into `sway.ts`), which is a pure move with the same uniform values,
 not a behavioural change, and this visual check corroborates that it
 didn't accidentally change anything.
 
+## Item 4 — Procedural building detail
+
+The last of the 4-item follow-up list, and the one with real new code.
+Per the earlier migration notes the box fallback was "a box stand-in,
+not full CSS parity" — the biggest remaining visual gap against both the
+CSS version and a real city. This adds a middle tier between a real GLTF
+model and the plain box, so the fallback order is now **real model
+(Phase A/B) > procedural detail (`procedural.tsx`) > plain box**
+(`InstancedBoxes`, unchanged, still the last resort for every BType this
+file doesn't cover and for this file's own generation-failure path).
+
+Two shapes, both ported from the CSS version's actual technique rather
+than just its look:
+
+- **Gable roof** — `house` / `terrace` / `kampung`. The CSS `PitchedRoof`
+  derives its slope from a RISE and a HALF-WIDTH via
+  `Math.hypot(half, RIDGE_RISE)` / `atan2(RIDGE_RISE, half)`; that same
+  rise/half-width relationship is expressed here directly as the apex
+  vertex position of real 3D geometry (`buildGableTemplate`) instead of a
+  rotated flat face. One deliberate departure: the CSS adds the rise as
+  an absolute pixel height per instance, but this file's roof lives in a
+  UNIT template that each instance non-uniformly scales by its real
+  `(w, h, d)` — the same convention `InstancedBoxes` / `InstancedModel`
+  already use — so the rise is a FRACTION of unit height, not an absolute
+  amount. Ridge axis is fixed per type rather than the CSS version's
+  per-instance width-vs-depth check (these footprints only vary ~10%
+  around their base aspect via `jitterFootprint`, so one fixed axis is a
+  reasonable simplification, not a materially different building).
+- **Stacked setback** — `tower` / `skyscraper` (pronounced) + `shophouse`
+  (barely recessed, matching its real low-rise proportions): a
+  full-footprint lower block plus a narrower upper block.
+
+Variant selection reuses `pickVariantIndex` (`cityData.ts`) — the exact
+per-instance-key hash Phase A's GLTF variants use — not a second jitter
+mechanism. 3 geometry variants per type (roof pitch / setback ratio),
+each a merged unit-size `BufferGeometry` shared by one InstancedMesh per
+`(type, variant)`, the same InstancedMesh-per-`(type,variant)` pattern
+Phase A established for GLTF. This adds a geometry SOURCE, not a new
+instancing strategy. `useHeightTween` (was module-private in
+`models.tsx`) is now exported so the grow tween is shared, not
+reimplemented.
+
+### Bug the harness caught: silent `mergeGeometries` failure on the gable types
+
+First harness run came back with **9 identical console errors** —
+`THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at
+index 1 ... make sure index attribute exists among all geometries, or in
+none of them`. Cause: `BoxGeometry` (the wall) is indexed, the roof's
+`ExtrudeGeometry` is not, and `mergeGeometries` requires every input to
+agree. On failure `buildGableTemplate` returned `merged ?? wall`, i.e.
+**the gable types silently rendered as a roofless box** — the setback
+types (two `BoxGeometry`, both indexed) were unaffected. This was
+invisible to `npm run build`, `tsc`, and `next lint` (all clean), and
+invisible to a glance at the screenshot too — a roofless house still
+looks like a plausible box at this zoom. Only the harness's
+console-error capture surfaced it. Fix: `stripToPositionNormalUv` (the
+shared chokepoint both templates route through) now flattens any indexed
+input to non-indexed before the merge — after that, any pair merges.
+Re-run: **0 console errors**, and triangle counts rose by the amount the
+roof geometry actually costs (Rural +0.3k, Dense +4.7k over the
+roofless-fallback run) — confirming the roofs are now really there.
+
+### Perf
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 1 | 148 | 13.5k |
+| Semi-urban 8×8 | 4 | 179 | 24.6k |
+| Metro 10×10 | 3 | 241 | 44.7k |
+| Dense metro 12×12 | 4 | 282 | 70.7k |
+
+\*SwiftShader — see caveat at top of log; fps is noise, draws/tris are
+the signal. Compare draws against item 2's 127 / 159 / 221 / 259: the
+delta is +21 / +20 / +20 / +23 — **density-flat**, which is the expected
+shape. Procedural rendering replaces what were ~6 box InstancedMeshes
+with up to 6 types × 3 variants = 18 InstancedMeshes, and that count is a
+function of how many BTypes/variants are present, NOT of grid size — so
+it does not scale with density. Triangles rose +0.6k / +1.4k / +3.6k /
++7.3k, scaling with building count (each instance now carries a roof
+prism or a second setback block instead of six box faces) — a real but
+bounded cost, the same density-proportional shape items 1 and 2 had.
+
+### Visual
+
+Verified at Rural (fewest buildings, easiest to inspect individually)
+and cross-checked at every density: the tall central buildings show a
+clear stepped profile (setback lower/upper blocks) while the shorter
+residential blocks around them carry a sloped roof cap the towers don't
+have — i.e. the intended `gable` vs `setback` type split is visibly
+distinct. No z-fighting, missing geometry, or broken materials at any
+density, and Dense metro (all cells developed) shows no regression from
+the added geometry. Not claiming pitch-angle or per-variant
+identification at screenshot resolution under the scene's dusk lighting —
+what's confirmed with confidence is the type-split, the structural
+correctness (roofs sit on walls, setbacks are centred and narrower), the
+clean perf shape, and zero console errors.
+
+Committed as: `feat(kawasan-3d): procedural gable-roof / setback building
+detail`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
