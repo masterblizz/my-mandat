@@ -217,3 +217,121 @@ the more trustworthy regression signal here and match baseline exactly.
 
 Committed as: `feat(kawasan-3d): capture WebGL spike + Phase A variant
 selection`.
+
+## Phase B — Real models wired in
+
+No new work needed. Re-reading the brief's Phase B checklist against what
+already exists in `models.tsx`/`CityScene.tsx`:
+
+- **Instancing preserved for repeated types** — yes, one `InstancedMesh`
+  per (type, variant) group; Phase A's variant split is the only change
+  to this and it's additive (falls back to the old single-group-per-type
+  behaviour whenever a type has ≤1 available variant).
+- **Deterministic scale jitter** — yes, `jitterFootprint()` in
+  `cityData.ts`, unchanged, seeded from `zoneId + slot`.
+- **Graceful fallback to box+roof for missing types** — yes,
+  `InstancedBoxes` (gabled-roof detail is on the CSS version only per its
+  own recent commits; the WebGL box fallback is a plain box, which is
+  what "graceful fallback" means here — a box stand-in, not full CSS
+  parity). Confirmed still correct by the same Phase A smoke test (the
+  two-variant synthetic GLB run implicitly exercises "some instances on
+  model, others still on box" since only `house`/`house-2` were listed —
+  every other type in that same render stayed on its box fallback with
+  zero errors).
+
+Phase A's verification pass (build/lint/screenshots/perf, above) already
+covers Phase B's acceptance bar, so no separate commit for this phase —
+it's folded into the Phase A commit.
+
+## Phase C — Water shader
+
+**Water.js vs. custom shader — the actual decision and the arithmetic
+behind it.** `three/examples/jsm/objects/Water.js` is present and version-
+compatible with the pinned three@0.169.0. I did not prototype it, because
+the cost model rules it out before that would matter: Water.js implements
+its reflection by rendering the whole scene to a texture from a mirrored
+camera, once **per Water instance**, every frame. "pond" is not a rare
+BType here — `ZONE_BASE.river` always places one, `ZONE_FILLER.river`
+(`["kampung", "pond"]`) keeps supplying more as a river-kind zone's density
+fill runs, and river-kind zones themselves recur repeatedly once the
+developed-zone count passes the 9-archetype base pool (see the cycling
+loop in `makeDemoZones`). I instrumented the actual component with a
+temporary instance-count log (removed before commit) and read real
+numbers off the four density presets: **2 / 6 / 18 / 39** pond instances
+at Rural / Semi-urban / Metro / Dense metro respectively. 39 extra
+scene-to-texture reflection passes a frame at the perf ceiling density is
+not a reasonable price for a decorative pond shimmer, so I went straight
+to a custom `ShaderMaterial` (`water.tsx`) rather than spending time
+prototyping Water.js only to discard it — the brief's "don't spend
+excessive time forcing the addon to work" applies here even before hitting
+a compatibility snag, since the constraint that rules it out is a
+performance one I could work out analytically.
+
+**What was built**: one `InstancedMesh` (flat plane, rotated to lie on the
+XZ ground plane) covering every "pond" instance across the whole grid —
+so pond *count* is free, cost-wise; it's always exactly 1 draw call no
+matter how many ponds exist. The `ShaderMaterial`:
+- Vertex shader manually applies `instanceMatrix` (three.js auto-declares
+  the `attribute mat4 instanceMatrix` for any material on an
+  `isInstancedMesh` object, whether or not the shader uses the
+  `<instancing_vertex>` chunk — confirmed this works rather than assuming
+  it, since it's the one part of this file relying on an undocumented-
+  feeling three.js internal).
+- Fragment shader fakes "reflects its surroundings" cheaply: no actual
+  reflection, just tints the water colour toward the current TOD's sky-
+  bottom colour (`TOD_ENV[tod].skyBottom`) so day/dusk/night ponds still
+  read as belonging to their environment, plus a layered-sine ripple
+  field (three overlapping travelling waves, no texture sampling) for
+  motion and a `smoothstep`-gated "glint" highlight.
+- Re-tints (not re-allocates) on time-of-day change via a `useEffect`
+  that mutates the existing uniform's `THREE.Color` in place.
+
+**Trade-off**: this is a deliberately fake reflection (colour-tint, not
+geometry-aware). A real screen-space or planar reflection would look
+better up close but reintroduces exactly the per-instance cost problem
+above (planar reflection still needs an extra camera pass; SSR needs a
+G-buffer this pipeline doesn't have set up). Given ponds are a small
+background decoration, not a gameplay focal point, colour-tint-plus-
+ripple was judged the right fidelity-for-cost point. If ponds ever became
+a small fixed number instead of "however many small river zones cycle
+to," it would be worth revisiting a single shared low-res reflection
+texture for all of them.
+
+**Verification**:
+- `npm run build` / `npm run lint`: both clean (build had to be re-run
+  stopped-then-alone after I made the mistake of leaving a stray `npm run
+  dev` alive while testing — see the recurring `.next`-corruption note in
+  the "infrastructure" section above; from this phase on I stop dev,
+  clear `.next`, build, then restart dev, strictly sequential).
+- Instance-count instrumentation (temporary, removed before commit)
+  confirmed `WaterPatches` actually receives pond data at all four
+  densities (2/6/18/39, matching the arithmetic above) with zero
+  console/page errors.
+- Playwright screenshots at all 4 densities
+  (`phaseC-{rural,semi,metro,dense}.png`): no z-fighting, no missing
+  geometry, no broken materials, camera not clipping the ground. I was
+  **not** able to visually pick the water patches out of the wide top-down
+  establishing shots at this thumbnail scale with confidence (tried two
+  targeted rotate+zoom passes aimed at a river-kind zone and landed on the
+  town-centre landmark both times instead) — flagging that limitation
+  rather than claiming a visual confirmation I don't actually have. The
+  instance-count instrumentation plus the draw-call/triangle accounting
+  below is what I'm actually relying on for correctness here, not the
+  screenshots.
+- Draw calls unchanged phase-over-phase (207 at Dense metro, matching
+  Phase A) — expected, since the pond box group (1 draw call) was
+  replaced 1:1 by the pond water group (also 1 draw call). Triangles
+  dropped slightly (19.6k → 19.3k at Dense metro) — expected too, a plane
+  is 2 triangles vs. a box's 12.
+
+| density | fps* | draws | tris |
+|---|---|---|---|
+| Rural 6×6 | 6 | 73 | 4.0k |
+| Semi-urban 8×8 | 6 | 105 | 6.6k |
+| Metro 10×10 | 6 | 161 | 11.9k |
+| Dense metro 12×12 | 3 | 207 | 19.3k |
+
+\*SwiftShader — see caveat at top of log. Draws/tris are the trustworthy
+signal here; both track the expected box→water swap exactly.
+
+Committed as: `feat(kawasan-3d): Phase C water shader for pond tiles`.

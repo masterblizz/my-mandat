@@ -14,6 +14,7 @@ import {
 import {
   CityEnvironment, StreetLamps, Traffic, Lrt, ZoneBeacon, type Weather,
 } from "./scenery";
+import { WaterPatches } from "./water";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
@@ -56,9 +57,9 @@ function ZoneTile({
 }
 
 function Buildings({
-  placed, density, traits, winLit,
+  placed, density, traits, winLit, tod,
 }: {
-  placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number;
+  placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number; tod: Tod;
 }) {
   const { available } = useModelAvailability();
 
@@ -87,6 +88,9 @@ function Buildings({
   return (
     <group>
       {groups.map(([type, items]) => {
+        if (type === "pond") {
+          return <WaterPatches key="pond-water" items={items} groundY={GROUND_Y} tod={tod} />;
+        }
         const color = BUILDING_COLOR[type];
         const variantUrls = available.get(type);
         if (!variantUrls?.length) {
@@ -137,10 +141,10 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 }
 
 function Grid({
-  placed, zones, gridSize, density, traits, winLit, selectedId, onSelect,
+  placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
-  traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void;
+  traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -178,7 +182,7 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} />
+      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} />
     </group>
   );
 }
@@ -231,6 +235,7 @@ export function CityScene({
         winLit={TOD_ENV[tod].winLit * mood}
         selectedId={selectedId}
         onSelect={onSelect}
+        tod={tod}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} />
       <Traffic gridSize={gridSize} />
