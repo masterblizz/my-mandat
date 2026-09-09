@@ -23,12 +23,18 @@ export type QualitySettings = {
    * entirely, since day/night bloom is part of the scene's read (lit
    * windows, lamps) rather than a pure nicety. */
   bloomMipmapBlur: boolean;
+  /** 0..1 fraction of the per-cell buildings to actually instance
+   * (CityScene's Buildings thins deterministically). The metro-density
+   * work (items 9-10) pushed Dense metro's triangle count up ~25%; this
+   * pulls the lowest tier back toward the pre-item-9 baseline without
+   * touching the placement logic or the higher tiers. */
+  buildingBudget: number;
 };
 
 export const QUALITY_SETTINGS: Record<QualityTier, QualitySettings> = {
-  high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true },
-  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true },
-  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false },
+  high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true, buildingBudget: 1 },
+  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.92 },
+  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.78 },
 };
 
 // Defaults lower at higher grid densities, per the brief. Re-validated

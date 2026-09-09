@@ -1514,6 +1514,88 @@ per-kind `skyscraperCount` in `zoneBuildings`.
 Committed as: `feat(kawasan-3d): high-rise CBD gradient for the metro
 core`.
 
+## Item 11 — Regression triage after items 9-10 (spikes + flat platforms + fps)
+
+Screenshots after item 10 showed three problems: hundreds of hairline
+spike towers across Metro/Dense, the mall/stadium/factory reading as flat
+coloured platforms, and the perf HUD at 1-4 fps. Diagnosed each against
+the two hypotheses in the brief:
+
+- **"Footprint jitter/scale collapsing a dimension near zero"** — ruled
+  out. `jitterFootprint` clamps `w`/`d` to `≥ 0.88·base` (≈30 for a
+  skyscraper), never near zero. The spikes were **real** setback towers,
+  but items 9+10 compounded: slot-packing (9) + `house`/`shop`→`tower`
+  upgrade (10) + a height `×1.55` lift (10) → hundreds of ~35-wide,
+  ~250-420-tall boxes. Correct geometry, wrong aggregate.
+- **"Large-building geometry never executes / silently fails"** — ruled
+  out. `LargeBuildings` renders its podium + body + roof meshes fine; the
+  failure was **proportion**: `BODY_MIN` (mall 62 / stadium 40 / factory
+  44) on a ≈520-wide 2-cell footprint is a ~1:9 pancake, so at the
+  harness camera it reads as a platform, not a building.
+- **fps** — SwiftShader software-render plus the ~+25% triangle count
+  from item 9's density (Dense 68k baseline → 86k).
+
+### Fixes
+
+- `cityData.ts` — spike taming, still dense, still tall, gated on
+  `metroCore` so Rural/Semi stay byte-identical:
+  - `jitterFootprint` gives `tower`/`skyscraper` an extra `×1.42` width
+    in the metro core (capped at `SLOT_PITCH − SLOT_GAP`), so a core
+    tower is a chunky ~1:5 slab, not a ~1:11 needle.
+  - `lift` `×(1 + hi·0.55)` → `×(1 + hi·0.3)`.
+  - `upgrade()` tower probability `hi·0.72 → hi·0.5`, shophouse band
+    tightened — the core keeps a real mix of gabled low-rise + shophouse
+    + tower rather than a tower monoculture.
+  - per-kind `skyscraperCount` pulled down (urban `2→5` cap → `1→4`;
+    residential kinds `round(hi·1.6) → round(hi·0.85)`).
+- `largeBuildings.tsx` — composed, per-type massing so a landmark reads
+  as a building: **mall** = wide retail podium + two office slabs + an
+  antenna; **stadium** = stepped green bowl + inset tier + a light cap
+  over the inset only (the earlier full-footprint grey "roof" read as a
+  giant tabletop hiding the bowl) + four corner floodlight masts;
+  **factory** = tall shed + a rooftop plant box + three fat chimneys.
+  `TALL_MIN` mall 205 / stadium 104 / factory 150.
+- `quality.ts` — new `buildingBudget` per tier (high 1.0 / medium 0.92 /
+  low 0.78). `CityScene`'s `Buildings` thins per-cell instances
+  deterministically (FNV hash of the instance key) to that fraction,
+  never touching a `flag` structure or a glowing facility. This is the
+  brief's "use the existing quality-tier system" — it pulls Dense metro
+  back toward the pre-item-9 triangle count without touching the
+  placement logic or the higher tiers.
+
+### Verification
+
+`tsc` + `next lint` clean (run with the dev server stopped — a
+concurrent `next lint` + `next dev` corrupted `.next` into a "React
+Client Manifest" 500 mid-run, the documented gotcha, cleared by
+`rm -rf .next` + restart). Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | vs item 10 |
+|---|---|---|---|---|
+| Rural 6×6 | 3 | 221 | 12.6k | +12 draws (richer large-bldg meshes), tris flat |
+| Semi-urban 8×8 | 5 | 259 | 23.7k | +13 draws, tris flat |
+| Metro 10×10 | 4 | 329 | 56.2k | +13 draws, −2.2k tris |
+| Dense metro 12×12 | 4 | 367 | 75.4k | +16 draws, **−10.9k tris**, fps 1→4 |
+
+\*SwiftShader — noise, see caveat at top.
+
+Rural/Semi building **placement** is still byte-identical (the
+`METRO_DENSITY` gate holds, `buildingBudget` is 1.0 at the high tier);
+the small draw rise there is only the three large buildings' new mesh
+count. Dense metro drops ~11k triangles (86.3k → 75.4k) — the
+`buildingBudget` gate — landing between the item-8 pre-density baseline
+(68k) and the item-9/10 peak, and fps recovers.
+
+Visually (Metro + Dense, night): the spike field is gone — towers are
+chunky slabs with a real mix of heights and roof shapes; the mall shows
+a podium + two slabs + antenna, the stadium a green tiered bowl with
+corner masts, the factory a shed with chimneys. Rural small buildings
+unchanged.
+
+Committed as: `fix(kawasan-3d): tame item 9-10 spike towers, give large
+buildings real massing, gate Dense density`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

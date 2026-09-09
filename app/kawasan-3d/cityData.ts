@@ -275,10 +275,17 @@ function jitterFootprint(
   const jw = (((seed % 7) - 3) / 3);
   const jd = (((Math.floor(seed / 7) % 7) - 3) / 3);
   const amp = (px: number) => Math.max(0.08, Math.min(0.12, (SLOT_PITCH - SLOT_GAP - px) / px));
-  // Metro cores: grow footprints toward the slot pitch so towers nearly
+  // Metro cores: grow footprints toward the slot pitch so buildings nearly
   // abut (KL-style street walls) instead of sitting island-like in their
-  // slot. Capped at SLOT_PITCH - SLOT_GAP so neighbours never overlap.
-  const grow = density >= METRO_DENSITY ? 1 + Math.min(0.32, (density - METRO_DENSITY) * 1.1) : 1;
+  // slot. The tall setback types get an extra bump so a core tower reads
+  // as a chunky ~1:5 slab, not a ~1:11 needle — the regression that made
+  // items 9+10 look like a spike field. Capped at SLOT_PITCH - SLOT_GAP
+  // so neighbours never overlap; the cap makes this a no-op below the
+  // threshold (the ported jitter already tops out there).
+  const grow = density >= METRO_DENSITY
+    ? (1 + Math.min(0.32, (density - METRO_DENSITY) * 1.1)) *
+      (type === "tower" || type === "skyscraper" ? 1.42 : 1)
+    : 1;
   const cap = SLOT_PITCH - SLOT_GAP;
   return {
     w: Math.min(cap, Math.round(base.w * (1 + jw * amp(base.w)) * grow)),
@@ -359,17 +366,22 @@ export function zoneBuildings(
   const hi = metroCore ? Math.min(1, Math.max(0, coreness) * 1.15) : 0;
   const zseed = seedFrom(zone.id);
 
-  // Deterministic per-(zone, slot) upgrade of a low-rise type.
+  // Deterministic per-(zone, slot) upgrade of a low-rise type. Kept
+  // deliberately partial even dead-centre so the core still has a mix of
+  // gabled low-rise + shophouses + towers (silhouette variety), not a
+  // monoculture of towers.
   const upgrade = (type: BType, slot: number): BType => {
     if (!metroCore || !CORE_LOWRISE.has(type)) return type;
     const r = ((zseed + slot * 53) % 100) / 100; // stable 0..1
-    if (r < hi * 0.72) return "tower";
-    if (r < 0.3 + hi * 0.45) return "shophouse";
+    if (r < hi * 0.5) return "tower";
+    if (r < 0.32 + hi * 0.3) return "shophouse";
     return type;
   };
-  // Height lift for the vertical types, strongest at the centre.
+  // Height lift for the vertical types, strongest at the centre — gentle
+  // enough that a core tower stays a believable slab (item 10 shipped
+  // x1.55, which read as needles once every slot was packed with one).
   const lift = (type: BType, h: number): number =>
-    type === "tower" || type === "skyscraper" ? Math.round(h * (1 + hi * 0.55)) : h;
+    type === "tower" || type === "skyscraper" ? Math.round(h * (1 + hi * 0.3)) : h;
   const spec = (type: BType, slot: number, extra?: Partial<BSpec>): BSpec => {
     const t = upgrade(type, slot);
     return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone)), ...extra };
@@ -393,12 +405,12 @@ export function zoneBuildings(
         ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
         : zone.kind === "commercial" && density >= 0.8 ? 1 : 0)
     : zone.kind === "urban"
-      ? Math.min(5, 2 + Math.round(hi * 2 + (density - METRO_DENSITY) * 6))
+      ? Math.min(4, 1 + Math.round(hi * 2 + (density - METRO_DENSITY) * 4))
       : zone.kind === "commercial" || zone.kind === "market"
-        ? (hi > 0.4 ? 2 : 1)
+        ? (hi > 0.5 ? 2 : 1)
         : zone.kind === "industry"
           ? 0
-          : Math.round(hi * 1.6); // housing / village / education / community / river
+          : Math.round(hi * 0.85); // housing / village / education / community / river
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.

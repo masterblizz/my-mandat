@@ -19,7 +19,7 @@
 // MAX_LARGE — no per-render randomness. Central candidates win the cap so
 // a large building reads as an intentional core landmark.
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import {
   PLOT, ROAD_GAP, plotXY, worldCentre, buildingHeight, BUILDING_COLOR,
@@ -36,11 +36,15 @@ const TILE_H = 4; // must match CityScene.tsx GROUND_Y / TILE_H
 const PODIUM_TOP = TILE_H + 2;
 const PODIUM_COLOR = "#4a515c";     // plaza-concrete base, reads as a skirt
 const ROOF_DECK_COLOR = "#7f8792";  // light rooftop plant, NOT a dark cap
+const ANTENNA_COLOR = "#9aa4b2";
+const CHIMNEY_COLOR = "#8a8f98";
 
-// A landmark should have real mass — the raw buildingHeight() for these
-// types (stadium 16, mall ~40) reads as a flat lid on a 2-cell footprint
-// from this camera. Bump to a per-type minimum.
-const BODY_MIN: Partial<Record<BType, number>> = { mall: 62, stadium: 40, factory: 44 };
+// A landmark on a 2-cell (≈520-wide) footprint reads as a flat platform
+// unless it carries real vertical mass. `buildingHeight()` for these
+// types is 16-49 — a ~1:11 pancake — so each gets a composed massing
+// below (wide low podium + tall slab(s) / bowl / chimneys), with a
+// per-type minimum for the tall part.
+const TALL_MIN: Partial<Record<BType, number>> = { mall: 205, stadium: 104, factory: 150 };
 
 // Anchor type + footprint (in cells) per candidate zone kind.
 const LARGE_BY_KIND: Partial<Record<ZoneKind, { type: BType; cols: number; rows: number }>> = {
@@ -144,11 +148,14 @@ export function junctionInsideLarge(i: number, j: number, gridSize: number, clai
 }
 
 // ── render ──────────────────────────────────────────────────────────
-// Per large building (≤ MAX_LARGE): a podium skirt + a massed body
-// (two-tier for mall/stadium so the silhouette isn't a plain lid) + a
-// small LIGHT rooftop deck. Ordinary meshes — the count is tiny and the
-// sizes all differ, so instancing would only add complexity. Clicking any
-// part selects the anchor zone, same as its ZoneTile would.
+// Per large building (≤ MAX_LARGE): a podium skirt + a composed,
+// per-type massing so the silhouette reads as a building, not a slab —
+//   mall     : wide retail podium + two office slabs + an antenna
+//   stadium  : wide bowl + an inset upper tier + a light roof rim
+//   factory  : long shed + two chimneys
+// Ordinary meshes — the count is tiny and every size differs, so
+// instancing would only add complexity. Clicking any part selects the
+// anchor zone, same as its ZoneTile would.
 export function LargeBuildings({
   larges, onSelect,
 }: {
@@ -160,37 +167,61 @@ export function LargeBuildings({
   return (
     <group>
       {larges.map((l) => {
-        const bodyH = Math.max(l.h * 1.5, BODY_MIN[l.type] ?? 40);
         const color = BUILDING_COLOR[l.type];
-        const tiered = l.type === "mall" || l.type === "stadium";
-        const lowerH = tiered ? bodyH * 0.55 : bodyH;
-        const upperH = bodyH - lowerH;
+        const box = (
+          key: string, x: number, y: number, z: number,
+          sx: number, sy: number, sz: number, c: string, rough = 0.82, shadow = true,
+        ) => (
+          <mesh key={key} geometry={geo} position={[x, y, z]} scale={[sx, sy, sz]} castShadow={shadow} receiveShadow>
+            <meshStandardMaterial color={c} roughness={rough} />
+          </mesh>
+        );
+        const parts: ReactNode[] = [
+          // podium skirt: masks road / sidewalk / ground / cars under the
+          // whole combined footprint (see PODIUM_TOP note)
+          box("skirt", 0, PODIUM_TOP / 2, 0, l.w, PODIUM_TOP, l.d, PODIUM_COLOR, 0.9),
+        ];
+        const tall = Math.max(l.h * 2.6, TALL_MIN[l.type] ?? 100);
+
+        if (l.type === "mall") {
+          const baseH = 42;
+          parts.push(box("base", 0, TILE_H + baseH / 2, 0, l.w * 0.96, baseH, l.d * 0.96, color));
+          // two office slabs rising from the podium, offset apart
+          parts.push(box("t1", l.w * 0.13, TILE_H + baseH + tall / 2, -l.d * 0.06, l.w * 0.4, tall, l.d * 0.32, color));
+          const t2 = tall * 0.62;
+          parts.push(box("t2", -l.w * 0.24, TILE_H + baseH + t2 / 2, l.d * 0.16, l.w * 0.3, t2, l.d * 0.26, color));
+          parts.push(box("deck", l.w * 0.13, TILE_H + baseH + tall + 1.6, -l.d * 0.06, l.w * 0.22, 3, l.d * 0.18, ROOF_DECK_COLOR, 0.85));
+          parts.push(box("ant", l.w * 0.13, TILE_H + baseH + tall + 21, -l.d * 0.06, 3, 40, 3, ANTENNA_COLOR, 0.6, false));
+        } else if (l.type === "stadium") {
+          // stepped green bowl — two inset tiers, no full-footprint grey
+          // lid (that read as a giant tabletop hiding the bowl).
+          const bowlH = tall * 0.6;
+          const upperH = tall - bowlH;
+          parts.push(box("bowl", 0, TILE_H + bowlH / 2, 0, l.w * 0.97, bowlH, l.d * 0.97, color));
+          parts.push(box("upper", 0, TILE_H + bowlH + upperH / 2, 0, l.w * 0.74, upperH, l.d * 0.74, color));
+          // thin light cap only over the inset upper tier
+          parts.push(box("cap", 0, TILE_H + tall + 1.5, 0, l.w * 0.66, 3, l.d * 0.66, ROOF_DECK_COLOR, 0.85));
+          // four short floodlight masts at the corners
+          ([[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]] as const).forEach(([fx, fz], i) => {
+            parts.push(box(`mast${i}`, l.w * fx, TILE_H + tall + 12, l.d * fz, 3, 26, 3, ANTENNA_COLOR, 0.6, false));
+          });
+        } else {
+          // factory: long shed + a rooftop plant box + three fat chimneys
+          const shedH = Math.max(l.h * 2.2, 84);
+          parts.push(box("shed", 0, TILE_H + shedH / 2, 0, l.w * 0.95, shedH, l.d * 0.95, color));
+          parts.push(box("plant", -l.w * 0.18, TILE_H + shedH + 9, 0, l.w * 0.3, 18, l.d * 0.55, CHIMNEY_COLOR, 0.85));
+          ([[0.14, 0.24], [0.3, -0.05], [0.14, -0.28]] as const).forEach(([fx, fz], i) => {
+            parts.push(box(`ch${i}`, l.w * fx, TILE_H + shedH + (tall - shedH) / 2, l.d * fz, 13, tall - shedH, 13, CHIMNEY_COLOR, 0.85));
+          });
+        }
+
         return (
           <group
             key={l.zoneId}
             position={[l.cx, 0, l.cz]}
             onClick={(e) => { e.stopPropagation(); onSelect(l.zoneId); }}
           >
-            {/* podium skirt: masks road / sidewalk / ground / cars under
-                the whole combined footprint (see PODIUM_TOP note) */}
-            <mesh geometry={geo} position={[0, PODIUM_TOP / 2, 0]} scale={[l.w, PODIUM_TOP, l.d]} receiveShadow castShadow>
-              <meshStandardMaterial color={PODIUM_COLOR} roughness={0.9} />
-            </mesh>
-            {/* lower mass — full footprint */}
-            <mesh geometry={geo} position={[0, TILE_H + lowerH / 2, 0]} scale={[l.w * 0.95, lowerH, l.d * 0.95]} castShadow receiveShadow>
-              <meshStandardMaterial color={color} roughness={0.8} />
-            </mesh>
-            {/* upper mass — narrower, only for the tiered types */}
-            {tiered && upperH > 1 && (
-              <mesh geometry={geo} position={[0, TILE_H + lowerH + upperH / 2, 0]} scale={[l.w * 0.66, upperH, l.d * 0.66]} castShadow receiveShadow>
-                <meshStandardMaterial color={color} roughness={0.8} />
-              </mesh>
-            )}
-            {/* rooftop deck — light, small, so the roofline has plant
-                detail instead of reading as a black lid from above */}
-            <mesh geometry={geo} position={[0, TILE_H + bodyH + 1.5, 0]} scale={[l.w * (tiered ? 0.5 : 0.72), 3, l.d * (tiered ? 0.5 : 0.72)]} castShadow>
-              <meshStandardMaterial color={ROOF_DECK_COLOR} roughness={0.85} />
-            </mesh>
+            {parts}
           </group>
         );
       })}

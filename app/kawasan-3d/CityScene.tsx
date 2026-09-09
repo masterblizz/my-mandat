@@ -100,10 +100,12 @@ function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
 }
 
 function Buildings({
-  placed, gridSize, density, traits, winLit, tod, foliageDensity, claimed, notchByCell,
+  placed, gridSize, density, traits, winLit, tod, foliageDensity, buildingBudget, claimed, notchByCell,
 }: {
   placed: CellPlacement[]; gridSize: number; density: number; traits: SeatTraits; winLit: number; tod: Tod;
   foliageDensity: number;
+  /** quality-tier knob: 0..1 fraction of per-cell buildings to instance (see quality.ts). */
+  buildingBudget: number;
   /** "col,row" cells swallowed by a large footprint — skip their per-cell buildings. */
   claimed: Set<string>;
   /** "col,row" -> roundabout corner: drop building slots within CLEAR_R of the junction. */
@@ -117,6 +119,14 @@ function Buildings({
     // (zoneBuildings). Below METRO_DENSITY it's ignored.
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
+    // Deterministic thinning for the low quality tier — never touches the
+    // zone's defining `flag` structure or a glowing facility.
+    const keep = (key: string): boolean => {
+      if (buildingBudget >= 1) return true;
+      let h = 2166136261;
+      for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+      return ((h >>> 0) % 1000) / 1000 < buildingBudget;
+    };
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed.has(`${col},${row}`)) continue;
       const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
@@ -124,6 +134,7 @@ function Buildings({
       const notchSign = notch ? cornerSign(notch) : null;
       for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         const sp = slotPos(spec.slot);
+        if (!spec.flag && !spec.glow && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
         // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
         // of this tile's junction-facing corner, so none stands in the ring.
         if (notchSign) {
@@ -148,7 +159,7 @@ function Buildings({
       }
     }
     return Array.from(byType.entries());
-  }, [placed, gridSize, density, traits, claimed, notchByCell]);
+  }, [placed, gridSize, density, traits, buildingBudget, claimed, notchByCell]);
 
   return (
     <group>
@@ -250,11 +261,12 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  larges, claimed, notchByCell,
+  buildingBudget, larges, claimed, notchByCell,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
   foliageDensity: number;
+  buildingBudget: number;
   larges: ReturnType<typeof reserveLargeFootprints>["larges"];
   claimed: Set<string>;
   notchByCell: Map<string, RoundaboutCorner>;
@@ -309,7 +321,7 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} notchByCell={notchByCell} />
+      <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} />
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
@@ -387,6 +399,7 @@ export function CityScene({
         onSelect={onSelect}
         tod={tod}
         foliageDensity={qs.foliageDensity}
+        buildingBudget={qs.buildingBudget}
         larges={larges}
         claimed={claimed}
         notchByCell={notchByCell}
