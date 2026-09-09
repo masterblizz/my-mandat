@@ -1596,6 +1596,88 @@ unchanged.
 Committed as: `fix(kawasan-3d): tame item 9-10 spike towers, give large
 buildings real massing, gate Dense density`.
 
+## Item 12 — Grass-tick detail (small enhancement to item 6)
+
+The "grass colour + texture" section of the new brief was already
+shipped as **item 6** — `ground.ts`, grass-green base for
+housing/village/education/community + undeveloped cells, one shared
+cloned noise `CanvasTexture`, other kinds untouched. Checked the log
+first, per the brief; not rebuilt. The one gap versus the target
+mockup's "grass-tick texture" was the near-range detail — item 6's fine
+speckle was 700 barely-visible dots. Replaced with **240 short
+grass-tick strokes** at random lean, ~half lighter (blades catching
+light) and half darker (shadow between tufts), drawn 3×3-wrapped so
+`RepeatWrapping` stays seamless. Still the one shared canvas, still one
+GPU upload, **zero draw / triangle cost** (it's a `map` change on
+already-existing tile meshes). No separate harness table — the item 13
+run below covers "still renders, 0 console errors".
+
+Committed with item 13.
+
+## Item 13 — Building variety: a silhouette for every BType
+
+The mockup's right panel wants a distinguishing *shape* per type, not a
+recoloured box. `procedural.tsx` already did the two hardest (item 4):
+gabled roofs for `house`/`terrace`/`kampung`, stacked setbacks for
+`tower`/`skyscraper`/`shophouse`. This item covers the rest.
+
+- **`buildBoxCapTemplate`** — `shop` / `stall` / `factory` / `warehouse`
+  / `school` / `clinic` / `terminal` / `mall` / `stadium` / `antenna`
+  (the types that were still bare `InstancedBoxes`): a flat-roof shell
+  plus an overhanging **parapet cornice**. Two boxes / 24 triangles — a
+  first cut added a rooftop-unit box too, but it only reads on close
+  zoom while adding +50% triangles to every civic/retail instance
+  scene-wide, so it was cut; the cornice is what defines the roofline at
+  the scene's camera distance.
+- **`buildDomeTemplate`** — `masjid`: low wall + a squashed low-poly
+  (10×6) half-sphere + a finial.
+- **`withMast`** — a thin mast merged onto `skyscraper` and `antenna`
+  templates (the "antenna on the tallest type" from the brief).
+- `PROCEDURAL_TYPES` expands to include all of the above; `variantCount`
+  gives the new flat-roof / dome families 2 shape variants (rooftop
+  detail placement) vs 3 for gable/setback. Everything stays one merged
+  `BufferGeometry` per `(type, variant)` on one `InstancedMesh`, the
+  same pattern items 4-5 established — this adds geometry *sources*, not
+  a new instancing strategy. The window emissiveMap (item 5) now reaches
+  the civic/retail types too, which item 5 had explicitly left for
+  later.
+
+### Perf + the gate
+
+The extra per-instance geometry (24 tris vs 12 for the old bare box,
+across every civic/retail building) pushed Dense metro's triangle count
+up ~33% on the first pass. Per the brief, gated with the existing
+quality-tier system rather than shipping that: **`quality.ts`
+`buildingBudget` tightened** — `medium` 0.92 → 0.85, `low` 0.78 → 0.66
+(the knob added in item 11; `CityScene`'s `Buildings` thins per-cell
+instances deterministically to that fraction, never a `flag`/`glow`
+spec). Combined with cutting the rooftop-unit box, that lands here:
+
+| density | fps* | draws | tris | vs item 11 |
+|---|---|---|---|---|
+| Rural 6×6 | 2 | 225 | 13.3k | +4 draws, +0.7k tris |
+| Semi-urban 8×8 | 3 | 269 | 26.2k | +10 draws, +2.5k tris |
+| Metro 10×10 | 4 | 343 | 63.2k | +14 draws, +7.0k tris (+12%) |
+| Dense metro 12×12 | 4 | 381 | 82.1k | +14 draws, +6.7k tris (+9%) |
+
+\*SwiftShader — noise, see caveat at top.
+
+Draw calls rise a small **density-flat** amount (new `(type, variant)`
+InstancedMeshes — O(types), not O(cells)). Triangles up +9-12% at
+metro/dense — a bounded, one-time geometry cost, not a runaway, and fps
+is unchanged from item 11 (4 at both), so not a "meaningful regression"
+by the fps bar. Rural/Semi building **placement** stays byte-identical
+(`buildingBudget` 1.0 at the high tier); the small delta there is only
+the new template geometry on the handful of civic buildings present.
+
+Visually (Metro close-up, day): skyscrapers show a setback profile with
+a mast tip; the mid/low-rise carry a parapet cornice at the roofline;
+gable houses keep their pitched caps; the mall/stadium/factory keep
+their item-11 massing. No BType renders as a bare box any more.
+
+Committed as: `feat(kawasan-3d): grass-tick detail + a silhouette for
+every building type`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

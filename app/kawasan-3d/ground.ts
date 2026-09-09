@@ -104,11 +104,29 @@ function buildGrassCanvas(): HTMLCanvasElement {
   for (let i = 0; i < 10; i++) {
     blob(rnd() * SIZE, rnd() * SIZE, 22 + rnd() * 34, rnd() < 0.5 ? "150,158,120" : "40,46,28", 0.28 + rnd() * 0.22);
   }
-  // Fine speckle for a bit of near-range texture (kept subtle).
-  for (let i = 0; i < 700; i++) {
-    const v = Math.floor(90 + rnd() * 90);
-    ctx.fillStyle = `rgba(${v},${v},${Math.floor(v * 0.85)},0.10)`;
-    ctx.fillRect(rnd() * SIZE, rnd() * SIZE, 1.4, 1.4);
+  // Grass-tick marks: short strokes at random lean, some lighter (fresh
+  // blades catching light), some darker (shadow between tufts) — the
+  // "grass-tick texture" read from the target mockup. Still one shared
+  // canvas; drawn ±SIZE-wrapped so RepeatWrapping stays seamless.
+  ctx.lineCap = "round";
+  for (let i = 0; i < 240; i++) {
+    const x = rnd() * SIZE;
+    const y = rnd() * SIZE;
+    const len = 2.2 + rnd() * 3.4;
+    const lean = (rnd() - 0.5) * 1.1;
+    const light = rnd() < 0.55;
+    ctx.strokeStyle = light
+      ? `rgba(${170 + Math.floor(rnd() * 40)},${180 + Math.floor(rnd() * 40)},120,${0.14 + rnd() * 0.12})`
+      : `rgba(38,46,26,${0.16 + rnd() * 0.14})`;
+    ctx.lineWidth = 0.9 + rnd() * 0.5;
+    for (const ox of [-SIZE, 0, SIZE]) {
+      for (const oy of [-SIZE, 0, SIZE]) {
+        ctx.beginPath();
+        ctx.moveTo(x + ox, y + oy + len);
+        ctx.lineTo(x + ox + lean * len, y + oy - len * 0.4);
+        ctx.stroke();
+      }
+    }
   }
   return canvas;
 }

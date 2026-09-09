@@ -58,8 +58,27 @@ import { pickVariantIndex, type BType } from "./cityData";
 
 const GABLE_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
 const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse"]);
-export const PROCEDURAL_TYPES = new Set<BType>([...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES)]);
-export const PROCEDURAL_VARIANT_COUNT = 3;
+// Everything else that used to render as a bare InstancedBox now gets a
+// composed silhouette too: a flat-roof wall + a parapet rim + a small
+// rooftop plant unit. `masjid` gets a dome instead. `skyscraper` /
+// `antenna` also get a mast tip (see getTemplate). FLAT_TYPES stay ground
+// planes; `antenna` still routes through the box path for its footprint
+// but picks up the mast via BOXCAP.
+const BOXCAP_TYPES = new Set<BType>([
+  "shop", "stall", "factory", "warehouse", "school", "clinic",
+  "terminal", "mall", "stadium", "antenna",
+]);
+const DOME_TYPES = new Set<BType>(["masjid"]);
+export const PROCEDURAL_TYPES = new Set<BType>([
+  ...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES),
+  ...Array.from(BOXCAP_TYPES), ...Array.from(DOME_TYPES),
+]);
+// Gable + setback carry 3 shape variants; the flat-roof / dome families
+// carry 2 (the variety there is rooftop-unit placement, not proportion).
+export function variantCount(type: BType): number {
+  return GABLE_TYPES.has(type) || SETBACK_TYPES.has(type) ? 3 : 2;
+}
+export const PROCEDURAL_VARIANT_COUNT = 3; // kept for callers that want the max
 
 // Gable templates carry two geometry groups so the sloped roof can take a
 // plain material while the walls take the lit-window emissiveMap — a
@@ -146,6 +165,57 @@ function buildSetbackTemplate(lowerFrac: number, setbackFrac: number): THREE.Buf
   return merged;
 }
 
+// Flat-roof shell + an overhanging parapet cornice — the minimum
+// silhouette detail so no BType ships as a bare box. Deliberately just
+// two boxes (24 tris): the cornice is what reads at the scene's camera
+// distance; a rooftop-unit box was tried and only shows on close zoom
+// while costing +50% triangles across every civic/retail instance.
+// `variant` nudges the wall height and cornice depth.
+function buildBoxCapTemplate(variant: number): THREE.BufferGeometry {
+  const wallFrac = [0.92, 0.88][variant] ?? 0.9;
+  const capH = 1 - wallFrac;
+  const wall = new THREE.BoxGeometry(1, wallFrac, 1);
+  wall.translate(0, wallFrac / 2, 0);
+  const cornice = new THREE.BoxGeometry(1.04, capH, 1.04);
+  cornice.translate(0, wallFrac + capH / 2, 0);
+  const merged = mergeGeometries(
+    [wall, cornice].map(stripToPositionNormalUv), false,
+  );
+  if (!merged) return wall;
+  merged.clearGroups();
+  return merged;
+}
+
+// Domed building (masjid): low wall + a squashed half-sphere + a finial.
+// Low-poly sphere (10×6) — the dome is small and there are only a
+// handful of masjid per grid.
+function buildDomeTemplate(variant: number): THREE.BufferGeometry {
+  const wallFrac = 0.6;
+  const wall = new THREE.BoxGeometry(1, wallFrac, 1);
+  wall.translate(0, wallFrac / 2, 0);
+  const r = [0.42, 0.36][variant] ?? 0.4;
+  const squash = [0.85, 1.05][variant] ?? 0.95;
+  const dome = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  dome.scale(1, squash, 1);
+  dome.translate(0, wallFrac, 0);
+  const finial = new THREE.BoxGeometry(0.04, 0.16, 0.04);
+  finial.translate(0, wallFrac + r * squash + 0.05, 0);
+  const merged = mergeGeometries(
+    [wall, dome, finial].map(stripToPositionNormalUv), false,
+  );
+  if (!merged) return wall;
+  merged.clearGroups();
+  return merged;
+}
+
+// A thin mast merged onto an already-built template (skyscraper / antenna).
+function withMast(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  const mast = new THREE.BoxGeometry(0.05, 0.24, 0.05);
+  mast.translate(0, 1.06, 0);
+  const merged = mergeGeometries([geo, stripToPositionNormalUv(mast)], false);
+  return merged ?? geo;
+}
+
 // variant 0/1/2 -> shallow/medium/steep pitch (gable) or subtle/medium/
 // pronounced setback — cached so switching density presets (which
 // re-mounts Buildings but reuses the same BType set) doesn't rebuild.
@@ -160,6 +230,11 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     const rise = [0.16, 0.24, 0.34][variant] ?? 0.24;
     const wall = [0.8, 0.76, 0.7][variant] ?? 0.76;
     geo = buildGableTemplate(rise, wall);
+  } else if (DOME_TYPES.has(type)) {
+    geo = buildDomeTemplate(variant);
+  } else if (BOXCAP_TYPES.has(type)) {
+    geo = buildBoxCapTemplate(variant);
+    if (type === "antenna") geo = withMast(geo);
   } else {
     // tower/skyscraper: pronounced setback; shophouse: barely recessed
     // upper floor, matching its real-world low-rise proportions.
@@ -167,6 +242,7 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
       ? { lower: [0.72, 0.76, 0.8], setback: [0.9, 0.86, 0.82] }
       : { lower: [0.55, 0.62, 0.68], setback: [0.44, 0.58, 0.7] };
     geo = buildSetbackTemplate(pronounced.lower[variant] ?? 0.6, pronounced.setback[variant] ?? 0.6);
+    if (type === "skyscraper") geo = withMast(geo);
   }
   templateCache.set(key, geo);
   return geo;
@@ -182,15 +258,16 @@ export function ProceduralBuildings({
   winLit: number;
 }) {
   const buckets = useMemo(() => {
+    const vc = variantCount(type);
     const m = new Map<number, BuildingInstance[]>();
     for (const it of items) {
-      const vi = pickVariantIndex(it.key, PROCEDURAL_VARIANT_COUNT);
+      const vi = pickVariantIndex(it.key, vc);
       const arr = m.get(vi);
       if (arr) arr.push(it);
       else m.set(vi, [it]);
     }
     return Array.from(m.entries());
-  }, [items]);
+  }, [items, type]);
 
   return (
     <group>

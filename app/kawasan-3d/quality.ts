@@ -33,8 +33,8 @@ export type QualitySettings = {
 
 export const QUALITY_SETTINGS: Record<QualityTier, QualitySettings> = {
   high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true, buildingBudget: 1 },
-  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.92 },
-  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.78 },
+  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.85 },
+  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.66 },
 };
 
 // Defaults lower at higher grid densities, per the brief. Re-validated
