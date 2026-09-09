@@ -200,11 +200,13 @@ function Rain({ span }: { span: number }) {
 
 // ── street lamps ────────────────────────────────────────────────────
 export function StreetLamps({
-  gridSize, lamp, claimed,
+  gridSize, lamp, claimed, hideNear,
 }: {
   gridSize: number; lamp: number;
   /** cells swallowed by a large footprint — suppress lamps at junctions fully inside one */
   claimed?: Set<string>;
+  /** world (x,z) of the roundabout centre — suppress lamps that fall on its island/ring */
+  hideNear?: [number, number] | null;
 }) {
   const centre = worldCentre(gridSize);
   const points = useMemo(() => {
@@ -214,11 +216,14 @@ export function StreetLamps({
     for (let i = 0; i < xsRaw.length; i++) {
       for (let j = 0; j < zsRaw.length; j++) {
         if (claimed && junctionInsideLarge(i, j, gridSize, claimed)) continue;
-        out.push([xsRaw[i] - centre + ROAD_W / 2, zsRaw[j] - centre + ROAD_W / 2]);
+        const px = xsRaw[i] - centre + ROAD_W / 2;
+        const pz = zsRaw[j] - centre + ROAD_W / 2;
+        if (hideNear && Math.hypot(px - hideNear[0], pz - hideNear[1]) < 130) continue;
+        out.push([px, pz]);
       }
     }
     return out;
-  }, [gridSize, centre, claimed]);
+  }, [gridSize, centre, claimed, hideNear]);
 
   const poleRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);

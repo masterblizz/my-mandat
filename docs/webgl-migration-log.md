@@ -1309,6 +1309,85 @@ landmark, not a motif.
 Committed as: `feat(kawasan-3d): multi-cell footprint reservation for
 mall / stadium / factory`.
 
+## Item 8 — Roundabout at the central junction (task part C)
+
+### Site + the constraint that shaped it
+
+Candidate intersections come straight from the road-position data
+(`roadsV` / `roadsH`). For the even grid sizes this route uses (6 / 8 /
+10 / 12), the grid lines `i = j = gridSize/2` cross exactly at world
+origin — the 4-way junction the town-centre / zone-0 tile sits on. That
+is the roundabout site (one, prominent, central — per the brief).
+
+The constraint: the four zone tiles around that junction meet across only
+the 40-unit road gap, so their inner corners are ~28 units from the
+junction centre. Any ring road wider than that overlaps those corners,
+and the tile boxes (y 0..TILE_H) poke up through a flat ring. First
+attempt reshaped each adjacent tile with a 45° chamfer geometry — it
+worked but needed a chamfer so deep (to clear a readable ring) that it
+ate several buildings per tile and still left the ring cut roughly in
+half by the tile edge, so the carriageway barely read. Replaced with a
+simpler, more robust approach: build the roundabout as a **slightly
+raised circular deck** — ring + island at `y = TILE_H + 0.4`, just above
+the tile tops. The opaque ring then covers the tile-corner overlap from
+every camera angle `CAM_CLAMP` allows; the tiles stay plain boxes. The
+only per-tile change kept is a **building filter**: `Buildings()` drops
+any per-cell building whose slot centre is within `CLEAR_R` (Manhattan)
+of that tile's junction-facing corner, so nothing stands in the ring.
+
+### What was built (`roundabout.tsx`)
+
+- `ringGeometry(rInner, rOuter)` — a flat annulus BufferGeometry on XZ,
+  authored by hand (not a reused straight segment): UV `(radialFrac,
+  angleFrac × circumferenceRepeat)` so the shared road texture's dashes
+  run around the circumference. Textured with a `.clone()` of
+  `getRoadTextures(density).vertical` (wrap set for the ring, so the
+  straight roads' copy is untouched).
+- A landscaped centre island: opaque disc + a raised kerb wall + a
+  mounded top (all opaque, so the four straight approach roads crossing
+  underneath are hidden), a monument (plinth + obelisk + a flag), and
+  five trees ringing it.
+- The four approach roads already pass through the junction as full-span
+  planes (`Grid()`), so they are the radiating connectors — no extra
+  geometry. `StreetLamps` takes the junction centre and suppresses the
+  one lamp that would stand in the island.
+- **Traffic:** cars keep their straight lane paths (`scenery.tsx`) — one
+  whose lane crosses the roundabout drives straight through it. Path
+  following around the ring is **a follow-up**, not attempted in this
+  visual pass (flagged per the brief).
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | Δ vs item 7 |
+|---|---|---|---|---|
+| Rural 6×6 | 5 | 208 | 12.5k | +31 draws, +1.5k tris |
+| Semi-urban 8×8 | 7 | 246 | 23.5k | +31 draws, +1.5k tris |
+| Metro 10×10 | 5 | 310 | 43.3k | +31 draws, +1.5k tris |
+| Dense metro 12×12 | 5 | 354 | 69.0k | +31 draws, +1.5k tris |
+
+\*SwiftShader — noise, see caveat at top.
+
+Exactly **+31 draws / +1.5k triangles at every density** — one
+roundabout is a fixed cost independent of grid size (ring + island +
+kerb + mound + monument + 5 trees, several with a shadow-pass draw).
+Dense metro moves 323 → 354 draws / 67.5k → 69.0k tris — not a
+meaningful regression, so the quality-tier knobs (`quality.ts`) stay
+untouched.
+
+Visually (day, Rural + Metro, zoomed on the centre and again from a low
+angle): a clear circular carriageway around a landscaped island —
+kerb wall, mound, monument + flag, trees — at the central junction, with
+the four approach roads meeting it. The four surrounding tiles' inner
+corners are hidden under the raised ring with no poke-through at the low
+angle, and the per-cell buildings nearest the junction are gone so none
+stands in the carriageway. The central street lamp is suppressed.
+
+Committed as: `feat(kawasan-3d): central roundabout — ring road, island,
+monument`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

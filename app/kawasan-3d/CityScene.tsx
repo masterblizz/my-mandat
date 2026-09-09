@@ -24,6 +24,10 @@ import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
 } from "./ground";
 import { reserveLargeFootprints, LargeBuildings } from "./largeBuildings";
+import {
+  Roundabout, roundaboutTiles, roundaboutCentre, cornerSign, CLEAR_R,
+  type RoundaboutCorner,
+} from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -96,12 +100,14 @@ function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
 }
 
 function Buildings({
-  placed, density, traits, winLit, tod, foliageDensity, claimed,
+  placed, density, traits, winLit, tod, foliageDensity, claimed, notchByCell,
 }: {
   placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number; tod: Tod;
   foliageDensity: number;
   /** "col,row" cells swallowed by a large footprint — skip their per-cell buildings. */
   claimed: Set<string>;
+  /** "col,row" -> roundabout corner: drop building slots within CLEAR_R of the junction. */
+  notchByCell: Map<string, RoundaboutCorner>;
 }) {
   const { available } = useModelAvailability();
 
@@ -109,8 +115,19 @@ function Buildings({
     const byType = new Map<BType, BuildingInstance[]>();
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed.has(`${col},${row}`)) continue;
+      const notch = notchByCell.get(`${col},${row}`);
+      const notchSign = notch ? cornerSign(notch) : null;
       for (const spec of zoneBuildings(zone, density, traits)) {
         const sp = slotPos(spec.slot);
+        // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
+        // of this tile's junction-facing corner, so none stands in the ring.
+        if (notchSign) {
+          const fx = sp.x + spec.w / 2;               // 0..PLOT, +X
+          const fz = sp.y + spec.d / 2;               // 0..PLOT, +Z
+          const dx = notchSign[0] > 0 ? PLOT - fx : fx;
+          const dz = notchSign[1] > 0 ? PLOT - fz : fz;
+          if (dx + dz < CLEAR_R) continue;
+        }
         const flat = FLAT_TYPES.includes(spec.type);
         const inst: BuildingInstance = {
           key: `${zone.id}:${spec.slot}:${spec.type}`,
@@ -126,7 +143,7 @@ function Buildings({
       }
     }
     return Array.from(byType.entries());
-  }, [placed, density, traits, claimed]);
+  }, [placed, density, traits, claimed, notchByCell]);
 
   return (
     <group>
@@ -228,13 +245,14 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  larges, claimed,
+  larges, claimed, notchByCell,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
   foliageDensity: number;
   larges: ReturnType<typeof reserveLargeFootprints>["larges"];
   claimed: Set<string>;
+  notchByCell: Map<string, RoundaboutCorner>;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -286,8 +304,9 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} />
+      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} />
+      {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
   );
 }
@@ -325,6 +344,18 @@ export function CityScene({
     () => reserveLargeFootprints(placed, gridSize),
     [placed, gridSize],
   );
+  // Task C: one roundabout at the central junction. Only its four
+  // *developed* tiles feed the building filter (undeveloped ones are thin
+  // planes the raised ring already covers). Gives StreetLamps the junction.
+  const { notchByCell, roundaboutAt } = useMemo(() => {
+    const developed = new Set(placed.map((p) => `${p.col},${p.row}`));
+    const m = new Map<string, RoundaboutCorner>();
+    for (const t of roundaboutTiles(gridSize)) {
+      const key = `${t.col},${t.row}`;
+      if (developed.has(key)) m.set(key, t.corner);
+    }
+    return { notchByCell: m, roundaboutAt: m.size > 0 ? roundaboutCentre(gridSize) : null };
+  }, [placed, gridSize]);
   const byId = useMemo(() => {
     const m = new Map<string, CellPlacement>();
     placed.forEach((p) => m.set(p.zone.id, p));
@@ -353,8 +384,9 @@ export function CityScene({
         foliageDensity={qs.foliageDensity}
         larges={larges}
         claimed={claimed}
+        notchByCell={notchByCell}
       />
-      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} claimed={claimed} />
+      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} claimed={claimed} hideNear={roundaboutAt} />
       <Traffic gridSize={gridSize} />
       <Lrt gridSize={gridSize} />
 
