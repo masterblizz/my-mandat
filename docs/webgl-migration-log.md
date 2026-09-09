@@ -1450,6 +1450,70 @@ the perimeter. Rural is unchanged — same sparse ~9-cell cluster.
 Committed as: `feat(kawasan-3d): dense KL-style core for Metro / Dense
 metro`.
 
+## Item 10 — Metro core should be *tall*, not just full
+
+Follow-up to item 9: Metro was fuller but still mostly mid-rise boxes —
+only `urban` / `commercial` zones went vertical, and the demo has ~1
+`urban` zone, so the grid read as low blocks with a few tower clusters,
+not a skyline. The fix threads a **`coreness`** value (0 at the grid
+edge, 1 dead centre — `CityScene`'s `Buildings` computes it per cell from
+`Math.hypot(col−mid, row−mid)`) into `zoneBuildings`, and at/above
+`METRO_DENSITY` uses it to build a real height gradient:
+
+- **Type upgrade** (`CORE_LOWRISE` → high-rise): a deterministic
+  per-`(zone, slot)` value rebuilds `house` / `terrace` / `kampung` /
+  `shop` / `stall` as a `tower` (probability `∝ hi`) or `shophouse`
+  (mid-band), leaving them unchanged toward the perimeter. Civic /
+  industrial / ground-cover types (`masjid`, `school`, `clinic`,
+  `factory`, `sawah`, …) are never touched — a CBD still has those.
+- **Skyscraper count** now applies to *every* kind near the centre, not
+  just `urban`: `urban` 2→5, `commercial` / `market` 1→2, and
+  `housing` / `village` / `education` / `community` / `river` get
+  `round(hi·1.6)` (high-rise residential — very KL). `industry` stays 0.
+  Below the threshold this is byte-for-byte the ported original
+  (`urban` only, 0–2).
+- **Height lift**: `tower` / `skyscraper` heights ×`(1 + hi·0.55)` —
+  ~1.0 at the edge, ~1.6 dead centre, so the tallest towers spike in the
+  core and step down outward.
+
+`hi` is `min(1, coreness·1.15)`. Everything is gated on `metroCore`, so
+`coreness` is inert below `METRO_DENSITY` and Rural / Semi-urban stay
+exactly the ported original.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | Δ vs item 9 |
+|---|---|---|---|---|
+| Rural 6×6 | 1 | 209 | 12.5k | ±0 (byte-identical) |
+| Semi-urban 8×8 | 4 | 246 | 23.5k | ±0 (byte-identical) |
+| Metro 10×10 | 2 | 316 | 58.4k | ±0 draws, +2.9k tris (+5%) |
+| Dense metro 12×12 | 4 | 351 | 86.3k | −3 draws, +4.6k tris (+6%) |
+
+\*SwiftShader — noise, see caveat at top.
+
+This item swaps building *types*, it doesn't add instances — a `tower` /
+`skyscraper` routes through the procedural setback geometry (a couple
+more triangles than a plain `house` box), hence the small +5-6% triangle
+move; **draw calls are flat** (instancing). Rural / Semi-urban
+byte-identical again. No tier gating needed (Dense's `"low"` tier already
+covers it; the triangle rise is small and bounded).
+
+Visually (Metro + Dense, night): the core is now a genuine skyline —
+dense clusters of towers throughout the built-up area, clearly tallest
+around the centre (mall / stadium / roundabout) and stepping down to
+orange / green low-rise residential at the perimeter. Rural / Semi-urban
+unchanged.
+
+Dials, if the core ever reads too spiky on real hardware: `lift`'s
+`hi·0.55` factor, the `upgrade()` probability thresholds, and the
+per-kind `skyscraperCount` in `zoneBuildings`.
+
+Committed as: `feat(kawasan-3d): high-rise CBD gradient for the metro
+core`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

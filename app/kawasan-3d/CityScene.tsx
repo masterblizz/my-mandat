@@ -100,9 +100,9 @@ function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
 }
 
 function Buildings({
-  placed, density, traits, winLit, tod, foliageDensity, claimed, notchByCell,
+  placed, gridSize, density, traits, winLit, tod, foliageDensity, claimed, notchByCell,
 }: {
-  placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number; tod: Tod;
+  placed: CellPlacement[]; gridSize: number; density: number; traits: SeatTraits; winLit: number; tod: Tod;
   foliageDensity: number;
   /** "col,row" cells swallowed by a large footprint — skip their per-cell buildings. */
   claimed: Set<string>;
@@ -113,11 +113,16 @@ function Buildings({
 
   const groups = useMemo(() => {
     const byType = new Map<BType, BuildingInstance[]>();
+    // 1 dead-centre, 0 at a corner — drives the metro core's height taper
+    // (zoneBuildings). Below METRO_DENSITY it's ignored.
+    const mid = (gridSize - 1) / 2;
+    const maxD = Math.hypot(mid, mid) || 1;
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed.has(`${col},${row}`)) continue;
+      const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
       const notch = notchByCell.get(`${col},${row}`);
       const notchSign = notch ? cornerSign(notch) : null;
-      for (const spec of zoneBuildings(zone, density, traits)) {
+      for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         const sp = slotPos(spec.slot);
         // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
         // of this tile's junction-facing corner, so none stands in the ring.
@@ -143,7 +148,7 @@ function Buildings({
       }
     }
     return Array.from(byType.entries());
-  }, [placed, density, traits, claimed, notchByCell]);
+  }, [placed, gridSize, density, traits, claimed, notchByCell]);
 
   return (
     <group>
@@ -304,7 +309,7 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} notchByCell={notchByCell} />
+      <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} />
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>

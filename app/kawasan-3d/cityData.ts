@@ -342,53 +342,84 @@ const ZONE_FILLER: Record<ZoneKind, BType[]> = {
   community: ["kampung", "house", "clinic"],
 };
 
-export function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): BSpec[] {
+// Low-rise types a metro core rebuilds as high-rise. Civic / industrial /
+// ground-cover types (masjid, school, clinic, factory, sawah, …) are left
+// alone — a CBD still has those.
+const CORE_LOWRISE = new Set<BType>(["house", "terrace", "kampung", "shop", "stall"]);
+
+// `coreness` is 0 at the grid edge, 1 dead centre (CityScene passes it per
+// cell). At/above METRO_DENSITY it drives how tall a zone builds: central
+// cells rebuild low-rise as towers and stack extra skyscrapers, tapering
+// to near-original height at the perimeter — a KL-style CBD-to-suburb
+// gradient rather than a flat field of mid-rise boxes.
+export function zoneBuildings(
+  zone: Zone, density: number, traits: SeatTraits, coreness = 0,
+): BSpec[] {
   const metroCore = density >= METRO_DENSITY;
-  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => ({
-    type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone),
-    flag: zone.kind === "urban" && index === 0,
-  }));
+  const hi = metroCore ? Math.min(1, Math.max(0, coreness) * 1.15) : 0;
+  const zseed = seedFrom(zone.id);
+
+  // Deterministic per-(zone, slot) upgrade of a low-rise type.
+  const upgrade = (type: BType, slot: number): BType => {
+    if (!metroCore || !CORE_LOWRISE.has(type)) return type;
+    const r = ((zseed + slot * 53) % 100) / 100; // stable 0..1
+    if (r < hi * 0.72) return "tower";
+    if (r < 0.3 + hi * 0.45) return "shophouse";
+    return type;
+  };
+  // Height lift for the vertical types, strongest at the centre.
+  const lift = (type: BType, h: number): number =>
+    type === "tower" || type === "skyscraper" ? Math.round(h * (1 + hi * 0.55)) : h;
+  const spec = (type: BType, slot: number, extra?: Partial<BSpec>): BSpec => {
+    const t = upgrade(type, slot);
+    return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone)), ...extra };
+  };
+
+  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) =>
+    spec(type, slot, { flag: zone.kind === "urban" && index === 0 }),
+  );
   const used = new Set(base.map((b) => b.slot));
   const free = [1, 3, 5, 7, 8, 6, 2, 0].filter((slot) => !used.has(slot));
   const fillers: BType[] = traits.paddy && (zone.kind === "village" || zone.kind === "river")
     ? ["sawah", "sawah", "house"]
     : ZONE_FILLER[zone.kind];
-  const seed = seedFrom(zone.id);
-  // Metro cores stack a real cluster of high-rises in the CBD-ish kinds;
-  // below the metro threshold this is unchanged from the ported original.
-  const skyscraperCount = zone.kind === "urban"
-    ? (metroCore
-        ? Math.min(4, 2 + Math.round((density - METRO_DENSITY) * 7))
-        : Math.max(0, Math.min(2, Math.round((density - 0.5) * 4))))
-    : zone.kind === "commercial"
-      ? (metroCore ? (density >= 0.85 ? 2 : 1) : (density >= 0.8 ? 1 : 0))
-      : 0;
+  const seed = zseed;
+  // Metro cores stack a real cluster of high-rises; below the metro
+  // threshold this is exactly the ported original (urban only, 0-2).
+  // At/above it, ANY zone near the centre gets a skyscraper or two —
+  // high-rise residential included — with the CBD kinds getting the most.
+  const skyscraperCount = !metroCore
+    ? (zone.kind === "urban"
+        ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
+        : zone.kind === "commercial" && density >= 0.8 ? 1 : 0)
+    : zone.kind === "urban"
+      ? Math.min(5, 2 + Math.round(hi * 2 + (density - METRO_DENSITY) * 6))
+      : zone.kind === "commercial" || zone.kind === "market"
+        ? (hi > 0.4 ? 2 : 1)
+        : zone.kind === "industry"
+          ? 0
+          : Math.round(hi * 1.6); // housing / village / education / community / river
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.
   const reserve = metroCore ? (zone.projects.length ? 1 : 0) : 2;
   const skyscrapers: BSpec[] = Array.from(
     { length: Math.min(skyscraperCount, Math.max(0, free.length - reserve)) },
-    () => {
-      const slot = free.pop() as number;
-      return { type: "skyscraper" as BType, slot, ...jitterFootprint("skyscraper", zone.id, slot, density), h: buildingHeight("skyscraper", zone) };
-    },
+    () => spec("skyscraper", free.pop() as number),
   );
   const extraBoost = (traits.industrial && zone.kind === "industry") || (traits.paddy && zone.kind === "village") ? 2 : 0;
   const extraCount = Math.min(
     metroCore ? free.length : Math.round(density * 3) + extraBoost,
     Math.max(0, free.length - reserve),
   );
-  const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) => {
-    const type = fillers[(seed + index) % fillers.length];
-    const slot = free.pop() as number;
-    return { type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone) };
-  });
+  const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) =>
+    spec(fillers[(seed + index) % fillers.length], free.pop() as number),
+  );
   const facilities: BSpec[] = zone.projects.map((projectId, index) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
     const slot = free[index % free.length];
     return {
-      type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone),
+      type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone),
       icon: PROJECT_ICON[projectId], glow: true,
     };
   });
