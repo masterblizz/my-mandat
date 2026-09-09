@@ -494,17 +494,22 @@ export const COMMON_MODEL_TYPES: BType[] = [
   "house", "terrace", "shop", "stall", "kampung", "shophouse", "tower",
 ];
 
-// ── BType -> flat box colour (parallel to PALETTES) ────────────────────
-// One representative solid colour per type, sampled from that type's
-// PALETTES gradient. Used as the graceful fallback when a model is absent.
+// ── BType -> flat box colour ──────────────────────────────────────────
+// Muted architectural tones — real concrete / glass / render / brick,
+// desaturated ~50% from the old near-neon palette so the city reads as a
+// place rather than a toy. Hue identity is kept so types are still
+// distinguishable (glassy blue-greys for the office towers, warm renders
+// for housing, greys for civic/industrial). sawah / field stay natural
+// crop greens; pond stays water. Used for the box fallback and as the
+// procedural / large-building shell colour.
 export const BUILDING_COLOR: Record<BType, string> = {
-  tower: "#22d3ee", skyscraper: "#6366f1", antenna: "#a855f7",
-  shop: "#f59e0b", stall: "#fb923c", house: "#e0673f",
-  factory: "#64748b", warehouse: "#78716c", school: "#3b82f6",
-  clinic: "#10b981", masjid: "#d6d3d1", mall: "#db2777",
-  stadium: "#3fbf6b", terminal: "#fb923c", sawah: "#65a30d",
-  pond: "#0ea5e9", field: "#4d7c0f", plaza: "#475569",
-  kampung: "#b45309", shophouse: "#8fd0c4", terrace: "#b8a37e",
+  tower: "#8fa6b5", skyscraper: "#7c8aa0", antenna: "#9a9ea6",
+  shop: "#c2a279", stall: "#bb8f68", house: "#bd937a",
+  factory: "#71808f", warehouse: "#8b877e", school: "#c3b489",
+  clinic: "#c7d0d1", masjid: "#dcd7c9", mall: "#a596a0",
+  stadium: "#96a08f", terminal: "#9aa6b0", sawah: "#6f9440",
+  pond: "#3f6f86", field: "#5f8038", plaza: "#8b8f96",
+  kampung: "#a17c58", shophouse: "#a8bdb4", terrace: "#bcaf92",
 };
 
 // ── camera model (ported interaction contract from app/kawasan/page.tsx) ─

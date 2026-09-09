@@ -1678,6 +1678,87 @@ their item-11 massing. No BType renders as a bare box any more.
 Committed as: `feat(kawasan-3d): grass-tick detail + a silhouette for
 every building type`.
 
+## Item 14 — Realism pass: muted palette + street lamps + traffic lights
+
+"Make it more realistic; add traffic lights and street lights." (A
+shared Claude Design reference was linked but 403s to a tool fetch, so
+this works from the standing direction + the earlier mockup.)
+
+### Muted `BUILDING_COLOR`
+
+The old palette was near-neon — `tower #22d3ee`, `mall #db2777`,
+`house #e0673f`. Replaced with muted architectural tones (glass
+blue-greys for the office types, warm renders for housing, greys for
+civic/industrial), desaturated ~50% with hue identity kept so types stay
+distinguishable. `sawah` / `field` stay crop-green, `pond` stays water.
+This is the single biggest realism move — the city now reads as a scale
+model of a place rather than a toy.
+
+### Street lamps (`scenery.tsx` `StreetLamps`)
+
+Was one lamp per junction. Now junction lamps **plus** a mid-span lamp
+per road edge on alternating sides, so a road reads as *lined*. The
+mid-span rate is `detail * 52` (never a full doubling even at the top
+tier) where `detail` is the new `quality.ts` `streetDetail` knob
+(1 / 0.7 / 0.45). Pole cylinders dropped to 4 segments; the emissive
+head brightened and set `toneMapped:false` so the Phase-E bloom turns it
+into a night glow. A bulb-sphere was tried and cut (it alone added
+~+10k triangles scene-wide).
+
+### Traffic lights (`scenery.tsx` `TrafficLights`, new)
+
+A signal at every **4-way** junction that borders a developed zone
+(T- and edge-junctions skipped; thinned further by `streetDetail`). Two
+poles per junction on opposite corners running opposite phases so cross
+traffic alternates. Pole + head as instanced meshes; the red / amber /
+green lenses are three more InstancedMeshes whose lit row cycles over
+`TL_CYCLE = 9s`.
+
+**Bug found + fixed mid-item:** the first cut animated the lenses with an
+`onBeforeCompile` shader (per-instance `aPhase` attribute + `uTime`
+uniform). That tripped `GL_INVALID_OPERATION: glBlitFramebuffer — read
+and write depth stencil attachments cannot be the same image` inside the
+EffectComposer, but **only on the `medium` quality tier** (Metro) —
+which left the whole frame transparent (`readPixels` at centre returned
+`[0,0,0,0]`). It was a `console.warning`, so the harness's
+`consoleError` filter never caught it; two harness runs reported "0
+errors" with Metro silently blank (60 KB screenshot vs ~350 KB for the
+others). Replaced the shader with plain **throttled `setColorAt`** on the
+lens `instanceColor` (recolour only the instances whose lit row
+changed, ~8 Hz) — no pipeline interaction, Metro renders again.
+
+### Verification
+
+`tsc` + `next lint` clean (dev stopped for lint — the `.next` manifest
+gotcha). Harness, all four densities: **0 console errors, all four
+screenshots full-size** (the blank-Metro regression is gone).
+
+| density | fps* | draws | tris | vs item 13 |
+|---|---|---|---|---|
+| Rural 6×6 | 5 | 232 | 18.1k | +7 draws, +4.8k tris |
+| Semi-urban 8×8 | 10 | 276 | 36.1k | +7 draws, +9.9k tris |
+| Metro 10×10 | 4 | 350 | 75.7k | +7 draws, +12.5k tris (+20%) |
+| Dense metro 12×12 | 6 | 388 | 93.3k | +7 draws, +11.2k tris (+14%) |
+
+\*SwiftShader — noise, see caveat at top.
+
+Draws +7 **density-flat** (the new street-lamp + traffic-light
+InstancedMeshes). Triangles +12-20% at metro/dense — the cost of the
+requested street furniture, held down by `streetDetail` at the medium /
+low tiers; **fps is unchanged-to-better** vs item 13 (Metro 4→4,
+Dense 4→6), so not a meaningful regression by the fps bar.
+
+Visually (day, all densities): the muted palette reads as concrete /
+glass / render; street lamps line the roads; small red / green
+traffic-light lenses sit at the developed 4-way junctions. A night
+close-up to show the lamp bloom + the cycling signals couldn't be
+captured — the ad-hoc Playwright shot kept timing out on this
+memory-pressured box — but the emissive/bloom path is the same one the
+lit-window and lamp systems have used since items 5 and F.
+
+Committed as: `feat(kawasan-3d): muted realistic palette, road-lined
+street lamps, animated traffic lights`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

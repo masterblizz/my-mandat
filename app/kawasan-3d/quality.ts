@@ -29,12 +29,15 @@ export type QualitySettings = {
    * pulls the lowest tier back toward the pre-item-9 baseline without
    * touching the placement logic or the higher tiers. */
   buildingBudget: number;
+  /** 0..1 knob for street furniture density — scales the extra mid-span
+   * street lamps and thins the animated traffic lights (scenery.tsx). */
+  streetDetail: number;
 };
 
 export const QUALITY_SETTINGS: Record<QualityTier, QualitySettings> = {
-  high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true, buildingBudget: 1 },
-  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.85 },
-  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.66 },
+  high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true, buildingBudget: 1, streetDetail: 1 },
+  medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.85, streetDetail: 0.7 },
+  low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.66, streetDetail: 0.45 },
 };
 
 // Defaults lower at higher grid densities, per the brief. Re-validated

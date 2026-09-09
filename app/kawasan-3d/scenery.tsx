@@ -18,6 +18,7 @@
 // lights, car headlights, boats/river, roadside trees.
 
 import { useLayoutEffect, useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Stars, GradientTexture, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
@@ -199,10 +200,20 @@ function Rain({ span }: { span: number }) {
 }
 
 // ── street lamps ────────────────────────────────────────────────────
+// A lamp at every road junction PLUS mid-span lamps down each road edge
+// (deterministically thinned by the quality tier's `detail`) on
+// alternating sides, so a road reads as *lined* with lamps rather than
+// only cornered. The head carries a warm emissive the Phase-E bloom
+// turns into a glow at night; a tiny bright bulb sphere gives that bloom
+// a hot core.
+const LAMP_POLE_H = 26;
+
 export function StreetLamps({
-  gridSize, lamp, claimed, hideNear,
+  gridSize, lamp, detail = 1, claimed, hideNear,
 }: {
   gridSize: number; lamp: number;
+  /** quality-tier street-furniture density 0..1 (scales the mid-span lamps) */
+  detail?: number;
   /** cells swallowed by a large footprint — suppress lamps at junctions fully inside one */
   claimed?: Set<string>;
   /** world (x,z) of the roundabout centre — suppress lamps that fall on its island/ring */
@@ -210,24 +221,43 @@ export function StreetLamps({
 }) {
   const centre = worldCentre(gridSize);
   const points = useMemo(() => {
-    const xsRaw = roadsV(gridSize);
-    const zsRaw = roadsH(gridSize);
+    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
+    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
     const out: [number, number][] = [];
-    for (let i = 0; i < xsRaw.length; i++) {
-      for (let j = 0; j < zsRaw.length; j++) {
-        if (claimed && junctionInsideLarge(i, j, gridSize, claimed)) continue;
-        const px = xsRaw[i] - centre + ROAD_W / 2;
-        const pz = zsRaw[j] - centre + ROAD_W / 2;
-        if (hideNear && Math.hypot(px - hideNear[0], pz - hideNear[1]) < 130) continue;
-        out.push([px, pz]);
+    const blocked = (px: number, pz: number, i: number, j: number) =>
+      (claimed && junctionInsideLarge(i, j, gridSize, claimed)) ||
+      (hideNear && Math.hypot(px - hideNear[0], pz - hideNear[1]) < 130);
+    for (let i = 0; i < xs.length; i++) {
+      for (let j = 0; j < zs.length; j++) {
+        if (!blocked(xs[i], zs[j], i, j)) out.push([xs[i], zs[j]]);
+      }
+    }
+    // one mid-span lamp per road edge, alternating side — `detail` caps
+    // the rate well below 100% even at the top tier so this stays a
+    // trim, not a doubling.
+    const off = ROAD_W * 0.42;
+    const rate = detail * 52;
+    for (let i = 0; i < xs.length; i++) {
+      for (let j = 0; j + 1 < zs.length; j++) {
+        if (((i * 131 + j * 17) % 100) >= rate) continue;
+        const px = xs[i] + (j % 2 ? off : -off);
+        const pz = (zs[j] + zs[j + 1]) / 2;
+        if (!blocked(px, pz, i, j)) out.push([px, pz]);
+      }
+    }
+    for (let j = 0; j < zs.length; j++) {
+      for (let i = 0; i + 1 < xs.length; i++) {
+        if (((j * 131 + i * 17 + 7) % 100) >= rate) continue;
+        const px = (xs[i] + xs[i + 1]) / 2;
+        const pz = zs[j] + (i % 2 ? off : -off);
+        if (!blocked(px, pz, i, j)) out.push([px, pz]);
       }
     }
     return out;
-  }, [gridSize, centre, claimed, hideNear]);
+  }, [gridSize, centre, detail, claimed, hideNear]);
 
   const poleRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
-  const POLE_H = 26;
 
   useLayoutEffect(() => {
     const pole = poleRef.current;
@@ -235,17 +265,19 @@ export function StreetLamps({
     if (!pole || !head) return;
     const m = new THREE.Object3D();
     points.forEach(([x, z], i) => {
-      m.position.set(x, POLE_H / 2, z);
-      m.scale.set(1, POLE_H, 1);
+      m.position.set(x, LAMP_POLE_H / 2, z);
+      m.scale.set(1, LAMP_POLE_H, 1);
       m.updateMatrix();
       pole.setMatrixAt(i, m.matrix);
-      m.position.set(x, POLE_H, z);
+      m.position.set(x, LAMP_POLE_H, z);
       m.scale.set(1, 1, 1);
       m.updateMatrix();
       head.setMatrixAt(i, m.matrix);
     });
     pole.instanceMatrix.needsUpdate = true;
     head.instanceMatrix.needsUpdate = true;
+    pole.computeBoundingSphere();
+    head.computeBoundingSphere();
   }, [points]);
 
   // A few real point lights (not one per lamp) for actual bounce at night.
@@ -257,16 +289,12 @@ export function StreetLamps({
   return (
     <group>
       <instancedMesh ref={poleRef} args={[undefined, undefined, points.length]} key={`pole-${points.length}`} castShadow>
-        <cylinderGeometry args={[1.1, 1.4, 1, 6]} />
-        <meshStandardMaterial color="#2b3340" />
+        <cylinderGeometry args={[1, 1.3, 1, 4]} />
+        <meshStandardMaterial color="#2b3340" roughness={0.8} />
       </instancedMesh>
-      <instancedMesh ref={headRef} args={[undefined, undefined, points.length]} key={`head-${points.length}`}>
-        <boxGeometry args={[6, 3, 6]} />
-        <meshStandardMaterial
-          color="#3a4150"
-          emissive="#ffd489"
-          emissiveIntensity={lamp * 2.2}
-        />
+      <instancedMesh ref={headRef} args={[undefined, undefined, points.length]} key={`head-${points.length}`} frustumCulled={false}>
+        <boxGeometry args={[5, 2.4, 5]} />
+        <meshStandardMaterial color="#3a4150" emissive="#ffd489" emissiveIntensity={0.15 + lamp * 2.6} toneMapped={false} />
       </instancedMesh>
       {lamp > 0.05 &&
         quads.map(([x, z], i) => (
@@ -279,6 +307,148 @@ export function StreetLamps({
             decay={1.4}
           />
         ))}
+    </group>
+  );
+}
+
+// ── traffic lights ─────────────────────────────────────────────────
+// A signal at every 4-way junction that borders a developed zone (T- and
+// edge-junctions skipped, thinned further by the quality tier). Two poles
+// per junction on opposite corners running OPPOSITE phases, so cross
+// traffic alternates. The red / amber / green lenses are three
+// InstancedMeshes; the cycle is driven by throttled `setColorAt` on the
+// instanceColor buffer (a first cut animated it with an onBeforeCompile
+// shader, which tripped an EffectComposer depth-stencil blit error on the
+// medium tier — plain instanced colour has no pipeline risk).
+const TL_POLE_H = 20;
+const TL_HEAD_Y = TL_POLE_H + 4;
+const TL_CYCLE = 9; // seconds for a full green -> amber -> red loop
+const TL_LIT = [new THREE.Color("#ff3b30"), new THREE.Color("#ffb020"), new THREE.Color("#2fd15a")];
+const TL_DIM = new THREE.Color("#15171c");
+// row 0 = red (top), 1 = amber, 2 = green (bottom): fraction-of-cycle each is lit
+const TL_ROW_WINDOW: [number, number][] = [[0.52, 1.0], [0.46, 0.54], [0.02, 0.46]];
+
+export function TrafficLights({
+  gridSize, developed, detail = 1, claimed,
+}: {
+  gridSize: number;
+  /** "col,row" of developed cells — a junction needs at least one to qualify */
+  developed: Set<string>;
+  detail?: number;
+  claimed?: Set<string>;
+}) {
+  const centre = worldCentre(gridSize);
+
+  const poles = useMemo(() => {
+    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
+    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
+    const out: { x: number; z: number; phase: number }[] = [];
+    const inB = (c: number, r: number) => c >= 0 && c < gridSize && r >= 0 && r < gridSize;
+    for (let i = 1; i < xs.length; i++) {
+      for (let j = 1; j < zs.length; j++) {
+        const quad: [number, number][] = [[i - 1, j - 1], [i, j - 1], [i - 1, j], [i, j]];
+        if (!quad.every(([c, r]) => inB(c, r))) continue;
+        if (!quad.some(([c, r]) => developed.has(`${c},${r}`))) continue;
+        if (claimed && quad.every(([c, r]) => claimed.has(`${c},${r}`))) continue;
+        if (((i * 97 + j * 41) % 100) >= detail * 100) continue;
+        const d = ROAD_W * 0.42;
+        out.push({ x: xs[i] - d, z: zs[j] - d, phase: 0 });
+        out.push({ x: xs[i] + d, z: zs[j] + d, phase: 0.5 });
+      }
+    }
+    return out;
+  }, [gridSize, centre, developed, detail, claimed]);
+
+  const poleRef = useRef<THREE.InstancedMesh>(null);
+  const headRef = useRef<THREE.InstancedMesh>(null);
+  const lensRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const lastState = useRef<Int8Array>(new Int8Array(0));
+  const acc = useRef(0);
+
+  useLayoutEffect(() => {
+    const pole = poleRef.current;
+    const head = headRef.current;
+    if (!pole || !head) return;
+    const m = new THREE.Object3D();
+    poles.forEach((p, i) => {
+      m.position.set(p.x, TL_POLE_H / 2, p.z);
+      m.scale.set(1, TL_POLE_H, 1);
+      m.rotation.set(0, 0, 0);
+      m.updateMatrix();
+      pole.setMatrixAt(i, m.matrix);
+      m.position.set(p.x, TL_HEAD_Y, p.z);
+      m.scale.set(1, 1, 1);
+      m.updateMatrix();
+      head.setMatrixAt(i, m.matrix);
+    });
+    pole.instanceMatrix.needsUpdate = true;
+    head.instanceMatrix.needsUpdate = true;
+    pole.computeBoundingSphere();
+    head.computeBoundingSphere();
+    lensRefs.current.forEach((lens, row) => {
+      if (!lens) return;
+      const dy = [3.4, 0, -3.4][row];
+      poles.forEach((p, i) => {
+        m.position.set(p.x, TL_HEAD_Y + dy, p.z + 2.4);
+        m.scale.set(1, 1, 1);
+        m.updateMatrix();
+        lens.setMatrixAt(i, m.matrix);
+        lens.setColorAt(i, TL_DIM);
+      });
+      lens.instanceMatrix.needsUpdate = true;
+      if (lens.instanceColor) lens.instanceColor.needsUpdate = true;
+      lens.computeBoundingSphere();
+    });
+    lastState.current = new Int8Array(poles.length).fill(-1);
+  }, [poles]);
+
+  // Throttled: recolour only the lenses whose lit-row changed.
+  useFrame((_, dt) => {
+    acc.current += dt;
+    if (acc.current < 0.12) return;
+    acc.current = 0;
+    const t = (performance.now() / 1000 / TL_CYCLE);
+    const dirty = [false, false, false];
+    poles.forEach((p, i) => {
+      const local = (t + p.phase) % 1;
+      const row = TL_ROW_WINDOW.findIndex(([a, b]) => local >= a && local < b);
+      if (lastState.current[i] === row) return;
+      for (let r = 0; r < 3; r++) {
+        const lens = lensRefs.current[r];
+        if (!lens) continue;
+        lens.setColorAt(i, r === row ? TL_LIT[r] : TL_DIM);
+        dirty[r] = true;
+      }
+      lastState.current[i] = row;
+    });
+    dirty.forEach((d, r) => {
+      const lens = lensRefs.current[r];
+      if (d && lens?.instanceColor) lens.instanceColor.needsUpdate = true;
+    });
+  });
+
+  if (!poles.length) return null;
+  return (
+    <group>
+      <instancedMesh ref={poleRef} args={[undefined, undefined, poles.length]} key={`tlp-${poles.length}`} castShadow>
+        <cylinderGeometry args={[0.9, 1.1, 1, 4]} />
+        <meshStandardMaterial color="#2f333b" roughness={0.85} />
+      </instancedMesh>
+      <instancedMesh ref={headRef} args={[undefined, undefined, poles.length]} key={`tlh-${poles.length}`} castShadow frustumCulled={false}>
+        <boxGeometry args={[3.4, 10.5, 3]} />
+        <meshStandardMaterial color="#23262d" roughness={0.85} />
+      </instancedMesh>
+      {([0, 1, 2] as const).map((row): ReactNode => (
+        <instancedMesh
+          key={`tl-lens-${row}-${poles.length}`}
+          ref={(r) => { lensRefs.current[row] = r; }}
+          args={[undefined, undefined, poles.length]}
+          frustumCulled={false}
+        >
+          <boxGeometry args={[2.4, 2.4, 1.4]} />
+          <meshBasicMaterial toneMapped={false} />
+        </instancedMesh>
+      ))}
     </group>
   );
 }

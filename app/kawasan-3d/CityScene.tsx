@@ -12,7 +12,7 @@ import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
 import {
-  CityEnvironment, StreetLamps, Traffic, Lrt, ZoneBeacon, type Weather,
+  CityEnvironment, StreetLamps, TrafficLights, Traffic, Lrt, ZoneBeacon, type Weather,
 } from "./scenery";
 import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
@@ -354,6 +354,10 @@ export function CityScene({
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
   const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
+  const developedCells = useMemo(
+    () => new Set(placed.map((p) => `${p.col},${p.row}`)),
+    [placed],
+  );
   // Task B: a few large buildings claim an N×M block; `claimed` holds
   // those cells so per-cell buildings / sidewalks / trees / lamps skip
   // them. Deterministic from `placed` — recomputed only on layout change.
@@ -404,7 +408,8 @@ export function CityScene({
         claimed={claimed}
         notchByCell={notchByCell}
       />
-      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} claimed={claimed} hideNear={roundaboutAt} />
+      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
+      <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
       <Traffic gridSize={gridSize} />
       <Lrt gridSize={gridSize} />
 
