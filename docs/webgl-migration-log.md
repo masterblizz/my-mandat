@@ -1388,6 +1388,68 @@ stands in the carriageway. The central street lamp is suppressed.
 Committed as: `feat(kawasan-3d): central roundabout — ring road, island,
 monument`.
 
+## Item 9 — Metro / Dense-metro density: pack the core like a real CBD
+
+Ask: the Metro preset read as blocks scattered on open land, not a
+built-up metropolitan core — make it dense like KL. All three changes in
+`cityData.ts`, gated behind a new `METRO_DENSITY = 0.62` constant (the
+same cutoff `kawasanGridSize` already uses for "metro"), so **Rural and
+Semi-urban are byte-for-byte unchanged** — the ported originals still run
+below the threshold.
+
+- `kawasanDevelopedCount` — at/above the threshold, fill ~0.86 of the
+  grid at Metro rising to ~0.98 at Dense (was the plain linear
+  `min + density·(total−min)`, ≈0.75 at Metro). Almost no undeveloped
+  cells inside the footprint.
+- `zoneBuildings` — `metroCore` tiles pack every slot: `urban` zones get
+  2 → 4 skyscrapers (scaling `2 + round((density−0.62)·7)`), `commercial`
+  gets 1 → 2, and `extras` fill **all** remaining free slots instead of
+  `round(density·3)` with two always held back — only reserving a slot
+  when the zone actually has a facility project. Below the threshold the
+  original skyscraper formula and the `free.length − 2` reserve are
+  untouched.
+- `jitterFootprint` — takes `density` now; `metroCore` grows footprints
+  ×1.11 (Metro) → ×1.31 (Dense), capped at `SLOT_PITCH − SLOT_GAP` so
+  neighbours still can't overlap. Towers nearly abut, KL-street-wall
+  style, instead of sitting island-like in their 72-unit slot. The cap
+  makes this a no-op below the threshold (the ported jitter already
+  tops out at the same value), so Rural/Semi are unaffected.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | Δ vs item 8 |
+|---|---|---|---|---|
+| Rural 6×6 | 1 | 209 | 12.5k | +1 draw, ±0 tris (noise) |
+| Semi-urban 8×8 | 2 | 246 | 23.5k | ±0 |
+| Metro 10×10 | 1 | 316 | 55.5k | +6 draws, **+12.2k tris (+28%)** |
+| Dense metro 12×12 | 3 | 354 | 81.7k | ±0 draws, **+12.7k tris (+18%)** |
+
+\*SwiftShader — noise, see caveat at top.
+
+Rural / Semi-urban confirmed **byte-identical** (the threshold gate
+holds). Metro / Dense get the intended density: **draw calls stay flat**
+— instancing absorbs the extra buildings, so the real GPU state-change
+cost is unchanged — while triangles rise ~20-28% from the denser
+placement. That rise is bounded and one-time (more instances at fixed
+per-type geometry, not a runaway), and Dense metro is already on the
+`"low"` quality tier (`quality.ts`), so no additional tier gating was
+applied. If a real-GPU pass later shows Dense struggling, the
+`skyscraperCount` scale and `jitterFootprint`'s `grow` factor are the
+dials to back off.
+
+Visually (day + night, Metro + Dense): the grid is now built out nearly
+cell-to-cell (the minimap fills almost solid), each core tile is packed
+with buildings edge-to-edge, and the `urban` / `commercial` zones stack
+clusters of 3-4 skyscrapers that read as a recognisable CBD skyline,
+tallest around the centre and tapering to lower residential blocks at
+the perimeter. Rural is unchanged — same sparse ~9-cell cluster.
+
+Committed as: `feat(kawasan-3d): dense KL-style core for Metro / Dense
+metro`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

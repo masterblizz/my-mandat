@@ -58,10 +58,23 @@ export function kawasanGridSize(density: number): number {
   if (density >= 0.3) return 8;   // semi-urban
   return 6;                       // rural
 }
+// Threshold at/above which a grid is treated as a real metropolitan core
+// (matches kawasanGridSize's "metro" cutoff). The 3D route packs these
+// grids much tighter — see kawasanDevelopedCount / zoneBuildings /
+// jitterFootprint below — so Metro / Dense metro read like a KL-style
+// built-up core rather than blocks scattered on open land.
+export const METRO_DENSITY = 0.62;
+
 export function kawasanDevelopedCount(density: number, gridSize: number): number {
   const total = gridSize * gridSize;
   const minDeveloped = Math.min(9, total);
-  return Math.max(minDeveloped, Math.round(minDeveloped + density * (total - minDeveloped)));
+  const linear = minDeveloped + density * (total - minDeveloped);
+  // Metro and up: almost no undeveloped cells inside the footprint.
+  // ~0.86 of the grid at Metro (0.72) rising to ~0.98 at Dense (0.9).
+  const packed = density >= METRO_DENSITY
+    ? total * Math.min(0.99, 0.86 + (density - METRO_DENSITY) * 0.45)
+    : 0;
+  return Math.max(minDeveloped, Math.min(total, Math.round(Math.max(linear, packed))));
 }
 export function assignZonePositions(
   gridSize: number,
@@ -253,16 +266,23 @@ function footprint(type: BType) {
 
 const SLOT_PITCH = 72;
 const SLOT_GAP = 7;
-function jitterFootprint(type: BType, zoneId: string, slot: number): { w: number; d: number } {
+function jitterFootprint(
+  type: BType, zoneId: string, slot: number, density = 0,
+): { w: number; d: number } {
   const base = footprint(type);
   if (FLAT_TYPES.includes(type)) return base;
   const seed = (seedFrom(zoneId) + slot * 31) % 97;
   const jw = (((seed % 7) - 3) / 3);
   const jd = (((Math.floor(seed / 7) % 7) - 3) / 3);
   const amp = (px: number) => Math.max(0.08, Math.min(0.12, (SLOT_PITCH - SLOT_GAP - px) / px));
+  // Metro cores: grow footprints toward the slot pitch so towers nearly
+  // abut (KL-style street walls) instead of sitting island-like in their
+  // slot. Capped at SLOT_PITCH - SLOT_GAP so neighbours never overlap.
+  const grow = density >= METRO_DENSITY ? 1 + Math.min(0.32, (density - METRO_DENSITY) * 1.1) : 1;
+  const cap = SLOT_PITCH - SLOT_GAP;
   return {
-    w: Math.round(base.w * (1 + jw * amp(base.w))),
-    d: Math.round(base.d * (1 + jd * amp(base.d))),
+    w: Math.min(cap, Math.round(base.w * (1 + jw * amp(base.w)) * grow)),
+    d: Math.min(cap, Math.round(base.d * (1 + jd * amp(base.d)) * grow)),
   };
 }
 
@@ -323,8 +343,9 @@ const ZONE_FILLER: Record<ZoneKind, BType[]> = {
 };
 
 export function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): BSpec[] {
+  const metroCore = density >= METRO_DENSITY;
   const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => ({
-    type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone),
+    type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone),
     flag: zone.kind === "urban" && index === 0,
   }));
   const used = new Set(base.map((b) => b.slot));
@@ -333,19 +354,35 @@ export function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): 
     ? ["sawah", "sawah", "house"]
     : ZONE_FILLER[zone.kind];
   const seed = seedFrom(zone.id);
+  // Metro cores stack a real cluster of high-rises in the CBD-ish kinds;
+  // below the metro threshold this is unchanged from the ported original.
   const skyscraperCount = zone.kind === "urban"
-    ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
-    : zone.kind === "commercial" && density >= 0.8 ? 1 : 0;
-  const skyscrapers: BSpec[] = Array.from({ length: Math.min(skyscraperCount, free.length - 2) }, () => {
-    const slot = free.pop() as number;
-    return { type: "skyscraper" as BType, slot, ...jitterFootprint("skyscraper", zone.id, slot), h: buildingHeight("skyscraper", zone) };
-  });
+    ? (metroCore
+        ? Math.min(4, 2 + Math.round((density - METRO_DENSITY) * 7))
+        : Math.max(0, Math.min(2, Math.round((density - 0.5) * 4))))
+    : zone.kind === "commercial"
+      ? (metroCore ? (density >= 0.85 ? 2 : 1) : (density >= 0.8 ? 1 : 0))
+      : 0;
+  // `reserve` is the count of free slots held back after skyscrapers +
+  // extras. Non-metro keeps the ported original's 2; metro cores keep 0
+  // (fill everything) or 1 when the zone has a facility to place.
+  const reserve = metroCore ? (zone.projects.length ? 1 : 0) : 2;
+  const skyscrapers: BSpec[] = Array.from(
+    { length: Math.min(skyscraperCount, Math.max(0, free.length - reserve)) },
+    () => {
+      const slot = free.pop() as number;
+      return { type: "skyscraper" as BType, slot, ...jitterFootprint("skyscraper", zone.id, slot, density), h: buildingHeight("skyscraper", zone) };
+    },
+  );
   const extraBoost = (traits.industrial && zone.kind === "industry") || (traits.paddy && zone.kind === "village") ? 2 : 0;
-  const extraCount = Math.min(Math.round(density * 3) + extraBoost, Math.max(0, free.length - 2));
+  const extraCount = Math.min(
+    metroCore ? free.length : Math.round(density * 3) + extraBoost,
+    Math.max(0, free.length - reserve),
+  );
   const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) => {
     const type = fillers[(seed + index) % fillers.length];
     const slot = free.pop() as number;
-    return { type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone) };
+    return { type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone) };
   });
   const facilities: BSpec[] = zone.projects.map((projectId, index) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
