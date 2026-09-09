@@ -97,18 +97,29 @@ export function Crosswalks({
 // which are similarly inset within each tile's own footprint rather than
 // stealing width from the road: ROAD_GAP (280) - PLOT (240) leaves exactly
 // ROAD_W (40) for the road itself, zero spare to add a strip on that side.
-export function Sidewalks({ placed }: { placed: CellPlacement[] }) {
+export function Sidewalks({
+  placed, claimed,
+}: {
+  placed: CellPlacement[];
+  /** cells under a large footprint — no per-tile curb, the podium edge is the boundary */
+  claimed?: Set<string>;
+}) {
   const southRef = useRef<THREE.InstancedMesh>(null);
   const eastRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const CURB_H = 2;
   const CURB_W = 7;
 
+  const tiles = useMemo(
+    () => (claimed ? placed.filter((p) => !claimed.has(`${p.col},${p.row}`)) : placed),
+    [placed, claimed],
+  );
+
   useLayoutEffect(() => {
     const south = southRef.current;
     const east = eastRef.current;
     if (!south || !east) return;
-    placed.forEach(({ cx, cz }, i) => {
+    tiles.forEach(({ cx, cz }, i) => {
       dummy.position.set(cx, TILE_H + CURB_H / 2, cz + PLOT / 2 - CURB_W / 2);
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(PLOT, CURB_H, CURB_W);
@@ -130,16 +141,16 @@ export function Sidewalks({ placed }: { placed: CellPlacement[] }) {
     // (models.tsx, water.tsx, vegetation.tsx); missed it here initially.
     south.computeBoundingSphere();
     east.computeBoundingSphere();
-  }, [placed, dummy]);
+  }, [tiles, dummy]);
 
-  if (!placed.length) return null;
+  if (!tiles.length) return null;
   return (
     <>
-      <instancedMesh ref={southRef} key={`sw-s-${placed.length}`} args={[undefined, undefined, placed.length]} receiveShadow castShadow>
+      <instancedMesh ref={southRef} key={`sw-s-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#c7ced9" />
       </instancedMesh>
-      <instancedMesh ref={eastRef} key={`sw-e-${placed.length}`} args={[undefined, undefined, placed.length]} receiveShadow castShadow>
+      <instancedMesh ref={eastRef} key={`sw-e-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#c7ced9" />
       </instancedMesh>

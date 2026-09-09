@@ -23,6 +23,7 @@ import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
 } from "./ground";
+import { reserveLargeFootprints, LargeBuildings } from "./largeBuildings";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
@@ -95,16 +96,19 @@ function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
 }
 
 function Buildings({
-  placed, density, traits, winLit, tod, foliageDensity,
+  placed, density, traits, winLit, tod, foliageDensity, claimed,
 }: {
   placed: CellPlacement[]; density: number; traits: SeatTraits; winLit: number; tod: Tod;
   foliageDensity: number;
+  /** "col,row" cells swallowed by a large footprint — skip their per-cell buildings. */
+  claimed: Set<string>;
 }) {
   const { available } = useModelAvailability();
 
   const groups = useMemo(() => {
     const byType = new Map<BType, BuildingInstance[]>();
-    for (const { zone, cx, cz } of placed) {
+    for (const { zone, col, row, cx, cz } of placed) {
+      if (claimed.has(`${col},${row}`)) continue;
       for (const spec of zoneBuildings(zone, density, traits)) {
         const sp = slotPos(spec.slot);
         const flat = FLAT_TYPES.includes(spec.type);
@@ -122,7 +126,7 @@ function Buildings({
       }
     }
     return Array.from(byType.entries());
-  }, [placed, density, traits]);
+  }, [placed, density, traits, claimed]);
 
   return (
     <group>
@@ -224,10 +228,13 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
+  larges, claimed,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
   foliageDensity: number;
+  larges: ReturnType<typeof reserveLargeFootprints>["larges"];
+  claimed: Set<string>;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -266,8 +273,8 @@ function Grid({
         </mesh>
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
-      <Sidewalks placed={placed} />
-      <Trees placed={placed} empties={empties} traits={traits} />
+      <Sidewalks placed={placed} claimed={claimed} />
+      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
           key={zone.id}
@@ -279,7 +286,8 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
-      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} />
+      <Buildings placed={placed} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} claimed={claimed} />
+      <LargeBuildings larges={larges} onSelect={onSelect} />
     </group>
   );
 }
@@ -310,6 +318,13 @@ export function CityScene({
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
   const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
+  // Task B: a few large buildings claim an N×M block; `claimed` holds
+  // those cells so per-cell buildings / sidewalks / trees / lamps skip
+  // them. Deterministic from `placed` — recomputed only on layout change.
+  const { larges, claimed } = useMemo(
+    () => reserveLargeFootprints(placed, gridSize),
+    [placed, gridSize],
+  );
   const byId = useMemo(() => {
     const m = new Map<string, CellPlacement>();
     placed.forEach((p) => m.set(p.zone.id, p));
@@ -336,8 +351,10 @@ export function CityScene({
         onSelect={onSelect}
         tod={tod}
         foliageDensity={qs.foliageDensity}
+        larges={larges}
+        claimed={claimed}
       />
-      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} />
+      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} claimed={claimed} />
       <Traffic gridSize={gridSize} />
       <Lrt gridSize={gridSize} />
 

@@ -25,6 +25,7 @@ import {
   roadsV, roadsH, worldCentre, worldSize, ROAD_GAP, PLOT,
   TOD_ENV, type Tod,
 } from "./cityData";
+import { junctionInsideLarge } from "./largeBuildings";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const DECK_Y = 58; // matches TRACK_DECK_Z in app/kawasan/page.tsx
@@ -198,15 +199,26 @@ function Rain({ span }: { span: number }) {
 }
 
 // ── street lamps ────────────────────────────────────────────────────
-export function StreetLamps({ gridSize, lamp }: { gridSize: number; lamp: number }) {
+export function StreetLamps({
+  gridSize, lamp, claimed,
+}: {
+  gridSize: number; lamp: number;
+  /** cells swallowed by a large footprint — suppress lamps at junctions fully inside one */
+  claimed?: Set<string>;
+}) {
   const centre = worldCentre(gridSize);
   const points = useMemo(() => {
-    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
-    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
+    const xsRaw = roadsV(gridSize);
+    const zsRaw = roadsH(gridSize);
     const out: [number, number][] = [];
-    for (const x of xs) for (const z of zs) out.push([x, z]);
+    for (let i = 0; i < xsRaw.length; i++) {
+      for (let j = 0; j < zsRaw.length; j++) {
+        if (claimed && junctionInsideLarge(i, j, gridSize, claimed)) continue;
+        out.push([xsRaw[i] - centre + ROAD_W / 2, zsRaw[j] - centre + ROAD_W / 2]);
+      }
+    }
     return out;
-  }, [gridSize, centre]);
+  }, [gridSize, centre, claimed]);
 
   const poleRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);

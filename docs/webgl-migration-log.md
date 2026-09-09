@@ -1213,6 +1213,102 @@ score tint is unaffected. No z-fighting.
 Committed as: `feat(kawasan-3d): grass tone + patchy variation for green
 zone kinds`.
 
+## Item 7 — Multi-cell building footprints (task part B)
+
+### The placement model, read before designing
+
+Confirmed by reading `cityData.ts` / `CityScene.tsx`:
+
+- Buildings are placed **strictly per developed zone cell**.
+  `zoneBuildings(zone)` returns slot-indexed `BSpec`s (slots 0–8 via
+  `slotPos()`) inside that one 240×240 tile; `Buildings()` turns each into
+  a `BuildingInstance` positioned within that tile. There is no
+  pre-existing multi-cell concept.
+- Roads are **not per-cell-boundary segments**. `Grid()` draws exactly
+  one full-span plane per grid line (`vRoads` / `hRoads`, from
+  `roadsV()` / `roadsH()`), each spanning the whole grid. So the brief's
+  "route roads around a merged footprint … likely one segment per
+  cell-boundary" doesn't match this route — there is no segment to drop.
+- Sidewalks are per developed tile's own south + east edge
+  (`roadDetail.tsx`); street lamps are one instanced pole+head per road
+  junction (`scenery.tsx`); traffic is straight-line motion along the
+  lane centres, no path-following.
+
+### Design
+
+New `largeBuildings.tsx` — a footprint-reservation pass:
+
+- `reserveLargeFootprints(placed, gridSize)` walks `placed` (already
+  centre-outward), and for zones of a candidate kind — `commercial` →
+  `mall` 2×2, `education` → `stadium` 2×2, `industry` → `factory` 2×1 —
+  gated by a stable `hash(zone.id)` so only some qualify, reserves an
+  N×M block toward +col/+row when every required cell is in-bounds and
+  unclaimed. Claimed cells go in a `Set<"col,row">`. Hard cap
+  `MAX_LARGE = 3`, central candidates first, so a large building reads as
+  an intentional core landmark, not a pattern. Fully deterministic from
+  `placed` — no per-render randomness.
+- `claimed` is threaded through `CityScene` into: `Buildings` (skip
+  per-cell buildings on claimed cells — the large one replaces them),
+  `Sidewalks` (skip claimed tiles' curbs — the podium edge is the
+  boundary), `Trees` (skip claimed placed + empty cells), and
+  `StreetLamps` via `junctionInsideLarge()` (suppress the one lamp at a
+  junction whose four surrounding cells are all claimed, so a 26-unit
+  pole doesn't spear up through the podium).
+- **Roads / "route around":** since roads are full-span strips, each
+  large building carries a tall opaque **podium skirt** (`y = 0 …
+  GROUND_Y+2`) spanning the whole combined footprint. It occludes the
+  road / sidewalk / ground — and any car — passing underneath from every
+  camera angle this scene's `CAM_CLAMP` allows: the road visibly stops
+  at the podium and resumes on the far side. A literal strip
+  segmentation (splitting `vRoads` / `hRoads` planes to leave a gap) is
+  the "more correct" version and is noted here as a **follow-up**; the
+  podium is the pragmatic solve and reads correctly.
+- **Traffic:** cars still drive their straight lane paths; one whose lane
+  crosses a footprint is fully hidden inside the opaque podium for that
+  span (the podium encloses the car's y-range) rather than rerouted.
+  Path-following is out of scope, same call the roundabout (item 8)
+  makes.
+- Geometry: podium + a massed body (two-tier for `mall` / `stadium` so
+  the silhouette isn't a plain lid — a first cut with a full-footprint
+  flat body + a near-black roof cap read as a black void from the
+  near-top-down camera) + a small **light** rooftop deck. Bodies use a
+  per-type minimum height (`mall` 62, `stadium` 40, `factory` 44) since
+  the raw `buildingHeight()` values look flat on a 2-cell footprint.
+  Clicking any part selects the anchor zone. Ordinary meshes — ≤ 3
+  buildings, all different sizes, instancing would only add complexity.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | Δ vs item 6 |
+|---|---|---|---|---|
+| Rural 6×6 | 3 | 177 | 11.0k | +12 draws, −2.5k tris |
+| Semi-urban 8×8 | 5 | 215 | 22.0k | +18 draws, −2.6k tris |
+| Metro 10×10 | 4 | 279 | 41.8k | +20 draws, −2.9k tris |
+| Dense metro 12×12 | 4 | 323 | 67.5k | +22 draws, −3.2k tris |
+
+\*SwiftShader — noise, see caveat at top.
+
+Draws rise a small, near-density-flat amount (`≤ MAX_LARGE` buildings ×
+~6–8 meshes-with-shadow-pass each). **Triangles go negative** at every
+density: one large building's 3–4 boxes replace up to four cells' worth
+of small instanced buildings. So there is no regression to gate — the
+quality-tier knobs (`quality.ts`) are untouched.
+
+Visually (day, Rural + Metro + Dense): three large buildings — a tiered
+pink `mall`, a tiered green `stadium`, a low grey `factory` — each
+spanning its 2×2 / 2×1 block including the swallowed road gaps, with the
+podium skirt masking the interior road/sidewalk and the road lattice
+visibly routing around the outer boundary. No clipping into neighbouring
+buildings, no trees or lamp poles poking through a podium, at every
+density. The count holds at 3 from Rural through Dense, so it stays a
+landmark, not a motif.
+
+Committed as: `feat(kawasan-3d): multi-cell footprint reservation for
+mall / stadium / factory`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

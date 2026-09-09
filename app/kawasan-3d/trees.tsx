@@ -76,15 +76,18 @@ function pickSpecies(rnd: () => number, traits: SeatTraits, kind?: ZoneKind): Tr
 }
 
 export function Trees({
-  placed, empties, traits,
+  placed, empties, traits, claimed,
 }: {
   placed: CellPlacement[];
   empties: { col: number; row: number; cx: number; cz: number }[];
   traits: SeatTraits;
+  /** cells under a large footprint — no trees there, the podium covers them */
+  claimed?: Set<string>;
 }) {
   const spots = useMemo(() => {
     const out: TreeSpot[] = [];
-    for (const { zone, cx, cz } of placed) {
+    for (const { zone, col, row, cx, cz } of placed) {
+      if (claimed?.has(`${col},${row}`)) continue;
       const n = TREES_PER_ZONE_KIND[zone.kind] ?? 0;
       if (!n) continue;
       const rnd = rngFrom(hashSeed(`${zone.id}:tree`));
@@ -109,6 +112,7 @@ export function Trees({
       }
     }
     for (const { col, row, cx, cz } of empties) {
+      if (claimed?.has(`${col},${row}`)) continue;
       const rnd = rngFrom(hashSeed(`${col},${row}:tree`));
       for (let i = 0; i < TREES_PER_EMPTY_CELL; i++) {
         out.push({
@@ -121,7 +125,7 @@ export function Trees({
       }
     }
     return out;
-  }, [placed, empties, traits]);
+  }, [placed, empties, traits, claimed]);
 
   const bySpecies = useMemo(() => {
     const m: Record<TreeSpecies, TreeSpot[]> = { round: [], conifer: [], palm: [] };
