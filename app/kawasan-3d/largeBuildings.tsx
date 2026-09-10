@@ -27,7 +27,7 @@ import {
 } from "./cityData";
 
 const ROAD_W = ROAD_GAP - PLOT;
-const MAX_LARGE = 3;
+const MAX_LARGE = 6;
 
 const TILE_H = 4; // must match CityScene.tsx GROUND_Y / TILE_H
 // Landscaped apron — a thin paved skirt seating the complex on its plot.
@@ -49,11 +49,17 @@ const PIN_COLOR = "#ffd27a";        // floating PROJECT_ICON pin (emissive)
 const TALL_MIN: Partial<Record<BType, number>> = { mall: 118, stadium: 60, factory: 82 };
 
 // Anchor type + footprint (in cells) per candidate zone kind. Single-cell
-// since item 17 — see file header.
+// since item 17 — see file header. `education` / `community` pick from a
+// small pool by zone-id hash so the leisure landmarks vary.
 const LARGE_BY_KIND: Partial<Record<ZoneKind, { type: BType; cols: number; rows: number }>> = {
   commercial: { type: "mall", cols: 1, rows: 1 },
   education: { type: "stadium", cols: 1, rows: 1 },
   industry: { type: "factory", cols: 1, rows: 1 },
+  community: { type: "zoo", cols: 1, rows: 1 },
+};
+const LARGE_POOL: Partial<Record<ZoneKind, BType[]>> = {
+  education: ["stadium", "themepark", "zoo"],
+  community: ["zoo", "themepark"],
 };
 
 export type LargePlacement = {
@@ -98,6 +104,10 @@ export function reserveLargeFootprints(
     // Stable per-zone gate so only some qualifying zones upgrade.
     if (hash(p.zone.id + ":large") % 2 !== 0) continue;
 
+    // vary the leisure landmark type by a second stable hash
+    const pool = LARGE_POOL[p.zone.kind];
+    const largeType = pool ? pool[hash(p.zone.id + ":ltype") % pool.length] : spec.type;
+
     const { cols, rows } = spec;
     // Required block = anchor cell + (cols-1, rows-1) toward +col/+row.
     const cells: string[] = [];
@@ -118,7 +128,7 @@ export function reserveLargeFootprints(
     const czB = tileCentre(p.row + rows - 1, gridSize);
     larges.push({
       zoneId: p.zone.id,
-      type: spec.type,
+      type: largeType,
       anchorCol: p.col,
       anchorRow: p.row,
       cols,
@@ -127,7 +137,7 @@ export function reserveLargeFootprints(
       cz: (czA + czB) / 2,
       w: cols * PLOT + (cols - 1) * ROAD_W,
       d: rows * PLOT + (rows - 1) * ROAD_W,
-      h: buildingHeight(spec.type, p.zone),
+      h: buildingHeight(largeType, p.zone),
     });
   }
 
@@ -230,6 +240,51 @@ export function LargeBuildings({
           ([[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as const).forEach(([mx, mz], i) => {
             parts.push(box(`mast${i}`, (fw + 16) * mx, TILE_H + tall + 12, (fd + 16) * mz, 3, 26, 3, ANTENNA_COLOR, 0.6, false));
           });
+        } else if (l.type === "zoo") {
+          // low green grounds: perimeter wall, a cluster of enclosures, an
+          // aviary "dome" (stacked boxes), an entrance arch + some bushes
+          parts.push(box("grounds", 0, TILE_H + 1.2, 0, fw + 26, 2.4, fd + 26, "#5f7a3c", 0.95));
+          ([[-1, 0], [1, 0], [0, -1], [0, 1]] as const).forEach(([wx, wz], i) => {
+            parts.push(box(`wall${i}`, wx * (fw / 2 + 12), TILE_H + 6, wz * (fd / 2 + 12), wx ? 3 : fw + 24, 12, wz ? 3 : fd + 24, "#7d7361", 0.92));
+          });
+          ([["#8a6b4a", -0.28, -0.24, 26, 16], ["#6f7f4c", 0.24, -0.18, 30, 20], ["#7a6b52", -0.1, 0.26, 22, 14], ["#5f7350", 0.3, 0.24, 20, 18]] as const)
+            .forEach(([c, fx, fz, w, d], i) => {
+              parts.push(box(`enc${i}`, fw * fx, TILE_H + 5, fd * fz, w, 10, d, c, 0.9));
+            });
+          parts.push(box("aviary1", fw * 0.05, TILE_H + 12, fd * -0.05, 34, 20, 34, "#9fb0a2", 0.7, true, 0.1));
+          parts.push(box("aviary2", fw * 0.05, TILE_H + 24, fd * -0.05, 20, 12, 20, "#b6c4b8", 0.6, true, 0.1));
+          parts.push(box("aviary3", fw * 0.05, TILE_H + 32, fd * -0.05, 8, 8, 8, "#c9d3cb", 0.6, false, 0.1));
+          // entrance arch on the +z face
+          ([-0.16, 0.16] as const).forEach((cx, i) => parts.push(box(`gate${i}`, fw * cx, TILE_H + 9, fd / 2 + 8, 4, 18, 4, "#6b5946", 0.9)));
+          parts.push(box("lintel", 0, TILE_H + 20, fd / 2 + 8, fw * 0.4, 5, 5, "#7a6650", 0.9, true, 0.04, "#e0b060"));
+          ([[-0.36, -0.36], [0.38, -0.3], [-0.3, 0.36], [0.36, 0.34], [0, 0.12]] as const).forEach(([bx, bz], i) => {
+            parts.push(box(`bush${i}`, fw * bx, TILE_H + 4, fd * bz, 9, 8, 9, "#4f7a3a", 0.95));
+          });
+        } else if (l.type === "themepark") {
+          parts.push(box("plaza", 0, TILE_H + 1.2, 0, fw + 26, 2.4, fd + 26, "#8f8a86", 0.95));
+          // ferris wheel: a pylon + 8 cabins arranged in a ring
+          const wr = 30;
+          const wcx = -fw * 0.24;
+          const wy = TILE_H + wr + 12;
+          parts.push(box("fwpylon", wcx, TILE_H + (wr + 12) / 2, 0, 5, wr + 12, 5, "#c2c7cd", 0.6, true, 0.3));
+          parts.push(box("fwhub", wcx, wy, 0, 7, 7, 7, "#d0d4da", 0.5, true, 0.3));
+          for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            const cc = ["#ff5a2a", "#2f6bff", "#ffd23f", "#12e6ff"][i % 4];
+            parts.push(box(`fwcab${i}`, wcx + Math.cos(a) * wr, wy + Math.sin(a) * wr, 0, 7, 7, 9, cc, 0.5, false, 0.2, cc));
+          }
+          // roller coaster: a wavy run of segments on stilts along +x
+          for (let i = 0; i < 7; i++) {
+            const px = fw * (-0.18 + i * 0.08);
+            const ph = 14 + Math.sin(i * 1.1) * 10 + 12;
+            parts.push(box(`rcstil${i}`, px, TILE_H + ph / 2, fd * 0.2, 3, ph, 3, "#b7bcc4", 0.7));
+            parts.push(box(`rctrk${i}`, px, TILE_H + ph, fd * 0.2, 12, 2.4, 6, "#e0463b", 0.6, false, 0.05, "#ff6a5a"));
+          }
+          // colourful pavilions + an entrance sign
+          ([["#9a5ba8", 0.28, -0.28], ["#12b886", -0.02, 0.3], ["#ffa94d", 0.32, 0.24]] as const).forEach(([c, fx, fz], i) => {
+            parts.push(box(`pav${i}`, fw * fx, TILE_H + 8, fd * fz, 22, 16, 22, c, 0.6, true, 0.12, c));
+          });
+          parts.push(box("sign", 0, TILE_H + 24, fd / 2 + 8, fw * 0.5, 10, 4, "#ff3fd0", 0.4, true, 0.2, "#ff3fd0"));
         } else {
           // factory: long shed + a rooftop plant box + three fat chimneys
           const shedH = Math.max(l.h * 2.0, 56);

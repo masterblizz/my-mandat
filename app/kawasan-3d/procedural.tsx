@@ -68,6 +68,9 @@ const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse"]);
 const BOXCAP_TYPES = new Set<BType>([
   "shop", "stall", "factory", "warehouse", "school", "clinic",
   "terminal", "mall", "stadium", "antenna",
+  // civic facilities — flat-roof institutional shells, told apart by
+  // BUILDING_COLOR + height. `fire` also gets a hose/siren mast.
+  "police", "fire", "hospital", "library", "museum", "powerplant",
 ]);
 const DOME_TYPES = new Set<BType>(["masjid"]);
 export const PROCEDURAL_TYPES = new Set<BType>([
@@ -305,7 +308,7 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     geo = buildDomeTemplate(variant);
   } else if (BOXCAP_TYPES.has(type)) {
     geo = buildBoxCapTemplate(variant, type === "factory" || type === "warehouse");
-    if (type === "antenna") geo = withMast(geo);
+    if (type === "antenna" || type === "fire") geo = withMast(geo);
   } else {
     // tower/skyscraper: pronounced setback + horizontal floor banding;
     // shophouse: barely recessed upper floor (real low-rise proportions)

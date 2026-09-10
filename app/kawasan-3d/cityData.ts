@@ -235,7 +235,10 @@ export function emptyCells(zones: Zone[], gridSize: number): { col: number; row:
 export type BType =
   | "tower" | "skyscraper" | "antenna" | "shop" | "stall" | "house" | "factory"
   | "warehouse" | "school" | "clinic" | "masjid" | "mall" | "stadium" | "terminal"
-  | "sawah" | "pond" | "field" | "plaza" | "kampung" | "shophouse" | "terrace";
+  | "sawah" | "pond" | "field" | "plaza" | "kampung" | "shophouse" | "terrace"
+  // civic / special facilities
+  | "police" | "fire" | "hospital" | "library" | "museum" | "powerplant"
+  | "zoo" | "themepark";
 
 export type BSpec = {
   type: BType; slot: number; w: number; d: number; h: number;
@@ -265,6 +268,13 @@ function footprint(type: BType) {
   if (type === "kampung") return { w: 42, d: 38 };
   if (type === "shophouse") return { w: 30, d: 50 };
   if (type === "terrace") return { w: 52, d: 34 };
+  if (type === "police") return { w: 44, d: 38 };
+  if (type === "fire") return { w: 46, d: 42 };
+  if (type === "hospital") return { w: 56, d: 50 };
+  if (type === "library") return { w: 48, d: 42 };
+  if (type === "museum") return { w: 54, d: 44 };
+  if (type === "powerplant") return { w: 60, d: 54 };
+  if (type === "zoo" || type === "themepark") return { w: 58, d: 52 };
   if (FLAT_TYPES.includes(type)) return { w: 58, d: 52 };
   return { w: 48, d: 42 };
 }
@@ -316,19 +326,26 @@ export function buildingHeight(type: BType, zone: Zone) {
   if (type === "kampung") return 20 + Math.round(zone.welfare * 0.08);
   if (type === "shophouse") return 50 + Math.round(zone.economy * 0.35);
   if (type === "terrace") return 30 + Math.round(zone.infra * 0.15);
+  if (type === "police") return 30 + Math.round(zone.welfare * 0.14);
+  if (type === "fire") return 26 + Math.round(zone.infra * 0.1);
+  if (type === "hospital") return 58 + Math.round(zone.welfare * 0.5);
+  if (type === "library") return 34 + Math.round(zone.welfare * 0.12);
+  if (type === "museum") return 30 + Math.round(zone.welfare * 0.1);
+  if (type === "powerplant") return 44 + Math.round(zone.economy * 0.12);
+  if (type === "zoo" || type === "themepark") return 14;
   return 0;
 }
 
 const ZONE_BASE: Record<ZoneKind, { type: BType; slot: number }[]> = {
-  urban: [{ type: "tower", slot: 0 }, { type: "tower", slot: 4 }, { type: "shop", slot: 2 }, { type: "shophouse", slot: 6 }],
+  urban: [{ type: "tower", slot: 0 }, { type: "tower", slot: 4 }, { type: "shop", slot: 2 }, { type: "shophouse", slot: 6 }, { type: "fire", slot: 8 }],
   village: [{ type: "kampung", slot: 0 }, { type: "kampung", slot: 4 }, { type: "sawah", slot: 2 }, { type: "sawah", slot: 6 }, { type: "masjid", slot: 8 }],
   housing: [{ type: "terrace", slot: 0 }, { type: "house", slot: 2 }, { type: "terrace", slot: 4 }, { type: "house", slot: 6 }],
-  commercial: [{ type: "shophouse", slot: 0 }, { type: "shop", slot: 4 }, { type: "tower", slot: 2 }, { type: "stall", slot: 6 }],
-  education: [{ type: "school", slot: 4 }, { type: "house", slot: 0 }, { type: "field", slot: 2 }],
-  industry: [{ type: "factory", slot: 0 }, { type: "factory", slot: 4 }, { type: "warehouse", slot: 2 }],
+  commercial: [{ type: "shophouse", slot: 0 }, { type: "shop", slot: 4 }, { type: "tower", slot: 2 }, { type: "stall", slot: 6 }, { type: "museum", slot: 8 }],
+  education: [{ type: "school", slot: 4 }, { type: "house", slot: 0 }, { type: "field", slot: 2 }, { type: "library", slot: 6 }],
+  industry: [{ type: "factory", slot: 0 }, { type: "factory", slot: 4 }, { type: "warehouse", slot: 2 }, { type: "powerplant", slot: 6 }],
   river: [{ type: "pond", slot: 0 }, { type: "kampung", slot: 4 }, { type: "sawah", slot: 6 }],
   market: [{ type: "stall", slot: 0 }, { type: "stall", slot: 2 }, { type: "shophouse", slot: 4 }, { type: "stall", slot: 6 }],
-  community: [{ type: "clinic", slot: 4 }, { type: "kampung", slot: 0 }, { type: "house", slot: 2 }, { type: "masjid", slot: 6 }],
+  community: [{ type: "clinic", slot: 4 }, { type: "kampung", slot: 0 }, { type: "hospital", slot: 2 }, { type: "masjid", slot: 6 }, { type: "police", slot: 8 }],
 };
 
 const PROJECT_BUILDING: Record<string, BType> = {
@@ -343,15 +360,15 @@ const PROJECT_ICON: Record<string, string> = {
 };
 
 const ZONE_FILLER: Record<ZoneKind, BType[]> = {
-  urban: ["tower", "shophouse", "shop", "house"],
+  urban: ["tower", "shophouse", "shop", "house", "museum", "police"],
   village: ["kampung", "sawah"],
-  housing: ["terrace", "house", "shop"],
-  commercial: ["shophouse", "shop", "stall", "tower"],
-  education: ["house", "field"],
-  industry: ["warehouse", "factory"],
+  housing: ["terrace", "house", "shop", "police"],
+  commercial: ["shophouse", "shop", "stall", "tower", "police"],
+  education: ["house", "field", "library"],
+  industry: ["warehouse", "factory", "powerplant"],
   river: ["kampung", "pond"],
   market: ["stall", "shophouse", "shop"],
-  community: ["kampung", "house", "clinic"],
+  community: ["kampung", "house", "clinic", "police", "hospital"],
 };
 
 // Low-rise types a metro core rebuilds as high-rise. Civic / industrial /
@@ -519,6 +536,10 @@ export const BUILDING_COLOR: Record<BType, string> = {
   stadium: "#c2b8a6", terminal: "#9b9182", sawah: "#8b9b53",
   pond: "#5d7c84", field: "#78895a", plaza: "#a8a49a",
   kampung: "#b89a7c", shophouse: "#d8bfae", terrace: "#c9b79c",
+  // civic / special — a bit more colour-coded so they read at a glance
+  police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
+  library: "#c3b48f", museum: "#cabfa4", powerplant: "#6b6f78",
+  zoo: "#6f9440", themepark: "#9a5ba8",
 };
 
 // ── camera model (ported interaction contract from app/kawasan/page.tsx) ─
