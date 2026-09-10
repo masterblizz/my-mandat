@@ -1957,6 +1957,56 @@ gone, each landmark now sits on one plot with streets around it.
 
 Committed as: `feat(kawasan-3d): single-plot landmark massing (mall / stadium / factory)`.
 
+## Item 18 — TEKSTUR TANAH: asphalt / paver / soil on the paved kinds
+
+Third card. *"Tiled asphalt, paver, soil, turf and paddy textures
+instead of one flat `zoneGroundColor` per kind."* The grass kinds
+(housing / village / education / community) already carry a turf noise
+map (items 6/12). The other developed kinds — urban / commercial /
+market / industry — were still a single flat `zoneGroundColor()` box
+(`#1a2530` / `#232936` / `#2b2013`), which with the item-16 lighting
+reads as a black hole in the middle of the city.
+
+### What changed (`ground.ts` + `CityScene.tsx`)
+
+Same "one shared 128² canvas per recipe, cloned per tile with a seeded
+rotation / offset" idiom as the grass texture — one GPU upload per
+recipe, no new draw call (the tile mesh already exists).
+
+- **`PAVED`** map: `urban` / `commercial` → **asphalt** (`#4e5157` /
+  `#53565c`), `market` → **paver** (`#9c988e`, with a faint 4-cell joint
+  grid), `industry` → **soil** (`#8a7f6b`, coarser blobs). `river` and
+  anything unlisted fall through to `zoneGroundColor()` unchanged.
+- **`buildPavedCanvas(surface)`** — base grey + 160-360 seeded speckle
+  dots in the recipe's spot tones (3×3 wrapped for seamless
+  `RepeatWrapping`), plus the paver joint grid. `map` multiplies the
+  base colour, same as the grass noise.
+- **`pavedTextureFor(kind, seed)`** / **`pavedSurfaceFor(kind)`** exports;
+  `ZoneTile` picks turf / paved / flat by kind and sets `color` +
+  `map` + `roughness` accordingly.
+
+The bases are much lighter than the old palette on purpose — lit daytime
+pavement is mid-grey, not near-black — matching the item-16 ground lift.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, screenshots 390-460 KB (no blank frame).
+
+| density | fps* | draws | tris | vs item 17 |
+|---|---|---|---|---|
+| Rural 6×6 | 4 | 254 | 21.0k | ±0 |
+| Semi-urban 8×8 | 7 | 294 | 39.2k | ±0 |
+| Metro 10×10 | 4 | 366 | 80.2k | ±0 |
+| Dense metro 12×12 | 5 | 404 | 97.0k | ±0 |
+
+Zero geometry cost — it's a material `map` on tile meshes that already
+exist. Visually: the urban core reads as pale paved ground, the
+industrial tiles as bare soil, the market as pavers; the near-black
+`zoneGroundColor` boxes are gone except river.
+
+Committed as: `feat(kawasan-3d): asphalt / paver / soil ground textures`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

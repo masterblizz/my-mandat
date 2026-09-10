@@ -22,6 +22,7 @@ import { Trees } from "./trees";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
+  pavedSurfaceFor, pavedTextureFor,
 } from "./ground";
 import { reserveLargeFootprints, LargeBuildings } from "./largeBuildings";
 import {
@@ -63,10 +64,17 @@ function ZoneTile({
   const gl = useThree((s) => s.gl);
   const setCursor = (c: string) => { gl.domElement.style.cursor = c; };
   const grass = isGrassKind(zone.kind);
-  // One shared noise texture, cloned per tile (see ground.ts) — memoised
-  // so a hover/select re-render doesn't rebuild it, disposed on unmount.
-  const grassTex = useMemo(() => (grass ? grassTextureFor(seed) : null), [grass, seed]);
-  useEffect(() => () => grassTex?.dispose(), [grassTex]);
+  const paved = grass ? null : pavedSurfaceFor(zone.kind);
+  // One shared noise texture per surface, cloned per tile (see ground.ts)
+  // — memoised so a hover/select re-render doesn't rebuild it, disposed on
+  // unmount. Grass kinds get the turf noise; urban/commercial/market/
+  // industry get asphalt/paver/soil (TEKSTUR TANAH); river falls through
+  // to a flat zoneGroundColor().
+  const tileTex = useMemo(
+    () => (grass ? grassTextureFor(seed) : pavedTextureFor(zone.kind, seed)),
+    [grass, zone.kind, seed],
+  );
+  useEffect(() => () => tileTex?.dispose(), [tileTex]);
   return (
     <mesh
       position={[cx, TILE_H / 2, cz]}
@@ -77,9 +85,9 @@ function ZoneTile({
     >
       <boxGeometry args={[PLOT, TILE_H, PLOT]} />
       <meshStandardMaterial
-        color={grass ? grassColor(zone.kind, seed) : zoneGroundColor(zone.kind)}
-        map={grassTex}
-        roughness={grass ? 0.95 : 1}
+        color={grass ? grassColor(zone.kind, seed) : paved ? paved.base : zoneGroundColor(zone.kind)}
+        map={tileTex}
+        roughness={grass ? 0.95 : paved ? paved.rough : 1}
         emissive={selected ? "#7dd3fc" : hovered ? "#1e293b" : "#000000"}
         emissiveIntensity={selected ? 0.5 : hovered ? 0.6 : 0}
       />

@@ -158,3 +158,102 @@ export function grassTextureFor(seed: number): THREE.Texture {
   t.offset.set(rnd(), rnd());
   return t;
 }
+
+// ── paved / bare-earth surfaces (design canvas: TEKSTUR TANAH) ───────
+// The non-grass kinds — urban / commercial / market / industry — used to
+// paint a single flat `zoneGroundColor()` box (near-black olive/navy). The
+// "City Realism" canvas wants "tiled asphalt, paver, soil ... instead of
+// one flat colour per kind". Same idiom as the grass texture: ONE shared
+// 128² canvas per surface recipe, cloned per tile with a seeded
+// rotation/offset, so it stays one GPU upload per recipe regardless of
+// tile count and adds no draw call (the tile mesh already exists).
+
+type Surface = "asphalt" | "paver" | "soil";
+
+// Which recipe each paved kind gets, plus its realistic mid-tone base
+// (from the design's P palette — much lighter than the old #1a2530 etc.,
+// which is the point: lit daytime pavement is grey, not black). Kinds not
+// listed (river, and anything new) fall back to zoneGroundColor().
+const PAVED: Partial<Record<ZoneKind, { surface: Surface; base: string; rough: number }>> = {
+  urban: { surface: "asphalt", base: "#4e5157", rough: 0.95 },
+  commercial: { surface: "asphalt", base: "#53565c", rough: 0.95 },
+  market: { surface: "paver", base: "#9c988e", rough: 0.9 },
+  industry: { surface: "soil", base: "#8a7f6b", rough: 1 },
+};
+export const pavedSurfaceFor = (kind: ZoneKind) => PAVED[kind] ?? null;
+
+const RECIPE: Record<Surface, { fill: string; spots: [string, string, string]; count: number; blob: number; grid?: string; seed: number }> = {
+  asphalt: { fill: "#7c7c7c", spots: ["104,107,112", "150,154,160", "92,95,100"], count: 320, blob: 2.4, seed: 11 },
+  paver: { fill: "#8a8a8a", spots: ["120,116,108", "170,166,158", "138,134,126"], count: 160, blob: 2.0, grid: "rgba(70,68,64,0.55)", seed: 5 },
+  soil: { fill: "#828282", spots: ["150,138,120", "96,86,72", "176,164,150"], count: 360, blob: 4.2, seed: 23 },
+};
+
+const sharedPaved: Partial<Record<Surface, THREE.Texture>> = {};
+
+function buildPavedCanvas(surface: Surface): HTMLCanvasElement {
+  const r = RECIPE[surface];
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = r.fill;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  const rnd = lcg(r.seed * 2654435761 + 17);
+  // Speckle grain: many small blobs in the recipe's spot tones, 3×3
+  // wrapped so RepeatWrapping has no seam. `map` multiplies the base, so
+  // grey ~#7c7c7c ≈ "leave it", lighter/darker specks mottle it.
+  for (let i = 0; i < r.count; i++) {
+    const x = rnd() * SIZE;
+    const y = rnd() * SIZE;
+    const rad = 1 + rnd() * r.blob;
+    const tone = r.spots[(rnd() * r.spots.length) | 0];
+    ctx.fillStyle = `rgba(${tone},${0.16 + rnd() * 0.34})`;
+    for (const ox of [-SIZE, 0, SIZE]) {
+      for (const oy of [-SIZE, 0, SIZE]) {
+        ctx.beginPath();
+        ctx.arc(x + ox, y + oy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  if (r.grid) {
+    // Paver joints — a faint 4-cell grid.
+    ctx.strokeStyle = r.grid;
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= SIZE; i += SIZE / 4) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(SIZE, i); ctx.stroke();
+    }
+  }
+  return canvas;
+}
+
+function sharedPavedTexture(surface: Surface): THREE.Texture {
+  const cached = sharedPaved[surface];
+  if (cached) return cached;
+  const tex = new THREE.CanvasTexture(buildPavedCanvas(surface));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  sharedPaved[surface] = tex;
+  return tex;
+}
+
+// Per-tile clone of the shared paved texture — seeded rotation / repeat /
+// offset so adjacent tiles don't align. Paver keeps its repeat integer so
+// the joint grid stays square.
+export function pavedTextureFor(kind: ZoneKind, seed: number): THREE.Texture | null {
+  const p = PAVED[kind];
+  if (!p) return null;
+  const t = sharedPavedTexture(p.surface).clone();
+  t.needsUpdate = true;
+  const rnd = lcg(seed * 2246822519 + 13);
+  t.center.set(0.5, 0.5);
+  t.rotation = (Math.floor(rnd() * 4) * Math.PI) / 2;
+  const rep = p.surface === "paver" ? 2 + Math.floor(rnd() * 2) : 1.4 + rnd() * 0.9;
+  t.repeat.set(rep, rep);
+  t.offset.set(rnd(), rnd());
+  return t;
+}
