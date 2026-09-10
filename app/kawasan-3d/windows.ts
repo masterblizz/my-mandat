@@ -240,3 +240,65 @@ export function getTowerStripTexture(): THREE.Texture {
   towerStrip = tex;
   return tex;
 }
+
+// DAYTIME facade for the KL landmark shafts (klProfile.tsx) — the twin
+// towers were a flat painted metal next to the procedural skyscrapers'
+// gridded curtain-wall. This is the sibling `map` of getTowerStripTexture
+// (its night emissive): strong vertical mullions (KL towers' signature
+// vertical articulation), horizontal floor bands, and dark inset glass
+// panes with a few sky-reflection streaks. Tiled hard over the merged
+// hex-prism UVs so the pane scale roughly matches the nearby towers.
+let towerFacade: THREE.Texture | null = null;
+export function getTowerFacadeTexture(): THREE.Texture {
+  if (towerFacade) return towerFacade;
+  const W = 128;
+  const H = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  let s = 4231;
+  const next = () => (s = (s * 1103515245 + 12345) & 0x7fffffff);
+
+  // spandrel / mullion base tone (bluish, so the twins keep their pale
+  // landmark colour with material.color left white)
+  ctx.fillStyle = "#7f8b98";
+  ctx.fillRect(0, 0, W, H);
+
+  const cols = 11;
+  const rows = 22;
+  const cw = W / cols;
+  const ch = H / rows;
+
+  // glass panes
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const j = ((next() >>> 9) % 24) - 12;
+      ctx.fillStyle = `rgb(${58 + j},${72 + j},${88 + j})`;
+      ctx.fillRect(c * cw + 1.4, r * ch + 1.6, cw - 2.8, ch - 3.2);
+      // occasional pale sky-reflection wedge on a pane
+      if ((next() >>> 10) % 5 === 0) {
+        ctx.fillStyle = "rgba(206,228,242,0.20)";
+        ctx.fillRect(c * cw + 1.6, r * ch + 1.8, (cw - 3) * 0.36, ch - 3.6);
+      }
+    }
+  }
+  // vertical mullions / pilaster lines — the dominant read at distance
+  ctx.fillStyle = "#59636e";
+  for (let c = 0; c <= cols; c++) ctx.fillRect(c * cw - 1, 0, 2, H);
+  ctx.fillStyle = "rgba(180,196,208,0.35)"; // thin bright highlight beside each
+  for (let c = 0; c <= cols; c++) ctx.fillRect(c * cw + 1, 0, 1, H);
+  // horizontal floor bands (thinner)
+  ctx.fillStyle = "#4f5862";
+  for (let r = 0; r <= rows; r++) ctx.fillRect(0, r * ch - 0.75, W, 1.5);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 22);
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  towerFacade = tex;
+  return tex;
+}

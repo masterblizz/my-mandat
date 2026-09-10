@@ -21,7 +21,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { PLOT, plotXY, worldCentre } from "./cityData";
-import { getTowerStripTexture } from "./windows";
+import { getTowerStripTexture, getTowerFacadeTexture } from "./windows";
 
 const KL_MIN_GRID = 10;
 const TILE_H = 4;
@@ -108,6 +108,14 @@ function shaft(x: number, z: number): THREE.BufferGeometry[] {
     for (let r = 1; r <= rings; r++) {
       parts.push(place(HEX, x, base + (sh / rings) * r, z, R * sc + 1.6, 2.2, R * sc + 1.6));
     }
+    // vertical pilaster strips hugging the hex perimeter — real relief so
+    // the facade detail holds when the camera is close, matching the
+    // banding the procedural towers carry.
+    const pr = R * sc + 1;
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      parts.push(place(BOX, x + Math.cos(a) * pr, base + sh / 2, z + Math.sin(a) * pr, 2.6, sh * 0.99, 2.6));
+    }
     base += sh;
   }
   // stepped pinnacle + mast
@@ -170,25 +178,30 @@ export function KLProfile({ gridSize, winLit = 0 }: { gridSize: number; winLit?:
     };
   }, [gridSize]);
 
-  // Curtain-wall metal by day; at night the window emissiveMap lights the
-  // whole shaft so it reads as a lit tower, not a black cut-out, and the
-  // metalness / sky reflection is dialled back so the silhouette holds.
+  // Gridded curtain-wall by day (getTowerFacadeTexture — vertical
+  // mullions + floor bands + inset glass, so the twins match the
+  // procedural skyscrapers' level of detail); at night the window
+  // emissiveMap lights the whole shaft. Metalness / sky reflection are
+  // dialled back after dusk so the silhouette holds. `color` is left near-
+  // white so the facade map's own tones read true.
   const mat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: "#738b98", roughness: 0.2, metalness: 0.58, envMapIntensity: 1.35,
+      color: "#eef2f6", map: getTowerFacadeTexture(),
+      roughness: 0.32, metalness: 0.42, envMapIntensity: 1.15,
       emissive: new THREE.Color("#dfe9ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
     });
-    m.userData.baseMetalness = 0.58;
-    m.userData.baseEnv = 1.35;
+    m.userData.baseMetalness = 0.42;
+    m.userData.baseEnv = 1.15;
     return m;
   }, []);
   const steel = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: "#88939a", roughness: 0.28, metalness: 0.62, envMapIntensity: 1.15,
+      color: "#eef2f6", map: getTowerFacadeTexture(),
+      roughness: 0.36, metalness: 0.46, envMapIntensity: 1.05,
       emissive: new THREE.Color("#cfe0ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
     });
-    m.userData.baseMetalness = 0.62;
-    m.userData.baseEnv = 1.15;
+    m.userData.baseMetalness = 0.46;
+    m.userData.baseEnv = 1.05;
     return m;
   }, []);
 
