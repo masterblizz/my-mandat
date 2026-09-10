@@ -53,8 +53,8 @@ export function roadsH(gridSize: number): number[] {
   return Array.from({ length: gridSize + 1 }, (_, i) => i * ROAD_GAP);
 }
 export function kawasanGridSize(density: number): number {
-  if (density >= 0.85) return 12; // dense metro
-  if (density >= 0.62) return 10; // metro
+  if (density >= 0.85) return 30; // dense metro — a full KL-scale grid
+  if (density >= 0.62) return 16; // metro
   if (density >= 0.3) return 8;   // semi-urban
   return 6;                       // rural
 }
@@ -74,7 +74,12 @@ export function kawasanDevelopedCount(density: number, gridSize: number): number
   const packed = density >= METRO_DENSITY
     ? total * Math.min(0.99, 0.86 + (density - METRO_DENSITY) * 0.45)
     : 0;
-  return Math.max(minDeveloped, Math.min(total, Math.round(Math.max(linear, packed))));
+  let n = Math.max(minDeveloped, Math.min(total, Math.round(Math.max(linear, packed))));
+  // Dense metro (30×30) fills ~98% of the grid with buildings — a solid
+  // built-up sprawl, only a thin fringe of open land. This is heavy; the
+  // "min" quality tier (quality.ts) is what keeps it renderable.
+  if (gridSize >= 22) n = Math.round(total * 0.98);
+  return n;
 }
 export function assignZonePositions(
   gridSize: number,
@@ -373,7 +378,7 @@ export function zoneBuildings(
   const upgrade = (type: BType, slot: number): BType => {
     if (!metroCore || !CORE_LOWRISE.has(type)) return type;
     const r = ((zseed + slot * 53) % 100) / 100; // stable 0..1
-    if (r < hi * 0.5) return "tower";
+    if (r < hi * 0.68) return "tower";
     if (r < 0.32 + hi * 0.3) return "shophouse";
     return type;
   };
@@ -405,12 +410,12 @@ export function zoneBuildings(
         ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
         : zone.kind === "commercial" && density >= 0.8 ? 1 : 0)
     : zone.kind === "urban"
-      ? Math.min(4, 1 + Math.round(hi * 2 + (density - METRO_DENSITY) * 4))
+      ? Math.min(6, 2 + Math.round(hi * 3 + (density - METRO_DENSITY) * 5))
       : zone.kind === "commercial" || zone.kind === "market"
-        ? (hi > 0.5 ? 2 : 1)
+        ? (hi > 0.4 ? 3 : 1)
         : zone.kind === "industry"
-          ? 0
-          : Math.round(hi * 0.85); // housing / village / education / community / river
+          ? (hi > 0.6 ? 1 : 0)
+          : Math.round(hi * 1.6); // housing / village / education / community / river
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.
@@ -528,9 +533,14 @@ export const BUILDING_COLOR: Record<BType, string> = {
 // A drag that moves > 6px suppresses the click that would select a zone.
 export const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
 export const CAM_CLAMP = {
-  rz: [5, 85] as const,
+  // rz (azimuth) is NOT clamped — the camera orbits a full 360° and rz
+  // wraps in clampCam(). Kept here as a full-turn range for any caller
+  // that still reads the tuple.
+  rz: [0, 360] as const,
   rx: [42, 72] as const,
-  zoom: [0.55, 1.7] as const,
+  // max zoom-in doubled (1.7 → 3.4) so the denser 30×30 metro grid can be
+  // inspected street-level; zoom-out floor unchanged.
+  zoom: [0.55, 3.4] as const,
 };
 export const DRAG_RZ_PER_PX = 0.25;
 export const DRAG_RX_PER_PX = 0.18;
@@ -547,7 +557,8 @@ export function fitZoom(widthPx: number): number {
 }
 
 export function clampCam(c: { rz: number; rx: number; zoom: number }) {
-  c.rz = Math.max(CAM_CLAMP.rz[0], Math.min(CAM_CLAMP.rz[1], c.rz));
+  // azimuth wraps — full 360° free orbit, no hard stop at a "front"
+  c.rz = ((c.rz % 360) + 360) % 360;
   c.rx = Math.max(CAM_CLAMP.rx[0], Math.min(CAM_CLAMP.rx[1], c.rx));
   c.zoom = Math.max(CAM_CLAMP.zoom[0], Math.min(CAM_CLAMP.zoom[1], c.zoom));
   return c;

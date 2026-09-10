@@ -307,7 +307,10 @@ function Grid({
 
   return (
     <group>
-      {empties.map(({ col, row, cx, cz }) => (
+      {/* One <mesh> per undeveloped cell is fine at ≤16×16; a 30×30 grid
+          has hundreds and they are just flat planes, so drop them there
+          and let the perimeter ground sheet show through. */}
+      {gridSize < 22 && empties.map(({ col, row, cx, cz }) => (
         <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} />
       ))}
       {vRoads.map((x, i) => (
@@ -324,7 +327,7 @@ function Grid({
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} claimed={claimed} />
-      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize)} />
+      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize) && gridSize < 22} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
           key={zone.id}

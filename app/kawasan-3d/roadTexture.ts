@@ -50,12 +50,33 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   // paint below needs to carry real colour.
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  // Faint asphalt noise/variation so it doesn't read as a flat sticker.
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  // Faint asphalt grain plus restrained longitudinal tyre wear. These are
+  // deliberately baked into the shared road texture: they break up the
+  // formerly uniform ribbon without creating decals or extra draw calls.
+  let seed = 8081 + laneCount * 193;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  ctx.fillStyle = "rgba(0,0,0,0.055)";
   for (let i = 0; i < 140; i++) {
-    const x = Math.random() * CANVAS_W;
-    const y = Math.random() * CANVAS_H;
+    const x = rnd() * CANVAS_W;
+    const y = rnd() * CANVAS_H;
     ctx.fillRect(x, y, 1.5, 1.5);
+  }
+  ctx.strokeStyle = "rgba(18,22,28,0.1)";
+  ctx.lineWidth = 1.5;
+  for (const x of [CANVAS_W * 0.32, CANVAS_W * 0.68]) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + (rnd() - 0.5) * 2, CANVAS_H);
+    ctx.stroke();
+  }
+  // A handful of tiny repaired patches stop very large junctions reading
+  // like a pristine game board. Wrapped placement keeps the repeat seam
+  // visually quiet.
+  for (let i = 0; i < 7; i++) {
+    const x = 7 + rnd() * (CANVAS_W - 14);
+    const y = rnd() * CANVAS_H;
+    ctx.fillStyle = `rgba(24,28,34,${0.08 + rnd() * 0.08})`;
+    ctx.fillRect(x, y, 2 + rnd() * 4, 6 + rnd() * 12);
   }
 
   // Curb strips along both edges (light concrete, matches the CSS

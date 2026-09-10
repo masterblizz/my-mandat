@@ -2,6 +2,7 @@
 
 import { CSSProperties, MutableRefObject, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -12,6 +13,37 @@ import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
 
 const STORAGE_PREFIX = "mymandat-kawasan-development-v2";
+
+// ── 3D city map: WebGL cutover ────────────────────────────────────────
+// The live map is now <City3DMapGL> (app/kawasan-3d/City3DMapGL.tsx), the
+// Phase-5 React-Three-Fiber rewrite. It has a byte-identical prop
+// signature to the old CSS-3D <City3DMap> below (same Zone/SeatTraits
+// shape, same selectedZoneId contract), so nothing else on this page
+// changed — the manifesto / campaign / zone-info / lock panels all still
+// read off selectedZoneId.
+//
+// It renders a <Canvas>, so it must be loaded browser-only via
+// next/dynamic({ ssr: false }); that also code-splits three.js/R3F off
+// this route's first load.
+//
+// ROLLBACK: flip USE_GL_MAP to false — the old <City3DMap> (defined
+// further down, lines ~1570-2465) is still compiled and wired to the
+// `false` branch at the render site, so this is a one-line revert. It can
+// also be forced off per-session with ?glmap=0 in the URL.
+const City3DMapGL = dynamic(() => import("../kawasan-3d/City3DMapGL"), {
+  ssr: false,
+  loading: () => (
+    <div
+      style={{
+        height: "clamp(520px, 74vh, 760px)",
+        borderRadius: 12,
+        border: "1px solid rgb(186 230 253 / 0.28)",
+        background: "rgb(2 6 23 / 0.55)",
+      }}
+    />
+  ),
+});
+const USE_GL_MAP = true;
 
 // Same quick-campaign templates as /campaign's deploy modal, kept local so a
 // player can launch a home-seat push without leaving the kawasan screen.
@@ -273,8 +305,8 @@ function roadsH(gridSize: number): number[] {
   return Array.from({ length: gridSize + 1 }, (_, i) => i * ROAD_GAP);
 }
 function kawasanGridSize(density: number): number {
-  if (density >= 0.85) return 12; // dense metro
-  if (density >= 0.62) return 10; // metro
+  if (density >= 0.85) return 30; // dense metro — full KL-scale grid (WebGL map)
+  if (density >= 0.62) return 16; // metro
   if (density >= 0.3) return 8;   // semi-urban
   return 6;                      // rural
 }
@@ -284,7 +316,10 @@ function kawasanGridSize(density: number): number {
 function kawasanDevelopedCount(density: number, gridSize: number): number {
   const total = gridSize * gridSize;
   const minDeveloped = Math.min(9, total);
-  return Math.max(minDeveloped, Math.round(minDeveloped + density * (total - minDeveloped)));
+  let n = Math.max(minDeveloped, Math.round(minDeveloped + density * (total - minDeveloped)));
+  // Dense metro (30×30): fill ~98% of the grid with buildings.
+  if (gridSize >= 22) n = Math.round(total * 0.98);
+  return n;
 }
 // Places developed zones starting from the grid's centre outward (so the
 // "Pusat Bandar" flagship at zones[0] sits in the middle of the town, not
@@ -2552,6 +2587,13 @@ export default function KawasanDevelopmentPage() {
   }, [celebration]);
 
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
+  // WebGL city map is on by default (USE_GL_MAP); ?glmap=0 forces the old
+  // CSS-3D map for this session without a redeploy.
+  const useGlMap = useMemo(() => {
+    if (!USE_GL_MAP) return false;
+    if (typeof window === "undefined") return true;
+    return new URLSearchParams(window.location.search).get("glmap") !== "0";
+  }, []);
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
   const spent = zones.reduce((sum, zone) => sum + zone.projects.reduce((projectSum, projectId) => projectSum + (PROJECTS.find((project) => project.id === projectId)?.cost ?? 0), 0), 0);
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
@@ -2709,7 +2751,11 @@ export default function KawasanDevelopmentPage() {
                 <div className="text-[11px] leading-relaxed text-text-muted">{t(lang, "kawasan_page.dragToRotateTheCityScroll")}</div>
                 <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "kawasan_page.spent")}</div>
               </div>
-              <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+              {useGlMap ? (
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+              ) : (
+                <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+              )}
             </div>
           </TacticalPanel>
 

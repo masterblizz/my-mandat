@@ -33,8 +33,8 @@ const SAMPLE_MS = Number(args.sample ?? 2200); // perf HUD samples every 500ms
 const PRESETS = [
   { key: "rural", label: "Rural · 6×6", name: "Rural 6x6" },
   { key: "semi", label: "Semi-urban · 8×8", name: "Semi-urban 8x8" },
-  { key: "metro", label: "Metro · 10×10", name: "Metro 10x10" },
-  { key: "dense", label: "Dense metro · 12×12", name: "Dense metro 12x12" },
+  { key: "metro", label: "Metro · 16×16", name: "Metro 16x16" },
+  { key: "dense", label: "Dense metro · 30×30", name: "Dense metro 30x30" },
 ];
 
 async function main() {

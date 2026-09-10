@@ -125,9 +125,10 @@ export default function City3DMapGL({
         position: "relative",
         height: "clamp(520px, 74vh, 760px)",
         overflow: "hidden",
-        borderRadius: 6,
-        border: "1px solid rgb(125 211 252 / 0.18)",
+        borderRadius: 12,
+        border: "1px solid rgb(186 230 253 / 0.28)",
         background: TOD_ENV[tod].skyBottom,
+        boxShadow: "0 24px 70px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(255,255,255,0.1)",
         userSelect: "none",
         touchAction: "none",
         // consumed by the minimap compass wedge; written every frame by
@@ -138,7 +139,7 @@ export default function City3DMapGL({
       <Canvas
         shadows
         dpr={[1, 2]}
-        gl={{ antialias: true, toneMappingExposure: 1.15, preserveDrawingBuffer: true }}
+        gl={{ antialias: true, toneMappingExposure: 1.08, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0 }}
         camera={{ position: [distance, distance, distance], fov: 35, near: 1, far: 40000 }}
         onCreated={({ camera }) => {
@@ -265,8 +266,9 @@ export default function City3DMapGL({
 }
 
 const ctrlBox: CSSProperties = {
-  borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.4)",
-  background: "rgba(3,8,15,0.8)", color: "#7dd3fc",
+  borderWidth: 1, borderStyle: "solid", borderColor: "rgba(186,230,253,0.36)",
+  background: "rgba(5,12,23,0.74)", color: "#e0f2fe",
+  backdropFilter: "blur(10px)", boxShadow: "0 6px 16px rgba(2,6,23,0.2)",
 };
 const css: Record<string, CSSProperties> = {
   legend: { position: "absolute", left: 12, top: 12, display: "flex", flexDirection: "column", gap: 3, font: "700 9px system-ui, sans-serif", letterSpacing: "0.12em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },

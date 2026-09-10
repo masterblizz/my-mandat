@@ -23,8 +23,8 @@ const SEED = "kawasan-3d-demo";
 const DENSITY_PRESETS: { key: string; label: string; density: number }[] = [
   { key: "rural", label: "Rural · 6×6", density: 0.2 },
   { key: "semi", label: "Semi-urban · 8×8", density: 0.45 },
-  { key: "metro", label: "Metro · 10×10", density: 0.72 },
-  { key: "dense", label: "Dense metro · 12×12", density: 0.9 },
+  { key: "metro", label: "Metro · 16×16", density: 0.72 },
+  { key: "dense", label: "Dense metro · 30×30", density: 0.9 },
 ];
 
 export default function Scene() {

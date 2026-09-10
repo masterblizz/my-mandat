@@ -595,13 +595,22 @@ export function Traffic({ gridSize }: { gridSize: number }) {
       }
     };
 
-    // one loop per plot, ~55% of plots, 1-2 cars each
-    for (let a = 0; a < xs.length - 1; a++) {
-      for (let b = 0; b < zs.length - 1; b++) {
-        if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
-        loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
-        addCarsTo(loops.length - 1, rnd() < 0.4 ? 2 : 1);
-      }
+    // one loop per plot, ~55% of plots, 1-2 cars each — but hard-capped on
+    // the big grids (30×30 would otherwise spin up ~500 loops / ~700 cars,
+    // all stepped every frame). Loops are built centre-outward so the ones
+    // that survive the cap are the ones the camera actually looks at.
+    const maxLoops = gridSize >= 22 ? 130 : gridSize >= 14 ? 240 : 9999;
+    const carsPerLoop = gridSize >= 22 ? 1 : undefined;
+    const mid = (xs.length - 1) / 2;
+    const order: [number, number][] = [];
+    for (let a = 0; a < xs.length - 1; a++)
+      for (let b = 0; b < zs.length - 1; b++) order.push([a, b]);
+    order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
+    for (const [a, b] of order) {
+      if (loops.length >= maxLoops) break;
+      if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
+      loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
+      addCarsTo(loops.length - 1, carsPerLoop ?? (rnd() < 0.4 ? 2 : 1));
     }
     // circular flow around the central roundabout on metro / dense grids
     if (gridSize >= 10) {
@@ -768,37 +777,28 @@ export function Traffic({ gridSize }: { gridSize: number }) {
 }
 
 // ── elevated LRT ────────────────────────────────────────────────────
-export function Lrt({ gridSize }: { gridSize: number }) {
-  const show = gridSize >= 10; // metro / dense-metro only (density >= 0.62)
-  const centre = worldCentre(gridSize);
-  const span = worldSize(gridSize);
+// One elevated line through world centre. `axis` "z" = runs N-S (long in
+// Z); "x" = runs E-W. The train shuttles the full span and flips at each
+// end. Geometry is authored along +Z then the whole <group> is yaw-rotated
+// for the E-W line, so there is one code path.
+function LrtLine({ axis, span }: { axis: "x" | "z"; span: number }) {
   const trainRef = useRef<THREE.Group>(null);
-  const dir = useRef(1);
-
-  const guideX = useMemo(() => {
-    const v = roadsV(gridSize);
-    return (v[1] ?? v[0]) - centre + ROAD_W / 2;
-  }, [gridSize, centre]);
-
+  const dir = useRef(axis === "x" ? -1 : 1);
   const piers = useMemo(() => {
     const out: number[] = [];
-    for (let z = -span / 2; z <= span / 2; z += ROAD_GAP * 2) out.push(z);
+    for (let z = -span / 2 + ROAD_GAP; z <= span / 2 - ROAD_GAP; z += ROAD_GAP * 2) out.push(z);
     return out;
   }, [span]);
-
   useFrame((_, dt) => {
     const g = trainRef.current;
     if (!g) return;
     const lim = span / 2 - 60;
-    g.position.z += dir.current * 70 * dt;
+    g.position.z += dir.current * 78 * dt;
     if (g.position.z > lim) { g.position.z = lim; dir.current = -1; g.rotation.y = Math.PI; }
     else if (g.position.z < -lim) { g.position.z = -lim; dir.current = 1; g.rotation.y = 0; }
   });
-
-  if (!show) return null;
   return (
-    <group position={[guideX, 0, 0]}>
-      {/* deck + a bright parapet edge so the viaduct reads at distance */}
+    <group rotation={[0, axis === "x" ? Math.PI / 2 : 0, 0]}>
       <mesh position={[0, DECK_Y, 0]} castShadow receiveShadow>
         <boxGeometry args={[14, 4, span]} />
         <meshStandardMaterial color="#3b4557" />
@@ -809,33 +809,12 @@ export function Lrt({ gridSize }: { gridSize: number }) {
           <meshStandardMaterial color="#5b6a80" emissive="#7dd3fc" emissiveIntensity={0.12} />
         </mesh>
       ))}
-      {/* piers */}
       {piers.map((z, i) => (
         <mesh key={i} position={[0, DECK_Y / 2, z]} castShadow>
           <boxGeometry args={[8, DECK_Y, 8]} />
           <meshStandardMaterial color="#2f3846" />
         </mesh>
       ))}
-      {/* one mid-span station: platform slab + canopy */}
-      <group position={[0, DECK_Y + 2, 0]}>
-        <mesh position={[0, 0, 0]} receiveShadow>
-          <boxGeometry args={[34, 3, 120]} />
-          <meshStandardMaterial color="#46536a" />
-        </mesh>
-        <mesh position={[0, 16, 0]} castShadow>
-          <boxGeometry args={[38, 2, 128]} />
-          <meshStandardMaterial color="#cdd6e2" />
-        </mesh>
-        {[-58, 58].map((z) =>
-          [-15, 15].map((x) => (
-            <mesh key={`${x}_${z}`} position={[x, 8, z]}>
-              <boxGeometry args={[2, 16, 2]} />
-              <meshStandardMaterial color="#8b97aa" />
-            </mesh>
-          )),
-        )}
-      </group>
-      {/* 3-car train */}
       <group ref={trainRef} position={[0, DECK_Y + 8, 0]}>
         {[-30, 0, 30].map((z) => (
           <mesh key={z} position={[0, 0, z]} castShadow>
@@ -843,6 +822,42 @@ export function Lrt({ gridSize }: { gridSize: number }) {
             <meshStandardMaterial color="#dfe6ee" emissive="#8fd3ff" emissiveIntensity={0.2} />
           </mesh>
         ))}
+      </group>
+    </group>
+  );
+}
+
+// Elevated LRT — a CROSS through the middle of the city: an N-S line and
+// an E-W line meeting at a raised interchange station dead centre. Metro
+// and dense-metro grids only.
+export function Lrt({ gridSize }: { gridSize: number }) {
+  const show = gridSize >= 10;
+  const span = worldSize(gridSize);
+  if (!show) return null;
+  return (
+    <group>
+      <LrtLine axis="z" span={span} />
+      <LrtLine axis="x" span={span} />
+      {/* central interchange: two crossed platforms + a roof on columns */}
+      <group position={[0, DECK_Y + 2, 0]}>
+        <mesh receiveShadow>
+          <boxGeometry args={[38, 3, 150]} />
+          <meshStandardMaterial color="#46536a" />
+        </mesh>
+        <mesh receiveShadow>
+          <boxGeometry args={[150, 3, 38]} />
+          <meshStandardMaterial color="#46536a" />
+        </mesh>
+        <mesh position={[0, 20, 0]} castShadow>
+          <boxGeometry args={[64, 2, 64]} />
+          <meshStandardMaterial color="#cdd6e2" />
+        </mesh>
+        {[-26, 26].flatMap((x) => [-26, 26].map((z) => (
+          <mesh key={`${x}_${z}`} position={[x, 10, z]}>
+            <boxGeometry args={[2.4, 20, 2.4]} />
+            <meshStandardMaterial color="#8b97aa" />
+          </mesh>
+        )))}
       </group>
     </group>
   );

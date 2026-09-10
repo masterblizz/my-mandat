@@ -7,7 +7,7 @@
 // Phase E introduced this file early (just the tier + SSAO on/off) because
 // SSAO needed a real gate on day one. This is that scaffold, filled in.
 
-export type QualityTier = "low" | "medium" | "high";
+export type QualityTier = "min" | "low" | "medium" | "high";
 
 export type QualitySettings = {
   /** Directional-light shadow map resolution, per side. */
@@ -38,13 +38,18 @@ export const QUALITY_SETTINGS: Record<QualityTier, QualitySettings> = {
   high: { shadowMapSize: 2048, foliageDensity: 1, ssao: true, bloomMipmapBlur: true, buildingBudget: 1, streetDetail: 1 },
   medium: { shadowMapSize: 1536, foliageDensity: 0.7, ssao: false, bloomMipmapBlur: true, buildingBudget: 0.85, streetDetail: 0.7 },
   low: { shadowMapSize: 1024, foliageDensity: 0.45, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.66, streetDetail: 0.45 },
+  // For the very large grids (dense metro is 30×30, ~98% built up).
+  // Everything optional is off: SSAO + mip bloom gone, a small shadow map,
+  // minimal street furniture / foliage. buildingBudget stays fairly high
+  // (0.6) so the "cover the grid with buildings" read holds — the instance
+  // count, not the per-cell fill, is what makes this tier necessary.
+  min: { shadowMapSize: 512, foliageDensity: 0.18, ssao: false, bloomMipmapBlur: false, buildingBudget: 0.6, streetDetail: 0.1 },
 };
 
-// Defaults lower at higher grid densities, per the brief. Re-validated
-// against the measured Dense-metro numbers in the Phase F log entry
-// (docs/webgl-migration-log.md) after wiring all three knobs below.
+// Defaults lower at higher grid densities, per the brief.
 export function defaultQualityForGridSize(gridSize: number): QualityTier {
-  if (gridSize <= 8) return "high"; // rural / semi-urban
-  if (gridSize <= 10) return "medium"; // metro
-  return "low"; // 12x12 dense metro
+  if (gridSize <= 8) return "high";    // rural / semi-urban
+  if (gridSize <= 12) return "medium"; // (legacy dense)
+  if (gridSize <= 20) return "low";    // metro 16×16
+  return "min";                        // dense metro 30×30
 }
