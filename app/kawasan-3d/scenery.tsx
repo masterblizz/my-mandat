@@ -599,13 +599,15 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
       }
     };
 
-    // one loop per plot, ~55% of plots. The car pool is built at PEAK-HOUR
-    // capacity; <Traffic>'s useFrame then only activates a `trafficLevel`
-    // fraction of the (centre-outward) loops and slows / packs them, so
-    // off-peak is strictly cheaper. Peak pool ≈ rural 30 / semi 55 /
-    // metro 170 / dense 300.
-    const maxLoops = gridSize >= 22 ? 150 : gridSize >= 14 ? 200 : 9999;
-    const carsPerLoop = gridSize >= 22 || gridSize <= 8 ? 2 : undefined;
+    // One loop per plot, ~55% of plots. Each loop is stocked to its
+    // PEAK-HOUR (bumper-to-bumper) capacity; <Traffic>'s useFrame then
+    // activates a `trafficLevel` fraction of each loop's cars + a fraction
+    // of the (centre-outward) loops, and slows / packs them — so off-peak
+    // is far cheaper while PEAK genuinely gridlocks. A block loop is
+    // ~730 world units; at jam spacing (~30 u/car) that's ~24 cars, so
+    // these caps fill most of the ring.
+    const maxLoops = gridSize >= 22 ? 175 : gridSize >= 14 ? 230 : 9999;
+    const peakPerLoop = gridSize >= 22 ? 16 : gridSize >= 14 ? 12 : gridSize <= 6 ? 9 : 16;
     const mid = (xs.length - 1) / 2;
     const order: [number, number][] = [];
     for (let a = 0; a < xs.length - 1; a++)
@@ -615,13 +617,13 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
       if (loops.length >= maxLoops) break;
       if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
       loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
-      addCarsTo(loops.length - 1, carsPerLoop ?? (rnd() < 0.4 ? 2 : 1));
+      addCarsTo(loops.length - 1, peakPerLoop);
     }
     // circular flow around the central roundabout on metro / dense grids
     if (gridSize >= 10) {
       const [rcx, rcz] = roundaboutCentre(gridSize);
       loops.push(roundaboutLoop(rcx, rcz, 120));
-      addCarsTo(loops.length - 1, 8);
+      addCarsTo(loops.length - 1, 20);
     }
     return { loops, cars };
   }, [gridSize, centre]);
@@ -668,29 +670,45 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     // loops, and at peak slow every car right down + pack the bumper gaps
     // so the queues at the lights read as a jam, not just "more cars".
     const lv = Math.max(0, Math.min(1, levelRef.current));
-    const activeLoops = Math.max(1, Math.ceil(loops.length * (0.15 + 0.85 * lv)));
-    const baseSpeed = CAR_BASE_SPEED * (1 - 0.58 * lv); // 78 → ~33 at full jam
-    const gap = CAR_GAP * (1 - 0.56 * lv);              // 26 → ~11 at full jam
+    const activeLoops = Math.max(1, Math.ceil(loops.length * (0.32 + 0.68 * lv)));
+    const perLoopFrac = 0.16 + 0.84 * lv;               // how full each active loop is
+    const baseSpeed = CAR_BASE_SPEED * (1 - 0.62 * lv); // 78 → ~30 at full jam
+    const gap = CAR_GAP * (1 - 0.62 * lv);              // 26 → ~10 at full jam
+
+    const parkOne = (ci: number) => {
+      dummy.position.set(0, -1000, 0);
+      dummy.scale.set(0, 0, 0);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      body.setMatrixAt(ci, dummy.matrix);
+      cabin.setMatrixAt(ci, dummy.matrix);
+      for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
+      for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
+    };
 
     for (let li = 0; li < loops.length; li++) {
       const loop = loops[li];
       const ring = perLoop[li];
       if (li >= activeLoops) {
-        // parked: hide this loop's cars off-frame until traffic picks up
-        for (const ci of ring) {
-          dummy.position.set(0, -1000, 0);
-          dummy.scale.set(0, 0, 0);
-          dummy.rotation.set(0, 0, 0);
-          dummy.updateMatrix();
-          body.setMatrixAt(ci, dummy.matrix);
-          cabin.setMatrixAt(ci, dummy.matrix);
-          for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
-          for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
-        }
+        for (const ci of ring) parkOne(ci);
         continue;
       }
+      // `nActive` of the ring's cars run this frame — EVENLY SAMPLED
+      // around the ring (not the first N, which would bunch on one arc),
+      // the rest parked. nActive == ring.length at PEAK → bumper-to-bumper.
+      const nActive = Math.max(1, Math.min(ring.length, Math.round(ring.length * perLoopFrac)));
+      const activeIdx: number[] = [];
+      const used = new Set<number>();
+      for (let j = 0; j < nActive; j++) {
+        const ki = Math.min(ring.length - 1, Math.floor((j * ring.length) / nActive));
+        activeIdx.push(ki);
+        used.add(ki);
+      }
+      for (let k = 0; k < ring.length; k++) if (!used.has(k)) parkOne(ring[k]);
+
       // process lead car first so followers clamp against an updated gap
-      for (let k = ring.length - 1; k >= 0; k--) {
+      for (let ai = activeIdx.length - 1; ai >= 0; ai--) {
+        const k = activeIdx[ai];
         const ci = ring[k];
         const c = cars[ci];
 
@@ -713,8 +731,8 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
           else if (st === 1) target = Math.min(target, d > 40 ? baseSpeed * 0.32 : 0); // amber: slow, stop if too close to clear
         }
 
-        // gap to the car immediately ahead on this ring
-        const ahead = ring.length > 1 ? cars[ring[(k + 1) % ring.length]] : null;
+        // gap to the car immediately ahead among the ACTIVE cars
+        const ahead = nActive > 1 ? cars[ring[activeIdx[(ai + 1) % nActive]]] : null;
         let gapHold = Infinity;
         if (ahead) {
           let as = ahead.s;
