@@ -58,22 +58,31 @@ function Birds({ span, count, y }: { span: number; count: number; y: number }) {
 }
 
 // ── airliner with nav lights ────────────────────────────────────────
-function Plane({ span }: { span: number }) {
+function Plane({ span, seed = 1 }: { span: number; seed?: number }) {
   const grp = useRef<THREE.Group>(null);
   const strobeRef = useRef<THREE.Mesh>(null);
   const blink = useRef(0);
-  const y = span * 0.3;
+  const cfg = useMemo(() => {
+    let s = seed * 2654435761;
+    const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    return {
+      y: span * (0.24 + r() * 0.14),
+      lane: (r() - 0.5) * span * 0.8,
+      speed: span * (0.045 + r() * 0.035),
+      dir: r() < 0.5 ? 1 : -1,
+    };
+  }, [span, seed]);
   useFrame((_, dt) => {
     const p = grp.current;
     if (!p) return;
-    p.position.x += span * 0.05 * dt;
-    if (p.position.x > span) p.position.x = -span;
-    // steady red/green wingtips, fast white strobe
+    p.position.x += cfg.dir * cfg.speed * dt;
+    if (cfg.dir > 0 && p.position.x > span) p.position.x = -span;
+    else if (cfg.dir < 0 && p.position.x < -span) p.position.x = span;
     blink.current += dt;
     if (strobeRef.current) strobeRef.current.visible = blink.current % 1.1 < 0.06;
   });
   return (
-    <group ref={grp} position={[-span, y, span * 0.36]} rotation={[0, Math.PI / 2, 0]}>
+    <group ref={grp} position={[cfg.dir > 0 ? -span : span, cfg.y, cfg.lane]} rotation={[0, cfg.dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
       <mesh castShadow>
         <capsuleGeometry args={[3.4, 34, 4, 8]} />
         <meshStandardMaterial color="#d9dee6" roughness={0.5} metalness={0.3} />
@@ -102,48 +111,16 @@ function Plane({ span }: { span: number }) {
   );
 }
 
-// ── hot-air balloon ─────────────────────────────────────────────────
-function Balloon({ span, seed }: { span: number; seed: number }) {
-  const grp = useRef<THREE.Group>(null);
-  const base = useMemo(() => {
-    let s = seed;
-    const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-    return { x: (r() - 0.5) * span * 0.9, z: (r() - 0.5) * span * 0.9, hue: r(), drift: 0.6 + r() * 0.8 };
-  }, [span, seed]);
-  const col = useMemo(() => new THREE.Color().setHSL(base.hue, 0.7, 0.55), [base.hue]);
-  useFrame((_, dt) => {
-    const p = grp.current;
-    if (!p) return;
-    p.position.x += base.drift * span * 0.004 * dt * 60;
-    if (p.position.x > span * 0.6) p.position.x = -span * 0.6;
-    p.position.y = span * 0.13 + Math.sin(performance.now() / 2600 + seed) * span * 0.01;
-  });
-  return (
-    <group ref={grp} position={[base.x, span * 0.13, base.z]}>
-      <mesh castShadow>
-        <sphereGeometry args={[span * 0.018, 12, 10]} />
-        <meshStandardMaterial color={col} roughness={0.7} />
-      </mesh>
-      <mesh position={[0, -span * 0.028, 0]}>
-        <boxGeometry args={[span * 0.008, span * 0.007, span * 0.008]} />
-        <meshStandardMaterial color="#6b5946" roughness={0.9} />
-      </mesh>
-    </group>
-  );
-}
-
 export function SkyLife({ tod, span }: { tod: Tod; span: number }) {
   return (
     <group renderOrder={-1}>
       {tod === "day" && <Birds span={span} count={7} y={span * 0.34} />}
       {tod === "dusk" && <Birds span={span} count={15} y={span * 0.3} />}
-      {tod === "day" && (
-        <>
-          <Balloon span={span} seed={11} />
-          <Balloon span={span} seed={4242} />
-        </>
-      )}
-      {(tod === "night" || tod === "dusk") && <Plane span={span} />}
+      {/* aeroplanes at every time of day (was: balloons by day) — the
+          night sky just makes their nav lights pop via bloom */}
+      <Plane span={span} seed={3} />
+      {tod === "day" && <Plane span={span} seed={91} />}
+      {(tod === "night" || tod === "dusk") && <Plane span={span} seed={57} />}
     </group>
   );
 }
