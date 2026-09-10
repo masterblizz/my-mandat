@@ -21,6 +21,7 @@ import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
 import { Billboards } from "./billboards";
 import { Pedestrians } from "./pedestrians";
+import { SkyLife } from "./skylife";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -428,6 +429,7 @@ export function CityScene({
     <>
       <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
       <SceneEnvironment tod={tod} />
+      {weather !== "rain" && <SkyLife tod={tod} span={span} />}
       <Grid
         placed={placed}
         zones={zones}
