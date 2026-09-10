@@ -548,9 +548,12 @@ export const CAM_CLAMP = {
 // Absolute closest the camera may orbit, in world units — a street-level
 // floor that every density preset can reach (PLOT is 240), so Dense Metro
 // zooms in exactly as close as Rural despite its far bigger footprint.
-export const CAM_MIN_DISTANCE = 190;
-// Furthest out, as a multiple of the preset's base framing distance.
-export const CAM_MAX_OUT = 0.50;
+export const CAM_MIN_DISTANCE = 260;
+// Furthest out, as a multiple of the preset's base framing distance —
+// only ~12% past the default whole-city framing, so max zoom-out keeps the
+// city large and recognisable instead of shrinking to a distant speck.
+// (Must be > 1, or the default view itself gets clamped inward.)
+export const CAM_MAX_OUT = 1.12;
 export const DRAG_RZ_PER_PX = 0.25;
 export const DRAG_RX_PER_PX = 0.18;
 // Per-notch / per-click zoom factors. Larger than the old 1.08/1.15 so

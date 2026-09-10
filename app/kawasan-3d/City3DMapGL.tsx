@@ -117,7 +117,7 @@ export default function City3DMapGL({
   // orbit radius is distance / cam.zoom, clamped in CameraRig down to a
   // fixed street-level floor (CAM_MIN_DISTANCE) — so every preset, Dense
   // Metro included, can zoom all the way in to building detail.
-  const distance = span * 1.05;
+  const distance = span * 1.0;
   const quality = defaultQualityForGridSize(gridSize);
 
   const applyFitZoom = useCallback(() => {
