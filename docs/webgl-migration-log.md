@@ -1892,6 +1892,71 @@ featureless and oversized — that's the **MERCU TANDA** card, next.
 
 Committed as: `feat(kawasan-3d): realistic material palette + REAL_OVERRIDE TOD`.
 
+## Item 17 — MERCU TANDA: single-plot landmarks, not multi-block plateaus
+
+Second card from the design canvas. The **MERCU TANDA** annotation
+called out item 7's large buildings directly: *"in main a mall is 58×48
+on a 240 plot — smaller than the plateau in your screenshot"*. Item 7
+gave the mall / stadium / factory a 2×2 (or 2×1) grid-cell footprint —
+≈520 wide, spanning multiple blocks and swallowing the roads between
+them. With the item-16 palette that slab reads as exactly what the card
+says: a coloured plateau, not a building.
+
+### What changed (`largeBuildings.tsx`)
+
+**Footprint → single cell.** `LARGE_BY_KIND` entries are all
+`cols:1, rows:1` now. The massing math is all relative to `l.w` / `l.d`
+so it scaled down with no other change; `reserveLargeFootprints` still
+claims cells, gates by zone-id hash, and caps at `MAX_LARGE`.
+`junctionInsideLarge` is now always false (there is no 4-cell block) and
+kept only as a guard. The old tall road-masking podium is now a thin
+paved apron (nothing to mask under a single cell), and the roads /
+sidewalks / a strip of ground are visible around each complex again.
+
+**Composed massing per type**, working on ~70% of the plot:
+- **mall** — banded retail base (three proud rings at quarter heights) +
+  a glazed atrium on the front face + a flat entrance canopy on two
+  columns + one setback office slab (glassy) + a roof-plant deck. Follows
+  the design reference's `mall()` massing, minus the textured sprite pin.
+- **stadium** — stepped bowl + inset upper tier + a light roof rim + four
+  corner floodlight masts.
+- **factory** — long shed + rooftop plant box + three fat chimneys.
+- all three get a slim **icon pin** (post + bright head) above the
+  tallest part so the landmark is findable from across the map.
+
+### Bug caught by the harness — blank Metro, again
+
+First cut gave the icon-pin head an **emissive `MeshStandardMaterial`
+with `toneMapped: false`**. Metro (the *medium* post-fx tier) rendered a
+**60 KB transparent frame** — Rural/Semi (high) and Dense (low) were
+fine. Same signature as item 14: a material property that only the
+medium EffectComposer tier chokes on, and it logs as a warning so the
+harness "0 errors" check misses it (60 KB screenshot vs ~410 KB is the
+tell). Fix: dropped the emissive — the pin head is a plain bright box.
+`scenery.tsx` gets away with `toneMapped:false` emissive on the medium
+tier, so the trigger is specifically emissive **on a `MeshStandardMaterial`
+that also carries `envMapIntensity`** (the shared `box()` helper sets it)
+— not worth chasing further, the plain material looks the same here.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, all screenshots ~370-415 KB (no blank frame).
+
+| density | fps* | draws | tris | vs item 16 |
+|---|---|---|---|---|
+| Rural 6×6 | 4 | 254 | 21.0k | +22 draws / +2.9k |
+| Semi-urban 8×8 | 5 | 294 | 39.2k | +18 draws / +3.1k |
+| Metro 10×10 | 5 | 366 | 80.2k | +16 draws / +4.5k |
+| Dense metro 12×12 | 6 | 404 | 97.0k | +17 draws / +3.7k |
+
+The +16-22 draws is the composed massing (≤3 landmarks, each ~10-15
+plain meshes — every size differs, so instancing would only add
+complexity). Cheap for the payoff: the multi-block coloured slabs are
+gone, each landmark now sits on one plot with streets around it.
+
+Committed as: `feat(kawasan-3d): single-plot landmark massing (mall / stadium / factory)`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

@@ -1,23 +1,23 @@
-// Item 7 (task part B): multi-cell building footprints — a few large
-// "anchor" buildings that occupy an N×M block of grid cells instead of a
-// single cell.
+// Item 7 (task part B), revised in item 17 (MERCU TANDA card): a few
+// large "anchor" landmarks — a mall, a stadium, a factory — that replace
+// the ordinary building set on one developed cell and carry composed,
+// per-type massing so they read as a real complex.
 //
-// Placement model this plugs into (confirmed by reading cityData.ts /
-// CityScene.tsx): buildings are placed strictly per developed zone cell —
-// `zoneBuildings(zone)` returns slot-indexed BSpecs inside that one
-// 240×240 tile, there is no pre-existing multi-cell concept. Roads are
-// NOT per-cell-boundary segments either: `Grid()` draws one full-span
-// plane per grid line (`vRoads` / `hRoads`). So "route roads around a
-// merged footprint" can't be done by dropping a segment — instead the
-// large building carries a tall opaque podium slab spanning its whole
-// combined footprint, which occludes the road/sidewalk/ground (and any
-// car) passing underneath from every camera angle this scene allows. A
-// true strip-segmentation is noted as a follow-up in the migration log.
+// Item 7 originally gave these a 2×2 / 2×1 grid-cell footprint. The
+// "City Realism" design canvas flagged that as wrong ("in main a mall is
+// 58×48 on a 240 plot — smaller than the plateau in your screenshot"):
+// a ~520-wide slab spanning multiple blocks, swallowing the roads
+// between them, reads as a coloured plateau, not a building. Item 17
+// pulls them back to a single 240 cell (`cols:1, rows:1`); the massing
+// math below is all relative to `l.w` / `l.d` so it scaled down with no
+// other change, and the roads/sidewalks around the cell are visible
+// again. `junctionInsideLarge` is now always false (no 4-cell block) and
+// kept only as a guard.
 //
 // Deterministic: candidates come from `placed` (already centre-outward)
 // filtered by zone kind, gated by a stable hash of the zone id, capped at
 // MAX_LARGE — no per-render randomness. Central candidates win the cap so
-// a large building reads as an intentional core landmark.
+// a landmark reads as an intentional core feature.
 
 import { useMemo, type ReactNode } from "react";
 import * as THREE from "three";
@@ -30,27 +30,30 @@ const ROAD_W = ROAD_GAP - PLOT;
 const MAX_LARGE = 3;
 
 const TILE_H = 4; // must match CityScene.tsx GROUND_Y / TILE_H
-// Podium spans y=0 .. GROUND_Y+2 so it also fully occludes a traversing
-// car (box centred at y=3, ~6 tall) — traffic paths are straight lines
-// (scenery.tsx) and are not rerouted; the podium just hides the pass.
-const PODIUM_TOP = TILE_H + 2;
-const PODIUM_COLOR = "#4a515c";     // plaza-concrete base, reads as a skirt
-const ROOF_DECK_COLOR = "#7f8792";  // light rooftop plant, NOT a dark cap
+// Landscaped apron — a thin paved skirt seating the complex on its plot.
+// (Item 7's tall podium spanned merged cells to mask swallowed roads;
+// with a single-cell footprint there is nothing to mask, so it is now
+// just a low ground apron.)
+const PODIUM_TOP = TILE_H + 1;
+const PODIUM_COLOR = "#6b6c66";     // paved apron, reads as a forecourt
+const ROOF_DECK_COLOR = "#8b9199";  // light rooftop plant, NOT a dark cap
 const ANTENNA_COLOR = "#9aa4b2";
 const CHIMNEY_COLOR = "#8a8f98";
+const GLASS_COLOR = "#8fb0bd";      // atrium curtain-wall
+const PIN_COLOR = "#ffd27a";        // floating PROJECT_ICON pin (emissive)
 
-// A landmark on a 2-cell (≈520-wide) footprint reads as a flat platform
-// unless it carries real vertical mass. `buildingHeight()` for these
-// types is 16-49 — a ~1:11 pancake — so each gets a composed massing
-// below (wide low podium + tall slab(s) / bowl / chimneys), with a
-// per-type minimum for the tall part.
-const TALL_MIN: Partial<Record<BType, number>> = { mall: 205, stadium: 104, factory: 150 };
+// `buildingHeight()` for these types is 16-49 on a 240 plot — a pancake —
+// so each gets a composed massing (podium / bowl + a taller element),
+// with a per-type minimum for the tall part. Tuned for the single-cell
+// footprint (item 17): a mall tower here is ~110-130, not 205.
+const TALL_MIN: Partial<Record<BType, number>> = { mall: 118, stadium: 60, factory: 82 };
 
-// Anchor type + footprint (in cells) per candidate zone kind.
+// Anchor type + footprint (in cells) per candidate zone kind. Single-cell
+// since item 17 — see file header.
 const LARGE_BY_KIND: Partial<Record<ZoneKind, { type: BType; cols: number; rows: number }>> = {
-  commercial: { type: "mall", cols: 2, rows: 2 },
-  education: { type: "stadium", cols: 2, rows: 2 },
-  industry: { type: "factory", cols: 2, rows: 1 },
+  commercial: { type: "mall", cols: 1, rows: 1 },
+  education: { type: "stadium", cols: 1, rows: 1 },
+  industry: { type: "factory", cols: 1, rows: 1 },
 };
 
 export type LargePlacement = {
@@ -148,11 +151,14 @@ export function junctionInsideLarge(i: number, j: number, gridSize: number, clai
 }
 
 // ── render ──────────────────────────────────────────────────────────
-// Per large building (≤ MAX_LARGE): a podium skirt + a composed,
-// per-type massing so the silhouette reads as a building, not a slab —
-//   mall     : wide retail podium + two office slabs + an antenna
-//   stadium  : wide bowl + an inset upper tier + a light roof rim
-//   factory  : long shed + two chimneys
+// Per landmark (≤ MAX_LARGE): a paved apron + a composed, per-type
+// massing on a single 240 cell (item 17) so the silhouette reads as a
+// real complex, not a coloured slab —
+//   mall     : banded retail base + glazed atrium front + entrance
+//              canopy + a setback office slab + roof plant
+//   stadium  : stepped bowl + inset upper tier + light roof rim + masts
+//   factory  : long shed + rooftop plant + three chimneys
+// plus a floating icon pin marking it from across the map.
 // Ordinary meshes — the count is tiny and every size differs, so
 // instancing would only add complexity. Clicking any part selects the
 // anchor zone, same as its ZoneTile would.
@@ -168,54 +174,71 @@ export function LargeBuildings({
     <group>
       {larges.map((l) => {
         const color = BUILDING_COLOR[l.type];
-        // The mall's office slabs are glassy (they reflect the shared sky
-        // env map, environment.tsx); everything else here stays matte.
+        // The mall's office slab + atrium glass are reflective (they pick
+        // up the shared sky env map, environment.tsx); everything else
+        // here stays matte.
         const box = (
           key: string, x: number, y: number, z: number,
-          sx: number, sy: number, sz: number, c: string, rough = 0.82, shadow = true, metal = 0.06,
+          sx: number, sy: number, sz: number, c: string,
+          rough = 0.82, shadow = true, metal = 0.06,
         ) => (
           <mesh key={key} geometry={geo} position={[x, y, z]} scale={[sx, sy, sz]} castShadow={shadow} receiveShadow>
             <meshStandardMaterial color={c} roughness={rough} metalness={metal} envMapIntensity={1} />
           </mesh>
         );
+        // Working footprint: ~70% of the plot, so road + sidewalk + a
+        // strip of ground stay visible around the complex.
+        const fw = l.w * 0.7;
+        const fd = l.d * 0.7;
+        const apronH = PODIUM_TOP - TILE_H; // thin paved forecourt slab
         const parts: ReactNode[] = [
-          // podium skirt: masks road / sidewalk / ground / cars under the
-          // whole combined footprint (see PODIUM_TOP note)
-          box("skirt", 0, PODIUM_TOP / 2, 0, l.w, PODIUM_TOP, l.d, PODIUM_COLOR, 0.9),
+          box("apron", 0, TILE_H + apronH / 2, 0, l.w * 0.9, apronH, l.d * 0.9, PODIUM_COLOR, 0.92),
         ];
-        const tall = Math.max(l.h * 2.6, TALL_MIN[l.type] ?? 100);
+        const tall = Math.max(l.h * 2.2, TALL_MIN[l.type] ?? 90);
 
         if (l.type === "mall") {
-          const baseH = 42;
-          parts.push(box("base", 0, TILE_H + baseH / 2, 0, l.w * 0.96, baseH, l.d * 0.96, color));
-          // two office slabs rising from the podium, offset apart — glassy
-          parts.push(box("t1", l.w * 0.13, TILE_H + baseH + tall / 2, -l.d * 0.06, l.w * 0.4, tall, l.d * 0.32, color, 0.28, true, 0.5));
-          const t2 = tall * 0.62;
-          parts.push(box("t2", -l.w * 0.24, TILE_H + baseH + t2 / 2, l.d * 0.16, l.w * 0.3, t2, l.d * 0.26, color, 0.28, true, 0.5));
-          parts.push(box("deck", l.w * 0.13, TILE_H + baseH + tall + 1.6, -l.d * 0.06, l.w * 0.22, 3, l.d * 0.18, ROOF_DECK_COLOR, 0.85));
-          parts.push(box("ant", l.w * 0.13, TILE_H + baseH + tall + 21, -l.d * 0.06, 3, 40, 3, ANTENNA_COLOR, 0.6, false));
+          const baseH = 40;
+          parts.push(box("base", 0, TILE_H + baseH / 2, 0, fw, baseH, fd, color, 0.8));
+          // banded façade: three thin proud rings at quarter heights
+          for (let f = 1; f <= 3; f++) {
+            parts.push(box(`band${f}`, 0, TILE_H + (baseH / 4) * f, 0, fw + 3, 2.4, fd + 3, "#9b9182", 0.84));
+          }
+          // glazed atrium on the front (+z) face + a mullion strip
+          parts.push(box("atrium", 0, TILE_H + baseH * 0.52, fd / 2 + 1, fw * 0.5, baseH * 0.82, 3, GLASS_COLOR, 0.18, true, 0.45));
+          parts.push(box("mull", 0, TILE_H + baseH * 0.52, fd / 2 + 2.6, fw * 0.52, 1.6, 1.6, "#6b7278", 0.7, false, 0.2));
+          // flat entrance canopy on two columns
+          parts.push(box("canopy", 0, TILE_H + 13, fd / 2 + 9, fw * 0.6, 1.8, 17, ANTENNA_COLOR, 0.55, true, 0.4));
+          ([-0.24, 0.24] as const).forEach((cx, i) => {
+            parts.push(box(`col${i}`, fw * cx, TILE_H + 6.5, fd / 2 + 15, 2.6, 13, 2.6, ANTENNA_COLOR, 0.55, false, 0.4));
+          });
+          // one setback office slab rising off the base — glassy
+          parts.push(box("tower", fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05, fw * 0.44, tall, fd * 0.34, color, 0.26, true, 0.5));
+          parts.push(box("deck", fw * 0.12, TILE_H + baseH + tall + 1.6, -fd * 0.05, fw * 0.3, 3, fd * 0.24, ROOF_DECK_COLOR, 0.85));
         } else if (l.type === "stadium") {
-          // stepped green bowl — two inset tiers, no full-footprint grey
-          // lid (that read as a giant tabletop hiding the bowl).
+          // stepped bowl — two inset tiers, no full-footprint grey lid.
           const bowlH = tall * 0.6;
           const upperH = tall - bowlH;
-          parts.push(box("bowl", 0, TILE_H + bowlH / 2, 0, l.w * 0.97, bowlH, l.d * 0.97, color));
-          parts.push(box("upper", 0, TILE_H + bowlH + upperH / 2, 0, l.w * 0.74, upperH, l.d * 0.74, color));
-          // thin light cap only over the inset upper tier
-          parts.push(box("cap", 0, TILE_H + tall + 1.5, 0, l.w * 0.66, 3, l.d * 0.66, ROOF_DECK_COLOR, 0.85));
-          // four short floodlight masts at the corners
-          ([[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]] as const).forEach(([fx, fz], i) => {
-            parts.push(box(`mast${i}`, l.w * fx, TILE_H + tall + 12, l.d * fz, 3, 26, 3, ANTENNA_COLOR, 0.6, false));
+          parts.push(box("bowl", 0, TILE_H + bowlH / 2, 0, fw + 20, bowlH, fd + 20, color, 0.86));
+          parts.push(box("upper", 0, TILE_H + bowlH + upperH / 2, 0, fw * 0.78, upperH, fd * 0.78, color, 0.86));
+          parts.push(box("rim", 0, TILE_H + tall + 1.5, 0, fw * 0.7, 3, fd * 0.7, ROOF_DECK_COLOR, 0.85));
+          ([[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as const).forEach(([mx, mz], i) => {
+            parts.push(box(`mast${i}`, (fw + 16) * mx, TILE_H + tall + 12, (fd + 16) * mz, 3, 26, 3, ANTENNA_COLOR, 0.6, false));
           });
         } else {
           // factory: long shed + a rooftop plant box + three fat chimneys
-          const shedH = Math.max(l.h * 2.2, 84);
-          parts.push(box("shed", 0, TILE_H + shedH / 2, 0, l.w * 0.95, shedH, l.d * 0.95, color));
-          parts.push(box("plant", -l.w * 0.18, TILE_H + shedH + 9, 0, l.w * 0.3, 18, l.d * 0.55, CHIMNEY_COLOR, 0.85));
-          ([[0.14, 0.24], [0.3, -0.05], [0.14, -0.28]] as const).forEach(([fx, fz], i) => {
-            parts.push(box(`ch${i}`, l.w * fx, TILE_H + shedH + (tall - shedH) / 2, l.d * fz, 13, tall - shedH, 13, CHIMNEY_COLOR, 0.85));
+          const shedH = Math.max(l.h * 2.0, 56);
+          parts.push(box("shed", 0, TILE_H + shedH / 2, 0, fw + 12, shedH, fd + 12, color, 0.85));
+          parts.push(box("plant", -fw * 0.2, TILE_H + shedH + 8, 0, fw * 0.34, 16, fd * 0.6, CHIMNEY_COLOR, 0.85));
+          ([[0.16, 0.26], [0.32, -0.04], [0.16, -0.3]] as const).forEach(([fx, fz], i) => {
+            parts.push(box(`ch${i}`, fw * fx, TILE_H + shedH + (tall - shedH) / 2, fd * fz, 12, tall - shedH, 12, CHIMNEY_COLOR, 0.85));
           });
         }
+
+        // Floating icon pin — a slim post + a bright head, above the
+        // tallest part, so the landmark is findable from across the map.
+        const pinBase = TILE_H + tall + (l.type === "mall" ? 30 : 16);
+        parts.push(box("pinpost", 0, pinBase + 8, 0, 1.4, 16, 1.4, "#c8ccd2", 0.6, false));
+        parts.push(box("pinhead", 0, pinBase + 20, 0, 10, 10, 3.5, PIN_COLOR, 0.5, false, 0.15));
 
         return (
           <group
