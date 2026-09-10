@@ -53,8 +53,9 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useHeightTween, InstancedBoxes, type BuildingInstance } from "./models";
-import { getWindowTexture } from "./windows";
+import { getFacadeTexture, getWindowTexture } from "./windows";
 import { pickVariantIndex, type BType } from "./cityData";
+import { ArchitecturalDetails } from "./buildingDetails";
 
 const GABLE_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
 const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse"]);
@@ -348,6 +349,7 @@ export function ProceduralBuildings({
 
   return (
     <group>
+      <ArchitecturalDetails type={type} items={items} groundY={groundY} winLit={winLit} />
       {buckets.map(([variant, vItems]) => (
         <ProceduralVariant
           key={`${type}-${variant}`}
@@ -407,11 +409,16 @@ function ProceduralVariant({
         : { metalness: 0.22, roughness: 0.45, envMapIntensity: 0.9 }; // boxcap / dome
     const wall = new THREE.MeshStandardMaterial({
       color,
-      emissive: new THREE.Color("#fff1d8"),
+      map: getFacadeTexture(type, variant),
+      // near-white so the palette baked into the window map (windows.ts)
+      // comes through instead of being pushed warm
+      emissive: new THREE.Color("#ffffff"),
       emissiveMap: getWindowTexture(type, variant),
       emissiveIntensity: 0,
       ...refl,
     });
+    wall.userData.baseMetalness = refl.metalness;
+    wall.userData.baseEnvMapIntensity = refl.envMapIntensity;
     if (!isGable) return wall;
     // Terracotta clay tile — the design canvas's one warm accent on an
     // otherwise near-greyscale palette. kampung leans a shade browner.
@@ -427,14 +434,22 @@ function ProceduralVariant({
   }, [type, variant, color, isGable]);
 
   useEffect(() => {
-    // Towers read best with windows clearly brighter than the wall; the
-    // domestic gable types want a gentler, lived-in glow. Setback gain
-    // trimmed (1.3 -> 1.0) now that those walls carry some metalness —
-    // reflective + emissive stacked read too hot at night.
-    const gain = isGable ? 0.75 : 1.0;
+    // Window brightness by family: office setbacks need the strongest
+    // glow (a big dark curtain-wall reads as black otherwise), boxcap /
+    // dome civic in the middle, domestic gable the gentlest lived-in glow.
+    const gain = isGable ? 0.8 : SETBACK_TYPES.has(type) ? 1.9 : 1.25;
     const wall = (Array.isArray(materials) ? materials[MAT_WALL] : materials) as THREE.MeshStandardMaterial;
     wall.emissiveIntensity = winLit * gain;
-  }, [materials, winLit, isGable]);
+    // At night, drop the metalness / sky-reflection on the glassy setbacks
+    // so the diffuse body still catches the ambient + hemi fill and the
+    // tower keeps a visible SHAPE instead of a black mirror of a dark sky.
+    const baseM = (wall.userData.baseMetalness as number | undefined) ?? wall.metalness;
+    const baseE = (wall.userData.baseEnvMapIntensity as number | undefined) ?? wall.envMapIntensity;
+    if (SETBACK_TYPES.has(type)) {
+      wall.metalness = baseM * (1 - winLit * 0.62);
+      wall.envMapIntensity = baseE * (1 - winLit * 0.55);
+    }
+  }, [materials, winLit, isGable, type]);
 
   useEffect(
     () => () => (Array.isArray(materials) ? materials : [materials]).forEach((m) => m.dispose()),

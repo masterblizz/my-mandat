@@ -16,10 +16,12 @@
 // The centre cell + the spire cell are added to `claimed` in CityScene so
 // their ordinary per-cell towers step aside.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { PLOT, plotXY, worldCentre } from "./cityData";
+import { getTowerStripTexture } from "./windows";
 
 const KL_MIN_GRID = 10;
 const TILE_H = 4;
@@ -79,8 +81,11 @@ function place(
     new THREE.Vector3(sx, sy, sz),
   );
   g.applyMatrix4(m);
+  // keep uv — the night window emissiveMap (getTowerStripTexture) needs it;
+  // Cylinder/Box/Cone all generate uv so the set stays consistent for the
+  // merge. Everything else (tangents etc.) is dropped.
   for (const attr of Object.keys(g.attributes)) {
-    if (!["position", "normal"].includes(attr)) g.deleteAttribute(attr);
+    if (!["position", "normal", "uv"].includes(attr)) g.deleteAttribute(attr);
   }
   return g;
 }
@@ -141,7 +146,12 @@ function buildSpire(): THREE.BufferGeometry {
   return mergeGeometries(parts, false) ?? parts[0];
 }
 
-export function KLProfile({ gridSize }: { gridSize: number }) {
+// apex heights (world units) — see shaft() / buildSpire() massing above.
+const TWIN_APEX_Y = 535;
+const SPIRE_APEX_Y = 400;
+const TWIN_GAP = 110;
+
+export function KLProfile({ gridSize, winLit = 0 }: { gridSize: number; winLit?: number }) {
   const built = useMemo(() => {
     if (!klActive(gridSize)) return null;
     const twins = buildTwins();
@@ -160,20 +170,79 @@ export function KLProfile({ gridSize }: { gridSize: number }) {
     };
   }, [gridSize]);
 
-  const mat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#b9c1c4", roughness: 0.45, metalness: 0.25, envMapIntensity: 1 }),
-    [],
+  // Curtain-wall metal by day; at night the window emissiveMap lights the
+  // whole shaft so it reads as a lit tower, not a black cut-out, and the
+  // metalness / sky reflection is dialled back so the silhouette holds.
+  const mat = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: "#738b98", roughness: 0.2, metalness: 0.58, envMapIntensity: 1.35,
+      emissive: new THREE.Color("#dfe9ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+    });
+    m.userData.baseMetalness = 0.58;
+    m.userData.baseEnv = 1.35;
+    return m;
+  }, []);
+  const steel = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: "#88939a", roughness: 0.28, metalness: 0.62, envMapIntensity: 1.15,
+      emissive: new THREE.Color("#cfe0ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+    });
+    m.userData.baseMetalness = 0.62;
+    m.userData.baseEnv = 1.15;
+    return m;
+  }, []);
+
+  useEffect(() => {
+    for (const m of [mat, steel]) {
+      m.emissiveIntensity = winLit * 2.2;
+      m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
+      m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
+    }
+  }, [mat, steel, winLit]);
+
+  useEffect(
+    () => () => { mat.dispose(); steel.dispose(); },
+    [mat, steel],
   );
-  const steel = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#9aa2a6", roughness: 0.4, metalness: 0.45, envMapIntensity: 1 }),
-    [],
-  );
+
+  // aviation warning lights: blink red at the tops (dusk + night only)
+  const beaconRef = useRef<THREE.InstancedMesh>(null);
+  const blinkAcc = useRef(0);
+  const blinkOn = useRef(true);
+  useFrame((_, dt) => {
+    const mesh = beaconRef.current;
+    if (!mesh || !built) return;
+    const active = winLit > 0.25;
+    blinkAcc.current += dt;
+    if (blinkAcc.current >= 0.55) {
+      blinkAcc.current = 0;
+      blinkOn.current = !blinkOn.current;
+    }
+    const show = active && blinkOn.current ? 1 : 0.0001;
+    const o = new THREE.Object3D();
+    const beacons: [number, number, number][] = [
+      [built.twinAt[0] - TWIN_GAP / 2, TWIN_APEX_Y, built.twinAt[1]],
+      [built.twinAt[0] + TWIN_GAP / 2, TWIN_APEX_Y, built.twinAt[1]],
+      [built.spireAt[0], SPIRE_APEX_Y, built.spireAt[1]],
+    ];
+    beacons.forEach((p, i) => {
+      o.position.set(p[0], p[1], p[2]);
+      o.scale.setScalar(show);
+      o.updateMatrix();
+      mesh.setMatrixAt(i, o.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
 
   if (!built) return null;
   return (
     <group>
       <mesh geometry={built.twins} material={mat} position={[built.twinAt[0], 0, built.twinAt[1]]} castShadow receiveShadow />
       <mesh geometry={built.spire} material={steel} position={[built.spireAt[0], 0, built.spireAt[1]]} castShadow receiveShadow />
+      <instancedMesh ref={beaconRef} args={[undefined, undefined, 3]} frustumCulled={false}>
+        <sphereGeometry args={[3.2, 8, 6]} />
+        <meshBasicMaterial color="#ff2b2b" toneMapped={false} />
+      </instancedMesh>
     </group>
   );
 }

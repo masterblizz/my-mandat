@@ -163,10 +163,11 @@ export function junctionInsideLarge(i: number, j: number, gridSize: number, clai
 // instancing would only add complexity. Clicking any part selects the
 // anchor zone, same as its ZoneTile would.
 export function LargeBuildings({
-  larges, onSelect,
+  larges, onSelect, winLit = 0,
 }: {
   larges: LargePlacement[];
   onSelect: (id: string) => void;
+  winLit?: number;
 }) {
   const geo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
   if (!larges.length) return null;
@@ -176,14 +177,19 @@ export function LargeBuildings({
         const color = BUILDING_COLOR[l.type];
         // The mall's office slab + atrium glass are reflective (they pick
         // up the shared sky env map, environment.tsx); everything else
-        // here stays matte.
+        // here stays matte. `emis` gives the tall body parts a
+        // winLit-gated window glow so the landmark isn't a black cut-out
+        // at night like the rest of the skyline.
         const box = (
           key: string, x: number, y: number, z: number,
           sx: number, sy: number, sz: number, c: string,
-          rough = 0.82, shadow = true, metal = 0.06,
+          rough = 0.82, shadow = true, metal = 0.06, emis?: string,
         ) => (
           <mesh key={key} geometry={geo} position={[x, y, z]} scale={[sx, sy, sz]} castShadow={shadow} receiveShadow>
-            <meshStandardMaterial color={c} roughness={rough} metalness={metal} envMapIntensity={1} />
+            <meshStandardMaterial
+              color={c} roughness={rough} metalness={metal} envMapIntensity={1}
+              emissive={emis ?? "#000000"} emissiveIntensity={emis ? winLit * 1.5 : 0}
+            />
           </mesh>
         );
         // Working footprint: ~70% of the plot, so road + sidewalk + a
@@ -198,13 +204,13 @@ export function LargeBuildings({
 
         if (l.type === "mall") {
           const baseH = 40;
-          parts.push(box("base", 0, TILE_H + baseH / 2, 0, fw, baseH, fd, color, 0.8));
+          parts.push(box("base", 0, TILE_H + baseH / 2, 0, fw, baseH, fd, color, 0.8, true, 0.06, "#4c5878"));
           // banded façade: three thin proud rings at quarter heights
           for (let f = 1; f <= 3; f++) {
             parts.push(box(`band${f}`, 0, TILE_H + (baseH / 4) * f, 0, fw + 3, 2.4, fd + 3, "#9b9182", 0.84));
           }
           // glazed atrium on the front (+z) face + a mullion strip
-          parts.push(box("atrium", 0, TILE_H + baseH * 0.52, fd / 2 + 1, fw * 0.5, baseH * 0.82, 3, GLASS_COLOR, 0.18, true, 0.45));
+          parts.push(box("atrium", 0, TILE_H + baseH * 0.52, fd / 2 + 1, fw * 0.5, baseH * 0.82, 3, GLASS_COLOR, 0.18, true, 0.45, "#d8c193"));
           parts.push(box("mull", 0, TILE_H + baseH * 0.52, fd / 2 + 2.6, fw * 0.52, 1.6, 1.6, "#6b7278", 0.7, false, 0.2));
           // flat entrance canopy on two columns
           parts.push(box("canopy", 0, TILE_H + 13, fd / 2 + 9, fw * 0.6, 1.8, 17, ANTENNA_COLOR, 0.55, true, 0.4));
@@ -212,14 +218,14 @@ export function LargeBuildings({
             parts.push(box(`col${i}`, fw * cx, TILE_H + 6.5, fd / 2 + 15, 2.6, 13, 2.6, ANTENNA_COLOR, 0.55, false, 0.4));
           });
           // one setback office slab rising off the base — glassy
-          parts.push(box("tower", fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05, fw * 0.44, tall, fd * 0.34, color, 0.26, true, 0.5));
+          parts.push(box("tower", fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05, fw * 0.44, tall, fd * 0.34, color, 0.26, true, 0.5, "#4c5772"));
           parts.push(box("deck", fw * 0.12, TILE_H + baseH + tall + 1.6, -fd * 0.05, fw * 0.3, 3, fd * 0.24, ROOF_DECK_COLOR, 0.85));
         } else if (l.type === "stadium") {
           // stepped bowl — two inset tiers, no full-footprint grey lid.
           const bowlH = tall * 0.6;
           const upperH = tall - bowlH;
-          parts.push(box("bowl", 0, TILE_H + bowlH / 2, 0, fw + 20, bowlH, fd + 20, color, 0.86));
-          parts.push(box("upper", 0, TILE_H + bowlH + upperH / 2, 0, fw * 0.78, upperH, fd * 0.78, color, 0.86));
+          parts.push(box("bowl", 0, TILE_H + bowlH / 2, 0, fw + 20, bowlH, fd + 20, color, 0.86, true, 0.06, "#7e8f5c"));
+          parts.push(box("upper", 0, TILE_H + bowlH + upperH / 2, 0, fw * 0.78, upperH, fd * 0.78, color, 0.86, true, 0.06, "#7e8f5c"));
           parts.push(box("rim", 0, TILE_H + tall + 1.5, 0, fw * 0.7, 3, fd * 0.7, ROOF_DECK_COLOR, 0.85));
           ([[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as const).forEach(([mx, mz], i) => {
             parts.push(box(`mast${i}`, (fw + 16) * mx, TILE_H + tall + 12, (fd + 16) * mz, 3, 26, 3, ANTENNA_COLOR, 0.6, false));
@@ -227,7 +233,7 @@ export function LargeBuildings({
         } else {
           // factory: long shed + a rooftop plant box + three fat chimneys
           const shedH = Math.max(l.h * 2.0, 56);
-          parts.push(box("shed", 0, TILE_H + shedH / 2, 0, fw + 12, shedH, fd + 12, color, 0.85));
+          parts.push(box("shed", 0, TILE_H + shedH / 2, 0, fw + 12, shedH, fd + 12, color, 0.85, true, 0.06, "#8c7a54"));
           parts.push(box("plant", -fw * 0.2, TILE_H + shedH + 8, 0, fw * 0.34, 16, fd * 0.6, CHIMNEY_COLOR, 0.85));
           ([[0.16, 0.26], [0.32, -0.04], [0.16, -0.3]] as const).forEach(([fx, fz], i) => {
             parts.push(box(`ch${i}`, fw * fx, TILE_H + shedH + (tall - shedH) / 2, fd * fz, 12, tall - shedH, 12, CHIMNEY_COLOR, 0.85));
