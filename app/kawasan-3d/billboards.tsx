@@ -1,33 +1,45 @@
 "use client";
 
-// Bukit-Bintang-style LED billboards / ad screens for the dense presets.
-// A scene-dressing sibling (like <Trees> / <StreetLamps>): iterates the
-// placed zones, seeds a few billboard sites per eligible zone, and draws
-// them as flat unlit ("screen") panels — one InstancedMesh PER COLOUR
-// VARIANT, so the whole city's billboards cost ~6 draw calls regardless
-// of count. `toneMapped:false` makes the panels read as lit by day and
-// bloom hard at night; a throttled colour pulse gives a "playing content"
-// feel with no textures or video.
+// Bukit-Bintang-style LED billboards / ad screens. A scene-dressing
+// sibling that ANCHORS TO REAL BUILDING INSTANCES: it reproduces
+// CityScene's per-zone building layout (zoneBuildings → slotPos → world
+// box + klHeightMult height), picks a few tall buildings per eligible
+// zone and mounts a flat "screen" flush against the wall face that points
+// at a road. Standalone billboards get a real two-post frame reaching the
+// panel. If a zone has no tall building, it gets no panel (no floaters).
+//
+// Panels: one InstancedMesh per colour variant (~6 draws total),
+// `toneMapped:false` so they read as lit by day and bloom at night, with
+// a throttled colour pulse for a "screen is playing" feel.
 
 import { useMemo, useRef, useLayoutEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { PLOT, type CellPlacement, type ZoneKind } from "./cityData";
+import {
+  PLOT, slotPos, zoneBuildings, FLAT_TYPES,
+  type CellPlacement, type ZoneKind, type BType, type SeatTraits,
+} from "./cityData";
+import { klHeightMult } from "./klProfile";
 
 const TILE_H = 4;
 
-// Placeholder screen colours — deliberately varied so a run of billboards
-// down a street doesn't read as a repeat.
 const VARIANTS = ["#2f6bff", "#ff5a2a", "#eef2ff", "#12e6ff", "#ff3fd0", "#ffd23f"] as const;
 const BASE = VARIANTS.map((h) => new THREE.Color(h));
 
-// which tile edge a facade panel hangs on: [dirX, dirZ, yaw-to-face-out]
-const EDGES: [number, number, number][] = [
-  [0, -1, 0],
-  [0, 1, Math.PI],
-  [-1, 0, -Math.PI / 2],
-  [1, 0, Math.PI / 2],
-];
+// buildings a billboard may hang off — anything with a real flat-ish wall
+const MOUNT_TYPES = new Set<BType>([
+  "tower", "skyscraper", "shophouse", "mall", "hospital", "museum",
+  "terminal", "factory", "warehouse", "clinic", "school", "library", "powerplant",
+]);
+
+// yaw so the panel's face points along the outward normal (matches the
+// box geometry whose "thickness" is on local Z)
+function yawFor(nx: number, nz: number): number {
+  if (nx > 0) return Math.PI / 2;
+  if (nx < 0) return -Math.PI / 2;
+  if (nz > 0) return Math.PI;
+  return 0;
+}
 
 function hashSeed(s: string): number {
   let h = 0;
@@ -40,38 +52,36 @@ function rng(seed: number) {
 }
 
 function billboardCount(kind: ZoneKind, coreness: number, gridSize: number): number {
-  if (gridSize <= 6) return 0; // rural: none
+  if (gridSize <= 6) return 0;
   const urbanish = kind === "urban" || kind === "commercial" || kind === "market";
-  if (gridSize <= 8) return urbanish && coreness > 0.35 ? 1 : 0; // semi: a few
-  // metro / dense metro
+  if (gridSize <= 8) return urbanish && coreness > 0.35 ? 1 : 0;
   let n = urbanish
-    ? Math.round(1 + coreness * 3.2) // 1..4
-    : (kind === "community" || kind === "education") && coreness > 0.55
-      ? 1
-      : 0;
-  if (gridSize >= 22) n = Math.min(n, 2); // keep the 30×30 count sane
+    ? Math.round(1 + coreness * 3.2)
+    : (kind === "community" || kind === "education") && coreness > 0.55 ? 1 : 0;
+  if (gridSize >= 22) n = Math.min(n, 2);
   return n;
 }
 
-type Panel = {
-  x: number; y: number; z: number; yaw: number;
-  w: number; h: number; variant: number;
-};
+type Panel = { x: number; y: number; z: number; yaw: number; w: number; h: number; variant: number };
+type Strut = { x: number; y: number; z: number; sx: number; sy: number; sz: number };
+type BBox = { type: BType; bx: number; bz: number; bw: number; bd: number; bh: number };
 
 export function Billboards({
-  placed, gridSize, winLit, claimed,
+  placed, gridSize, density, traits, winLit, claimed,
 }: {
   placed: CellPlacement[];
   gridSize: number;
+  density: number;
+  traits: SeatTraits;
   winLit: number;
   claimed?: Set<string>;
 }) {
   const winLitRef = useRef(winLit);
   winLitRef.current = winLit;
 
-  const { panels, poles } = useMemo(() => {
+  const { panels, struts } = useMemo(() => {
     const panels: Panel[] = [];
-    const poles: { x: number; z: number; h: number }[] = [];
+    const struts: Strut[] = [];
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
 
@@ -82,50 +92,109 @@ export function Billboards({
       if (!n) continue;
       const rnd = rng(hashSeed(`${zone.id}:bb`));
 
-      // one panel per distinct edge (shuffled), so they don't stack
-      const edges = [0, 1, 2, 3].sort(() => rnd() - 0.5);
-      for (let i = 0; i < n; i++) {
-        const [dx, dz, yaw] = EDGES[edges[i % 4]];
-        const margin = 10;
-        // lateral slide along the edge
-        const slide = (rnd() - 0.5) * (PLOT - 90);
+      // reproduce CityScene's building layout for this zone
+      const boxes: BBox[] = [];
+      for (const spec of zoneBuildings(zone, density, traits, coreness)) {
+        if (FLAT_TYPES.includes(spec.type)) continue;
+        const sp = slotPos(spec.slot);
+        const vertical = spec.type === "tower" || spec.type === "skyscraper" || spec.type === "antenna";
+        const h0 = Math.max(spec.h, 6);
+        const bh = vertical
+          ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize)))
+          : h0;
+        boxes.push({
+          type: spec.type,
+          bx: cx - PLOT / 2 + sp.x + spec.w / 2,
+          bz: cz - PLOT / 2 + sp.y + spec.d / 2,
+          bw: spec.w, bd: spec.d, bh,
+        });
+      }
+
+      // mountable = tall enough + a real wall type; tallest first
+      const mount = boxes
+        .filter((b) => b.bh >= 42 && MOUNT_TYPES.has(b.type))
+        .sort((a, b) => b.bh - a.bh)
+        .slice(0, n);
+
+      for (let i = 0; i < mount.length; i++) {
+        const b = mount[i];
+        // face whose outward normal points at the nearest tile edge
+        const dPX = cx + PLOT / 2 - (b.bx + b.bw / 2);
+        const dNX = (b.bx - b.bw / 2) - (cx - PLOT / 2);
+        const dPZ = cz + PLOT / 2 - (b.bz + b.bd / 2);
+        const dNZ = (b.bz - b.bd / 2) - (cz - PLOT / 2);
+        const m = Math.min(dPX, dNX, dPZ, dNZ);
+        let nx = 0;
+        let nz = 0;
+        if (m === dPX) nx = 1; else if (m === dNX) nx = -1; else if (m === dPZ) nz = 1; else nz = -1;
+        const halfDepth = nx !== 0 ? b.bw / 2 : b.bd / 2;
+        const faceW = nx !== 0 ? b.bd : b.bw;
+
+        // size class relative to THIS building
         const roll = rnd();
-        // size class: big Bukit-Bintang screen / medium / low shop strip
-        const [w, h, y] =
-          roll < 0.22 ? [58 + rnd() * 24, 34 + rnd() * 12, 60 + rnd() * 70]
-            : roll < 0.7 ? [30 + rnd() * 14, 17 + rnd() * 9, 30 + rnd() * 60]
-              : [18 + rnd() * 8, 8 + rnd() * 4, 9 + rnd() * 6];
+        let w = roll < 0.24 ? 34 + rnd() * 20 : roll < 0.72 ? 22 + rnd() * 12 : 14 + rnd() * 8;
+        let h = roll < 0.24 ? 22 + rnd() * 12 : roll < 0.72 ? 13 + rnd() * 7 : 7 + rnd() * 4;
+        w = Math.min(w, faceW * 0.9);
+        h = Math.min(h, b.bh * 0.5);
+        if (w < 8 || h < 5) continue; // wall too small — skip, don't float
+
+        // vertical placement: a floor level well within the wall
+        const yFrac = 0.45 + rnd() * 0.35;
+        const y = Math.max(
+          TILE_H + 9 + h / 2,
+          Math.min(TILE_H + b.bh - h / 2 - 2, TILE_H + b.bh * yFrac),
+        );
+        // lateral slide, clamped so the panel never overhangs the wall
+        const latMax = Math.max(0, faceW / 2 - w / 2 - 2);
+        const slide = (rnd() - 0.5) * 2 * latMax;
+
         panels.push({
-          x: cx + dx * (PLOT / 2 - margin) + (dx === 0 ? slide : 0),
-          z: cz + dz * (PLOT / 2 - margin) + (dz === 0 ? slide : 0),
-          y: TILE_H + y,
-          yaw,
-          w,
-          h,
+          x: b.bx + nx * (halfDepth + 0.7) + (nx === 0 ? slide : 0),
+          z: b.bz + nz * (halfDepth + 0.7) + (nz === 0 ? slide : 0),
+          y,
+          yaw: yawFor(nx, nz),
+          w, h,
           variant: Math.floor(rnd() * VARIANTS.length),
         });
       }
 
-      // occasional freestanding screen tower at a tile corner (a plaza /
-      // civic-square feel) in the built-up kinds
+      // standalone screen tower — only on a tile corner clear of every
+      // building footprint, and it gets a real 2-post frame.
       const urbanish = zone.kind === "urban" || zone.kind === "commercial" || zone.kind === "market";
       const civic = zone.kind === "community" || zone.kind === "education";
-      if (gridSize >= 10 && ((urbanish && rnd() < 0.18) || (civic && rnd() < 0.1))) {
-        const sx = rnd() < 0.5 ? -1 : 1;
-        const sz = rnd() < 0.5 ? -1 : 1;
-        const px = cx + sx * (PLOT / 2 - 26);
-        const pz = cz + sz * (PLOT / 2 - 26);
-        const ph = 44 + rnd() * 22;
-        poles.push({ x: px, z: pz, h: ph });
-        panels.push({
-          x: px, z: pz, y: TILE_H + ph + 15, yaw: rnd() * Math.PI * 2,
-          w: 34 + rnd() * 14, h: 24 + rnd() * 10,
-          variant: Math.floor(rnd() * VARIANTS.length),
-        });
+      if (gridSize >= 10 && ((urbanish && rnd() < 0.16) || (civic && rnd() < 0.1))) {
+        const sxS = rnd() < 0.5 ? -1 : 1;
+        const szS = rnd() < 0.5 ? -1 : 1;
+        const px = cx + sxS * (PLOT / 2 - 28);
+        const pz = cz + szS * (PLOT / 2 - 28);
+        const clear = !boxes.some(
+          (b) => Math.abs(px - b.bx) < b.bw / 2 + 14 && Math.abs(pz - b.bz) < b.bd / 2 + 14,
+        );
+        if (clear) {
+          const pw = 30 + rnd() * 14;
+          const ph = 20 + rnd() * 10;
+          const postTop = 40 + rnd() * 22;
+          const post = 3.2;
+          const bY = TILE_H + postTop; // panel BOTTOM sits exactly here
+          // base plinth
+          struts.push({ x: px, y: TILE_H + 2, z: pz, sx: pw * 0.5, sy: 4, sz: 10 });
+          // two posts up to the panel
+          for (const s of [-1, 1] as const) {
+            struts.push({ x: px + s * pw * 0.34, y: TILE_H + postTop / 2, z: pz, sx: post, sy: postTop, sz: post });
+          }
+          // top beam
+          struts.push({ x: px, y: bY + 1, z: pz, sx: pw * 0.8, sy: 3, sz: 4 });
+          // face the tile centre
+          const yaw = Math.abs(px - cx) > Math.abs(pz - cz) ? yawFor(px > cx ? -1 : 1, 0) : yawFor(0, pz > cz ? -1 : 1);
+          panels.push({
+            x: px, y: bY + ph / 2, z: pz, yaw, w: pw, h: ph,
+            variant: Math.floor(rnd() * VARIANTS.length),
+          });
+        }
       }
     }
-    return { panels, poles };
-  }, [placed, gridSize, claimed]);
+    return { panels, struts };
+  }, [placed, gridSize, density, traits, claimed]);
 
   const byVariant = useMemo(() => {
     const m: Panel[][] = VARIANTS.map(() => []);
@@ -135,7 +204,7 @@ export function Billboards({
 
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const matRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
-  const poleRef = useRef<THREE.InstancedMesh>(null);
+  const strutRef = useRef<THREE.InstancedMesh>(null);
   const acc = useRef(0);
 
   useLayoutEffect(() => {
@@ -146,28 +215,27 @@ export function Billboards({
       list.forEach((p, i) => {
         dummy.position.set(p.x, p.y, p.z);
         dummy.rotation.set(0, p.yaw, 0);
-        dummy.scale.set(p.w, p.h, 2.4);
+        dummy.scale.set(p.w, p.h, 2.2);
         dummy.updateMatrix();
         mesh.setMatrixAt(i, dummy.matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
     });
-    const pole = poleRef.current;
-    if (pole) {
-      poles.forEach((p, i) => {
-        dummy.position.set(p.x, TILE_H + p.h / 2, p.z);
+    const st = strutRef.current;
+    if (st) {
+      struts.forEach((s, i) => {
+        dummy.position.set(s.x, s.y, s.z);
         dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(2.6, p.h, 2.6);
+        dummy.scale.set(s.sx, s.sy, s.sz);
         dummy.updateMatrix();
-        pole.setMatrixAt(i, dummy.matrix);
+        st.setMatrixAt(i, dummy.matrix);
       });
-      pole.instanceMatrix.needsUpdate = true;
-      pole.computeBoundingSphere();
+      st.instanceMatrix.needsUpdate = true;
+      st.computeBoundingSphere();
     }
-  }, [byVariant, poles]);
+  }, [byVariant, struts]);
 
-  // brightness / hue pulse — "screen is playing", plus a big night boost
   useFrame((_, dt) => {
     acc.current += dt;
     if (acc.current < 0.09) return;
@@ -201,10 +269,10 @@ export function Billboards({
           </instancedMesh>
         ) : null,
       )}
-      {poles.length ? (
-        <instancedMesh ref={poleRef} args={[undefined, undefined, poles.length]} castShadow key={`bbp-${poles.length}`}>
+      {struts.length ? (
+        <instancedMesh ref={strutRef} args={[undefined, undefined, struts.length]} castShadow key={`bbs-${struts.length}`}>
           <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color="#2a2f38" roughness={0.8} metalness={0.3} />
+          <meshStandardMaterial color="#2a2f38" roughness={0.8} metalness={0.35} />
         </instancedMesh>
       ) : null}
     </group>
