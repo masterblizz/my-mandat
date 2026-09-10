@@ -324,7 +324,7 @@ function Grid({
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} claimed={claimed} />
-      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} />
+      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize)} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
           key={zone.id}

@@ -27,6 +27,7 @@ import {
   TOD_ENV, type Tod,
 } from "./cityData";
 import { junctionInsideLarge } from "./largeBuildings";
+import { roundaboutCentre } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const DECK_Y = 58; // matches TRACK_DECK_Z in app/kawasan/page.tsx
@@ -325,8 +326,21 @@ const TL_HEAD_Y = TL_POLE_H + 4;
 const TL_CYCLE = 9; // seconds for a full green -> amber -> red loop
 const TL_LIT = [new THREE.Color("#ff3b30"), new THREE.Color("#ffb020"), new THREE.Color("#2fd15a")];
 const TL_DIM = new THREE.Color("#15171c");
-// row 0 = red (top), 1 = amber, 2 = green (bottom): fraction-of-cycle each is lit
-const TL_ROW_WINDOW: [number, number][] = [[0.52, 1.0], [0.46, 0.54], [0.02, 0.46]];
+// row index in TL_LIT: 0 = red, 1 = amber, 2 = green.
+
+// Single source of truth for the signal phase — both the lit lens (below)
+// and the car behaviour (Traffic) read this so what you see and what the
+// cars do can never drift. `axisIsX` = the car/approach travels along
+// world X (an E-W movement); the crossing Z movement runs the opposite
+// half-cycle. Returns 0 green / 1 amber / 2 red. Green ~55% of the cycle,
+// amber a short ~7%, red the rest — with a small all-red overlap so
+// cross streams never both show green.
+export function signalStateFor(axisIsX: boolean, timeSec: number): 0 | 1 | 2 {
+  const local = (timeSec / TL_CYCLE + (axisIsX ? 0 : 0.5)) % 1;
+  if (local < 0.46) return 0; // green
+  if (local < 0.53) return 1; // amber
+  return 2;                    // red
+}
 
 export function TrafficLights({
   gridSize, developed, detail = 1, claimed,
@@ -402,16 +416,18 @@ export function TrafficLights({
     lastState.current = new Int8Array(poles.length).fill(-1);
   }, [poles]);
 
-  // Throttled: recolour only the lenses whose lit-row changed.
+  // Throttled: recolour only the lenses whose lit-row changed. The pole
+  // with phase 0 governs E-W (X-axis) movement, phase 0.5 the crossing
+  // N-S movement — signalStateFor() encodes the half-cycle offset.
   useFrame((_, dt) => {
     acc.current += dt;
     if (acc.current < 0.12) return;
     acc.current = 0;
-    const t = (performance.now() / 1000 / TL_CYCLE);
+    const now = performance.now() / 1000;
     const dirty = [false, false, false];
     poles.forEach((p, i) => {
-      const local = (t + p.phase) % 1;
-      const row = TL_ROW_WINDOW.findIndex(([a, b]) => local >= a && local < b);
+      const state = signalStateFor(p.phase === 0, now); // 0 green 1 amber 2 red
+      const row = state === 0 ? 2 : state === 1 ? 1 : 0; // -> TL_LIT index
       if (lastState.current[i] === row) return;
       for (let r = 0; r < 3; r++) {
         const lens = lensRefs.current[r];
@@ -454,74 +470,300 @@ export function TrafficLights({
 }
 
 // ── traffic ─────────────────────────────────────────────────────────
+// Cars no longer slide along a single infinite lane. Each car is bound to
+// a closed LOOP made of straight segments joined by quarter-circle arcs,
+// so it actually corners at every junction; a few cars run the circular
+// loop around the central roundabout. Every loop carries GATES at the
+// grid junctions it crosses — a car reads signalStateFor() for the
+// direction it is travelling and brakes to the stop line on red, crawls
+// on amber, and accelerates on green. Cars also keep a gap to the car
+// ahead on the same loop, so they queue at a red instead of stacking.
+
+const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827"];
+
+const CAR_BASE_SPEED = 78;   // world units / sec on a clear straight
+const CAR_ACCEL = 130;
+const CAR_BRAKE = 240;
+const CAR_ARC_SPEED = 34;     // cornering / roundabout speed cap
+const CAR_GAP = 26;           // bumper gap kept to the car ahead
+const STOP_MARGIN = 12;       // how far back from the junction to hold on red
+const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
+
+type Piece = {
+  kind: "line" | "arc";
+  s0: number;
+  len: number;
+  // line
+  ax?: number; az?: number; bx?: number; bz?: number;
+  // arc
+  cx?: number; cz?: number; r?: number; a0?: number; a1?: number;
+  // gate at the END of this piece (a grid junction the loop crosses)
+  gateAxisIsX?: boolean;
+};
+type Loop = { pieces: Piece[]; L: number; gates: { s: number; axisIsX: boolean }[] };
 type Car = {
-  axis: "x" | "z";
-  lane: number;
-  t: number;       // 0..len along the lane
+  loop: number;
+  s: number;        // arc-length position around the loop
   speed: number;
   color: THREE.Color;
 };
-const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827"];
+
+function lineP(ax: number, az: number, bx: number, bz: number, gateAxisIsX?: boolean): Piece {
+  return { kind: "line", s0: 0, len: Math.hypot(bx - ax, bz - az), ax, az, bx, bz, gateAxisIsX };
+}
+function arcP(cx: number, cz: number, r: number, a0: number, a1: number): Piece {
+  return { kind: "arc", s0: 0, len: Math.abs(a1 - a0) * r, cx, cz, r, a0, a1 };
+}
+function finishLoop(pieces: Piece[]): Loop {
+  let acc = 0;
+  const gates: { s: number; axisIsX: boolean }[] = [];
+  for (const p of pieces) {
+    p.s0 = acc;
+    acc += p.len;
+    if (p.kind === "line" && p.gateAxisIsX !== undefined) {
+      gates.push({ s: acc, axisIsX: p.gateAxisIsX }); // gate sits at the piece end
+    }
+  }
+  return { pieces, L: acc, gates };
+}
+function posAt(loop: Loop, s: number): [number, number] {
+  let ss = s % loop.L;
+  if (ss < 0) ss += loop.L;
+  const pcs = loop.pieces;
+  let p = pcs[pcs.length - 1];
+  for (const q of pcs) { if (ss < q.s0 + q.len || q === pcs[pcs.length - 1]) { p = q; break; } }
+  const t = p.len > 0 ? (ss - p.s0) / p.len : 0;
+  if (p.kind === "line") {
+    return [p.ax! + (p.bx! - p.ax!) * t, p.az! + (p.bz! - p.az!) * t];
+  }
+  const a = p.a0! + (p.a1! - p.a0!) * t;
+  return [p.cx! + Math.cos(a) * p.r!, p.cz! + Math.sin(a) * p.r!];
+}
+
+// One clockwise loop around the single plot bounded by x0<x1, z0<z1. The
+// lane is set OUT from the block edges by laneOff (so a counter-loop on a
+// shared road sits on the other side), corners are quarter arcs of turnR,
+// and each straight ends with a gate for the junction it feeds.
+function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: number, turnR: number): Loop {
+  const L = laneOff, R = turnR;
+  const tx0 = x0 - L, tx1 = x1 + L, tz0 = z0 - L, tz1 = z1 + L; // lane centreline box
+  const pieces: Piece[] = [
+    // top edge, travelling +x -> gate for the NE junction (E-W movement)
+    lineP(tx0 + R, tz0, tx1 - R, tz0, true),
+    arcP(tx1 - R, tz0 + R, R, -Math.PI / 2, 0),
+    // right edge, travelling +z -> gate for the SE junction (N-S movement)
+    lineP(tx1, tz0 + R, tx1, tz1 - R, false),
+    arcP(tx1 - R, tz1 - R, R, 0, Math.PI / 2),
+    // bottom edge, travelling -x
+    lineP(tx1 - R, tz1, tx0 + R, tz1, true),
+    arcP(tx0 + R, tz1 - R, R, Math.PI / 2, Math.PI),
+    // left edge, travelling -z
+    lineP(tx0, tz1 - R, tx0, tz0 + R, false),
+    arcP(tx0 + R, tz0 + R, R, Math.PI, Math.PI * 1.5),
+  ];
+  return finishLoop(pieces);
+}
+
+// A full circle around the central roundabout — no gates (roundabouts run
+// free), capped to the cornering speed.
+function roundaboutLoop(cx: number, cz: number, r: number): Loop {
+  return finishLoop([arcP(cx, cz, r, 0, -Math.PI * 2)]); // clockwise
+}
 
 export function Traffic({ gridSize }: { gridSize: number }) {
   const centre = worldCentre(gridSize);
-  const span = worldSize(gridSize);
-  const ref = useRef<THREE.InstancedMesh>(null);
+
+  const { loops, cars } = useMemo(() => {
+    let seed = gridSize * 911 + 7;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
+    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
+    const laneOff = ROAD_W * 0.2;
+    const turnR = ROAD_W * 0.55;
+
+    const loops: Loop[] = [];
+    const cars: Car[] = [];
+    const addCarsTo = (loopIdx: number, n: number) => {
+      const L = loops[loopIdx].L;
+      for (let k = 0; k < n; k++) {
+        cars.push({
+          loop: loopIdx,
+          s: ((k + rnd()) / n) * L,
+          speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
+          color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
+        });
+      }
+    };
+
+    // one loop per plot, ~55% of plots, 1-2 cars each
+    for (let a = 0; a < xs.length - 1; a++) {
+      for (let b = 0; b < zs.length - 1; b++) {
+        if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
+        loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
+        addCarsTo(loops.length - 1, rnd() < 0.4 ? 2 : 1);
+      }
+    }
+    // circular flow around the central roundabout on metro / dense grids
+    if (gridSize >= 10) {
+      const [rcx, rcz] = roundaboutCentre(gridSize);
+      loops.push(roundaboutLoop(rcx, rcz, 120));
+      addCarsTo(loops.length - 1, 8);
+    }
+    return { loops, cars };
+  }, [gridSize, centre]);
+
+  const bodyRef = useRef<THREE.InstancedMesh>(null);
+  const cabinRef = useRef<THREE.InstancedMesh>(null);
+  const wheelRef = useRef<THREE.InstancedMesh>(null);
+  const headlightRef = useRef<THREE.InstancedMesh>(null);
+  const taillightRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
-  const cars = useMemo<Car[]>(() => {
-    const out: Car[] = [];
-    let seed = gridSize * 911;
-    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-    const laneOff = ROAD_W * 0.25;
-    roadsH(gridSize).forEach((z, i) => {
-      const lz = z - centre + ROAD_W / 2;
-      for (let k = 0; k < 2; k++)
-        out.push({ axis: "x", lane: lz + (k ? laneOff : -laneOff), t: rnd() * span, speed: 40 + rnd() * 40, color: new THREE.Color(CAR_COLORS[(i + k) % CAR_COLORS.length]) });
-    });
-    roadsV(gridSize).forEach((x, i) => {
-      const lx = x - centre + ROAD_W / 2;
-      for (let k = 0; k < 2; k++)
-        out.push({ axis: "z", lane: lx + (k ? laneOff : -laneOff), t: rnd() * span, speed: 40 + rnd() * 40, color: new THREE.Color(CAR_COLORS[(i + k + 3) % CAR_COLORS.length]) });
-    });
-    return out;
-  }, [gridSize, centre, span]);
+  // Car indices grouped per loop and ordered by position, so each frame a
+  // car only has to look at the single car immediately ahead of it.
+  const perLoop = useMemo(() => {
+    const g: number[][] = loops.map(() => []);
+    cars.forEach((c, i) => g[c.loop].push(i));
+    g.forEach((arr) => arr.sort((p, q) => cars[p].s - cars[q].s));
+    return g;
+  }, [loops, cars]);
 
   useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    cars.forEach((c, i) => mesh.setColorAt(i, c.color));
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    const body = bodyRef.current;
+    const cabin = cabinRef.current;
+    if (!body || !cabin) return;
+    cars.forEach((c, i) => {
+      body.setColorAt(i, c.color);
+      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), 0.64));
+    });
+    if (body.instanceColor) body.instanceColor.needsUpdate = true;
+    if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
   }, [cars]);
 
   useFrame((_, dt) => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const half = span / 2;
-    for (let i = 0; i < cars.length; i++) {
-      const c = cars[i];
-      c.t = (c.t + c.speed * dt) % span;
-      const p = -half + c.t;
-      if (c.axis === "x") {
-        dummy.position.set(p, 3, c.lane);
-        dummy.rotation.set(0, 0, 0);
-      } else {
-        dummy.position.set(c.lane, 3, p);
-        dummy.rotation.set(0, Math.PI / 2, 0);
+    const body = bodyRef.current;
+    const cabin = cabinRef.current;
+    const wheels = wheelRef.current;
+    const headlights = headlightRef.current;
+    const taillights = taillightRef.current;
+    if (!body || !cabin || !wheels || !headlights || !taillights) return;
+    const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
+    const now = performance.now() / 1000;
+
+    for (let li = 0; li < loops.length; li++) {
+      const loop = loops[li];
+      const ring = perLoop[li];
+      // process lead car first so followers clamp against an updated gap
+      for (let k = ring.length - 1; k >= 0; k--) {
+        const ci = ring[k];
+        const c = cars[ci];
+
+        // desired speed from the road + the next signal
+        let target = CAR_BASE_SPEED;
+        // which piece are we on? (arcs are slow)
+        let sMod = c.s % loop.L; if (sMod < 0) sMod += loop.L;
+        for (const p of loop.pieces) {
+          if (sMod >= p.s0 && sMod < p.s0 + p.len) { if (p.kind === "arc") target = CAR_ARC_SPEED; break; }
+        }
+        // nearest gate ahead
+        let gateHold = Infinity;
+        for (const gate of loop.gates) {
+          let d = gate.s - sMod;
+          if (d < -4) d += loop.L;              // wrapped round
+          if (d < 0) d = 0;
+          if (d > BRAKE_LOOKAHEAD) continue;
+          const st = signalStateFor(gate.axisIsX, now); // 0 green 1 amber 2 red
+          if (st === 2) { gateHold = Math.min(gateHold, c.s + d - STOP_MARGIN); target = Math.min(target, 0); }
+          else if (st === 1) target = Math.min(target, d > 40 ? CAR_BASE_SPEED * 0.32 : 0); // amber: slow, stop if too close to clear
+        }
+
+        // gap to the car immediately ahead on this ring
+        const ahead = ring.length > 1 ? cars[ring[(k + 1) % ring.length]] : null;
+        let gapHold = Infinity;
+        if (ahead) {
+          let as = ahead.s;
+          while (as <= c.s) as += loop.L;
+          gapHold = as - CAR_GAP;
+        }
+
+        // integrate speed toward target, then advance, then clamp to holds
+        const accel = target >= c.speed ? CAR_ACCEL : CAR_BRAKE;
+        c.speed += Math.sign(target - c.speed) * accel * step;
+        if (c.speed < 0) c.speed = 0;
+        if (c.speed > CAR_BASE_SPEED) c.speed = CAR_BASE_SPEED;
+        let ns = c.s + c.speed * step;
+        if (ns > gapHold) { ns = Math.max(c.s, gapHold); c.speed = 0; }
+        if (ns > gateHold) { ns = Math.max(c.s, gateHold); c.speed = 0; }
+        c.s = ns;
+
+        // write transforms
+        const [x, z] = posAt(loop, c.s);
+        const [x2, z2] = posAt(loop, c.s + 3);
+        const heading = Math.atan2(z2 - z, x2 - x);
+
+        dummy.position.set(x, 4, z);
+        dummy.rotation.set(0, heading, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        body.setMatrixAt(ci, dummy.matrix);
+
+        dummy.position.set(x, 7.4, z);
+        dummy.updateMatrix();
+        cabin.setMatrixAt(ci, dummy.matrix);
+
+        const cos = Math.cos(heading), sin = Math.sin(heading);
+        const local = (fwd: number, side: number) =>
+          [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
+        [[-5.7, -4.1], [-5.7, 4.1], [5.7, -4.1], [5.7, 4.1]].forEach(([f, s], n) => {
+          const [wx, wz] = local(f, s);
+          dummy.position.set(wx, 2.25, wz);
+          dummy.rotation.set(Math.PI / 2, heading, 0);
+          dummy.updateMatrix();
+          wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
+        });
+        dummy.rotation.set(0, heading, 0);
+        [-2.6, 2.6].forEach((side, n) => {
+          const [hx, hz] = local(9.15, side);
+          dummy.position.set(hx, 4.25, hz);
+          dummy.updateMatrix();
+          headlights.setMatrixAt(ci * 2 + n, dummy.matrix);
+          const [tx, tz] = local(-9.15, side);
+          dummy.position.set(tx, 4.25, tz);
+          dummy.updateMatrix();
+          taillights.setMatrixAt(ci * 2 + n, dummy.matrix);
+        });
       }
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
     }
-    mesh.instanceMatrix.needsUpdate = true;
+    body.instanceMatrix.needsUpdate = true;
+    cabin.instanceMatrix.needsUpdate = true;
+    wheels.instanceMatrix.needsUpdate = true;
+    headlights.instanceMatrix.needsUpdate = true;
+    taillights.instanceMatrix.needsUpdate = true;
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, cars.length]} key={`cars-${cars.length}`} castShadow>
-      <boxGeometry args={[18, 6, 8]} />
-      {/* white base so per-instance setColorAt() shows the true car colour */}
-      <meshStandardMaterial color="#ffffff" />
-    </instancedMesh>
+    <group>
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, cars.length]} key={`car-body-${cars.length}`} castShadow>
+        <boxGeometry args={[18, 5.5, 8]} />
+        <meshStandardMaterial color="#ffffff" metalness={0.18} roughness={0.42} />
+      </instancedMesh>
+      <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
+        <boxGeometry args={[9.5, 3.4, 6.7]} />
+        <meshStandardMaterial color="#ffffff" metalness={0.35} roughness={0.2} />
+      </instancedMesh>
+      <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
+        <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
+        <meshStandardMaterial color="#111318" roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh ref={headlightRef} args={[undefined, undefined, cars.length * 2]} key={`car-headlights-${cars.length}`}>
+        <boxGeometry args={[0.7, 1.2, 1.55]} />
+        <meshBasicMaterial color="#fff3c4" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={taillightRef} args={[undefined, undefined, cars.length * 2]} key={`car-taillights-${cars.length}`}>
+        <boxGeometry args={[0.7, 1.2, 1.55]} />
+        <meshBasicMaterial color="#ff3b30" toneMapped={false} />
+      </instancedMesh>
+    </group>
   );
 }
 
