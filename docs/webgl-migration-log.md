@@ -2058,6 +2058,46 @@ and the draw-call cost is zero.
 
 Committed as: `feat(kawasan-3d): tower banding, shophouse awning, kampung stilts`.
 
+## Item 20 — BENTUK part 2: sawtooth (north-light) factory roof
+
+The last BENTUK cue. `buildBoxCapTemplate(variant, sawtooth)` swaps the
+flat parapet cornice for a four-tooth north-light roof strip on
+`factory` / `warehouse` — `buildSawtoothStrip()` builds one extruded
+polygon (zigzag top, solid base), merged into the single boxcap shell
+material. No new draw call.
+
+### Bug caught by the harness — blank Semi *and* Metro
+
+First cut let the sawtooth valleys drop exactly to `y=wallFrac`, the
+same line as the closing base edge — a **self-touching polygon**.
+`ExtrudeGeometry`'s triangulator (`ShapeUtils.triangulateShape`) emits
+degenerate / NaN faces from that, and once one is merged into an
+`InstancedMesh` geometry the whole mesh fails to raster: **Semi (high
+tier) and Metro (medium tier) both went to a 60 KB blank frame**, Rural
+and Dense stayed fine (fewer / no industry cells in view). 0 console
+errors again — the tell was the screenshot byte size. Fix: keep the
+valleys a hair above `wallFrac` (`valley = toothH · 0.18`) so no top
+vertex lands on the base line; the profile is a proper simple polygon.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, screenshots 389-478 KB (no blank frame).
+
+| density | fps* | draws | tris | vs item 19 |
+|---|---|---|---|---|
+| Rural 6×6 | 2 | 254 | 22.4k | ±0 draws / +0.2k |
+| Semi-urban 8×8 | 6 | 294 | 43.0k | ±0 draws / +0.6k |
+| Metro 10×10 | 6 | 366 | 107.1k | ±0 draws / +4.7k |
+| Dense metro 12×12 | 2 | 404 | 130.4k | ±0 draws / +6.0k |
+
+Small tris bump (the sawtooth strip vs the flat cornice it replaces),
+draw calls flat. That completes the BENTUK card — pitched roofs, tower
+setbacks + banding, shophouse five-foot-way, kampung stilts, sawtooth
+factory roof, stadium bowl all present.
+
+Committed as: `feat(kawasan-3d): sawtooth north-light factory roof`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

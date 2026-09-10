@@ -203,21 +203,53 @@ function buildSetbackTemplate(
   return merged;
 }
 
+// A sawtooth (north-light) roof strip sitting on y=wallFrac — the
+// design canvas's BENTUK cue for the factory / warehouse. One extruded
+// polygon: `teeth` asymmetric ridges across local X (vertical riser
+// facing -X, sloped pane facing +X), extruded the full Z depth.
+function buildSawtoothStrip(wallFrac: number, teeth: number, toothH: number): THREE.BufferGeometry {
+  // Solid profile: a base edge at y=wallFrac plus a zigzag top. The
+  // valleys stay a hair ABOVE wallFrac (`valley`) so no top vertex lands
+  // on the closing base line — a self-touching polygon makes
+  // ExtrudeGeometry's triangulator emit degenerate/NaN faces (that blanked
+  // Semi + Metro on the first cut).
+  const valley = toothH * 0.18;
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.5, wallFrac);
+  shape.lineTo(-0.5, wallFrac + valley);
+  for (let k = 0; k < teeth; k++) {
+    const x1 = -0.5 + (k + 1) / teeth;
+    shape.lineTo(-0.5 + k / teeth, wallFrac + valley + toothH); // riser up
+    shape.lineTo(x1, wallFrac + valley);                        // slope down to next valley
+  }
+  shape.lineTo(0.5, wallFrac);  // drop to the base at the right edge
+  shape.lineTo(-0.5, wallFrac); // close along the base
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
+  geo.translate(0, 0, -0.5);
+  return geo;
+}
+
 // Flat-roof shell + an overhanging parapet cornice — the minimum
 // silhouette detail so no BType ships as a bare box. Deliberately just
 // two boxes (24 tris): the cornice is what reads at the scene's camera
 // distance; a rooftop-unit box was tried and only shows on close zoom
 // while costing +50% triangles across every civic/retail instance.
-// `variant` nudges the wall height and cornice depth.
-function buildBoxCapTemplate(variant: number): THREE.BufferGeometry {
+// `variant` nudges the wall height and cornice depth. `sawtooth` swaps
+// the parapet for a north-light roof (factory / warehouse).
+function buildBoxCapTemplate(variant: number, sawtooth = false): THREE.BufferGeometry {
   const wallFrac = [0.92, 0.88][variant] ?? 0.9;
   const capH = 1 - wallFrac;
   const wall = new THREE.BoxGeometry(1, wallFrac, 1);
   wall.translate(0, wallFrac / 2, 0);
-  const cornice = new THREE.BoxGeometry(1.04, capH, 1.04);
-  cornice.translate(0, wallFrac + capH / 2, 0);
+  const cap = sawtooth
+    ? buildSawtoothStrip(wallFrac, 4, Math.min(capH * 2.2, 0.16))
+    : (() => {
+        const cornice = new THREE.BoxGeometry(1.04, capH, 1.04);
+        cornice.translate(0, wallFrac + capH / 2, 0);
+        return cornice;
+      })();
   const merged = mergeGeometries(
-    [wall, cornice].map(stripToPositionNormalUv), false,
+    [wall, cap].map(stripToPositionNormalUv), false,
   );
   if (!merged) return wall;
   merged.clearGroups();
@@ -271,7 +303,7 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
   } else if (DOME_TYPES.has(type)) {
     geo = buildDomeTemplate(variant);
   } else if (BOXCAP_TYPES.has(type)) {
-    geo = buildBoxCapTemplate(variant);
+    geo = buildBoxCapTemplate(variant, type === "factory" || type === "warehouse");
     if (type === "antenna") geo = withMast(geo);
   } else {
     // tower/skyscraper: pronounced setback + horizontal floor banding;
