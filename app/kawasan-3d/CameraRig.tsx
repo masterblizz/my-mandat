@@ -26,6 +26,7 @@ export function CameraRig({
   movedRef,
   distance,
   hudRef,
+  targetRef,
 }: {
   camRef: MutableRefObject<CamState>;
   /** Set true mid-drag so zone onClick can ignore the drag-release click. */
@@ -35,10 +36,15 @@ export function CameraRig({
   distance: number;
   /** Optional DOM node to receive the live `--kw3d-rz` var (compass wedge). */
   hudRef?: MutableRefObject<HTMLDivElement | null>;
+  /** Optional [worldX, worldZ] the camera orbits / looks at. Defaults to
+   * the grid centre (0,0); the minimap sets it to a clicked cell so the
+   * view recentres there. The rig eases the actual look point toward it. */
+  targetRef?: MutableRefObject<[number, number]>;
 }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const drag = useRef<{ x: number; y: number; rz: number; rx: number } | null>(null);
+  const look = useRef<[number, number]>([0, 0]); // eased look point
 
   useEffect(() => {
     const el = gl.domElement;
@@ -90,7 +96,7 @@ export function CameraRig({
     };
   }, [gl, camRef, movedRef]);
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     const cam = camera as unknown as PerspectiveCamera;
     // zoom is a DISTANCE multiplier — the camera physically orbits closer
     // as it rises, so close-ups get real perspective / parallax. Clamp the
@@ -102,17 +108,25 @@ export function CameraRig({
     else if (eff > maxD) eff = maxD;
     camRef.current.zoom = distance / eff;
 
+    // ease the orbit / look point toward the requested target (minimap
+    // click re-centres the view without a jump-cut)
+    const [tx, tz] = targetRef?.current ?? [0, 0];
+    const k = 1 - Math.pow(0.0016, Math.min(dt, 0.05)); // ~frame-rate independent
+    look.current[0] += (tx - look.current[0]) * k;
+    look.current[1] += (tz - look.current[1]) * k;
+    const [lx, lz] = look.current;
+
     const { rz, rx } = camRef.current;
     const az = (rz * Math.PI) / 180;
     const po = (rx * Math.PI) / 180; // polar angle from +Y (0 = top-down)
     const s = Math.sin(po);
     camera.position.set(
-      Math.sin(az) * s * eff,
+      lx + Math.sin(az) * s * eff,
       Math.cos(po) * eff,
-      Math.cos(az) * s * eff,
+      lz + Math.cos(az) * s * eff,
     );
     camera.up.set(0, 1, 0);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(lx, 0, lz);
     // no post-projection scale any more — the distance IS the zoom
     if (cam.zoom !== 1) { cam.zoom = 1; cam.updateProjectionMatrix(); }
     // Feed the live azimuth to the DOM compass wedge (no React re-render),

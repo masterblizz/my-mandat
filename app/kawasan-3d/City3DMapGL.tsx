@@ -19,7 +19,7 @@ import { CityScene, type PerfSample } from "./CityScene";
 import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom,
-  worldSize, assignZonePositions,
+  worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
   TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
@@ -130,14 +130,24 @@ export default function City3DMapGL({
     camRef.current.zoom *= f;
     clampCam(camRef.current);
   }, []);
+  // [worldX, worldZ] the camera orbits / looks at — the minimap sets it.
+  const camTargetRef = useRef<[number, number]>([0, 0]);
   const resetCam = useCallback(() => {
     const w = hudRef.current?.clientWidth ?? 900;
     camRef.current = { ...CAM_DEFAULT, zoom: fitZoom(w) };
+    camTargetRef.current = [0, 0];
   }, []);
   const onSelect = useCallback(
     (id: string) => { if (!movedRef.current) setSelectedZoneId(id); },
     [setSelectedZoneId],
   );
+  // Recentre the 3D view on a grid cell (minimap click). Same world-space
+  // formula as placeZones() in cityData.ts.
+  const panToCell = useCallback((col: number, row: number) => {
+    const XY = plotXY(gridSize);
+    const c = worldCentre(gridSize);
+    camTargetRef.current = [XY[col] + PLOT / 2 - c, XY[row] + PLOT / 2 - c];
+  }, [gridSize]);
 
   const zoneByCell = useMemo(() => {
     const m = new Map<string, Zone>();
@@ -202,6 +212,7 @@ export default function City3DMapGL({
           onPerf={showPerf ? setPerf : undefined}
           quality={quality}
           trafficLevel={trafficLevel}
+          camTargetRef={camTargetRef}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>
@@ -302,7 +313,7 @@ export default function City3DMapGL({
             return (
               <div
                 key={`mm-${col}-${row}`}
-                onClick={zone ? () => setSelectedZoneId(zone.id) : undefined}
+                onClick={() => { panToCell(col, row); if (zone) setSelectedZoneId(zone.id); }}
                 style={{
                   position: "absolute",
                   left: col * mmCell,
@@ -311,7 +322,7 @@ export default function City3DMapGL({
                   height: Math.max(1, mmCell - 1),
                   background: zone ? `rgba(${scoreTint(zone.sentiment)},0.85)` : "rgba(148,163,184,0.12)",
                   outline: isSel ? `${mapExpanded ? 2 : 1}px solid #facc15` : undefined,
-                  cursor: zone ? "pointer" : undefined,
+                  cursor: "pointer",
                 }}
               />
             );

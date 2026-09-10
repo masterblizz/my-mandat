@@ -350,7 +350,7 @@ function Grid({
 export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
-  camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5,
+  camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -366,6 +366,8 @@ export function CityScene({
   celebration?: { zoneId: string; at: number } | null;
   landmarkZoneId?: string;
   camRef: MutableRefObject<CamState>;
+  /** [worldX, worldZ] the camera orbits — minimap click re-centres here. */
+  camTargetRef?: MutableRefObject<[number, number]>;
   movedRef: MutableRefObject<boolean>;
   distance: number;
   hudRef?: MutableRefObject<HTMLDivElement | null>;
@@ -458,7 +460,7 @@ export function CityScene({
         />
       )}
 
-      <CameraRig camRef={camRef} movedRef={movedRef} distance={distance} hudRef={hudRef} />
+      <CameraRig camRef={camRef} movedRef={movedRef} distance={distance} hudRef={hudRef} targetRef={camTargetRef} />
       {onPerf && <PerfProbe onSample={onPerf} />}
     </>
   );
