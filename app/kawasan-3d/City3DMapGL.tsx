@@ -40,7 +40,6 @@ export type City3DMapGLProps = {
   overall: number;
 };
 
-const MINIMAP_CELL = 12;
 
 // Ported from scoreTintRGB() in app/kawasan/page.tsx — smooth red->gold->green.
 const TINT_RED = [255, 68, 68] as const;
@@ -80,10 +79,22 @@ export default function City3DMapGL({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const mmCell = compact ? 8 : MINIMAP_CELL;
+
+  // Minimap: a compact fixed-size thumbnail by default (it used to be
+  // `gridSize × 12` px, i.e. 360 px on a 30×30 grid). The ⤢ button blows
+  // it up to a larger inspection overlay; ✕ or a click on the backdrop
+  // collapses it.
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const mmPx = mapExpanded ? 300 : compact ? 62 : 100;
+  const mmCell = Math.max(2, Math.floor(mmPx / gridSize));
+  const mmGridPx = mmCell * gridSize;
 
   const span = worldSize(gridSize);
-  const distance = span * 0.95;
+  // Base framing distance at zoom = 1 (≈ the old default view). The live
+  // orbit radius is distance / cam.zoom, clamped in CameraRig down to a
+  // fixed street-level floor (CAM_MIN_DISTANCE) — so every preset, Dense
+  // Metro included, can zoom all the way in to building detail.
+  const distance = span * 1.05;
   const quality = defaultQualityForGridSize(gridSize);
 
   const applyFitZoom = useCallback(() => {
@@ -141,7 +152,7 @@ export default function City3DMapGL({
         dpr={[1, 2]}
         gl={{ antialias: true, toneMappingExposure: 1.08, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0 }}
-        camera={{ position: [distance, distance, distance], fov: 35, near: 1, far: 40000 }}
+        camera={{ position: [distance, distance, distance], fov: 35, near: 0.5, far: 40000 }}
         onCreated={({ camera }) => {
           applyFitZoom();
           const cam = camera as unknown as PerspectiveCamera;
@@ -220,10 +231,39 @@ export default function City3DMapGL({
         </div>
       )}
 
-      {/* minimap (bottom-right) */}
-      <div style={{ ...css.minimap, ...(compact ? { bottom: 30, padding: 4 } : null) }}>
-        {!compact && <div style={css.minimapTitle}>{t(lang, "kawasan_page.map")}</div>}
-        <div style={{ position: "relative", width: gridSize * mmCell, height: gridSize * mmCell }}>
+      {/* click-away backdrop for the expanded minimap */}
+      {mapExpanded && (
+        <div
+          onClick={() => setMapExpanded(false)}
+          style={{ position: "absolute", inset: 0, background: "rgba(3,8,15,0.3)", zIndex: 4 }}
+        />
+      )}
+
+      {/* minimap (bottom-right) — compact thumbnail, ⤢ to enlarge */}
+      <div
+        style={{
+          ...css.minimap,
+          zIndex: 5,
+          ...(mapExpanded ? { padding: 10 } : compact ? { bottom: 30, padding: 4 } : null),
+        }}
+      >
+        {(() => {
+          const showTitle = mapExpanded || !compact;
+          return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: showTitle ? "space-between" : "flex-end", gap: 6, marginBottom: showTitle ? 4 : 2 }}>
+              {showTitle && <span style={css.minimapTitle}>{t(lang, "kawasan_page.map")}</span>}
+              <button
+                type="button"
+                aria-label={mapExpanded ? "Collapse map" : "Expand map"}
+                onClick={(e) => { e.stopPropagation(); setMapExpanded((v) => !v); }}
+                style={css.mmToggle}
+              >
+                {mapExpanded ? "✕" : "⤢"}
+              </button>
+            </div>
+          );
+        })()}
+        <div style={{ position: "relative", width: mmGridPx, height: mmGridPx }}>
           {Array.from({ length: gridSize * gridSize }, (_, index) => {
             const col = index % gridSize;
             const row = Math.floor(index / gridSize);
@@ -237,10 +277,10 @@ export default function City3DMapGL({
                   position: "absolute",
                   left: col * mmCell,
                   top: row * mmCell,
-                  width: mmCell - 1,
-                  height: mmCell - 1,
+                  width: Math.max(1, mmCell - 1),
+                  height: Math.max(1, mmCell - 1),
                   background: zone ? `rgba(${scoreTint(zone.sentiment)},0.85)` : "rgba(148,163,184,0.12)",
-                  outline: isSel ? "1px solid #facc15" : undefined,
+                  outline: isSel ? `${mapExpanded ? 2 : 1}px solid #facc15` : undefined,
                   cursor: zone ? "pointer" : undefined,
                 }}
               />
@@ -254,7 +294,7 @@ export default function City3DMapGL({
             }}
           >
             <div style={{
-              width: 0, height: 0, marginTop: -gridSize * mmCell * 0.5,
+              width: 0, height: 0, marginTop: -mmGridPx * 0.5,
               borderLeft: "3.5px solid transparent", borderRight: "3.5px solid transparent",
               borderBottom: "8px solid #facc15", filter: "drop-shadow(0 0 2px rgba(250,204,21,0.8))",
             }} />
@@ -283,6 +323,7 @@ const css: Record<string, CSSProperties> = {
   label: { font: "900 9px system-ui, sans-serif", letterSpacing: "0.16em", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   perf: { font: "12px ui-monospace, monospace", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   hint: { position: "absolute", left: 12, right: 12, bottom: 10, textAlign: "center", font: "700 9px system-ui, sans-serif", letterSpacing: "0.18em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },
-  minimap: { position: "absolute", right: 12, bottom: 44, padding: 6, borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.8)" },
-  minimapTitle: { marginBottom: 4, textAlign: "center", font: "900 7px system-ui, sans-serif", letterSpacing: "0.2em", color: "#7dd3fc" },
+  minimap: { position: "absolute", right: 12, bottom: 44, padding: 6, borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.85)" },
+  minimapTitle: { textAlign: "center", font: "900 7px system-ui, sans-serif", letterSpacing: "0.2em", color: "#7dd3fc" },
+  mmToggle: { ...ctrlBox, width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", font: "700 10px system-ui, sans-serif", lineHeight: 1, cursor: "pointer", padding: 0, borderRadius: 2 },
 };

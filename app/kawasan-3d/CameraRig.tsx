@@ -16,7 +16,7 @@ import { useThree, useFrame } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 import {
   clampCam, DRAG_RZ_PER_PX, DRAG_RX_PER_PX, WHEEL_IN, WHEEL_OUT,
-  DRAG_CLICK_SUPPRESS_PX,
+  DRAG_CLICK_SUPPRESS_PX, CAM_MIN_DISTANCE, CAM_MAX_OUT,
 } from "./cityData";
 
 export type CamState = { rz: number; rx: number; zoom: number };
@@ -30,7 +30,8 @@ export function CameraRig({
   camRef: MutableRefObject<CamState>;
   /** Set true mid-drag so zone onClick can ignore the drag-release click. */
   movedRef: MutableRefObject<boolean>;
-  /** Fixed camera orbit radius around the origin, in world units. */
+  /** Base framing distance for this preset. The live orbit radius is
+   * `distance / cam.zoom`, clamped to [CAM_MIN_DISTANCE, distance × CAM_MAX_OUT]. */
   distance: number;
   /** Optional DOM node to receive the live `--kw3d-rz` var (compass wedge). */
   hudRef?: MutableRefObject<HTMLDivElement | null>;
@@ -90,23 +91,30 @@ export function CameraRig({
   }, [gl, camRef, movedRef]);
 
   useFrame(() => {
-    const { rz, rx, zoom } = camRef.current;
+    const cam = camera as unknown as PerspectiveCamera;
+    // zoom is a DISTANCE multiplier — the camera physically orbits closer
+    // as it rises, so close-ups get real perspective / parallax. Clamp the
+    // effective radius to a street-level floor and a "don't fly to space"
+    // ceiling, then write the clamp back so the ref can't run away.
+    const maxD = distance * CAM_MAX_OUT;
+    let eff = distance / camRef.current.zoom;
+    if (eff < CAM_MIN_DISTANCE) eff = CAM_MIN_DISTANCE;
+    else if (eff > maxD) eff = maxD;
+    camRef.current.zoom = distance / eff;
+
+    const { rz, rx } = camRef.current;
     const az = (rz * Math.PI) / 180;
     const po = (rx * Math.PI) / 180; // polar angle from +Y (0 = top-down)
     const s = Math.sin(po);
     camera.position.set(
-      Math.sin(az) * s * distance,
-      Math.cos(po) * distance,
-      Math.cos(az) * s * distance,
+      Math.sin(az) * s * eff,
+      Math.cos(po) * eff,
+      Math.cos(az) * s * eff,
     );
     camera.up.set(0, 1, 0);
     camera.lookAt(0, 0, 0);
-    // CSS scale() analogue: post-projection zoom, no parallax change.
-    const cam = camera as unknown as PerspectiveCamera;
-    if (cam.zoom !== zoom) {
-      cam.zoom = zoom;
-      cam.updateProjectionMatrix();
-    }
+    // no post-projection scale any more — the distance IS the zoom
+    if (cam.zoom !== 1) { cam.zoom = 1; cam.updateProjectionMatrix(); }
     // Feed the live azimuth to the DOM compass wedge (no React re-render),
     // mirroring the CSS version's --kw-rz on .kw-scene.
     hudRef?.current?.style.setProperty("--kw3d-rz", `${rz}deg`);

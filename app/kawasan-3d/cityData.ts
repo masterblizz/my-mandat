@@ -531,29 +531,41 @@ export const BUILDING_COLOR: Record<BType, string> = {
 // wheel: zoom *= (deltaY > 0 ? 0.92 : 1.08)  per event
 // +/- buttons: zoom *= 1.15 / 0.87 ; R: reset to CAM_DEFAULT + fit-zoom
 // A drag that moves > 6px suppresses the click that would select a zone.
-export const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
+export const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 1 };
 export const CAM_CLAMP = {
   // rz (azimuth) is NOT clamped — the camera orbits a full 360° and rz
   // wraps in clampCam(). Kept here as a full-turn range for any caller
   // that still reads the tuple.
   rz: [0, 360] as const,
   rx: [42, 72] as const,
-  // max zoom-in doubled (1.7 → 3.4) so the denser 30×30 metro grid can be
-  // inspected street-level; zoom-out floor unchanged.
-  zoom: [0.55, 3.4] as const,
+  // `zoom` is now a DISTANCE multiplier: the camera's orbit radius is
+  // `baseDistance / zoom` (see CameraRig), so higher zoom = physically
+  // closer, with real perspective. These are loose guard rails — the true
+  // limit is the effective-distance clamp [CAM_MIN_DISTANCE ..
+  // baseDistance × CAM_MAX_OUT] applied in CameraRig each frame.
+  zoom: [0.4, 120] as const,
 };
+// Absolute closest the camera may orbit, in world units — a street-level
+// floor that every density preset can reach (PLOT is 240), so Dense Metro
+// zooms in exactly as close as Rural despite its far bigger footprint.
+export const CAM_MIN_DISTANCE = 190;
+// Furthest out, as a multiple of the preset's base framing distance.
+export const CAM_MAX_OUT = 1.45;
 export const DRAG_RZ_PER_PX = 0.25;
 export const DRAG_RX_PER_PX = 0.18;
-export const WHEEL_IN = 1.08;
-export const WHEEL_OUT = 0.92;
-export const BTN_ZOOM_IN = 1.15;
-export const BTN_ZOOM_OUT = 0.87;
+// Per-notch / per-click zoom factors. Larger than the old 1.08/1.15 so
+// the much wider distance range (far framing → street level) is only a
+// few scrolls apart.
+export const WHEEL_IN = 1.14;
+export const WHEEL_OUT = 0.88;
+export const BTN_ZOOM_IN = 1.28;
+export const BTN_ZOOM_OUT = 0.78;
 export const DRAG_CLICK_SUPPRESS_PX = 6;
 
-// Responsive fit-zoom (ported: width<700 -> 0.55, <900 -> 0.66, <1150 ->
-// 0.76, else 0.9). Used on mount and by the R (reset) button.
+// Responsive fit-zoom: narrower viewports frame a touch further out.
+// zoom is a distance multiplier now (baseDistance / zoom), so < 1 = out.
 export function fitZoom(widthPx: number): number {
-  return widthPx < 700 ? 0.55 : widthPx < 900 ? 0.66 : widthPx < 1150 ? 0.76 : CAM_DEFAULT.zoom;
+  return widthPx < 700 ? 0.62 : widthPx < 900 ? 0.74 : widthPx < 1150 ? 0.88 : CAM_DEFAULT.zoom;
 }
 
 export function clampCam(c: { rz: number; rx: number; zoom: number }) {
