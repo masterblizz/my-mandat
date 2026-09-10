@@ -1759,6 +1759,79 @@ lit-window and lamp systems have used since items 5 and F.
 Committed as: `feat(kawasan-3d): muted realistic palette, road-lined
 street lamps, animated traffic lights`.
 
+## Item 15 — Freeze the trees + reflective building glass
+
+Two asks against `City3DMapGL`: stop the trees moving, and give the
+buildings a sky reflection.
+
+### Trees frozen
+
+`trees.tsx` `TreeCanopy` had one `useFrame((_, dt) => uniforms.uTime.value
++= dt)` — the *only* per-frame work on the canopies (the instance
+matrices were already written once in `useLayoutEffect` and never
+touched). Deleted it. `uTime` stays 0, so `SWAY_VERT` resolves to a
+fixed per-instance lean (`sin(phase)·uAmp·vT`) — a static "caught
+mid-breeze" pose rather than a rigid upright one, and the shader is kept
+only for its base→tip colour gradient. `useFrame` import dropped.
+`sway.ts` is untouched — the grass blades in `vegetation.tsx` still sway
+live (the ask was tree-specific).
+
+### Reflective glass
+
+New `environment.tsx` `SceneEnvironment`: builds a 256² gradient
+equirect canvas from the **current TOD's own sky colours** (`TOD_ENV`
+skyTop / fog / skyBottom), PMREM-filters it once, and sets it as
+`scene.environment`. Regenerated only when `tod` changes (≤ 3×), never
+per frame; one probe shared by every `MeshStandardMaterial` in the scene
+via `scene.environment`, so **zero extra draw calls and zero triangles**
+— reflections shift day → dusk → night with the sky.
+
+Material reflectivity added by type:
+- setback office types (`tower` / `skyscraper` / `shophouse`) —
+  `metalness 0.5 / roughness 0.22 / envMapIntensity 1.15` (glassy)
+- `mall` office slabs — `metalness 0.5 / roughness 0.28`
+- gable domestic types — `metalness 0.08 / roughness 0.6` (near-matte)
+- flat-roof civic / retail (BOXCAP / dome) — `metalness 0.22 /
+  roughness 0.45`
+- `InstancedBoxes` fallback — `metalness 0.25 / roughness 0.45`
+
+**Tuning bug:** the first pass used `metalness 0.82` on the towers. A
+near-pure-metal material has almost no diffuse, so at night the tower was
+just a dark reflection of a dark sky *plus* the item-5 window
+emissiveMap — and once bloom stacked on that, every tower blew out to a
+solid glowing gold mass (the 866 KB SwiftShader screenshot vs ~370 KB
+after). Dropped to `metalness 0.5` (keeps diffuse body) and trimmed the
+setback window-emissive gain `1.3 → 1.0`.
+
+The optional fresnel rim was **skipped by choice** — an `onBeforeCompile`
+shader is exactly what tripped the EffectComposer blit failure in item
+14; the env-map reflection alone gives the layered-glass read.
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | vs item 14 |
+|---|---|---|---|---|
+| Rural 6×6 | 3 | 232 | 18.1k | ±0 |
+| Semi-urban 8×8 | 5 | 276 | 36.1k | ±0 |
+| Metro 10×10 | 4 | 350 | 75.7k | ±0 |
+| Dense metro 12×12 | 3 | 388 | 93.3k | ±0 |
+
+**Draws and triangles are unchanged at every density** — the env map is
+a shared material property, and freezing the trees removes geometry
+nothing (it removes four per-frame uniform writes). The user's real
+hardware reads 60 fps / 294 draws; SwiftShader can't reproduce that
+number, but the shared-PMREM path adds no draw calls, so there is no
+reflection-map FPS cost to expect there. Visually (day, all densities):
+the office towers now carry a pale sky sheen on their lit faces — glass
+curtain-wall — while housing / stadium / factory stay matte; the night
+gold blow-out is gone.
+
+Committed as: `feat(kawasan-3d): freeze tree sway, shared sky env map +
+reflective building glass`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

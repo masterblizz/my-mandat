@@ -297,6 +297,9 @@ export function InstancedBoxes({
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial
         color={color}
+        metalness={0.25}
+        roughness={0.45}
+        envMapIntensity={1}
         emissive="#ffb066"
         emissiveIntensity={winLit * 0.06}
       />

@@ -168,12 +168,14 @@ export function LargeBuildings({
     <group>
       {larges.map((l) => {
         const color = BUILDING_COLOR[l.type];
+        // The mall's office slabs are glassy (they reflect the shared sky
+        // env map, environment.tsx); everything else here stays matte.
         const box = (
           key: string, x: number, y: number, z: number,
-          sx: number, sy: number, sz: number, c: string, rough = 0.82, shadow = true,
+          sx: number, sy: number, sz: number, c: string, rough = 0.82, shadow = true, metal = 0.06,
         ) => (
           <mesh key={key} geometry={geo} position={[x, y, z]} scale={[sx, sy, sz]} castShadow={shadow} receiveShadow>
-            <meshStandardMaterial color={c} roughness={rough} />
+            <meshStandardMaterial color={c} roughness={rough} metalness={metal} envMapIntensity={1} />
           </mesh>
         );
         const parts: ReactNode[] = [
@@ -186,10 +188,10 @@ export function LargeBuildings({
         if (l.type === "mall") {
           const baseH = 42;
           parts.push(box("base", 0, TILE_H + baseH / 2, 0, l.w * 0.96, baseH, l.d * 0.96, color));
-          // two office slabs rising from the podium, offset apart
-          parts.push(box("t1", l.w * 0.13, TILE_H + baseH + tall / 2, -l.d * 0.06, l.w * 0.4, tall, l.d * 0.32, color));
+          // two office slabs rising from the podium, offset apart — glassy
+          parts.push(box("t1", l.w * 0.13, TILE_H + baseH + tall / 2, -l.d * 0.06, l.w * 0.4, tall, l.d * 0.32, color, 0.28, true, 0.5));
           const t2 = tall * 0.62;
-          parts.push(box("t2", -l.w * 0.24, TILE_H + baseH + t2 / 2, l.d * 0.16, l.w * 0.3, t2, l.d * 0.26, color));
+          parts.push(box("t2", -l.w * 0.24, TILE_H + baseH + t2 / 2, l.d * 0.16, l.w * 0.3, t2, l.d * 0.26, color, 0.28, true, 0.5));
           parts.push(box("deck", l.w * 0.13, TILE_H + baseH + tall + 1.6, -l.d * 0.06, l.w * 0.22, 3, l.d * 0.18, ROOF_DECK_COLOR, 0.85));
           parts.push(box("ant", l.w * 0.13, TILE_H + baseH + tall + 21, -l.d * 0.06, 3, 40, 3, ANTENNA_COLOR, 0.6, false));
         } else if (l.type === "stadium") {

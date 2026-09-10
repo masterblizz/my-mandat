@@ -29,6 +29,7 @@ import {
   type RoundaboutCorner,
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
+import { SceneEnvironment } from "./environment";
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
@@ -392,6 +393,7 @@ export function CityScene({
   return (
     <>
       <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
+      <SceneEnvironment tod={tod} />
       <Grid
         placed={placed}
         zones={zones}

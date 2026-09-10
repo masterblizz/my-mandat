@@ -28,11 +28,11 @@
 // palm's trunk is just a taller/thinner instance of the same shape) plus
 // one canopy mesh per species (round/conifer/palm need genuinely
 // different geometry) = 4 draw calls total, regardless of tree count.
-// Canopy sway reuses sway.ts's exact shader (see that file's header) —
-// not a second sway mechanism.
+// Canopies keep sway.ts's shader for its base->tip colour gradient, but
+// are FROZEN — the `uTime` uniform is never advanced (no useFrame), so
+// there is no per-frame work and no motion; see TreeCanopy.
 
 import { useLayoutEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { SWAY_VERT, SWAY_FRAG } from "./sway";
 import { PLOT, type CellPlacement, type SeatTraits, type ZoneKind } from "./cityData";
@@ -231,9 +231,12 @@ function TreeCanopy({
     mesh.computeBoundingSphere();
   }, [spots, geometry, dummy]);
 
-  useFrame((_, dt) => {
-    uniforms.uTime.value += dt;
-  });
+  // Trees are FROZEN — no per-frame sway. The instance matrices are set
+  // once above and never touched again; `uTime` stays 0, so SWAY_VERT
+  // resolves to a fixed per-instance lean (sin(phase)·uAmp·vT) — a static
+  // "caught mid-breeze" pose rather than an upright one, keeping the
+  // canopies from looking rigidly identical. `sway.ts` is unchanged (grass
+  // in vegetation.tsx still uses it live).
 
   if (!spots.length) return null;
   return (

@@ -311,19 +311,35 @@ function ProceduralVariant({
   // below so a time-of-day change doesn't rebuild materials. Gable
   // templates have two groups (MAT_WALL, MAT_ROOF) and get a material
   // array; setback templates are single-material.
+  //
+  // Reflectivity: the office types (setback) are near-glass — high
+  // metalness, low roughness — so they mirror the shared sky env map
+  // (environment.tsx, one PMREM for the whole scene). Domestic gable
+  // types get almost none; the flat-roof civic/retail (BOXCAP) get a
+  // middling sheen. envMapIntensity is bumped on the glassy ones.
   const isGable = GABLE_TYPES.has(type);
   const materials = useMemo(() => {
+    // Kept moderate: enough metalness/low-roughness for a clear sky
+    // reflection on the office types, but not so much that the material
+    // loses its diffuse body (pure-metal towers went to a blown-out gold
+    // mass at night once the window emissive + bloom stacked on top).
+    const refl = SETBACK_TYPES.has(type)
+      ? { metalness: 0.5, roughness: 0.22, envMapIntensity: 1.15 }
+      : GABLE_TYPES.has(type)
+        ? { metalness: 0.08, roughness: 0.6, envMapIntensity: 0.5 }
+        : { metalness: 0.22, roughness: 0.45, envMapIntensity: 0.9 }; // boxcap / dome
     const wall = new THREE.MeshStandardMaterial({
       color,
-      roughness: 0.82,
       emissive: new THREE.Color("#fff1d8"),
       emissiveMap: getWindowTexture(type, variant),
       emissiveIntensity: 0,
+      ...refl,
     });
     if (!isGable) return wall;
     const roof = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color).multiplyScalar(0.8),
       roughness: 0.92,
+      metalness: 0.05,
     });
     const arr: THREE.Material[] = [];
     arr[MAT_WALL] = wall;
@@ -333,8 +349,10 @@ function ProceduralVariant({
 
   useEffect(() => {
     // Towers read best with windows clearly brighter than the wall; the
-    // domestic gable types want a gentler, lived-in glow.
-    const gain = isGable ? 0.75 : 1.3;
+    // domestic gable types want a gentler, lived-in glow. Setback gain
+    // trimmed (1.3 -> 1.0) now that those walls carry some metalness —
+    // reflective + emissive stacked read too hot at night.
+    const gain = isGable ? 0.75 : 1.0;
     const wall = (Array.isArray(materials) ? materials[MAT_WALL] : materials) as THREE.MeshStandardMaterial;
     wall.emissiveIntensity = winLit * gain;
   }, [materials, winLit, isGable]);
