@@ -336,8 +336,10 @@ function ProceduralVariant({
       ...refl,
     });
     if (!isGable) return wall;
+    // Terracotta clay tile — the design canvas's one warm accent on an
+    // otherwise near-greyscale palette. kampung leans a shade browner.
     const roof = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color).multiplyScalar(0.8),
+      color: new THREE.Color(type === "kampung" ? "#8c4634" : "#a4573f"),
       roughness: 0.92,
       metalness: 0.05,
     });

@@ -1832,6 +1832,66 @@ gold blow-out is gone.
 Committed as: `feat(kawasan-3d): freeze tree sway, shared sky env map +
 reflective building glass`.
 
+## Item 16 — WARNA: realistic material palette + REAL_OVERRIDE time-of-day
+
+The user pointed at a Claude Design canvas ("City Realism") four times —
+"buat mcm design ni" — a six-card realism brief with a full reference
+implementation (`city-scene.js`). This item takes the first and highest-
+leverage card, **WARNA**: *"real materials — plaster, terracotta tile,
+zinc, concrete, glass. Nothing above 0.06 chroma."*
+
+### What changed
+
+**`BUILDING_COLOR` (`cityData.ts`)** — every entry re-picked from the
+design's near-greyscale `P` palette. Towers → glass blue-grey
+(`#7f97a3` / `#56707e`), houses/shops → warm plaster (`#e0d3b6` /
+`#dcd2be`), factory/warehouse → zinc (`#9aa0a6` / `#7f858b`),
+school/clinic → pale mint-grey, terminal → concrete-dark, kampung →
+timber. The old palette had shops at `#c2a279` and sawah at `#6f9440` —
+noticeably saturated; the new one keeps everything low-chroma so the
+lighting, not the albedo, carries the scene.
+
+**`TOD_ENV` (`cityData.ts`)** — folded in the design's `REAL_OVERRIDE`
+colour/intensity fields for all three times of day. Day is the big
+shift: hazy sky (`#5d8fb8`→`#e6ecec`), warmer brighter sun (2.3→2.5),
+hemi lift (0.55→0.95), and a **bright olive ground sheet** (`#2b3f30`
+→ `#7e8461`) instead of the near-black it was — midday ground reads as
+sunlit grass now, not void. Dusk/night get smaller lifts (sky, hemi,
+fog) so massing still reads. Sun *direction* vectors, `lamp` / `winLit`
+/ `stars` gates all unchanged.
+
+**Gable roofs (`procedural.tsx`)** — house/terrace get terracotta clay
+tile (`#a4573f`), kampung a browner `#8c4634`. This is the palette's one
+deliberate warm accent (the card names "terracotta tile" explicitly);
+previously the roof was just `wallColor × 0.8`.
+
+### Scope note
+
+Unlike items 9-15 this is **deliberately scene-wide** — a palette and
+lighting pass is the point of "make it realistic", so Rural/Semi change
+here too (they were held byte-identical only for the density/geometry
+items).
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**.
+
+| density | fps* | draws | tris | vs item 15 |
+|---|---|---|---|---|
+| Rural 6×6 | 3 | 232 | 18.1k | ±0 |
+| Semi-urban 8×8 | 3 | 276 | 36.1k | ±0 |
+| Metro 10×10 | 2 | 350 | 75.7k | ±0 |
+| Dense metro 12×12 | 4 | 387 | 93.3k | ±0 |
+
+Zero geometry cost — it's albedo + light-rig constants only. Visually:
+buildings now read as sunlit concrete / plaster / glass with terracotta
+roofs on the housing; the ground is a light haze-olive instead of black.
+The large-building "plateaus" (mall / stadium / factory) still look
+featureless and oversized — that's the **MERCU TANDA** card, next.
+
+Committed as: `feat(kawasan-3d): realistic material palette + REAL_OVERRIDE TOD`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

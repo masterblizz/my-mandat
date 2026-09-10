@@ -502,14 +502,18 @@ export const COMMON_MODEL_TYPES: BType[] = [
 // for housing, greys for civic/industrial). sawah / field stay natural
 // crop greens; pond stays water. Used for the box fallback and as the
 // procedural / large-building shell colour.
+// ── realistic material palette (from the "City Realism" design canvas) ──
+// Real surfaces: plaster, concrete, zinc, glass, terracotta, timber.
+// Near-greyscale — nothing above ~0.06 chroma. The one warm accent
+// (terracotta tile) lives on the gable roofs, applied in procedural.tsx.
 export const BUILDING_COLOR: Record<BType, string> = {
-  tower: "#8fa6b5", skyscraper: "#7c8aa0", antenna: "#9a9ea6",
-  shop: "#c2a279", stall: "#bb8f68", house: "#bd937a",
-  factory: "#71808f", warehouse: "#8b877e", school: "#c3b489",
-  clinic: "#c7d0d1", masjid: "#dcd7c9", mall: "#a596a0",
-  stadium: "#96a08f", terminal: "#9aa6b0", sawah: "#6f9440",
-  pond: "#3f6f86", field: "#5f8038", plaza: "#8b8f96",
-  kampung: "#a17c58", shophouse: "#a8bdb4", terrace: "#bcaf92",
+  tower: "#7f97a3", skyscraper: "#56707e", antenna: "#aeb4b8",
+  shop: "#dcd2be", stall: "#ded7c6", house: "#e0d3b6",
+  factory: "#9aa0a6", warehouse: "#7f858b", school: "#c4cfc2",
+  clinic: "#d8dcd9", masjid: "#dcd2be", mall: "#9fb1bb",
+  stadium: "#c2b8a6", terminal: "#9b9182", sawah: "#8b9b53",
+  pond: "#5d7c84", field: "#78895a", plaza: "#a8a49a",
+  kampung: "#b89a7c", shophouse: "#d8bfae", terrace: "#c9b79c",
 };
 
 // ── camera model (ported interaction contract from app/kawasan/page.tsx) ─
@@ -583,29 +587,33 @@ export type TodEnv = {
   stars: number;
 };
 export const TOD_ENV: Record<Tod, TodEnv> = {
-  // clear blue midday, sun high in the east; no lamps, no lit windows
+  // clear blue midday, sun high in the east; no lamps, no lit windows.
+  // Colours + intensities from REAL_OVERRIDE.day (design canvas): softer
+  // hazy sky, warmer sun, a bright olive ground sheet instead of near-black.
   day: {
-    skyTop: "#3f79a6", skyBottom: "#dfeef6",
-    sun: [0.35, 0.92, 0.2], sunColor: "#fff3d8", sunIntensity: 2.3,
-    ambientColor: "#9fb7cc", ambientIntensity: 0.5,
-    hemiSky: "#bcd6ec", hemiGround: "#6a7358", hemiIntensity: 0.55,
-    fog: "#cfe1ec", ground: "#2b3f30", lamp: 0, winLit: 0, stars: 0,
+    skyTop: "#5d8fb8", skyBottom: "#e6ecec",
+    sun: [0.35, 0.92, 0.2], sunColor: "#fff2dc", sunIntensity: 2.5,
+    ambientColor: "#c3cfd6", ambientIntensity: 0.5,
+    hemiSky: "#dceaf2", hemiGround: "#8f8a6c", hemiIntensity: 0.95,
+    fog: "#eef3f4", ground: "#7e8461", lamp: 0, winLit: 0, stars: 0,
   },
-  // purple-to-amber sunset, low sun in the west; lamps + windows ~half on
+  // purple-to-amber sunset, low sun in the west; lamps + windows ~half on.
+  // REAL_OVERRIDE.dusk keeps the warm sun colour, lifts the ground.
   dusk: {
-    skyTop: "#241f4a", skyBottom: "#e2a765",
-    sun: [-0.86, 0.17, -0.18], sunColor: "#ff9d55", sunIntensity: 1.5,
+    skyTop: "#3a3358", skyBottom: "#eab473",
+    sun: [-0.86, 0.17, -0.18], sunColor: "#ff9d55", sunIntensity: 1.7,
     ambientColor: "#5c4a66", ambientIntensity: 0.5,
-    hemiSky: "#7c6180", hemiGround: "#46372b", hemiIntensity: 0.5,
-    fog: "#d29c66", ground: "#1a2a20", lamp: 0.55, winLit: 0.6, stars: 0.35,
+    hemiSky: "#8f7590", hemiGround: "#5b4a38", hemiIntensity: 0.7,
+    fog: "#e4b57f", ground: "#4d4a38", lamp: 0.55, winLit: 0.6, stars: 0.35,
   },
-  // deep blue night, moon mid-high; lamps + windows full on, stars out
+  // deep blue night, moon mid-high; lamps + windows full on, stars out.
+  // REAL_OVERRIDE.night: a touch more sky/hemi lift so massing stays read.
   night: {
-    skyTop: "#01030a", skyBottom: "#16233d",
-    sun: [0.3, 0.78, -0.4], sunColor: "#aec4e6", sunIntensity: 0.55,
+    skyTop: "#050a16", skyBottom: "#1d2c48",
+    sun: [0.3, 0.78, -0.4], sunColor: "#aec4e6", sunIntensity: 0.7,
     ambientColor: "#2a3b57", ambientIntensity: 0.5,
-    hemiSky: "#33496e", hemiGround: "#101c16", hemiIntensity: 0.5,
-    fog: "#1c2c4a", ground: "#0c150f", lamp: 0.9, winLit: 1, stars: 1,
+    hemiSky: "#3d557d", hemiGround: "#1a231c", hemiIntensity: 0.65,
+    fog: "#243553", ground: "#22261c", lamp: 0.9, winLit: 1, stars: 1,
   },
 };
 
