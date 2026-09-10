@@ -19,6 +19,7 @@ import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
+import { Billboards } from "./billboards";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -342,6 +343,7 @@ function Grid({
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
       {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} />}
+      {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} winLit={winLit} claimed={claimed} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
   );
