@@ -18,7 +18,7 @@
 // lights, car headlights, boats/river, roadside trees.
 
 import { useLayoutEffect, useMemo, useRef } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject, MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Stars, GradientTexture, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
@@ -570,8 +570,12 @@ function roundaboutLoop(cx: number, cz: number, r: number): Loop {
   return finishLoop([arcP(cx, cz, r, 0, -Math.PI * 2)]); // clockwise
 }
 
-export function Traffic({ gridSize }: { gridSize: number }) {
+export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; trafficLevel?: number }) {
   const centre = worldCentre(gridSize);
+
+  // read the live density in useFrame without re-rendering / rebuilding
+  const levelRef = useRef(trafficLevel);
+  levelRef.current = trafficLevel;
 
   const { loops, cars } = useMemo(() => {
     let seed = gridSize * 911 + 7;
@@ -595,12 +599,13 @@ export function Traffic({ gridSize }: { gridSize: number }) {
       }
     };
 
-    // one loop per plot, ~55% of plots, 1-2 cars each — but hard-capped on
-    // the big grids (30×30 would otherwise spin up ~500 loops / ~700 cars,
-    // all stepped every frame). Loops are built centre-outward so the ones
-    // that survive the cap are the ones the camera actually looks at.
-    const maxLoops = gridSize >= 22 ? 130 : gridSize >= 14 ? 240 : 9999;
-    const carsPerLoop = gridSize >= 22 ? 1 : undefined;
+    // one loop per plot, ~55% of plots. The car pool is built at PEAK-HOUR
+    // capacity; <Traffic>'s useFrame then only activates a `trafficLevel`
+    // fraction of the (centre-outward) loops and slows / packs them, so
+    // off-peak is strictly cheaper. Peak pool ≈ rural 30 / semi 55 /
+    // metro 170 / dense 300.
+    const maxLoops = gridSize >= 22 ? 150 : gridSize >= 14 ? 200 : 9999;
+    const carsPerLoop = gridSize >= 22 || gridSize <= 8 ? 2 : undefined;
     const mid = (xs.length - 1) / 2;
     const order: [number, number][] = [];
     for (let a = 0; a < xs.length - 1; a++)
@@ -659,20 +664,42 @@ export function Traffic({ gridSize }: { gridSize: number }) {
     const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
     const now = performance.now() / 1000;
 
+    // time-of-day density: activate a fraction of the (centre-outward)
+    // loops, and at peak slow every car right down + pack the bumper gaps
+    // so the queues at the lights read as a jam, not just "more cars".
+    const lv = Math.max(0, Math.min(1, levelRef.current));
+    const activeLoops = Math.max(1, Math.ceil(loops.length * (0.15 + 0.85 * lv)));
+    const baseSpeed = CAR_BASE_SPEED * (1 - 0.58 * lv); // 78 → ~33 at full jam
+    const gap = CAR_GAP * (1 - 0.56 * lv);              // 26 → ~11 at full jam
+
     for (let li = 0; li < loops.length; li++) {
       const loop = loops[li];
       const ring = perLoop[li];
+      if (li >= activeLoops) {
+        // parked: hide this loop's cars off-frame until traffic picks up
+        for (const ci of ring) {
+          dummy.position.set(0, -1000, 0);
+          dummy.scale.set(0, 0, 0);
+          dummy.rotation.set(0, 0, 0);
+          dummy.updateMatrix();
+          body.setMatrixAt(ci, dummy.matrix);
+          cabin.setMatrixAt(ci, dummy.matrix);
+          for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
+          for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
+        }
+        continue;
+      }
       // process lead car first so followers clamp against an updated gap
       for (let k = ring.length - 1; k >= 0; k--) {
         const ci = ring[k];
         const c = cars[ci];
 
         // desired speed from the road + the next signal
-        let target = CAR_BASE_SPEED;
+        let target = baseSpeed;
         // which piece are we on? (arcs are slow)
         let sMod = c.s % loop.L; if (sMod < 0) sMod += loop.L;
         for (const p of loop.pieces) {
-          if (sMod >= p.s0 && sMod < p.s0 + p.len) { if (p.kind === "arc") target = CAR_ARC_SPEED; break; }
+          if (sMod >= p.s0 && sMod < p.s0 + p.len) { if (p.kind === "arc") target = Math.min(target, CAR_ARC_SPEED); break; }
         }
         // nearest gate ahead
         let gateHold = Infinity;
@@ -683,7 +710,7 @@ export function Traffic({ gridSize }: { gridSize: number }) {
           if (d > BRAKE_LOOKAHEAD) continue;
           const st = signalStateFor(gate.axisIsX, now); // 0 green 1 amber 2 red
           if (st === 2) { gateHold = Math.min(gateHold, c.s + d - STOP_MARGIN); target = Math.min(target, 0); }
-          else if (st === 1) target = Math.min(target, d > 40 ? CAR_BASE_SPEED * 0.32 : 0); // amber: slow, stop if too close to clear
+          else if (st === 1) target = Math.min(target, d > 40 ? baseSpeed * 0.32 : 0); // amber: slow, stop if too close to clear
         }
 
         // gap to the car immediately ahead on this ring
@@ -692,14 +719,14 @@ export function Traffic({ gridSize }: { gridSize: number }) {
         if (ahead) {
           let as = ahead.s;
           while (as <= c.s) as += loop.L;
-          gapHold = as - CAR_GAP;
+          gapHold = as - gap;
         }
 
         // integrate speed toward target, then advance, then clamp to holds
         const accel = target >= c.speed ? CAR_ACCEL : CAR_BRAKE;
         c.speed += Math.sign(target - c.speed) * accel * step;
         if (c.speed < 0) c.speed = 0;
-        if (c.speed > CAR_BASE_SPEED) c.speed = CAR_BASE_SPEED;
+        if (c.speed > baseSpeed) c.speed = baseSpeed;
         let ns = c.s + c.speed * step;
         if (ns > gapHold) { ns = Math.max(c.s, gapHold); c.speed = 0; }
         if (ns > gateHold) { ns = Math.max(c.s, gateHold); c.speed = 0; }
@@ -778,24 +805,49 @@ export function Traffic({ gridSize }: { gridSize: number }) {
 
 // ── elevated LRT ────────────────────────────────────────────────────
 // One elevated line through world centre. `axis` "z" = runs N-S (long in
-// Z); "x" = runs E-W. The train shuttles the full span and flips at each
-// end. Geometry is authored along +Z then the whole <group> is yaw-rotated
-// for the E-W line, so there is one code path.
-function LrtLine({ axis, span }: { axis: "x" | "z"; span: number }) {
-  const trainRef = useRef<THREE.Group>(null);
-  const dir = useRef(axis === "x" ? -1 : 1);
+// Z); "x" = runs E-W. Geometry is authored along +Z then the whole
+// <group> is yaw-rotated for the E-W line, so there is one code path.
+//
+// SERVICE FREQUENCY tracks `trafficLevel` (levelRef): a second train
+// enters service above ~0.5 (peak), and both run faster — so at rush hour
+// a train passes the interchange roughly 3× as often as off-peak.
+const TRAIN_CARS = [-30, 0, 30];
+function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
+  return (
+    <group ref={tref} position={[0, DECK_Y + 8, 0]}>
+      {TRAIN_CARS.map((z) => (
+        <mesh key={z} position={[0, 0, z]} castShadow>
+          <boxGeometry args={[12, 10, 26]} />
+          <meshStandardMaterial color="#dfe6ee" emissive="#8fd3ff" emissiveIntensity={0.2} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number> }) {
+  const t1 = useRef<THREE.Group>(null);
+  const t2 = useRef<THREE.Group>(null);
+  const d1 = useRef(axis === "x" ? -1 : 1);
+  const d2 = useRef(axis === "x" ? 1 : -1);
   const piers = useMemo(() => {
     const out: number[] = [];
     for (let z = -span / 2 + ROAD_GAP; z <= span / 2 - ROAD_GAP; z += ROAD_GAP * 2) out.push(z);
     return out;
   }, [span]);
   useFrame((_, dt) => {
-    const g = trainRef.current;
-    if (!g) return;
+    const lv = Math.max(0, Math.min(1, levelRef.current));
+    const speed = 58 + 78 * lv;      // 58 off-peak → 136 at peak
+    const twoTrains = lv >= 0.5;
     const lim = span / 2 - 60;
-    g.position.z += dir.current * 78 * dt;
-    if (g.position.z > lim) { g.position.z = lim; dir.current = -1; g.rotation.y = Math.PI; }
-    else if (g.position.z < -lim) { g.position.z = -lim; dir.current = 1; g.rotation.y = 0; }
+    const advance = (g: THREE.Group | null, dr: MutableRefObject<number>) => {
+      if (!g) return;
+      g.position.z += dr.current * speed * dt;
+      if (g.position.z > lim) { g.position.z = lim; dr.current = -1; g.rotation.y = Math.PI; }
+      else if (g.position.z < -lim) { g.position.z = -lim; dr.current = 1; g.rotation.y = 0; }
+    };
+    advance(t1.current, d1);
+    if (twoTrains) advance(t2.current, d2);
+    if (t2.current) t2.current.visible = twoTrains;
   });
   return (
     <group rotation={[0, axis === "x" ? Math.PI / 2 : 0, 0]}>
@@ -815,29 +867,25 @@ function LrtLine({ axis, span }: { axis: "x" | "z"; span: number }) {
           <meshStandardMaterial color="#2f3846" />
         </mesh>
       ))}
-      <group ref={trainRef} position={[0, DECK_Y + 8, 0]}>
-        {[-30, 0, 30].map((z) => (
-          <mesh key={z} position={[0, 0, z]} castShadow>
-            <boxGeometry args={[12, 10, 26]} />
-            <meshStandardMaterial color="#dfe6ee" emissive="#8fd3ff" emissiveIntensity={0.2} />
-          </mesh>
-        ))}
-      </group>
+      <LrtTrain tref={t1} />
+      <LrtTrain tref={t2} />
     </group>
   );
 }
 
 // Elevated LRT — a CROSS through the middle of the city: an N-S line and
 // an E-W line meeting at a raised interchange station dead centre. Metro
-// and dense-metro grids only.
-export function Lrt({ gridSize }: { gridSize: number }) {
+// and dense-metro grids only. `trafficLevel` drives train frequency.
+export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; trafficLevel?: number }) {
   const show = gridSize >= 10;
   const span = worldSize(gridSize);
+  const levelRef = useRef(trafficLevel);
+  levelRef.current = trafficLevel;
   if (!show) return null;
   return (
     <group>
-      <LrtLine axis="z" span={span} />
-      <LrtLine axis="x" span={span} />
+      <LrtLine axis="z" span={span} levelRef={levelRef} />
+      <LrtLine axis="x" span={span} levelRef={levelRef} />
       {/* central interchange: two crossed platforms + a roof on columns */}
       <group position={[0, DECK_Y + 2, 0]}>
         <mesh receiveShadow>

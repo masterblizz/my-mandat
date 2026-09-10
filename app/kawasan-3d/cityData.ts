@@ -550,7 +550,7 @@ export const CAM_CLAMP = {
 // zooms in exactly as close as Rural despite its far bigger footprint.
 export const CAM_MIN_DISTANCE = 190;
 // Furthest out, as a multiple of the preset's base framing distance.
-export const CAM_MAX_OUT = 1.45;
+export const CAM_MAX_OUT = 0.50;
 export const DRAG_RZ_PER_PX = 0.25;
 export const DRAG_RX_PER_PX = 0.18;
 // Per-notch / per-click zoom factors. Larger than the old 1.08/1.15 so
@@ -586,6 +586,27 @@ export function todFromClientHour(hour: number): Tod {
   if (hour >= 7 && hour < 19) return "day";
   if (hour >= 19 && hour < 20) return "dusk";
   return "night";
+}
+
+// Real-clock -> traffic density 0..1. Piecewise-linear over the 24h day:
+// weekday has two sharp rush spikes (≈08:00 and ≈18:00), weekend is a
+// gentle undulation with no rush. Drives active-car count + speed/gap in
+// scenery.tsx's <Traffic> (and LRT train frequency). Recomputed every
+// ~30s by City3DMapGL, or overridden by the manual Traffic button.
+export function trafficProfile(now: Date): number {
+  const h = now.getHours() + now.getMinutes() / 60;
+  const weekend = now.getDay() === 0 || now.getDay() === 6;
+  const pts: [number, number][] = weekend
+    ? [[0, 0.14], [5, 0.14], [8, 0.30], [12, 0.55], [15, 0.60], [18, 0.62], [21, 0.50], [23, 0.32], [24, 0.14]]
+    : [[0, 0.08], [5, 0.08], [6.5, 0.50], [8, 1.0], [9.5, 0.60], [11, 0.55], [13, 0.50], [15, 0.55], [17, 0.85], [18, 1.0], [19.5, 0.55], [21, 0.42], [23, 0.20], [24, 0.08]];
+  for (let i = 1; i < pts.length; i++) {
+    if (h <= pts[i][0]) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      return y0 + ((y1 - y0) * (h - x0)) / (x1 - x0);
+    }
+  }
+  return pts[pts.length - 1][1];
 }
 
 // 3D environment per tod. Reference: app/globals.css .kw-scene[data-tod=...]

@@ -350,7 +350,7 @@ function Grid({
 export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
-  camRef, movedRef, distance, hudRef, onPerf, quality,
+  camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -359,6 +359,8 @@ export function CityScene({
   tod: Tod;
   weather?: Weather;
   overall?: number;
+  /** 0..1 real-clock / manual traffic density — drives car count + LRT frequency. */
+  trafficLevel?: number;
   selectedId: string;
   onSelect: (id: string) => void;
   celebration?: { zoneId: string; at: number } | null;
@@ -439,8 +441,8 @@ export function CityScene({
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
-      <Traffic gridSize={gridSize} />
-      <Lrt gridSize={gridSize} />
+      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
+      <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
 
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />

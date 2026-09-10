@@ -20,7 +20,7 @@ import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom,
   worldSize, assignZonePositions,
-  TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour,
+  TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
 import { PostFX } from "./postfx";
@@ -40,6 +40,10 @@ export type City3DMapGLProps = {
   overall: number;
 };
 
+
+type TrafficMode = "auto" | "peak" | "normal" | "light";
+const TRAFFIC_MODES: TrafficMode[] = ["auto", "peak", "normal", "light"];
+const TRAFFIC_FIXED: Record<Exclude<TrafficMode, "auto">, number> = { peak: 1, normal: 0.5, light: 0.12 };
 
 // Ported from scoreTintRGB() in app/kawasan/page.tsx — smooth red->gold->green.
 const TINT_RED = [255, 68, 68] as const;
@@ -69,6 +73,25 @@ export default function City3DMapGL({
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
   const [showPerf, setShowPerf] = useState(false);
   const [perf, setPerf] = useState<PerfSample>({ fps: 0, calls: 0, tris: 0 });
+
+  // Traffic density. "auto" tracks the real system clock (weekday rush
+  // spikes / weekend gentle); the other modes pin it for demos. Kept
+  // fully independent of the day/night visual toggle above.
+  const [trafficMode, setTrafficMode] = useState<TrafficMode>("auto");
+  const [autoLevel, setAutoLevel] = useState(() => trafficProfile(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => setAutoLevel(trafficProfile(new Date())), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const trafficLevel = trafficMode === "auto" ? autoLevel : TRAFFIC_FIXED[trafficMode];
+  const cycleTraffic = useCallback(
+    () => setTrafficMode((m) => TRAFFIC_MODES[(TRAFFIC_MODES.indexOf(m) + 1) % TRAFFIC_MODES.length]),
+    [],
+  );
+  const trafficWord =
+    trafficMode !== "auto" ? trafficMode.toUpperCase()
+      : trafficLevel >= 0.8 ? "PEAK" : trafficLevel >= 0.55 ? "BUSY" : trafficLevel >= 0.3 ? "NORMAL" : "LIGHT";
+  const isPeakNow = trafficMode === "auto" && autoLevel >= 0.8;
 
   // Narrow-container layout (embedded on a phone-width column).
   const [compact, setCompact] = useState(false);
@@ -178,6 +201,7 @@ export default function City3DMapGL({
           hudRef={hudRef}
           onPerf={showPerf ? setPerf : undefined}
           quality={quality}
+          trafficLevel={trafficLevel}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>
@@ -212,12 +236,18 @@ export default function City3DMapGL({
         <button type="button" aria-label="Toggle weather" style={compact ? css.btnSm : css.btnWide} onClick={() => setWeather((w) => (w === "rain" ? "clear" : "rain"))}>
           {weather === "rain" ? "🌧" : "☀"}{compact ? "" : ` ${weather === "rain" ? t(lang, "kawasan_page.rain") : t(lang, "kawasan_page.clear")}`}
         </button>
+        <button type="button" aria-label="Cycle traffic density" style={compact ? css.btnSm : css.btnWide} onClick={cycleTraffic}>
+          🚗{compact ? "" : ` ${trafficMode === "auto" ? `AUTO·${trafficWord}` : trafficWord}`}
+        </button>
         <button type="button" aria-label="Toggle perf readout" style={compact ? css.btnSm : css.btn} onClick={() => setShowPerf((v) => !v)}>ᐧ</button>
       </div>
 
       {/* scene label + perf (bottom-left) */}
       <div style={css.footL}>
         <span style={css.label}>{densityLabel}</span>
+        {isPeakNow && (
+          <span style={css.peakTag}>{t(lang, "Waktu Puncak Trafik", "Peak Hour Traffic")}</span>
+        )}
         {showPerf && (
           <span style={css.perf}>{perf.fps} fps · {perf.calls} draws · {(perf.tris / 1000).toFixed(1)}k tris</span>
         )}
@@ -321,6 +351,7 @@ const css: Record<string, CSSProperties> = {
   btnWide: { ...ctrlBox, padding: "6px 8px", font: "900 9px system-ui, sans-serif", letterSpacing: "0.14em", cursor: "pointer" },
   footL: { position: "absolute", left: 12, bottom: 10, display: "flex", flexDirection: "column", gap: 4, pointerEvents: "none" },
   label: { font: "900 9px system-ui, sans-serif", letterSpacing: "0.16em", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
+  peakTag: { font: "900 9px system-ui, sans-serif", letterSpacing: "0.16em", color: "#fca5a5", background: "rgba(60,10,10,0.82)", border: "1px solid rgba(248,113,113,0.5)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   perf: { font: "12px ui-monospace, monospace", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   hint: { position: "absolute", left: 12, right: 12, bottom: 10, textAlign: "center", font: "700 9px system-ui, sans-serif", letterSpacing: "0.18em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },
   minimap: { position: "absolute", right: 12, bottom: 44, padding: 6, borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.85)" },
