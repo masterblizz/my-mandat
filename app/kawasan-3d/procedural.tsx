@@ -110,9 +110,23 @@ function stripToPositionNormalUv(g: THREE.BufferGeometry) {
 // and Z, total height 0..1) — ridge runs along local X, slopes down along
 // Z. `riseFrac` is the CSS version's RIDGE_RISE, expressed as a fraction
 // of unit height instead of a pixel amount (see file header).
-function buildGableTemplate(riseFrac: number, wallFrac: number): THREE.BufferGeometry {
+function buildGableTemplate(riseFrac: number, wallFrac: number, stilted = false): THREE.BufferGeometry {
+  // Rumah panggung — the design canvas's BENTUK card asks for stilts on
+  // kampung. Lift the wall box by a floor gap and stand it on four
+  // corner posts; posts live in the wall (MAT_WALL) group.
+  const gap = stilted ? 0.12 : 0;
   const wall = new THREE.BoxGeometry(1, wallFrac, 1);
-  wall.translate(0, wallFrac / 2, 0);
+  wall.translate(0, gap + wallFrac / 2, 0);
+  const stilts: THREE.BufferGeometry[] = [];
+  if (stilted) {
+    for (const sx of [-0.4, 0.4]) {
+      for (const sz of [-0.4, 0.4]) {
+        const post = new THREE.BoxGeometry(0.08, gap, 0.08);
+        post.translate(sx, gap / 2, sz);
+        stilts.push(post);
+      }
+    }
+  }
 
   // The actual ported trig: PitchedRoof derives a slope from a rise and a
   // half-width via `slant = Math.hypot(half, RIDGE_RISE)` / `angle =
@@ -125,19 +139,22 @@ function buildGableTemplate(riseFrac: number, wallFrac: number): THREE.BufferGeo
   // traces, just arrived at by placing the vertex instead of rotating a
   // face to meet it.
   const half = 0.5;
+  const base = gap + wallFrac;
   const shape = new THREE.Shape();
-  shape.moveTo(-half, wallFrac);
-  shape.lineTo(0, wallFrac + riseFrac);
-  shape.lineTo(half, wallFrac);
-  shape.lineTo(-half, wallFrac);
+  shape.moveTo(-half, base);
+  shape.lineTo(0, base + riseFrac);
+  shape.lineTo(half, base);
+  shape.lineTo(-half, base);
   const roof = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
   roof.translate(0, 0, -0.5);
 
   // Merge WITHOUT groups, then add exactly two contiguous groups by known
-  // vertex count — the wall box first, the extruded roof second — rather
-  // than trusting mergeGeometries' own group handling (its per-input
-  // materialIndex remap has changed between three versions).
-  const wallFlat = stripToPositionNormalUv(wall);
+  // vertex count — the wall box (+ any stilts) first, the extruded roof
+  // second — rather than trusting mergeGeometries' own group handling
+  // (its per-input materialIndex remap has changed between three versions).
+  const wallFlat = mergeGeometries(
+    [wall, ...stilts].map(stripToPositionNormalUv), false,
+  ) ?? stripToPositionNormalUv(wall);
   const roofFlat = stripToPositionNormalUv(roof);
   const merged = mergeGeometries([wallFlat, roofFlat], false);
   if (!merged) { wall.clearGroups(); return wall; }
@@ -149,14 +166,35 @@ function buildGableTemplate(riseFrac: number, wallFrac: number): THREE.BufferGeo
 }
 
 // Stacked setback: a full-footprint lower block + a narrower upper block.
-function buildSetbackTemplate(lowerFrac: number, setbackFrac: number): THREE.BufferGeometry {
+// `bands` (>0) adds that many thin proud floor-line rings around the
+// lower block — the horizontal banding the design canvas's BENTUK card
+// asks for on the office towers. `awning` (>0) adds a thin slab
+// projecting from the front (+Z) face near ground level — the shophouse
+// five-foot-way. Both are axis-aligned boxes in the single shell
+// material (see the MAT_WALL/MAT_ROOF note).
+function buildSetbackTemplate(
+  lowerFrac: number, setbackFrac: number, bands = 0, awning = 0,
+): THREE.BufferGeometry {
   const lower = new THREE.BoxGeometry(1, lowerFrac, 1);
   lower.translate(0, lowerFrac / 2, 0);
   const upperH = 1 - lowerFrac;
   const upper = new THREE.BoxGeometry(setbackFrac, upperH, setbackFrac);
   upper.translate(0, lowerFrac + upperH / 2, 0);
+
+  const extras: THREE.BufferGeometry[] = [];
+  for (let i = 1; i <= bands; i++) {
+    const ring = new THREE.BoxGeometry(1.03, 0.014, 1.03);
+    ring.translate(0, (lowerFrac / (bands + 1)) * i, 0);
+    extras.push(ring);
+  }
+  if (awning > 0) {
+    const slab = new THREE.BoxGeometry(0.98, 0.03, awning);
+    slab.translate(0, lowerFrac * 0.32, 0.5 + awning / 2 - 0.02);
+    extras.push(slab);
+  }
+
   const merged = mergeGeometries(
-    [stripToPositionNormalUv(lower), stripToPositionNormalUv(upper)],
+    [lower, upper, ...extras].map(stripToPositionNormalUv),
     false,
   );
   if (!merged) return lower;
@@ -229,19 +267,26 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
   if (GABLE_TYPES.has(type)) {
     const rise = [0.16, 0.24, 0.34][variant] ?? 0.24;
     const wall = [0.8, 0.76, 0.7][variant] ?? 0.76;
-    geo = buildGableTemplate(rise, wall);
+    geo = buildGableTemplate(rise, wall, type === "kampung");
   } else if (DOME_TYPES.has(type)) {
     geo = buildDomeTemplate(variant);
   } else if (BOXCAP_TYPES.has(type)) {
     geo = buildBoxCapTemplate(variant);
     if (type === "antenna") geo = withMast(geo);
   } else {
-    // tower/skyscraper: pronounced setback; shophouse: barely recessed
-    // upper floor, matching its real-world low-rise proportions.
-    const pronounced = type === "shophouse"
+    // tower/skyscraper: pronounced setback + horizontal floor banding;
+    // shophouse: barely recessed upper floor (real low-rise proportions)
+    // + a five-foot-way awning along its front.
+    const isShop = type === "shophouse";
+    const pronounced = isShop
       ? { lower: [0.72, 0.76, 0.8], setback: [0.9, 0.86, 0.82] }
       : { lower: [0.55, 0.62, 0.68], setback: [0.44, 0.58, 0.7] };
-    geo = buildSetbackTemplate(pronounced.lower[variant] ?? 0.6, pronounced.setback[variant] ?? 0.6);
+    geo = buildSetbackTemplate(
+      pronounced.lower[variant] ?? 0.6,
+      pronounced.setback[variant] ?? 0.6,
+      isShop ? 0 : 4,
+      isShop ? 0.16 : 0,
+    );
     if (type === "skyscraper") geo = withMast(geo);
   }
   templateCache.set(key, geo);

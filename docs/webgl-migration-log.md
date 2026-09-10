@@ -2007,6 +2007,57 @@ industrial tiles as bare soil, the market as pavers; the near-black
 
 Committed as: `feat(kawasan-3d): asphalt / paver / soil ground textures`.
 
+## Item 19 — BENTUK: tower banding, shophouse awning, kampung stilts
+
+Fourth card. The **BENTUK** list: *"pitched roofs, five-foot-way
+awnings, stilts on kampung, setbacks + banding on towers, sawtooth
+factory roofs, a stadium bowl."* Pitched roofs, tower setbacks and the
+stadium bowl already shipped (items 4 / 13 / 17). This item adds three
+of the remaining silhouette cues to the procedural templates; the
+sawtooth factory roof is deferred to item 20 (it is the one that needs
+real new geometry, not box additions).
+
+### What changed (`procedural.tsx`)
+
+All three are axis-aligned boxes merged into the existing template's
+single shell material — no new draw call (still one `InstancedMesh` per
+type/variant), no group-count change on the setback path.
+
+- **Tower banding** — `buildSetbackTemplate(…, bands=4)` adds four thin
+  proud rings (`1.03 × 0.014 × 1.03`) around the lower block at floor
+  intervals. tower + skyscraper only; shophouse passes `bands=0`.
+- **Shophouse five-foot-way** — `buildSetbackTemplate(…, awning=0.16)`
+  adds a thin slab projecting from the front (+Z) face at ~⅓ height —
+  the covered walkway. shophouse only.
+- **Kampung stilts** — `buildGableTemplate(…, stilted=true)` lifts the
+  wall box by a `0.12` floor gap and stands it on four corner posts
+  (`0.08 × gap × 0.08`), posts merged into the `MAT_WALL` group so the
+  two-group roof split is preserved. kampung only (house / terrace stay
+  ground-bearing).
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, screenshots 390-480 KB (no blank frame; Metro — the medium
+post-fx tier — renders correctly).
+
+| density | fps* | draws | tris | vs item 18 |
+|---|---|---|---|---|
+| Rural 6×6 | 6 | 254 | 22.2k | ±0 draws / +1.2k |
+| Semi-urban 8×8 | 6 | 294 | 42.4k | ±0 draws / +3.2k |
+| Metro 10×10 | 4 | 366 | 102.4k | ±0 draws / +22.2k |
+| Dense metro 12×12 | 6 | 404 | 124.4k | ±0 draws / +27.4k |
+
+**Draw calls unchanged** — the extra geometry rides the same instanced
+templates. Triangles are up ~28% at metro/dense (four rings + stilts ×
+every tower/kampung instance), but that is ~50-100 tris per instance and
+draw calls, not triangle count, are this scene's ceiling; the user's
+hardware reads 60 fps / 294 draws and 124 k tris is well within budget.
+No quality-tier gate added — the fps figures here are SwiftShader noise,
+and the draw-call cost is zero.
+
+Committed as: `feat(kawasan-3d): tower banding, shophouse awning, kampung stilts`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
