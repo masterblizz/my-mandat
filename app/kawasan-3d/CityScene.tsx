@@ -25,6 +25,7 @@ import {
   pavedSurfaceFor, pavedTextureFor,
 } from "./ground";
 import { reserveLargeFootprints, LargeBuildings } from "./largeBuildings";
+import { KLProfile, klClaims, klHeightMult, klActive } from "./klProfile";
 import {
   Roundabout, roundaboutTiles, roundaboutCentre, cornerSign, CLEAR_R,
   type RoundaboutCorner,
@@ -154,13 +155,18 @@ function Buildings({
           if (dx + dz < CLEAR_R) continue;
         }
         const flat = FLAT_TYPES.includes(spec.type);
+        // SILUET KL (item 21): at metro grid sizes, vertical BTypes taper
+        // radially toward the edge so the skyline reads as one peak. No-op
+        // below gridSize 10 and for non-vertical types.
+        const vertical = spec.type === "tower" || spec.type === "skyscraper" || spec.type === "antenna";
+        const h0 = flat ? FLAT_BOX_H : Math.max(spec.h, 6);
         const inst: BuildingInstance = {
           key: `${zone.id}:${spec.slot}:${spec.type}`,
           x: cx - PLOT / 2 + sp.x + spec.w / 2,
           z: cz - PLOT / 2 + sp.y + spec.d / 2,
           w: spec.w,
           d: spec.d,
-          h: flat ? FLAT_BOX_H : Math.max(spec.h, 6),
+          h: vertical ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize))) : h0,
         };
         const arr = byType.get(spec.type);
         if (arr) arr.push(inst);
@@ -332,6 +338,7 @@ function Grid({
       ))}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} />
+      {klActive(gridSize) && <KLProfile gridSize={gridSize} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
   );
@@ -370,10 +377,19 @@ export function CityScene({
   // Task B: a few large buildings claim an N×M block; `claimed` holds
   // those cells so per-cell buildings / sidewalks / trees / lamps skip
   // them. Deterministic from `placed` — recomputed only on layout change.
-  const { larges, claimed } = useMemo(
+  const { larges, claimed: largeClaimed } = useMemo(
     () => reserveLargeFootprints(placed, gridSize),
     [placed, gridSize],
   );
+  // Fold the KL landmark cells (twin-tower centre + spire) into `claimed`
+  // so their ordinary per-cell towers / sidewalks / lamps step aside.
+  const claimed = useMemo(() => {
+    const kl = klClaims(gridSize);
+    if (!kl.length) return largeClaimed;
+    const s = new Set(largeClaimed);
+    kl.forEach((c) => s.add(c));
+    return s;
+  }, [largeClaimed, gridSize]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.

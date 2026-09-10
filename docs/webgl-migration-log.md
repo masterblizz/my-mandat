@@ -2098,6 +2098,70 @@ factory roof, stadium bowl all present.
 
 Committed as: `feat(kawasan-3d): sawtooth north-light factory roof`.
 
+## Item 21 — SILUET KL: one skyline peak, not an even forest
+
+The design canvas gained a **KUALA LUMPUR** variant after items 16-20,
+with a new lead card — **SILUET KL**: *"KL reads as one peak, not an
+even forest. A supertall pair with ribbed shafts and a skybridge holds
+the centre, a slender spire sits on a mid-ring plot, and every other
+vertical building is scaled by `klFalloff()` — 2.05× at the core down to
+0.45× at the edge."* The user's screenshot of items 16-20 was still a
+uniform grid of equal towers; this item is the fix.
+
+Metro-only (`gridSize >= 10`, i.e. Metro / Dense) — Rural / Semi are
+byte-identical.
+
+### What changed
+
+**`klProfile.tsx` (new)**
+
+- **`klHeightMult(col, row, gridSize)`** — radial multiplier
+  `1.42 − 1.05·t²` (`t` = normalised distance from grid centre). Tempered
+  from the design's literal `2.05 / 0.45` because kawasan's metro core
+  heights are *already* lifted (`cityData.zoneBuildings`), so the literal
+  factor stacked on top spiked. `CityScene` applies it to `tower /
+  skyscraper / antenna` instance heights, clamped to `[14, 275]` so no
+  ordinary tower rivals the peak.
+- **`<KLProfile>`** — the twin supertall (two tapered hex shafts, proud
+  floor rings, stepped pinnacle + mast, a skybridge deck with two raking
+  legs at 0.45·H) at the dead-centre cell, and a KL-Tower-style telecom
+  spire (tapered shaft + head pod + antenna cone) on a mid-ring cell in
+  the camera-facing quadrant. Each landmark is **merged to one
+  `BufferGeometry` / one mesh** — the whole profile is 2 draw calls.
+- **`klClaims(gridSize)`** — the twin + spire cells, folded into
+  `claimed` in `CityScene` so their ordinary per-cell towers, sidewalks
+  and lamps step aside.
+
+Materials are matte concrete / steel `MeshStandardMaterial` with
+`envMapIntensity` — deliberately **no emissive** (that blanked Metro on
+the medium post-fx tier in items 17 and 20).
+
+### Verification
+
+`tsc` + `next lint` clean. Harness, all four densities: **0 console
+errors**, screenshots 390-490 KB (no blank frame).
+
+| density | fps* | draws | tris | vs item 20 |
+|---|---|---|---|---|
+| Rural 6×6 | 1 | 254 | 22.4k | ±0 (KL layer inactive) |
+| Semi-urban 8×8 | 1 | 294 | 43.0k | ±0 (KL layer inactive) |
+| Metro 10×10 | 1 | 370 | 108.9k | +4 draws / +1.8k |
+| Dense metro 12×12 | 3 | 408 | 132.4k | +4 draws / +2.0k |
+
++4 draws at metro/dense = the twin + spire meshes (merged, so two draws)
+plus a couple of shadow passes; the falloff itself is free (it only
+rewrites instance heights). Visually the core is now a distinct central
+massif tapering to red-roof low-rise at the rim, with the twin pair +
+skybridge and the spire breaking above it — "one peak", per the card.
+The harness's fixed low camera clips the twin tops; the interactive page
+orbits freely.
+
+**Still open from the KL variant:** SUNGAI & HIJAU (one road corridor →
+brown river with earth banks + bridge decks; 1.6× denser tree canopy
+with palms; jungle on undeveloped plots).
+
+Committed as: `feat(kawasan-3d): SILUET KL — radial height falloff + twin peak + spire`.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
