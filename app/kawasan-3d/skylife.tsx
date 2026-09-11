@@ -58,9 +58,22 @@ function Birds({ span, count, y }: { span: number; count: number; y: number }) {
 }
 
 // ── airliner with nav lights ────────────────────────────────────────
-function Plane({ span, seed = 1 }: { span: number; seed?: number }) {
+// Local axes: +Z = nose (fore/aft), X = wingspan (left/right), Y = up —
+// matching the group's yaw (`rotation.y = ±90°` maps local +Z onto the
+// world +X/−X direction of travel). Cylinder/cone primitives default to
+// a Y-axis, so every fuselage/nacelle piece is rotated +90° about X to
+// lay it along Z instead — the previous version skipped that rotation
+// entirely, so the "fuselage" capsule stood on end (vertical) rather
+// than running nose-to-tail: it read as a floating pill towing wings,
+// not a plane. Rebuilt as a tapered nose + cylindrical body + tapered
+// tail, a proper cross-tail (fin + stabilizer), two podded underwing
+// engines, a cheatline stripe, a window band (lit warm at night), and a
+// slow-pulsing top beacon alongside the wingtip nav lights + tail strobe.
+const LAY_FLAT = Math.PI / 2;
+function Plane({ span, seed = 1, tod }: { span: number; seed?: number; tod?: Tod }) {
   const grp = useRef<THREE.Group>(null);
   const strobeRef = useRef<THREE.Mesh>(null);
+  const beaconRef = useRef<THREE.Mesh>(null);
   const blink = useRef(0);
   const cfg = useMemo(() => {
     let s = seed * 2654435761;
@@ -80,32 +93,83 @@ function Plane({ span, seed = 1 }: { span: number; seed?: number }) {
     else if (cfg.dir < 0 && p.position.x < -span) p.position.x = span;
     blink.current += dt;
     if (strobeRef.current) strobeRef.current.visible = blink.current % 1.1 < 0.06;
+    if (beaconRef.current) beaconRef.current.visible = blink.current % 1.0 < 0.5;
   });
+  const lit = tod === "night";
+  const hullMat = { color: "#d9dee6", roughness: 0.45, metalness: 0.35 } as const;
+  const trimMat = { color: "#c7ccd4", roughness: 0.5, metalness: 0.3 } as const;
   return (
     <group ref={grp} position={[cfg.dir > 0 ? -span : span, cfg.y, cfg.lane]} rotation={[0, cfg.dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
-      <mesh castShadow>
-        <capsuleGeometry args={[3.4, 34, 4, 8]} />
-        <meshStandardMaterial color="#d9dee6" roughness={0.5} metalness={0.3} />
+      {/* fuselage: nose cone + cylindrical body + tapered tail cone */}
+      <mesh position={[0, 0, 13]} rotation={[LAY_FLAT, 0, 0]} castShadow>
+        <coneGeometry args={[2.6, 6, 12]} />
+        <meshStandardMaterial {...hullMat} />
       </mesh>
-      <mesh position={[0, -0.5, 2]}>
-        <boxGeometry args={[46, 1.6, 8]} />
-        <meshStandardMaterial color="#c7ccd4" roughness={0.5} metalness={0.3} />
+      <mesh rotation={[LAY_FLAT, 0, 0]} castShadow>
+        <cylinderGeometry args={[2.6, 2.6, 20, 12]} />
+        <meshStandardMaterial {...hullMat} />
       </mesh>
-      <mesh position={[0, 3, -15]}>
-        <boxGeometry args={[16, 8, 1.6]} />
-        <meshStandardMaterial color="#c7ccd4" roughness={0.5} metalness={0.3} />
+      <mesh position={[0, 0, -15]} rotation={[-LAY_FLAT, 0, 0]} castShadow>
+        <coneGeometry args={[2.6, 10, 12]} />
+        <meshStandardMaterial {...trimMat} />
       </mesh>
-      <mesh position={[-23, -0.5, 2]}>
-        <sphereGeometry args={[1.3, 6, 5]} />
+
+      {/* cheatline stripe + cabin window band, one on each side */}
+      {[-1, 1].map((s) => (
+        <group key={`side${s}`}>
+          <mesh position={[s * 2.62, 0.15, 0]}>
+            <boxGeometry args={[0.15, 0.85, 18]} />
+            <meshBasicMaterial color={lit ? "#ffd699" : "#0b1220"} toneMapped={false} />
+          </mesh>
+          <mesh position={[s * 2.62, -0.9, 0]}>
+            <boxGeometry args={[0.12, 0.4, 26]} />
+            <meshStandardMaterial color="#3b6fd6" roughness={0.5} metalness={0.2} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* wings — a slight dihedral tilt per side, plus a podded engine
+          hanging under each */}
+      {[-1, 1].map((s) => (
+        <group key={`wing${s}`} rotation={[0, 0, -s * 0.07]}>
+          <mesh position={[s * 12, -0.6, 0.5]} castShadow>
+            <boxGeometry args={[19, 0.9, 5.2]} />
+            <meshStandardMaterial {...trimMat} />
+          </mesh>
+          <mesh position={[s * 8.5, -2.6, 2.2]} rotation={[LAY_FLAT, 0, 0]} castShadow>
+            <cylinderGeometry args={[1.3, 1.1, 5.5, 10]} />
+            <meshStandardMaterial color="#9aa2ad" roughness={0.4} metalness={0.5} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* tail: vertical fin + horizontal stabilizer */}
+      <mesh position={[0, 4.2, -16]} castShadow>
+        <boxGeometry args={[0.9, 7, 4.6]} />
+        <meshStandardMaterial {...trimMat} />
+      </mesh>
+      <mesh position={[0, 1.2, -17]} castShadow>
+        <boxGeometry args={[10, 0.7, 3]} />
+        <meshStandardMaterial {...trimMat} />
+      </mesh>
+
+      {/* lights: red/green wingtip nav lights, white tail strobe, a
+          slow-pulsing red top beacon */}
+      <mesh position={[-21.5, -1.2, 0.5]}>
+        <sphereGeometry args={[0.85, 6, 5]} />
         <meshBasicMaterial color="#ff3020" toneMapped={false} />
       </mesh>
-      <mesh position={[23, -0.5, 2]}>
-        <sphereGeometry args={[1.3, 6, 5]} />
+      <mesh position={[21.5, -1.2, 0.5]}>
+        <sphereGeometry args={[0.85, 6, 5]} />
         <meshBasicMaterial color="#20ff50" toneMapped={false} />
       </mesh>
-      <mesh ref={strobeRef} position={[0, 3, -20]}>
-        <sphereGeometry args={[1.5, 6, 5]} />
+      <mesh ref={strobeRef} position={[0, 4.2, -18.4]}>
+        <sphereGeometry args={[1.1, 6, 5]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </mesh>
+      <mesh ref={beaconRef} position={[0, 3.1, 0]}>
+        <sphereGeometry args={[0.6, 6, 5]} />
+        <meshBasicMaterial color="#ff2020" toneMapped={false} />
       </mesh>
     </group>
   );
@@ -117,10 +181,11 @@ export function SkyLife({ tod, span }: { tod: Tod; span: number }) {
       {tod === "day" && <Birds span={span} count={7} y={span * 0.34} />}
       {tod === "dusk" && <Birds span={span} count={15} y={span * 0.3} />}
       {/* aeroplanes at every time of day (was: balloons by day) — the
-          night sky just makes their nav lights pop via bloom */}
-      <Plane span={span} seed={3} />
-      {tod === "day" && <Plane span={span} seed={91} />}
-      {(tod === "night" || tod === "dusk") && <Plane span={span} seed={57} />}
+          night sky just makes their nav lights (and lit cabin windows)
+          pop via bloom */}
+      <Plane span={span} seed={3} tod={tod} />
+      {tod === "day" && <Plane span={span} seed={91} tod={tod} />}
+      {(tod === "night" || tod === "dusk") && <Plane span={span} seed={57} tod={tod} />}
     </group>
   );
 }
