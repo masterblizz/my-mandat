@@ -586,6 +586,32 @@ export const BTN_ZOOM_IN = 1.28;
 export const BTN_ZOOM_OUT = 0.78;
 export const DRAG_CLICK_SUPPRESS_PX = 6;
 
+// ── depth-buffer precision ────────────────────────────────────────────
+// A standard (non-logarithmic) depth buffer concentrates almost all of
+// its precision right in front of the near plane; a fixed `near: 0.5`
+// against a `far` in the tens of thousands (needed to fit the sky dome /
+// background ground sheet) is an 80,000:1+ ratio, which starves the
+// depth buffer of precision everywhere the actual city geometry sits —
+// invisible when zoomed in close (the camera + geometry are both near
+// the lens, well inside the precise region), but at max zoom-out the
+// near-coplanar road/tile/building-base surfaces land in the coarse tail
+// of the range and z-fight into a "torn" mess. Fix: `near` tracks the
+// camera's LIVE orbit radius (CameraRig) instead of staying pinned at
+// 0.5 — when zoomed far out nothing is close to the lens anyway, so
+// pushing `near` out with it reclaims precision for the range that
+// actually matters at that zoom level.
+export const CAM_NEAR_MIN = 0.5;
+export const CAM_NEAR_K = 0.028;
+// Far clip plane: must clear the biggest background element (see
+// CityEnvironment's span*8 perimeter ground sheet in scenery.tsx) as
+// seen from the camera at max zoom-out — that sheet's far edge, in the
+// direction the camera looks (through the origin), sits at roughly
+// (max orbit radius) + (sheet's own half-extent, span*4) from the
+// camera. `+4.4` leaves a margin past that.
+export function farPlaneFor(span: number): number {
+  return span * (CAM_MAX_OUT + 4.4);
+}
+
 // Responsive fit-zoom: narrower viewports frame a touch further out.
 // zoom is a distance multiplier now (baseDistance / zoom), so < 1 = out.
 export function fitZoom(widthPx: number): number {

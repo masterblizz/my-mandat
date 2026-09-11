@@ -16,7 +16,7 @@ import { useThree, useFrame } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 import {
   clampCam, DRAG_RZ_PER_PX, DRAG_RX_PER_PX, WHEEL_IN, WHEEL_OUT,
-  DRAG_CLICK_SUPPRESS_PX, CAM_MIN_DISTANCE, CAM_MAX_OUT,
+  DRAG_CLICK_SUPPRESS_PX, CAM_MIN_DISTANCE, CAM_MAX_OUT, CAM_NEAR_MIN, CAM_NEAR_K,
 } from "./cityData";
 
 export type CamState = { rz: number; rx: number; zoom: number };
@@ -128,7 +128,20 @@ export function CameraRig({
     camera.up.set(0, 1, 0);
     camera.lookAt(lx, 0, lz);
     // no post-projection scale any more — the distance IS the zoom
-    if (cam.zoom !== 1) { cam.zoom = 1; cam.updateProjectionMatrix(); }
+    let dirtyProj = false;
+    if (cam.zoom !== 1) { cam.zoom = 1; dirtyProj = true; }
+    // `near` tracks the live orbit radius `eff` instead of staying pinned
+    // at a fixed tiny value: with `far` in the tens of thousands (needed
+    // for the sky dome / background ground sheet), a fixed near of ~0.5
+    // gives an 80,000:1+ ratio that starves the depth buffer of precision
+    // everywhere the city's near-coplanar road/tile/building-base surfaces
+    // actually sit — invisible up close, but a z-fighting "torn" mess at
+    // max zoom-out. Nothing is ever close to the lens when zoomed far out,
+    // so pushing `near` out with `eff` reclaims precision right where it's
+    // needed at that zoom level (see farPlaneFor() in cityData.ts).
+    const newNear = Math.max(CAM_NEAR_MIN, eff * CAM_NEAR_K);
+    if (Math.abs(cam.near - newNear) > 0.05) { cam.near = newNear; dirtyProj = true; }
+    if (dirtyProj) cam.updateProjectionMatrix();
     // Feed the live azimuth to the DOM compass wedge (no React re-render),
     // mirroring the CSS version's --kw-rz on .kw-scene.
     hudRef?.current?.style.setProperty("--kw3d-rz", `${rz}deg`);

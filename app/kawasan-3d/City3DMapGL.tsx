@@ -18,7 +18,7 @@ import type { PerspectiveCamera } from "three";
 import { CityScene, type PerfSample } from "./CityScene";
 import { type CamState } from "./CameraRig";
 import {
-  CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom,
+  CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
   worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
   TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
   type Zone, type SeatTraits, type Tod,
@@ -185,7 +185,7 @@ export default function City3DMapGL({
         dpr={[1, 2]}
         gl={{ antialias: true, toneMappingExposure: 1.08, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0 }}
-        camera={{ position: [distance, distance, distance], fov: 35, near: 0.5, far: 40000 }}
+        camera={{ position: [distance, distance, distance], fov: 35, near: 0.5, far: farPlaneFor(span) }}
         onCreated={({ camera }) => {
           applyFitZoom();
           const cam = camera as unknown as PerspectiveCamera;
