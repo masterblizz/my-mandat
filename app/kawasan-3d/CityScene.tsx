@@ -23,6 +23,7 @@ import { Billboards } from "./billboards";
 import { Pedestrians } from "./pedestrians";
 import { SkyLife } from "./skylife";
 import { EdgeLandscape } from "./edgeLandscape";
+import { Flags } from "./flags";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -453,6 +454,7 @@ export function CityScene({
       <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
       {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} />}
+      <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
 
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
