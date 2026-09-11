@@ -12,7 +12,7 @@
 // `toneMapped:false` so they read as lit by day and bloom at night, with
 // a throttled colour pulse for a "screen is playing" feel.
 
-import { useMemo, useRef, useLayoutEffect } from "react";
+import { useMemo, useRef, useLayoutEffect, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -24,7 +24,69 @@ import { klHeightMult } from "./klProfile";
 const TILE_H = 4;
 
 const VARIANTS = ["#2f6bff", "#ff5a2a", "#eef2ff", "#12e6ff", "#ff3fd0", "#ffd23f"] as const;
-const BASE = VARIANTS.map((h) => new THREE.Color(h));
+
+// One procedural "advertisement" per colour variant, drawn to a canvas and
+// used as the screen's `map` so it's actually readable when you zoom in:
+// tinted ground, faux logo glyph, a bold headline word, body-copy bars and
+// a corner "AD" tag, inside a bezel margin.
+const AD_WORDS = ["MEGA SALE", "GRAND OPEN", "NEW SEASON", "50% OFF", "SHOP NOW", "SOON"];
+function makeAdTexture(hex: string, seed: number): THREE.CanvasTexture {
+  const W = 512, H = 256;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d")!;
+  let s = ((seed + 1) * 2654435761) >>> 0;
+  const r = () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
+
+  g.fillStyle = hex;
+  g.fillRect(0, 0, W, H);
+  const grad = g.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, "rgba(255,255,255,0.18)");
+  grad.addColorStop(1, "rgba(0,0,0,0.24)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+
+  const c = new THREE.Color(hex);
+  const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  const ink = lum > 0.62 ? "#0b1220" : "#ffffff";
+  const inkDim = lum > 0.62 ? "rgba(11,18,32,0.5)" : "rgba(255,255,255,0.55)";
+
+  g.strokeStyle = ink;
+  g.globalAlpha = 0.28;
+  g.lineWidth = 8;
+  g.strokeRect(12, 12, W - 24, H - 24);
+  g.globalAlpha = 1;
+
+  // logo glyph, top-left
+  g.fillStyle = ink;
+  const glyph = seed % 3;
+  if (glyph === 0) { g.beginPath(); g.arc(58, 56, 26, 0, Math.PI * 2); g.fill(); }
+  else if (glyph === 1) { g.beginPath(); g.moveTo(58, 26); g.lineTo(88, 84); g.lineTo(28, 84); g.closePath(); g.fill(); }
+  else { g.fillRect(30, 30, 54, 54); }
+
+  // headline
+  g.fillStyle = ink;
+  g.font = "bold 56px Arial, Helvetica, sans-serif";
+  g.textBaseline = "top";
+  g.fillText(AD_WORDS[seed % AD_WORDS.length], 30, 104);
+
+  // body-copy bars
+  g.fillStyle = inkDim;
+  for (let i = 0; i < 3; i++) g.fillRect(30, 178 + i * 20, 200 + r() * 210, 9);
+
+  // corner "AD" tag
+  g.fillStyle = ink;
+  g.fillRect(W - 118, 22, 92, 40);
+  g.fillStyle = hex;
+  g.font = "bold 26px Arial, Helvetica, sans-serif";
+  g.fillText("AD", W - 102, 28);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 4;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
 
 // buildings a billboard may hang off — anything with a real flat-ish wall
 const MOUNT_TYPES = new Set<BType>([
@@ -78,6 +140,14 @@ export function Billboards({
 }) {
   const winLitRef = useRef(winLit);
   winLitRef.current = winLit;
+
+  // build the ad textures once, client-side (canvas → CanvasTexture)
+  const [adTex, setAdTex] = useState<THREE.CanvasTexture[]>([]);
+  useEffect(() => {
+    const t = VARIANTS.map((h, i) => makeAdTexture(h, i));
+    setAdTex(t);
+    return () => t.forEach((x) => x.dispose());
+  }, []);
 
   const { panels, struts } = useMemo(() => {
     const panels: Panel[] = [];
@@ -205,6 +275,7 @@ export function Billboards({
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const matRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const strutRef = useRef<THREE.InstancedMesh>(null);
+  const frameRef = useRef<THREE.InstancedMesh>(null);
   const acc = useRef(0);
 
   useLayoutEffect(() => {
@@ -234,7 +305,20 @@ export function Billboards({
       st.instanceMatrix.needsUpdate = true;
       st.computeBoundingSphere();
     }
-  }, [byVariant, struts]);
+    // dark bezel/frame sitting just behind every screen face
+    const fr = frameRef.current;
+    if (fr) {
+      panels.forEach((p, i) => {
+        dummy.position.set(p.x, p.y, p.z);
+        dummy.rotation.set(0, p.yaw, 0);
+        dummy.scale.set(p.w + 3.6, p.h + 3.6, 1.4);
+        dummy.updateMatrix();
+        fr.setMatrixAt(i, dummy.matrix);
+      });
+      fr.instanceMatrix.needsUpdate = true;
+      fr.computeBoundingSphere();
+    }
+  }, [byVariant, struts, panels]);
 
   useFrame((_, dt) => {
     acc.current += dt;
@@ -245,14 +329,25 @@ export function Billboards({
     for (let vi = 0; vi < VARIANTS.length; vi++) {
       const mat = matRefs.current[vi];
       if (!mat) continue;
-      const pulse = 0.68 + 0.32 * Math.sin(now * 0.75 + vi * 1.7);
-      mat.color.copy(BASE[vi]).multiplyScalar(pulse * night);
+      // `color` tints the ad `map`; pulse it as a screen-brightness flicker
+      // (near 1 by day, well over 1 at night so the ad blooms).
+      const pulse = 0.74 + 0.26 * Math.sin(now * 0.75 + vi * 1.7);
+      mat.color.setScalar(Math.min(2.4, pulse * night));
     }
   });
 
   if (!panels.length) return null;
   return (
     <group>
+      <instancedMesh
+        ref={frameRef}
+        args={[undefined, undefined, panels.length]}
+        castShadow
+        key={`bbf-${panels.length}`}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#14171c" roughness={0.7} metalness={0.4} />
+      </instancedMesh>
       {byVariant.map((list, vi) =>
         list.length ? (
           <instancedMesh
@@ -264,6 +359,7 @@ export function Billboards({
             <boxGeometry args={[1, 1, 1]} />
             <meshBasicMaterial
               ref={(r) => { matRefs.current[vi] = r as THREE.MeshBasicMaterial | null; }}
+              map={adTex[vi] ?? null}
               toneMapped={false}
             />
           </instancedMesh>

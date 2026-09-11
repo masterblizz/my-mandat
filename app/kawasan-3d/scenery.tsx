@@ -481,6 +481,37 @@ export function TrafficLights({
 
 const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827"];
 
+// Vehicle variety. Every kind rides the same loops / signal / gap logic;
+// they differ only in how the shared body+cabin+wheel+light instances are
+// scaled and offset per car. `body` + `cabin` are reinterpreted per kind:
+//   car   — hull + greenhouse (unchanged)
+//   van   — one tall boxy hull + a short glassy nose section
+//   lorry — `body` is the tall cargo box (shifted back), `cabin` the cab up front
+//   bus   — one long tall hull + a thin dark window band for `cabin`
+type VKind = "car" | "van" | "lorry" | "bus";
+const V_MIX: { k: VKind; p: number }[] = [
+  { k: "car", p: 0.66 }, { k: "van", p: 0.13 }, { k: "lorry", p: 0.12 }, { k: "bus", p: 0.09 },
+];
+function pickKind(r: number): VKind {
+  let a = 0;
+  for (const m of V_MIX) { a += m.p; if (r < a) return m.k; }
+  return "car";
+}
+const V_SPEC: Record<VKind, {
+  bodyS: [number, number, number]; bodyDX: number; bodyY: number;
+  cabS: [number, number, number]; cabDX: number; cabY: number;
+  half: number; wheel: number; tint: number;
+}> = {
+  car:   { bodyS: [1, 1, 1],          bodyDX: 0,    bodyY: 4,
+           cabS: [1, 1, 1],           cabDX: 0,     cabY: 7.4,  half: 9,    wheel: 1,    tint: 0.64 },
+  van:   { bodyS: [1.18, 1.7, 1.02],  bodyDX: -0.5, bodyY: 5.7,
+           cabS: [0.62, 0.62, 0.98],  cabDX: 6.4,   cabY: 7.6,  half: 10.5, wheel: 1,    tint: 0.72 },
+  lorry: { bodyS: [1.3, 1.45, 1.0],   bodyDX: -3.4, bodyY: 5.3,
+           cabS: [0.72, 1.42, 1.0],   cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
+  bus:   { bodyS: [1.95, 2.02, 1.05], bodyDX: 0,    bodyY: 6.8,
+           cabS: [1.86, 0.5, 1.06],   cabDX: 0,     cabY: 10.6, half: 16,   wheel: 1.12, tint: 0.82 },
+};
+
 const CAR_BASE_SPEED = 78;   // world units / sec on a clear straight
 const CAR_ACCEL = 130;
 const CAR_BRAKE = 240;
@@ -506,6 +537,7 @@ type Car = {
   s: number;        // arc-length position around the loop
   speed: number;
   color: THREE.Color;
+  kind: VKind;
 };
 
 function lineP(ax: number, az: number, bx: number, bz: number, gateAxisIsX?: boolean): Piece {
@@ -595,6 +627,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
           s: ((k + rnd()) / n) * L,
           speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
           color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
+          kind: pickKind(rnd()),
         });
       }
     };
@@ -650,7 +683,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     if (!body || !cabin) return;
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
-      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), 0.64));
+      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), V_SPEC[c.kind].tint));
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
@@ -731,13 +764,14 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
           else if (st === 1) target = Math.min(target, d > 40 ? baseSpeed * 0.32 : 0); // amber: slow, stop if too close to clear
         }
 
-        // gap to the car immediately ahead among the ACTIVE cars
+        // gap to the car immediately ahead among the ACTIVE cars — longer
+        // vehicles need more room so a bus doesn't telescope into the car ahead
         const ahead = nActive > 1 ? cars[ring[activeIdx[(ai + 1) % nActive]]] : null;
         let gapHold = Infinity;
         if (ahead) {
           let as = ahead.s;
           while (as <= c.s) as += loop.L;
-          gapHold = as - gap;
+          gapHold = as - gap - (V_SPEC[ahead.kind].half - 9) * 1.1;
         }
 
         // integrate speed toward target, then advance, then clamp to holds
@@ -754,35 +788,45 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
         const [x, z] = posAt(loop, c.s);
         const [x2, z2] = posAt(loop, c.s + 3);
         const heading = Math.atan2(z2 - z, x2 - x);
-
-        dummy.position.set(x, 4, z);
-        dummy.rotation.set(0, heading, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        body.setMatrixAt(ci, dummy.matrix);
-
-        dummy.position.set(x, 7.4, z);
-        dummy.updateMatrix();
-        cabin.setMatrixAt(ci, dummy.matrix);
-
         const cos = Math.cos(heading), sin = Math.sin(heading);
         const local = (fwd: number, side: number) =>
           [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
-        [[-5.7, -4.1], [-5.7, 4.1], [5.7, -4.1], [5.7, 4.1]].forEach(([f, s], n) => {
+        const spec = V_SPEC[c.kind];
+
+        const [bx, bz] = local(spec.bodyDX, 0);
+        dummy.position.set(bx, spec.bodyY, bz);
+        dummy.rotation.set(0, heading, 0);
+        dummy.scale.set(spec.bodyS[0], spec.bodyS[1], spec.bodyS[2]);
+        dummy.updateMatrix();
+        body.setMatrixAt(ci, dummy.matrix);
+
+        const [cbx, cbz] = local(spec.cabDX, 0);
+        dummy.position.set(cbx, spec.cabY, cbz);
+        dummy.scale.set(spec.cabS[0], spec.cabS[1], spec.cabS[2]);
+        dummy.updateMatrix();
+        cabin.setMatrixAt(ci, dummy.matrix);
+
+        const wf = spec.half * 0.62;
+        const wy = 2.25 + (spec.wheel - 1) * 2.05;
+        [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
           const [wx, wz] = local(f, s);
-          dummy.position.set(wx, 2.25, wz);
+          dummy.position.set(wx, wy, wz);
           dummy.rotation.set(Math.PI / 2, heading, 0);
+          dummy.scale.set(spec.wheel, spec.wheel, spec.wheel);
           dummy.updateMatrix();
           wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
         });
         dummy.rotation.set(0, heading, 0);
+        dummy.scale.set(1, 1, 1);
+        const lf = spec.half * 1.02;
+        const ly = 2.4 + spec.bodyY * 0.4;
         [-2.6, 2.6].forEach((side, n) => {
-          const [hx, hz] = local(9.15, side);
-          dummy.position.set(hx, 4.25, hz);
+          const [hx, hz] = local(lf, side);
+          dummy.position.set(hx, ly, hz);
           dummy.updateMatrix();
           headlights.setMatrixAt(ci * 2 + n, dummy.matrix);
-          const [tx, tz] = local(-9.15, side);
-          dummy.position.set(tx, 4.25, tz);
+          const [tx, tz] = local(-lf, side);
+          dummy.position.set(tx, ly, tz);
           dummy.updateMatrix();
           taillights.setMatrixAt(ci * 2 + n, dummy.matrix);
         });
