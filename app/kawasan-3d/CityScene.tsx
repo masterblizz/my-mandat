@@ -49,6 +49,9 @@ const TILE_H = 4;
 const ROAD_W = ROAD_GAP - PLOT;
 const GROUND_Y = TILE_H;
 const FLAT_BOX_H = 3;
+// Selection/hover border-frame thickness (ZoneTile) — see the note there:
+// a highlight border instead of recolouring the tile's own ground.
+const TILE_BORDER_W = 5;
 // Neutral asphalt gray, picked for contrast against every zoneGroundColor()
 // value (all cluster around luminance ~25-37) and the empty-cell ground
 // (#141b26) — this used to be #1b2331, which is within a couple of RGB
@@ -82,22 +85,46 @@ function ZoneTile({
   );
   useEffect(() => () => tileTex?.dispose(), [tileTex]);
   return (
-    <mesh
-      position={[cx, TILE_H / 2, cz]}
-      receiveShadow
-      onClick={(e) => { e.stopPropagation(); onSelect(zone.id); }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); setCursor("pointer"); }}
-      onPointerOut={() => { setHovered(false); setCursor("grab"); }}
-    >
-      <boxGeometry args={[PLOT, TILE_H, PLOT]} />
-      <meshStandardMaterial
-        color={grass ? grassColor(zone.kind, seed) : paved ? paved.base : zoneGroundColor(zone.kind)}
-        map={tileTex}
-        roughness={grass ? 0.95 : paved ? paved.rough : 1}
-        emissive={selected ? "#7dd3fc" : hovered ? "#1e293b" : "#000000"}
-        emissiveIntensity={selected ? 0.5 : hovered ? 0.6 : 0}
-      />
-    </mesh>
+    <group position={[cx, 0, cz]}>
+      <mesh
+        position={[0, TILE_H / 2, 0]}
+        receiveShadow
+        onClick={(e) => { e.stopPropagation(); onSelect(zone.id); }}
+        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); setCursor("pointer"); }}
+        onPointerOut={() => { setHovered(false); setCursor("grab"); }}
+      >
+        <boxGeometry args={[PLOT, TILE_H, PLOT]} />
+        <meshStandardMaterial
+          color={grass ? grassColor(zone.kind, seed) : paved ? paved.base : zoneGroundColor(zone.kind)}
+          map={tileTex}
+          roughness={grass ? 0.95 : paved ? paved.rough : 1}
+        />
+      </mesh>
+      {/* Selection/hover reads as a border frame, not a recoloured tile —
+          the ground colour (grass/paved/zoneGroundColor) stays put. */}
+      {(selected || hovered) && (
+        <group position={[0, TILE_H + 0.2, 0]}>
+          {(
+            [
+              [0, -PLOT / 2 + TILE_BORDER_W / 2, PLOT, TILE_BORDER_W],
+              [0, PLOT / 2 - TILE_BORDER_W / 2, PLOT, TILE_BORDER_W],
+              [-PLOT / 2 + TILE_BORDER_W / 2, 0, TILE_BORDER_W, PLOT],
+              [PLOT / 2 - TILE_BORDER_W / 2, 0, TILE_BORDER_W, PLOT],
+            ] as const
+          ).map(([x, z, w, d], i) => (
+            <mesh key={i} position={[x, 0, z]}>
+              <boxGeometry args={[w, 0.6, d]} />
+              <meshBasicMaterial
+                color={selected ? "#7dd3fc" : "#cbd5e1"}
+                toneMapped={false}
+                transparent
+                opacity={selected ? 0.95 : 0.45}
+              />
+            </mesh>
+          ))}
+        </group>
+      )}
+    </group>
   );
 }
 
