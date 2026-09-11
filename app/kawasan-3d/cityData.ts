@@ -238,7 +238,7 @@ export type BType =
   | "sawah" | "pond" | "field" | "plaza" | "kampung" | "shophouse" | "terrace"
   // civic / special facilities
   | "police" | "fire" | "hospital" | "library" | "museum" | "powerplant"
-  | "zoo" | "themepark";
+  | "zoo" | "themepark" | "riverbend";
 
 export type BSpec = {
   type: BType; slot: number; w: number; d: number; h: number;
@@ -333,6 +333,7 @@ export function buildingHeight(type: BType, zone: Zone) {
   if (type === "museum") return 30 + Math.round(zone.welfare * 0.1);
   if (type === "powerplant") return 44 + Math.round(zone.economy * 0.12);
   if (type === "zoo" || type === "themepark") return 14;
+  if (type === "riverbend") return 6;
   return 0;
 }
 
@@ -409,10 +410,21 @@ export function zoneBuildings(
     return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone)), ...extra };
   };
 
-  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) =>
-    spec(type, slot, { flag: zone.kind === "urban" && index === 0 }),
-  );
+  // A river zone's pond is its whole reason for being "Riverside" — at
+  // the standard FLAT_TYPES footprint (58x52, same as any decorative
+  // pond) it reads as a puddle lost in a 240x240 tile, especially once
+  // metro-core crowding (see skyscraperCount below) packs the rest of
+  // the slots. Give it a real waterway-sized footprint instead.
+  const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => {
+    const extra: Partial<BSpec> = { flag: zone.kind === "urban" && index === 0 };
+    if (zone.kind === "river" && type === "pond") { extra.w = 112; extra.d = 86; }
+    return spec(type, slot, extra);
+  });
   const used = new Set(base.map((b) => b.slot));
+  // The enlarged river pond (112x86, vs. the 72-unit slot pitch) spills
+  // into slot 1 (to its right) and slot 3 (below it) — reserve both so
+  // nothing else gets placed there and clips through it.
+  if (zone.kind === "river") { used.add(1); used.add(3); }
   const free = [1, 3, 5, 7, 8, 6, 2, 0].filter((slot) => !used.has(slot));
   const fillers: BType[] = traits.paddy && (zone.kind === "village" || zone.kind === "river")
     ? ["sawah", "sawah", "house"]
@@ -432,7 +444,12 @@ export function zoneBuildings(
         ? (hi > 0.4 ? 3 : 1)
         : zone.kind === "industry"
           ? (hi > 0.6 ? 1 : 0)
-          : Math.round(hi * 1.6); // housing / village / education / community / river
+          // river: never — a glass tower dropped on the same tile as the
+          // pond buries the one thing that makes this a "Riverside" zone,
+          // even at the Dense Metro core.
+          : zone.kind === "river"
+            ? 0
+            : Math.round(hi * 1.6); // housing / village / education / community
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.
@@ -539,7 +556,7 @@ export const BUILDING_COLOR: Record<BType, string> = {
   // civic / special — a bit more colour-coded so they read at a glance
   police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
   library: "#c3b48f", museum: "#cabfa4", powerplant: "#6b6f78",
-  zoo: "#6f9440", themepark: "#9a5ba8",
+  zoo: "#6f9440", themepark: "#9a5ba8", riverbend: "#4a7a6a",
 };
 
 // ── camera model (ported interaction contract from app/kawasan/page.tsx) ─
