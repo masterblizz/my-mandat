@@ -129,7 +129,7 @@ type Strut = { x: number; y: number; z: number; sx: number; sy: number; sz: numb
 type BBox = { type: BType; bx: number; bz: number; bw: number; bd: number; bh: number };
 
 export function Billboards({
-  placed, gridSize, density, traits, winLit, claimed,
+  placed, gridSize, density, traits, winLit, claimed, buildingBudget = 1,
 }: {
   placed: CellPlacement[];
   gridSize: number;
@@ -137,6 +137,12 @@ export function Billboards({
   traits: SeatTraits;
   winLit: number;
   claimed?: Set<string>;
+  /** Quality-tier knob (see quality.ts / CityScene's <Buildings>) — the
+   * fraction of non-flag/non-glow buildings that actually get instanced.
+   * MUST match that same thinning here, or a billboard can end up mounted
+   * on a wall that the budget dropped from the real scene: the anchor
+   * building never renders, so the panel reads as floating in mid-air. */
+  buildingBudget?: number;
 }) {
   const winLitRef = useRef(winLit);
   winLitRef.current = winLit;
@@ -154,6 +160,16 @@ export function Billboards({
     const struts: Strut[] = [];
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
+    // Exact copy of CityScene's <Buildings> `keep()` — same hash, same
+    // key shape, same flag/glow exemption — so "is this building tall
+    // enough to hang a billboard off" agrees with "does this building
+    // actually get instanced at this quality tier".
+    const keep = (key: string): boolean => {
+      if (buildingBudget >= 1) return true;
+      let h = 2166136261;
+      for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+      return ((h >>> 0) % 1000) / 1000 < buildingBudget;
+    };
 
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed?.has(`${col},${row}`)) continue;
@@ -162,10 +178,13 @@ export function Billboards({
       if (!n) continue;
       const rnd = rng(hashSeed(`${zone.id}:bb`));
 
-      // reproduce CityScene's building layout for this zone
+      // reproduce CityScene's building layout for this zone — including
+      // its budget thinning, or a billboard can anchor to a wall that
+      // was dropped and never actually renders.
       const boxes: BBox[] = [];
       for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         if (FLAT_TYPES.includes(spec.type)) continue;
+        if (!spec.flag && !spec.glow && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
         const sp = slotPos(spec.slot);
         const vertical = spec.type === "tower" || spec.type === "skyscraper" || spec.type === "antenna";
         const h0 = Math.max(spec.h, 6);
@@ -264,7 +283,7 @@ export function Billboards({
       }
     }
     return { panels, struts };
-  }, [placed, gridSize, density, traits, claimed]);
+  }, [placed, gridSize, density, traits, claimed, buildingBudget]);
 
   const byVariant = useMemo(() => {
     const m: Panel[][] = VARIANTS.map(() => []);

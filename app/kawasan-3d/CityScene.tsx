@@ -374,7 +374,7 @@ function Grid({
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
       {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} />}
-      {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} />}
+      {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
   );
