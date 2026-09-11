@@ -452,7 +452,7 @@ export function CityScene({
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
       <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
-      {gridSize >= 8 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} />}
+      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} />}
 
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
