@@ -115,7 +115,7 @@ function clamp(value: number) {
 // Real-constituency character, derived from the seat's actual name and
 // state so the generated city echoes the real kawasan: coastal seats get
 // a seafront, rice-bowl seats get paddies, highland seats get hills.
-type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean };
+type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean };
 
 // "bukit" ("hill") appears in plenty of fully urban seat names too (Bukit
 // Bintang, Bukit Gelugor, Bukit Mertajam...) — a blanket substring match
@@ -123,6 +123,20 @@ type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial
 // real hill-backdrop terrain despite the "Bukit" name; every other hilly
 // match below is a genuine highland/interior district name, not a prefix.
 const HILLY_BUKIT_EXCEPTIONS = ["bukit bendera", "bukit antarabangsa"];
+
+// Exact-name match (not substring — "bera" alone would also catch
+// "Berapit"/"Seberang Jaya", "sik" would catch "Kemasik"/"Sikamat", and
+// "gerik" would catch "Kota Anggerik"): real seats built around a named
+// recreational or dam lake. Hulu Terengganu → Tasik Kenyir; Bera → Tasik
+// Bera; Chini → Tasik Chini; Putrajaya → the lake itself; Gerik → Tasik
+// Temenggor; Bagan Serai → Tasik Bukit Merah / Bukit Merah Laketown;
+// Kajang → Tasik Kajang / Tasik Cempaka (Bandar Baru Bangi); Shah Alam →
+// Taman Tasik Shah Alam; Batang Ai → the Batang Ai dam lake, Sarawak;
+// Sik / Pedu → Tasik Pedu, Kedah.
+const LAKE_SEATS = new Set([
+  "hulu terengganu", "bera", "chini", "putrajaya", "gerik",
+  "bagan serai", "kajang", "shah alam", "batang ai", "sik", "pedu",
+]);
 
 function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
   const name = seatName.toLowerCase();
@@ -132,6 +146,7 @@ function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
     paddy: ["kedah", "perlis", "kelantan"].includes(stateId) || has("sabak bernam", "sungai besar", "sekinchan", "tanjung karang", "pendang", "yan", "kubang"),
     hilly: HILLY_BUKIT_EXCEPTIONS.includes(name) || has("gua", "hulu", "ulu", "cameron", "kundasang", "ranau", "keningau", "tambunan", "lipis", "raub", "bentong", "jelebu", "tapah", "kinta", "lenggong", "gerik", "baling", "jeli", "tenom"),
     industrial: has("gudang", "kulim", "shah alam", "klang", "perai", "prai", "senai", "skudai", "subang", "kapar", "larkin", "pasir gudang"),
+    lake: LAKE_SEATS.has(name) || has("tasik"),
   };
 }
 
