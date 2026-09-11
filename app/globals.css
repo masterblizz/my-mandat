@@ -1160,6 +1160,14 @@ input[type="range"].range-red::-moz-range-thumb {
   100% { transform: translate(var(--kw-lrt-x0, 0px), var(--kw-lrt-y0, 0px)) rotate(calc(var(--kw-lrt-r0, 0deg) + 180deg)); }
 }
 @keyframes kw-rise { from { transform: scaleZ(0.02); } to { transform: scaleZ(1); } }
+/* Manifesto & Campaign panel: a launched op's support-gain figure rises
+   off the button and fades, instead of the launch being silent. */
+@keyframes kw-float-gain {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.85); }
+  18% { opacity: 1; transform: translate(-50%, -4px) scale(1); }
+  70% { opacity: 1; transform: translate(-50%, -18px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(1); }
+}
 @keyframes kw-beacon { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.35; } }
 @keyframes kw-ring { from { transform: translateZ(2px) scale(0.5); opacity: 0.9; } to { transform: translateZ(2px) scale(1.35); opacity: 0; } }
 @keyframes kw-cloud { from { transform: translateX(-30%); } to { transform: translateX(130%); } }

@@ -49,6 +49,7 @@ const kawasan_page = {
   unsaved: { ms: "BELUM SIMPAN", en: "UNSAVED" },
   writeYourPledgesAndPolicyFocus: { ms: "Tulis janji dan fokus dasar anda untuk pengundi di sini...", en: "Write your pledges and policy focus for this seat's voters..." },
   saveManifesto: { ms: "SIMPAN MANIFESTO", en: "SAVE MANIFESTO" },
+  savedConfirm: { ms: "✓ DISIMPAN", en: "✓ SAVED" },
   quickCampaignLaunch: { ms: "LANCAR KEMPEN PANTAS · {homeStateName}", en: "QUICK CAMPAIGN LAUNCH · {homeStateName}" },
   day: { ms: "hari", en: "day" },
   activeOperationsInVisitWarRoom: { ms: "{operationsFilterOp} operasi aktif di {homeStateName}. Lawati War Room untuk urus kempen penuh.", en: "{operationsFilterOp} active operations in {homeStateName2}. Visit War Room to manage the full campaign." },

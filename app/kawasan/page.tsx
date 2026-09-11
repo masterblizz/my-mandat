@@ -2520,6 +2520,11 @@ export default function KawasanDevelopmentPage() {
   const [celebration, setCelebration] = useState<{ zoneId: string; at: number } | null>(null);
   const [manifestoDraft, setManifestoDraft] = useState(leader.manifesto ?? "");
   const [manifestoSaved, setManifestoSaved] = useState(true);
+  // Transient feedback states — Save flips a button to a green "✓ SAVED"
+  // confirmation for a moment, and a launched op's support-gain figure
+  // floats up off its button, instead of both actions being silent.
+  const [justSaved, setJustSaved] = useState(false);
+  const [launchedType, setLaunchedType] = useState<OpType | null>(null);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
@@ -2704,11 +2709,15 @@ export default function KawasanDevelopmentPage() {
       supportGain: template.supportGain,
     });
     setNotice(t(lang, "kawasan_page.launchedIn", { template: t(lang, `kawasan_page.opLabel_${type}`), ownSeatNameHomeState: ownSeat?.name ?? homeState.name }));
+    setLaunchedType(type);
+    window.setTimeout(() => setLaunchedType((cur) => (cur === type ? null : cur)), 1100);
   }
 
   function saveManifesto() {
     setLeader({ manifesto: manifestoDraft });
     setManifestoSaved(true);
+    setJustSaved(true);
+    window.setTimeout(() => setJustSaved(false), 1400);
   }
 
   if (!ownSeat) {
@@ -2789,23 +2798,28 @@ export default function KawasanDevelopmentPage() {
                   <div>
                     <div className="mb-1 flex items-center justify-between">
                       <span className="text-[10px] font-black tracking-widest text-text-muted">{t(lang, "kawasan_page.seatManifesto")}</span>
-                      {!manifestoSaved && <span className="text-[9px] font-bold tracking-widest" style={{ color: "var(--warn-orange)" }}>{t(lang, "kawasan_page.unsaved")}</span>}
+                      {!manifestoSaved && <span className="animate-pulse text-[9px] font-bold tracking-widest" style={{ color: "var(--warn-orange)" }}>{t(lang, "kawasan_page.unsaved")}</span>}
                     </div>
                     <textarea
                       value={manifestoDraft}
                       onChange={(event) => { setManifestoDraft(event.target.value); setManifestoSaved(false); }}
                       placeholder={t(lang, "kawasan_page.writeYourPledgesAndPolicyFocus")}
                       rows={4}
-                      className="w-full resize-none text-[12px]"
+                      className="w-full resize-none text-[12px] transition-shadow duration-300 focus:shadow-cyan-lg focus:outline-none"
                       style={{ background: "rgb(var(--bg-rgb) / 0.72)", border: "1px solid rgb(var(--cyan-rgb)/0.2)", color: "var(--text-primary)", padding: "8px" }}
                     />
                     <button
                       onClick={saveManifesto}
                       disabled={manifestoSaved}
-                      className="mt-2 border px-3 py-1.5 text-[10px] font-black tracking-widest disabled:cursor-not-allowed disabled:opacity-40"
-                      style={{ borderColor: "rgb(var(--gold-rgb)/0.45)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}
+                      className="mt-2 border px-3 py-1.5 text-[10px] font-black tracking-widest transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      style={{
+                        borderColor: justSaved ? "rgba(0,255,136,0.55)" : "rgb(var(--gold-rgb)/0.45)",
+                        color: justSaved ? "var(--neon-green)" : "var(--gold)",
+                        background: justSaved ? "rgba(0,255,136,0.12)" : "rgb(var(--gold-rgb)/0.08)",
+                        transform: justSaved ? "scale(1.05)" : "scale(1)",
+                      }}
                     >
-                      {t(lang, "kawasan_page.saveManifesto")}
+                      {justSaved ? t(lang, "kawasan_page.savedConfirm") : t(lang, "kawasan_page.saveManifesto")}
                     </button>
                   </div>
 
@@ -2817,17 +2831,30 @@ export default function KawasanDevelopmentPage() {
                       {(Object.keys(OP_TEMPLATES) as OpType[]).map((type) => {
                         const template = OP_TEMPLATES[type];
                         const affordable = resources.funds >= template.fundsCost && resources.manpower >= template.manpowerCost;
+                        const justLaunched = launchedType === type;
                         return (
                           <button
                             key={type}
                             onClick={() => launchQuickOperation(type)}
                             disabled={!affordable}
                             title={`RM ${formatNumber(template.fundsCost)} · ${template.manpowerCost} MAN`}
-                            className="border p-2 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
-                            style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)", background: "rgb(var(--bg-rgb) / 0.6)" }}
+                            className={`relative border p-2 text-left transition-all duration-200 enabled:hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-40 ${affordable && !justLaunched ? "animate-glow-pulse" : ""}`}
+                            style={{
+                              borderColor: justLaunched ? "rgba(0,255,136,0.6)" : "rgb(var(--cyan-rgb)/0.2)",
+                              background: justLaunched ? "rgba(0,255,136,0.14)" : "rgb(var(--bg-rgb) / 0.6)",
+                              transform: justLaunched ? "scale(1.05)" : undefined,
+                            }}
                           >
                             <div className="text-[10px] font-black tracking-wider" style={{ color: "var(--cyan)" }}>{t(lang, `kawasan_page.opLabel_${type}`)}</div>
                             <div className="mt-0.5 text-[9px] text-text-muted">RM {formatNumber(template.fundsCost)} · +{template.supportGain}%/{t(lang, "kawasan_page.day")}</div>
+                            {justLaunched && (
+                              <span
+                                className="pointer-events-none absolute left-1/2 top-0 text-[11px] font-black"
+                                style={{ color: "var(--neon-green)", animation: "kw-float-gain 1.1s ease-out forwards" }}
+                              >
+                                +{template.supportGain}% 🚀
+                              </span>
+                            )}
                           </button>
                         );
                       })}
