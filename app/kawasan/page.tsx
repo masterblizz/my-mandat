@@ -115,7 +115,7 @@ function clamp(value: number) {
 // Real-constituency character, derived from the seat's actual name and
 // state so the generated city echoes the real kawasan: coastal seats get
 // a seafront, rice-bowl seats get paddies, highland seats get hills.
-type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean };
+type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean };
 
 // "bukit" ("hill") appears in plenty of fully urban seat names too (Bukit
 // Bintang, Bukit Gelugor, Bukit Mertajam...) — a blanket substring match
@@ -138,6 +138,13 @@ const LAKE_SEATS = new Set([
   "bagan serai", "kajang", "shah alam", "batang ai", "sik", "pedu",
 ]);
 
+// Mount Kinabalu itself — not a generic hilly district, one specific,
+// unmistakable granite peak (South-East Asia's tallest). Kota Kinabalu is
+// the city named after it and where it's the skyline backdrop in every
+// tourism shot; Ranau/Kundasang (also `hilly`, generic rolling terrain)
+// are the district the mountain actually stands in.
+const KINABALU_SEATS = new Set(["kota kinabalu", "ranau", "kundasang"]);
+
 function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
   const name = seatName.toLowerCase();
   const has = (...words: string[]) => words.some((word) => name.includes(word));
@@ -147,6 +154,7 @@ function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
     hilly: HILLY_BUKIT_EXCEPTIONS.includes(name) || has("gua", "hulu", "ulu", "cameron", "kundasang", "ranau", "keningau", "tambunan", "lipis", "raub", "bentong", "jelebu", "tapah", "kinta", "lenggong", "gerik", "baling", "jeli", "tenom"),
     industrial: has("gudang", "kulim", "shah alam", "klang", "perai", "prai", "senai", "skudai", "subang", "kapar", "larkin", "pasir gudang"),
     lake: LAKE_SEATS.has(name) || has("tasik"),
+    kinabalu: KINABALU_SEATS.has(name),
   };
 }
 

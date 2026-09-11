@@ -11,6 +11,12 @@
 //                     a grass park rim, a boardwalk + gazebo out over the
 //                     water, paddle boats and shade trees (e.g. Tasik
 //                     Kenyir / Putrajaya / Taman Tasik Shah Alam).
+//   traits.kinabalu → Mount Kinabalu itself on the +X edge (the one still
+//                     free): forested foothills, a granite massif, a
+//                     jagged multi-peak summit cluster and a cloud band
+//                     wrapping the upper slopes (Kota Kinabalu / Ranau /
+//                     Kundasang) — a specific named mountain, not the
+//                     generic `hilly` bucket.
 // All cheap: a handful of planes/boxes/cones + one animated water shader.
 
 import { useMemo, useRef } from "react";
@@ -296,6 +302,106 @@ function Lake({ tod, span }: { tod: Tod; span: number }) {
   );
 }
 
+// Mount Kinabalu's real silhouette: a broad forested shoulder rising to a
+// bare granite massif, topped by a jagged crown of summit spires (Low's
+// Peak, St John's, South Peak, the "Ugly Sisters"...) around the summit
+// plateau's rim, usually half-wrapped in cloud by mid-morning.
+const PEAK_TINT: Record<Tod, string> = { day: "#c7c3ba", dusk: "#e8a672", night: "#5b6270" };
+const CLOUD_TINT: Record<Tod, string> = { day: "#f5f5f2", dusk: "#f0b98a", night: "#3d4552" };
+
+function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
+  const edge = span / 2; // grid's +X edge — the one edge Coast/Paddy/Lake leave free
+  const mx = edge + 300;
+  const mz = 0;
+  // Gentle size scaling across density presets, capped both ways so a
+  // rural 6x6 doesn't get a toy pebble and a dense-metro 30x30 doesn't
+  // get an absurd wall — real Kinabalu dwarfs any of these cities anyway.
+  const s = Math.min(1.5, Math.max(0.75, span / 6000));
+
+  const rnd = useMemo(() => {
+    let seed = 20260913;
+    return () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  }, []);
+  const foothills = useMemo(
+    () => Array.from({ length: 4 }, () => ({
+      x: (rnd() - 0.5) * 620 * s,
+      z: (rnd() - 0.5) * 420 * s + 140 * s,
+      r: (130 + rnd() * 70) * s,
+      h: (80 + rnd() * 60) * s,
+    })),
+    [rnd, s],
+  );
+  const spires = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => {
+      const a = (i / 6) * Math.PI * 2 + rnd() * 0.4;
+      const r = (55 + rnd() * 35) * s;
+      return {
+        x: Math.cos(a) * r, z: Math.sin(a) * r,
+        rad: (14 + rnd() * 12) * s, h: (70 + rnd() * 90) * s,
+        tiltX: (rnd() - 0.5) * 0.25, tiltZ: (rnd() - 0.5) * 0.25,
+      };
+    }),
+    [rnd, s],
+  );
+
+  const FOREST_H = 460 * s;
+  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.5;
+  const ROCK_H = 520 * s;
+  const summitY = ROCK_BASE_Y + ROCK_H;
+  const peakColor = PEAK_TINT[tod];
+  const cloudColor = CLOUD_TINT[tod];
+
+  return (
+    <group position={[mx, 0, mz]}>
+      {/* forested foothills leading up to the massif */}
+      {foothills.map((f, i) => (
+        <mesh key={i} position={[f.x, TILE_H + f.h / 2, f.z]} castShadow>
+          <coneGeometry args={[f.r, f.h, 8]} />
+          <meshStandardMaterial color="#2f5a3a" roughness={0.95} />
+        </mesh>
+      ))}
+      {/* forested lower slopes */}
+      <mesh position={[0, TILE_H + FOREST_H / 2, 0]} castShadow>
+        <coneGeometry args={[360 * s, FOREST_H, 10]} />
+        <meshStandardMaterial color="#355f3f" roughness={0.95} />
+      </mesh>
+      {/* bare granite massif, rising out of the treeline */}
+      <mesh position={[0, ROCK_BASE_Y + ROCK_H / 2, 0]} castShadow>
+        <coneGeometry args={[210 * s, ROCK_H, 10]} />
+        <meshStandardMaterial color={peakColor} roughness={0.85} />
+      </mesh>
+      {/* jagged summit spires around the plateau rim */}
+      {spires.map((sp, i) => (
+        <mesh
+          key={i}
+          position={[sp.x, summitY + sp.h / 2 - 10 * s, sp.z]}
+          rotation={[sp.tiltX, 0, sp.tiltZ]}
+          castShadow
+        >
+          <coneGeometry args={[sp.rad, sp.h, 6]} />
+          <meshStandardMaterial color={peakColor} roughness={0.8} />
+        </mesh>
+      ))}
+      {/* cloud band wrapping the upper slopes */}
+      {[0, 1, 2, 3].map((i) => {
+        const a = (i / 4) * Math.PI * 2;
+        const r = 200 * s;
+        return (
+          <mesh
+            key={i}
+            position={[Math.cos(a) * r, ROCK_BASE_Y + ROCK_H * 0.42, Math.sin(a) * r]}
+            scale={[3.2 * s, 0.55 * s, 1.3 * s]}
+            renderOrder={1}
+          >
+            <sphereGeometry args={[60, 10, 8]} />
+            <meshBasicMaterial color={cloudColor} transparent opacity={0.55} depthWrite={false} fog={false} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
 export function EdgeLandscape({
   traits, tod, span,
 }: {
@@ -303,12 +409,13 @@ export function EdgeLandscape({
   tod: Tod;
   span: number;
 }) {
-  if (!traits.coastal && !traits.paddy && !traits.lake) return null;
+  if (!traits.coastal && !traits.paddy && !traits.lake && !traits.kinabalu) return null;
   return (
     <group>
       {traits.coastal && <Coast tod={tod} span={span} />}
       {traits.paddy && <Paddy span={span} />}
       {traits.lake && <Lake tod={tod} span={span} />}
+      {traits.kinabalu && <Kinabalu tod={tod} span={span} />}
     </group>
   );
 }

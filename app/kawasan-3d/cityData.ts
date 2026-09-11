@@ -245,8 +245,8 @@ export type BSpec = {
   icon?: string; glow?: boolean; flag?: boolean;
 };
 
-export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean };
-export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false };
+export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean };
+export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false, kinabalu: false };
 
 export const FLAT_TYPES: BType[] = ["sawah", "pond", "field", "plaza"];
 
