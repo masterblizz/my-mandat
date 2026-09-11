@@ -874,15 +874,53 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
 // enters service above ~0.5 (peak), and both run faster — so at rush hour
 // a train passes the interchange roughly 3× as often as off-peak.
 const TRAIN_CARS = [-30, 0, 30];
+const CAR_LEN = 26;
 function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
+  // Bidirectional service (LRT sets don't turn around at the terminus) —
+  // a small headlight at each outermost end, whichever is currently
+  // leading.
+  const frontZ = TRAIN_CARS[TRAIN_CARS.length - 1] + CAR_LEN / 2 + 0.4;
+  const backZ = TRAIN_CARS[0] - CAR_LEN / 2 - 0.4;
   return (
     <group ref={tref} position={[0, DECK_Y + 8, 0]}>
       {TRAIN_CARS.map((z) => (
-        <mesh key={z} position={[0, 0, z]} castShadow>
-          <boxGeometry args={[12, 10, 26]} />
-          <meshStandardMaterial color="#dfe6ee" emissive="#8fd3ff" emissiveIntensity={0.2} />
-        </mesh>
+        <group key={z} position={[0, 0, z]}>
+          <mesh castShadow>
+            <boxGeometry args={[12, 10, CAR_LEN]} />
+            <meshStandardMaterial color="#dfe6ee" roughness={0.4} metalness={0.25} />
+          </mesh>
+          {/* window band, both sides */}
+          <mesh position={[0, 1, 0]}>
+            <boxGeometry args={[12.3, 3.4, CAR_LEN - 3]} />
+            <meshStandardMaterial color="#152230" emissive="#8fd3ff" emissiveIntensity={0.35} roughness={0.2} metalness={0.1} />
+          </mesh>
+          {/* livery accent stripe, low on the body */}
+          <mesh position={[0, -3.4, 0]}>
+            <boxGeometry args={[12.3, 1.1, CAR_LEN - 1]} />
+            <meshStandardMaterial color="#2f6bff" toneMapped={false} />
+          </mesh>
+          {/* roof-mounted AC pod */}
+          <mesh position={[0, 5.7, 0]}>
+            <boxGeometry args={[7.5, 1.4, 18]} />
+            <meshStandardMaterial color="#aeb6c2" roughness={0.6} />
+          </mesh>
+          {/* bogies, near each end */}
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[0, -5.6, s * (CAR_LEN / 2 - 4)]}>
+              <boxGeometry args={[10.4, 2.2, 5]} />
+              <meshStandardMaterial color="#12161c" roughness={0.9} />
+            </mesh>
+          ))}
+        </group>
       ))}
+      <mesh position={[0, -1, frontZ]}>
+        <sphereGeometry args={[0.9, 6, 5]} />
+        <meshBasicMaterial color="#fff6d8" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -1, backZ]}>
+        <sphereGeometry args={[0.9, 6, 5]} />
+        <meshBasicMaterial color="#fff6d8" toneMapped={false} />
+      </mesh>
     </group>
   );
 }
@@ -917,6 +955,13 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
         <boxGeometry args={[14, 4, span]} />
         <meshStandardMaterial color="#3b4557" />
       </mesh>
+      {/* running rails on top of the deck */}
+      {[-3.2, 3.2].map((x) => (
+        <mesh key={`rail${x}`} position={[x, DECK_Y + 2.3, 0]}>
+          <boxGeometry args={[0.6, 0.7, span]} />
+          <meshStandardMaterial color="#8b97aa" roughness={0.35} metalness={0.65} />
+        </mesh>
+      ))}
       {[-7.4, 7.4].map((x) => (
         <mesh key={x} position={[x, DECK_Y + 3, 0]}>
           <boxGeometry args={[1.6, 3, span]} />
@@ -924,10 +969,17 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
         </mesh>
       ))}
       {piers.map((z, i) => (
-        <mesh key={i} position={[0, DECK_Y / 2, z]} castShadow>
-          <boxGeometry args={[8, DECK_Y, 8]} />
-          <meshStandardMaterial color="#2f3846" />
-        </mesh>
+        <group key={i}>
+          <mesh position={[0, DECK_Y / 2, z]} castShadow>
+            <boxGeometry args={[8, DECK_Y, 8]} />
+            <meshStandardMaterial color="#2f3846" />
+          </mesh>
+          {/* hammerhead cap, widened under the deck like a real viaduct pier */}
+          <mesh position={[0, DECK_Y - 3, z]} castShadow>
+            <boxGeometry args={[16, 4, 10]} />
+            <meshStandardMaterial color="#2f3846" />
+          </mesh>
+        </group>
       ))}
       <LrtTrain tref={t1} />
       <LrtTrain tref={t2} />
@@ -948,7 +1000,7 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
     <group>
       <LrtLine axis="z" span={span} levelRef={levelRef} />
       <LrtLine axis="x" span={span} levelRef={levelRef} />
-      {/* central interchange: two crossed platforms + a roof on columns */}
+      {/* central interchange: two crossed platforms + a vaulted canopy on columns */}
       <group position={[0, DECK_Y + 2, 0]}>
         <mesh receiveShadow>
           <boxGeometry args={[38, 3, 150]} />
@@ -958,9 +1010,31 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
           <boxGeometry args={[150, 3, 38]} />
           <meshStandardMaterial color="#46536a" />
         </mesh>
-        <mesh position={[0, 20, 0]} castShadow>
-          <boxGeometry args={[64, 2, 64]} />
-          <meshStandardMaterial color="#cdd6e2" />
+        {/* platform-edge safety strip, both crossed platforms */}
+        {[-19, 19].map((x) => (
+          <mesh key={`edgex${x}`} position={[x, 1.6, 0]}>
+            <boxGeometry args={[1.2, 0.3, 150]} />
+            <meshBasicMaterial color="#ffc93f" toneMapped={false} />
+          </mesh>
+        ))}
+        {[-19, 19].map((z) => (
+          <mesh key={`edgez${z}`} position={[0, 1.6, z]}>
+            <boxGeometry args={[150, 0.3, 1.2]} />
+            <meshBasicMaterial color="#ffc93f" toneMapped={false} />
+          </mesh>
+        ))}
+        {/* shallow vaulted canopy — two tilted halves meeting at a ridge,
+            not a flat slab */}
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[0, 21.5, s * 8]} rotation={[s * -0.14, 0, 0]} castShadow>
+            <boxGeometry args={[64, 1.6, 34]} />
+            <meshStandardMaterial color="#cdd6e2" roughness={0.5} metalness={0.2} />
+          </mesh>
+        ))}
+        {/* illuminated interchange signage */}
+        <mesh position={[0, 15, 32]}>
+          <boxGeometry args={[16, 4, 1]} />
+          <meshBasicMaterial color="#2f6bff" toneMapped={false} />
         </mesh>
         {[-26, 26].flatMap((x) => [-26, 26].map((z) => (
           <mesh key={`${x}_${z}`} position={[x, 10, z]}>
