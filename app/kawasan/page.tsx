@@ -106,6 +106,12 @@ const PROJECTS: Project[] = [
   { id: "stadium", icon: "🏟️", cost: 350_000, target: "welfare", boost: 15, requires: { projectId: "school" } },
   { id: "surau", icon: "🕌", cost: 160_000, target: "welfare", boost: 9 },
   { id: "office", icon: "🏢", cost: 450_000, target: "economy", boost: 20, requires: { projectId: "internet" } },
+  { id: "demolish", icon: "🚜", cost: 200_000, target: "infra", boost: 13 },
+  { id: "hotel", icon: "🏨", cost: 380_000, target: "economy", boost: 17, requires: { zoneStat: { key: "economy", min: 50 } } },
+  { id: "police", icon: "🚓", cost: 210_000, target: "welfare", boost: 11 },
+  { id: "firestation", icon: "🚒", cost: 195_000, target: "infra", boost: 10 },
+  { id: "library", icon: "📚", cost: 175_000, target: "welfare", boost: 10, requires: { projectId: "school" } },
+  { id: "museum", icon: "🏛️", cost: 320_000, target: "economy", boost: 14, requires: { projectId: "mall" } },
 ];
 
 function clamp(value: number) {
@@ -496,6 +502,16 @@ const PROJECT_BUILDING: Record<string, BType> = {
   stadium: "stadium",
   surau: "masjid",
   office: "tower",
+  // This legacy CSS-3D renderer's BType union predates police/fire/
+  // library/museum/hotel (see app/kawasan-3d/cityData.ts) — stand in with
+  // the closest existing shape rather than growing this deprecated
+  // fallback's own type union.
+  demolish: "shophouse",
+  hotel: "tower",
+  police: "terminal",
+  firestation: "warehouse",
+  library: "school",
+  museum: "mall",
 };
 
 type BSpec = { type: BType; slot: number; w: number; d: number; h: number; icon?: string; glow?: boolean; flag?: boolean };
@@ -2622,6 +2638,15 @@ export default function KawasanDevelopmentPage() {
     if (typeof window === "undefined") return true;
     return new URLSearchParams(window.location.search).get("glmap") !== "0";
   }, []);
+  // Development is normally gated on hasWonElection (a real, saved career
+  // flag — see gameStore.ts). ?dev=1 previews the unlocked screen for this
+  // session only, same convention as ?glmap=0 above: it does NOT touch
+  // hasWonElection itself, so ordinary players are unaffected.
+  const devUnlock = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("dev") === "1";
+  }, []);
+  const unlocked = hasWonElection || devUnlock;
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
   const spent = zones.reduce((sum, zone) => sum + zone.projects.reduce((projectSum, projectId) => projectSum + (PROJECTS.find((project) => project.id === projectId)?.cost ?? 0), 0), 0);
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
@@ -2632,7 +2657,7 @@ export default function KawasanDevelopmentPage() {
     // Defensive: the UI never exposes a clickable project button pre-win
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
-    if (!hasWonElection) {
+    if (!unlocked) {
       setNotice(t(lang, "kawasan_page.winYourElectionFirstToUnlock"));
       return;
     }
@@ -2748,7 +2773,7 @@ export default function KawasanDevelopmentPage() {
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "kawasan_page.constituencyBuilderSim")}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.population)} {t(lang, "kawasan_page.population")} · {formatNumber(ownSeat.voters)} {t(lang, "kawasan_page.voters")} · {densityLabel}</div>
-            {!hasWonElection && (
+            {!unlocked && (
               <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.72)" }}>
                 🔒 {t(lang, "kawasan_page.developmentLockedWinYourElectionTo")}
               </div>
@@ -2756,7 +2781,7 @@ export default function KawasanDevelopmentPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/warroom")} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "kawasan_page.enterWarRoom")}</button>
-            {hasWonElection ? (
+            {unlocked ? (
               <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
             ) : (
               <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
@@ -2792,7 +2817,7 @@ export default function KawasanDevelopmentPage() {
           </TacticalPanel>
 
           <div className="space-y-4">
-            {!hasWonElection && (
+            {!unlocked && (
               <TacticalPanel title={t(lang, "kawasan_page.manifestoCampaign")}>
                 <div className="space-y-3">
                   <div>
@@ -2870,7 +2895,7 @@ export default function KawasanDevelopmentPage() {
             <TacticalPanel
               title={
                 selectedZone
-                  ? hasWonElection
+                  ? unlocked
                     ? t(lang, "kawasan_page.develop", { zoneName: zoneName(lang, selectedZone).toUpperCase() })
                     : t(lang, "kawasan_page.zoneInfo", { zoneName: zoneName(lang, selectedZone).toUpperCase() })
                   : t(lang, "kawasan_page.developArea")
@@ -2897,7 +2922,7 @@ export default function KawasanDevelopmentPage() {
                   </div>
                 </div>
               )}
-              {!hasWonElection ? (
+              {!unlocked ? (
                 <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 p-6 text-center">
                   <div className="text-3xl">🔒</div>
                   <div className="text-[12px] font-black tracking-widest text-white">

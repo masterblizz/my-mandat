@@ -91,7 +91,7 @@ function makeAdTexture(hex: string, seed: number): THREE.CanvasTexture {
 // buildings a billboard may hang off — anything with a real flat-ish wall
 const MOUNT_TYPES = new Set<BType>([
   "tower", "skyscraper", "shophouse", "mall", "hospital", "museum",
-  "terminal", "factory", "warehouse", "clinic", "school", "library", "powerplant",
+  "terminal", "factory", "warehouse", "clinic", "school", "library", "powerplant", "hotel",
 ]);
 
 // yaw so the panel's face points along the outward normal (matches the

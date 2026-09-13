@@ -58,7 +58,7 @@ import { pickVariantIndex, type BType } from "./cityData";
 import { ArchitecturalDetails } from "./buildingDetails";
 
 const GABLE_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
-const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse"]);
+const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse", "hotel"]);
 // Everything else that used to render as a bare InstancedBox now gets a
 // composed silhouette too: a flat-roof wall + a parapet rim + a small
 // rooftop plant unit. `masjid` gets a dome instead. `skyscraper` /

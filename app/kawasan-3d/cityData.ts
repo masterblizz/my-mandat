@@ -238,7 +238,8 @@ export type BType =
   | "sawah" | "pond" | "field" | "plaza" | "kampung" | "shophouse" | "terrace"
   // civic / special facilities
   | "police" | "fire" | "hospital" | "library" | "museum" | "powerplant"
-  | "zoo" | "themepark" | "riverbend";
+  | "zoo" | "themepark" | "riverbend"
+  | "hotel";
 
 export type BSpec = {
   type: BType; slot: number; w: number; d: number; h: number;
@@ -275,6 +276,7 @@ function footprint(type: BType) {
   if (type === "museum") return { w: 54, d: 44 };
   if (type === "powerplant") return { w: 60, d: 54 };
   if (type === "zoo" || type === "themepark") return { w: 58, d: 52 };
+  if (type === "hotel") return { w: 46, d: 44 };
   if (FLAT_TYPES.includes(type)) return { w: 58, d: 52 };
   return { w: 48, d: 42 };
 }
@@ -334,6 +336,7 @@ export function buildingHeight(type: BType, zone: Zone) {
   if (type === "powerplant") return 44 + Math.round(zone.economy * 0.12);
   if (type === "zoo" || type === "themepark") return 14;
   if (type === "riverbend") return 6;
+  if (type === "hotel") return 70 + Math.round(zone.economy * 0.6);
   return 0;
 }
 
@@ -353,11 +356,19 @@ const PROJECT_BUILDING: Record<string, BType> = {
   road: "plaza", clinic: "clinic", internet: "antenna", flood: "pond", market: "stall",
   school: "school", park: "field", bus: "terminal", mall: "mall", stadium: "stadium",
   surau: "masjid", office: "tower",
+  // demolish reuses the "shophouse" shell (an old low-rise redeveloped
+  // into a modern unit) rather than a dedicated BType — police/fire/
+  // library/museum already exist as real civic BTypes (see BOXCAP_TYPES
+  // in procedural.tsx) from the zone-filler work, just never wired up as
+  // something a player can actually choose to build until now.
+  demolish: "shophouse", hotel: "hotel", police: "police", firestation: "fire",
+  library: "library", museum: "museum",
 };
 
 const PROJECT_ICON: Record<string, string> = {
   road: "🛣️", clinic: "🏥", internet: "📡", flood: "🌊", market: "🏪", school: "🏫",
   park: "🌳", bus: "🚌", mall: "🏬", stadium: "🏟️", surau: "🕌", office: "🏢",
+  demolish: "🚜", hotel: "🏨", police: "🚓", firestation: "🚒", library: "📚", museum: "🏛️",
 };
 
 const ZONE_FILLER: Record<ZoneKind, BType[]> = {
@@ -556,7 +567,7 @@ export const BUILDING_COLOR: Record<BType, string> = {
   // civic / special — a bit more colour-coded so they read at a glance
   police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
   library: "#c3b48f", museum: "#cabfa4", powerplant: "#6b6f78",
-  zoo: "#6f9440", themepark: "#9a5ba8", riverbend: "#4a7a6a",
+  zoo: "#6f9440", themepark: "#9a5ba8", riverbend: "#4a7a6a", hotel: "#b98f6a",
 };
 
 // ── camera model (ported interaction contract from app/kawasan/page.tsx) ─
