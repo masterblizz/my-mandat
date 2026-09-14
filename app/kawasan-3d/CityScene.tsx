@@ -21,6 +21,7 @@ import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
 import { StreetFurniture } from "./streetFurniture";
+import { ParkedVehicles } from "./parkedVehicles";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
 import { Billboards } from "./billboards";
@@ -66,6 +67,10 @@ const TILE_BORDER_W = 5;
 // day, only its lit brightness — and a fixed neutral colour holds contrast
 // against every TOD's zone palette by construction, not by coincidence.
 const ROAD_COLOR = "#5a6270";
+// Wet asphalt: darker (water film absorbs more light) and, combined with
+// the lowered roughness / added metalness at the mesh below, picks up a
+// sheen off the sky/env map instead of the flat matte look on a clear day.
+const WET_ROAD_COLOR = "#33383f";
 
 export type PerfSample = { fps: number; calls: number; tris: number };
 
@@ -319,7 +324,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell,
+  buildingBudget, larges, claimed, notchByCell, weather = "clear",
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -328,6 +333,7 @@ function Grid({
   larges: ReturnType<typeof reserveLargeFootprints>["larges"];
   claimed: Set<string>;
   notchByCell: Map<string, RoundaboutCorner>;
+  weather?: Weather;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -359,18 +365,31 @@ function Grid({
       {vRoads.map((x, i) => (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
           <planeGeometry args={[ROAD_W, span]} />
-          <meshStandardMaterial color={ROAD_COLOR} map={roadTex.vertical} />
+          <meshStandardMaterial
+            color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
+            map={roadTex.vertical}
+            roughness={weather === "rain" ? 0.28 : 1}
+            metalness={weather === "rain" ? 0.22 : 0}
+            envMapIntensity={weather === "rain" ? 1.4 : 1}
+          />
         </mesh>
       ))}
       {hRoads.map((z, i) => (
         <mesh key={`h${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.8, z]} receiveShadow>
           <planeGeometry args={[span, ROAD_W]} />
-          <meshStandardMaterial color={ROAD_COLOR} map={roadTex.horizontal} />
+          <meshStandardMaterial
+            color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
+            map={roadTex.horizontal}
+            roughness={weather === "rain" ? 0.28 : 1}
+            metalness={weather === "rain" ? 0.22 : 0}
+            envMapIntensity={weather === "rain" ? 1.4 : 1}
+          />
         </mesh>
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} claimed={claimed} />
       <StreetFurniture placed={placed} claimed={claimed} />
+      <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize) && gridSize < 22} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
@@ -487,6 +506,7 @@ export function CityScene({
         larges={larges}
         claimed={claimed}
         notchByCell={notchByCell}
+        weather={weather}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
