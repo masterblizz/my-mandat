@@ -77,6 +77,29 @@ export const PROCEDURAL_TYPES = new Set<BType>([
   ...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES),
   ...Array.from(BOXCAP_TYPES), ...Array.from(DOME_TYPES),
 ]);
+
+// Colour polish: every building of a given BType used to share exactly
+// one flat BUILDING_COLOR — realistic for institutional/uniform types
+// (a school, a mall, a police station really are one corporate/govt
+// colour), but real terrace houses, kampung homes and shophouses are
+// individually owned and painted, and a whole street of them in one
+// identical hue reads flat. These few residential/small-commercial
+// types get a small per-instance pastel palette instead — real streets
+// of these types (a kampung, a row of heritage shophouses) show exactly
+// this kind of muted, varied-but-harmonious palette, not a rainbow.
+const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
+  kampung: ["#b89a7c", "#c9ac8c", "#a9c2a0", "#b6c6d2", "#d2b6a4"],
+  house: ["#e0d3b6", "#d8c4a8", "#c9d4c0", "#d2c8d8", "#e0c8b8"],
+  terrace: ["#c9b79c", "#bfa98c", "#a9b8a0", "#b2b9c8", "#c9b0a0"],
+  shophouse: ["#d8bfae", "#c9a882", "#a9bfa0", "#b2c4d0", "#d4a8a0", "#e0d0a0"],
+  shop: ["#dcd2be", "#d2c8a8", "#c8d4c8", "#d8c8d0"],
+  stall: ["#ded7c6", "#d4c8a8", "#c8d0c0"],
+};
+// Same well-tested hash as pickVariantIndex, keyed with a suffix so the
+// colour pick doesn't correlate 1:1 with the geometry-variant pick.
+function pickColorIndex(key: string, count: number): number {
+  return pickVariantIndex(`${key}:hue`, count);
+}
 // Gable + setback carry 3 shape variants; the flat-roof / dome families
 // carry 2 (the variety there is rooftop-unit placement, not proportion).
 export function variantCount(type: BType): number {
@@ -338,29 +361,32 @@ export function ProceduralBuildings({
   color: string;
   winLit: number;
 }) {
+  const palette = PASTEL_PALETTES[type];
   const buckets = useMemo(() => {
     const vc = variantCount(type);
-    const m = new Map<number, BuildingInstance[]>();
+    const m = new Map<string, { variant: number; colorIdx: number; items: BuildingInstance[] }>();
     for (const it of items) {
       const vi = pickVariantIndex(it.key, vc);
-      const arr = m.get(vi);
-      if (arr) arr.push(it);
-      else m.set(vi, [it]);
+      const ci = palette ? pickColorIndex(it.key, palette.length) : 0;
+      const bk = `${vi}:${ci}`;
+      const bucket = m.get(bk);
+      if (bucket) bucket.items.push(it);
+      else m.set(bk, { variant: vi, colorIdx: ci, items: [it] });
     }
-    return Array.from(m.entries());
-  }, [items, type]);
+    return Array.from(m.values());
+  }, [items, type, palette]);
 
   return (
     <group>
       <ArchitecturalDetails type={type} items={items} groundY={groundY} winLit={winLit} />
-      {buckets.map(([variant, vItems]) => (
+      {buckets.map(({ variant, colorIdx, items: vItems }) => (
         <ProceduralVariant
-          key={`${type}-${variant}`}
+          key={`${type}-${variant}-${colorIdx}`}
           type={type}
           variant={variant}
           items={vItems}
           groundY={groundY}
-          color={color}
+          color={palette ? palette[colorIdx] : color}
           winLit={winLit}
         />
       ))}
