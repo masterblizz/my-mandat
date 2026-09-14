@@ -12,6 +12,8 @@ import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
 import { ProjectLandmarks } from "./buildingDetails";
+import { RoofDetails } from "./roofDetails";
+import { UtilityLines } from "./utilities";
 import {
   CityEnvironment, StreetLamps, TrafficLights, Traffic, Lrt, ZoneBeacon, type Weather,
 } from "./scenery";
@@ -264,6 +266,10 @@ function Buildings({
         ));
       })}
       <ProjectLandmarks items={groups.flatMap(([, items]) => items.filter((item) => item.projectId))} groundY={GROUND_Y} />
+      <RoofDetails
+        items={groups.filter(([type]) => type === "house" || type === "terrace" || type === "kampung").flatMap(([, items]) => items)}
+        groundY={GROUND_Y}
+      />
     </group>
   );
 }
@@ -484,6 +490,7 @@ export function CityScene({
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
+      <UtilityLines gridSize={gridSize} />
       <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
       <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
