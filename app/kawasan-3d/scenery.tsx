@@ -521,6 +521,13 @@ const CAR_ARC_SPEED = 34;     // cornering / roundabout speed cap
 const CAR_GAP = 26;           // bumper gap kept to the car ahead
 const STOP_MARGIN = 12;       // how far back from the junction to hold on red
 const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
+// The roundabout's own carriageway deck sits this far above the tile-top
+// ground level every other car position is calibrated against (see
+// roundabout.tsx's DECK_Y = TILE_H + 0.4, "clears z-fighting" against the
+// tile tops) — without adding it back here, a car circling the roundabout
+// rendered at ordinary road height was sitting slightly *below* the
+// actual roundabout surface, reading as sunk into the kerb/deck.
+const ROUNDABOUT_Y_LIFT = 0.4;
 
 type Piece = {
   kind: "line" | "arc";
@@ -611,7 +618,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
-  const { loops, cars } = useMemo(() => {
+  const { loops, cars, roundaboutLoopIdx } = useMemo(() => {
     let seed = gridSize * 911 + 7;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
     const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
@@ -621,7 +628,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
 
     const loops: Loop[] = [];
     const cars: Car[] = [];
-    const addCarsTo = (loopIdx: number, n: number) => {
+    const addCarsTo = (loopIdx: number, n: number, forceKind?: VKind) => {
       const L = loops[loopIdx].L;
       for (let k = 0; k < n; k++) {
         cars.push({
@@ -629,7 +636,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
           s: ((k + rnd()) / n) * L,
           speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
           color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
-          kind: pickKind(rnd()),
+          kind: forceKind ?? pickKind(rnd()),
         });
       }
     };
@@ -663,12 +670,20 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     }
     // Circular flow around the central roundabout. It runs at r=120,
     // safely inside the ring's 84..156 road band and outside the island.
+    // Kept to compact "car" kind only — the van/lorry/bus body/cabin
+    // offsets (V_SPEC) are placed via a single heading sampled at the
+    // vehicle's centre, a fine approximation on a straight or a brief
+    // corner arc but visibly "bent" on a long vehicle riding a tight,
+    // *sustained* curve, which the roundabout — unlike the rest of the
+    // network — actually is.
+    let roundaboutLoopIdx = -1;
     if (gridSize >= 6) {
       const [rcx, rcz] = roundaboutCentre(gridSize);
+      roundaboutLoopIdx = loops.length;
       loops.push(roundaboutLoop(rcx, rcz, 120));
-      addCarsTo(loops.length - 1, 20);
+      addCarsTo(loops.length - 1, 20, "car");
     }
-    return { loops, cars };
+    return { loops, cars, roundaboutLoopIdx };
   }, [gridSize, centre]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
@@ -732,6 +747,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     for (let li = 0; li < loops.length; li++) {
       const loop = loops[li];
       const ring = perLoop[li];
+      const yLift = li === roundaboutLoopIdx ? ROUNDABOUT_Y_LIFT : 0;
       if (li >= activeLoops) {
         for (const ci of ring) parkOne(ci);
         continue;
@@ -804,20 +820,20 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
         const spec = V_SPEC[c.kind];
 
         const [bx, bz] = local(spec.bodyDX, 0);
-        dummy.position.set(bx, spec.bodyY, bz);
+        dummy.position.set(bx, spec.bodyY + yLift, bz);
         dummy.rotation.set(0, heading, 0);
         dummy.scale.set(spec.bodyS[0], spec.bodyS[1], spec.bodyS[2]);
         dummy.updateMatrix();
         body.setMatrixAt(ci, dummy.matrix);
 
         const [cbx, cbz] = local(spec.cabDX, 0);
-        dummy.position.set(cbx, spec.cabY, cbz);
+        dummy.position.set(cbx, spec.cabY + yLift, cbz);
         dummy.scale.set(spec.cabS[0], spec.cabS[1], spec.cabS[2]);
         dummy.updateMatrix();
         cabin.setMatrixAt(ci, dummy.matrix);
 
         const wf = spec.half * 0.62;
-        const wy = 2.25 + (spec.wheel - 1) * 2.05;
+        const wy = 2.25 + (spec.wheel - 1) * 2.05 + yLift;
         [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
           const [wx, wz] = local(f, s);
           dummy.position.set(wx, wy, wz);
@@ -829,7 +845,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
         dummy.rotation.set(0, heading, 0);
         dummy.scale.set(1, 1, 1);
         const lf = spec.half * 1.02;
-        const ly = 2.4 + spec.bodyY * 0.4;
+        const ly = 2.4 + spec.bodyY * 0.4 + yLift;
         [-2.6, 2.6].forEach((side, n) => {
           const [hx, hz] = local(lf, side);
           dummy.position.set(hx, ly, hz);
@@ -987,6 +1003,11 @@ function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
     </group>
   );
 }
+// Half-width of the central interchange's own crossed platforms (see
+// Lrt's ±19 platform-edge strips) — each line's raw track stops this far
+// short of centre on both sides so the two lines never overlap there.
+const INTERCHANGE_GAP = 19;
+
 function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number> }) {
   // Line-coded livery — the N-S and E-W lines read as two distinct
   // services where they cross at the interchange, the same way KL's
@@ -999,7 +1020,10 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
   const d2 = useRef(axis === "x" ? 1 : -1);
   const piers = useMemo(() => {
     const out: number[] = [];
-    for (let z = -span / 2 + ROAD_GAP; z <= span / 2 - ROAD_GAP; z += ROAD_GAP * 2) out.push(z);
+    for (let z = -span / 2 + ROAD_GAP; z <= span / 2 - ROAD_GAP; z += ROAD_GAP * 2) {
+      if (Math.abs(z) < INTERCHANGE_GAP) continue; // the interchange stands on its own 4 columns
+      out.push(z);
+    }
     return out;
   }, [span]);
   useFrame((_, dt) => {
@@ -1017,24 +1041,39 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
     if (twoTrains) advance(t2.current, d2);
     if (t2.current) t2.current.visible = twoTrains;
   });
+  // The N-S and E-W lines both pass through world origin at the same
+  // DECK_Y — rendered as one continuous span each, their deck/rail/
+  // parapet boxes physically overlapped (and z-fought) in the crossing
+  // square, on top of the interchange's own crossed platforms occupying
+  // that same footprint. Each line's raw track now stops INTERCHANGE_GAP
+  // short of centre on both sides — matching the interchange platform's
+  // own half-width (see Lrt's ±19 platform-edge strips) — so the
+  // interchange alone provides the surface through the crossing instead
+  // of three overlapping slabs fighting for it.
+  const segLen = span / 2 - INTERCHANGE_GAP;
+  const segCentre = INTERCHANGE_GAP + segLen / 2;
   return (
     <group rotation={[0, axis === "x" ? Math.PI / 2 : 0, 0]}>
-      <mesh position={[0, DECK_Y, 0]} castShadow receiveShadow>
-        <boxGeometry args={[14, 4, span]} />
-        <meshStandardMaterial color="#3b4557" />
-      </mesh>
-      {/* running rails on top of the deck */}
-      {[-3.2, 3.2].map((x) => (
-        <mesh key={`rail${x}`} position={[x, DECK_Y + 2.3, 0]}>
-          <boxGeometry args={[0.6, 0.7, span]} />
-          <meshStandardMaterial color="#8b97aa" roughness={0.35} metalness={0.65} />
-        </mesh>
-      ))}
-      {[-7.4, 7.4].map((x) => (
-        <mesh key={x} position={[x, DECK_Y + 3, 0]}>
-          <boxGeometry args={[1.6, 3, span]} />
-          <meshStandardMaterial color="#5b6a80" emissive="#7dd3fc" emissiveIntensity={0.12} />
-        </mesh>
+      {([-1, 1] as const).map((side) => (
+        <group key={side}>
+          <mesh position={[0, DECK_Y, side * segCentre]} castShadow receiveShadow>
+            <boxGeometry args={[14, 4, segLen]} />
+            <meshStandardMaterial color="#3b4557" />
+          </mesh>
+          {/* running rails on top of the deck */}
+          {[-3.2, 3.2].map((x) => (
+            <mesh key={`rail${x}`} position={[x, DECK_Y + 2.3, side * segCentre]}>
+              <boxGeometry args={[0.6, 0.7, segLen]} />
+              <meshStandardMaterial color="#8b97aa" roughness={0.35} metalness={0.65} />
+            </mesh>
+          ))}
+          {[-7.4, 7.4].map((x) => (
+            <mesh key={x} position={[x, DECK_Y + 3, side * segCentre]}>
+              <boxGeometry args={[1.6, 3, segLen]} />
+              <meshStandardMaterial color="#5b6a80" emissive="#7dd3fc" emissiveIntensity={0.12} />
+            </mesh>
+          ))}
+        </group>
       ))}
       {piers.map((z, i) => (
         <group key={i}>
