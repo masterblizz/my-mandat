@@ -145,3 +145,103 @@ export function ArchitecturalDetails({
     </group>
   );
 }
+
+// Player-built facilities need a stronger identity than their base building
+// family alone: an education-zone can already contain a school, for example.
+// These small, non-instanced landmark kits only render for approved projects,
+// so they stay cheap while making a close camera view immediately legible.
+const PROJECT_ACCENT: Record<string, string> = {
+  road: "#fbbf24", clinic: "#ef4444", internet: "#38bdf8", flood: "#0ea5e9",
+  market: "#f97316", school: "#2563eb", park: "#22c55e", bus: "#facc15",
+  mall: "#a855f7", stadium: "#f8fafc", surau: "#34d399", office: "#60a5fa",
+  demolish: "#fb923c", hotel: "#ec4899", police: "#3b82f6", firestation: "#ef4444",
+  library: "#a16207", museum: "#d4a574",
+};
+
+function FacilityKit({ item, groundY }: { item: BuildingInstance; groundY: number }) {
+  const project = item.projectId!;
+  const accent = PROJECT_ACCENT[project] ?? "#facc15";
+  const roofY = groundY + Math.max(item.h, 4) + 1.1;
+  const frontZ = item.d * 0.54;
+  const signY = groundY + Math.min(Math.max(item.h * 0.48, 7), 19);
+  const signW = Math.min(Math.max(item.w * 0.52, 14), 34);
+
+  return (
+    <group position={[item.x, 0, item.z]}>
+      {/* A bright fascia is shared by every facility. It is deliberately
+          geometric rather than text-based so it remains readable at range
+          and does not need a font texture. */}
+      <mesh position={[0, signY, frontZ]} castShadow>
+        <boxGeometry args={[signW, 4.2, 0.9]} />
+        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.22} roughness={0.35} />
+      </mesh>
+
+      {project === "school" && (
+        <group>
+          {/* School: blue clock-tower beacon, flagpole and a marked court. */}
+          <mesh position={[0, roofY + 7, 0]} castShadow><boxGeometry args={[7, 14, 7]} /><meshStandardMaterial color="#e8eef5" roughness={0.55} /></mesh>
+          <mesh position={[0, roofY + 14.2, frontZ * 0.15]}><sphereGeometry args={[2.35, 12, 8]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+          <mesh position={[-item.w * 0.33, groundY + 13, frontZ * 0.72]} castShadow><cylinderGeometry args={[0.45, 0.55, 26, 8]} /><meshStandardMaterial color="#94a3b8" metalness={0.7} /></mesh>
+          <mesh position={[-item.w * 0.27, groundY + 21, frontZ * 0.72]}><boxGeometry args={[11, 6, 0.45]} /><meshBasicMaterial color="#2563eb" /></mesh>
+          <mesh position={[item.w * 0.28, groundY + 0.7, frontZ * 0.72]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[Math.min(item.w * 0.34, 22), Math.min(item.d * 0.34, 18)]} /><meshBasicMaterial color="#60a5fa" /></mesh>
+        </group>
+      )}
+      {project === "clinic" && (
+        <group position={[0, roofY + 3, 0]}>
+          {/* Clinic: highly visible medical cross above the roofline. */}
+          <mesh><boxGeometry args={[4, 13, 1.3]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+          <mesh><boxGeometry args={[13, 4, 1.35]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+        </group>
+      )}
+      {project === "internet" && (
+        <group position={[0, roofY + 15, 0]}>
+          <mesh><cylinderGeometry args={[0.7, 1.2, 30, 6]} /><meshStandardMaterial color="#64748b" metalness={0.7} /></mesh>
+          {[7, 13].map((y) => <mesh key={y} position={[0, y - 15, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[6, 0.45, 6, 18]} /><meshBasicMaterial color="#38bdf8" transparent opacity={0.75} /></mesh>)}
+        </group>
+      )}
+      {project === "park" && (
+        <group>
+          {[[-0.26, -0.18], [0.25, -0.12], [0.04, 0.28]].map(([x, z], i) => <group key={i} position={[item.w * x, groundY + 7, item.d * z]}><mesh><cylinderGeometry args={[1.1, 1.5, 14, 7]} /><meshStandardMaterial color="#7c4a28" /></mesh><mesh position={[0, 10, 0]}><sphereGeometry args={[7, 8, 6]} /><meshStandardMaterial color="#22c55e" /></mesh></group>)}
+        </group>
+      )}
+      {project === "bus" && (
+        <group position={[0, groundY + 4.5, frontZ * 0.76]}>
+          <mesh castShadow><boxGeometry args={[Math.min(item.w * 0.6, 26), 7, 7]} /><meshStandardMaterial color="#facc15" roughness={0.45} /></mesh>
+          <mesh position={[0, 1.1, 3.65]}><boxGeometry args={[Math.min(item.w * 0.42, 18), 2.4, 0.3]} /><meshBasicMaterial color="#172554" /></mesh>
+        </group>
+      )}
+      {project === "road" && (
+        <group position={[item.w * 0.3, groundY + 13, frontZ * 0.68]}>
+          <mesh castShadow><cylinderGeometry args={[0.5, 0.7, 26, 8]} /><meshStandardMaterial color="#475569" metalness={0.65} /></mesh>
+          <mesh position={[0, 12, 0]}><boxGeometry args={[7, 1.4, 2]} /><meshBasicMaterial color="#fbbf24" /></mesh>
+          <mesh position={[0, 10, 0]}><sphereGeometry args={[2.2, 8, 6]} /><meshBasicMaterial color="#fff3b0" /></mesh>
+        </group>
+      )}
+      {project === "flood" && (
+        <group position={[0, groundY + 2.2, 0]}>
+          <mesh><cylinderGeometry args={[5.5, 5.5, 4.4, 12]} /><meshStandardMaterial color="#64748b" roughness={0.75} /></mesh>
+          <mesh position={[0, 2.35, 0]}><cylinderGeometry args={[3.8, 3.8, 0.3, 18]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+        </group>
+      )}
+      {project === "market" && (
+        <group position={[0, roofY + 2, 0]}>{[-0.28, 0, 0.28].map((x, i) => <mesh key={x} position={[item.w * x, 0, 0]}><coneGeometry args={[5.4, 6, 4]} /><meshStandardMaterial color={["#ef4444", "#fbbf24", "#2563eb"][i]} /></mesh>)}</group>
+      )}
+      {project === "mall" && <mesh position={[0, roofY + 5, 0]}><boxGeometry args={[item.w * 0.58, 9, 2.2]} /><meshStandardMaterial color="#a855f7" emissive="#a855f7" emissiveIntensity={0.2} /></mesh>}
+      {project === "office" && <mesh position={[0, roofY + 0.8, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[item.w * 0.16, item.w * 0.2, 24]} /><meshBasicMaterial color="#f8fafc" /></mesh>}
+      {project === "hotel" && <mesh position={[0, roofY + 5, 0]}><boxGeometry args={[item.w * 0.55, 8, 1.2]} /><meshBasicMaterial color="#ec4899" /></mesh>}
+      {project === "police" && <group position={[0, roofY + 4, 0]}><mesh><boxGeometry args={[10, 2.4, 3]} /><meshBasicMaterial color="#2563eb" /></mesh><mesh position={[0, 1.8, 0]}><sphereGeometry args={[1.2, 8, 6]} /><meshBasicMaterial color="#ef4444" /></mesh></group>}
+      {project === "stadium" && (
+        <group>{[-1, 1].map((s) => <group key={s} position={[s * item.w * 0.34, roofY + 12, 0]}><mesh><cylinderGeometry args={[0.65, 0.9, 24, 8]} /><meshStandardMaterial color="#cbd5e1" /></mesh><mesh position={[0, 12, 0]}><boxGeometry args={[10, 4, 2]} /><meshBasicMaterial color="#f8fafc" /></mesh></group>)}</group>
+      )}
+      {project === "surau" && <mesh position={[0, roofY + 5, 0]}><sphereGeometry args={[7, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#34d399" metalness={0.15} /></mesh>}
+      {project === "firestation" && <mesh position={[item.w * 0.3, roofY + 10, 0]} castShadow><boxGeometry args={[7, 20, 7]} /><meshStandardMaterial color="#dc2626" roughness={0.55} /></mesh>}
+      {project === "library" && <group position={[0, roofY + 2, 0]}>{[-5, 0, 5].map((x, i) => <mesh key={x} position={[x, 0, 0]}><boxGeometry args={[3.6, 8 + i * 2, 5]} /><meshStandardMaterial color={["#b45309", "#0f766e", "#7c2d12"][i]} /></mesh>)}</group>}
+      {project === "museum" && <mesh position={[0, roofY + 5, 0]}><coneGeometry args={[item.w * 0.28, 12, 4]} /><meshStandardMaterial color="#d4a574" roughness={0.7} /></mesh>}
+    </group>
+  );
+}
+
+export function ProjectLandmarks({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
+  if (!items.length) return null;
+  return <group>{items.map((item) => <FacilityKit key={`facility-${item.key}`} item={item} groundY={groundY} />)}</group>;
+}

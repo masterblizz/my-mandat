@@ -28,6 +28,7 @@ export type BuildingInstance = {
   w: number;
   d: number;
   h: number;     // target height (world units)
+  projectId?: string;
 };
 
 const HEIGHT_LERP = 6;      // per-second approach rate for the grow tween

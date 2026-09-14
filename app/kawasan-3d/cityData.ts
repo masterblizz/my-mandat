@@ -244,6 +244,7 @@ export type BType =
 export type BSpec = {
   type: BType; slot: number; w: number; d: number; h: number;
   icon?: string; glow?: boolean; flag?: boolean;
+  projectId?: string;
 };
 
 export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean };
@@ -464,7 +465,11 @@ export function zoneBuildings(
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.
-  const reserve = metroCore ? (zone.projects.length ? 1 : 0) : 2;
+  // Reserve real lots for player-approved facilities before dense filler
+  // buildings are generated, so an approved school or clinic visibly
+  // replaces a site in the zone instead of being lost in a full grid.
+  const projectReserve = Math.min(zone.projects.length, free.length);
+  const reserve = metroCore ? projectReserve : Math.max(2, projectReserve);
   const skyscrapers: BSpec[] = Array.from(
     { length: Math.min(skyscraperCount, Math.max(0, free.length - reserve)) },
     () => spec("skyscraper", free.pop() as number),
@@ -479,10 +484,10 @@ export function zoneBuildings(
   );
   const facilities: BSpec[] = zone.projects.map((projectId, index) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
-    const slot = free[index % free.length];
+    const slot = free[index % Math.max(1, free.length)] ?? 4;
     return {
       type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone),
-      icon: PROJECT_ICON[projectId], glow: true,
+      icon: PROJECT_ICON[projectId], glow: true, projectId,
     };
   });
   return [...base, ...skyscrapers, ...extras, ...facilities];

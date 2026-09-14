@@ -2534,6 +2534,7 @@ export default function KawasanDevelopmentPage() {
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ zoneId: string; at: number } | null>(null);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [manifestoDraft, setManifestoDraft] = useState(leader.manifesto ?? "");
   const [manifestoSaved, setManifestoSaved] = useState(true);
   // Transient feedback states — Save flips a button to a green "✓ SAVED"
@@ -2638,22 +2639,20 @@ export default function KawasanDevelopmentPage() {
     if (typeof window === "undefined") return true;
     return new URLSearchParams(window.location.search).get("glmap") !== "0";
   }, []);
-  // Development is normally gated on hasWonElection (a real, saved career
-  // flag — see gameStore.ts). ?dev=1 previews the unlocked screen for this
-  // session only, same convention as ?glmap=0 above: it does NOT touch
-  // hasWonElection itself, so ordinary players are unaffected.
-  const devUnlock = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("dev") === "1";
-  }, []);
-  const unlocked = hasWonElection || devUnlock;
+  // Development is available during the campaign; project costs and zone
+  // progression still apply normally. Election victory continues to gate
+  // the separate government route below.
+  const unlocked = true;
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
   const spent = zones.reduce((sum, zone) => sum + zone.projects.reduce((projectSum, projectId) => projectSum + (PROJECTS.find((project) => project.id === projectId)?.cost ?? 0), 0), 0);
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
   const priorityZone = zones.length ? [...zones].sort((a, b) => a.sentiment - b.sentiment)[0] : null;
 
-  function runProject(project: Project) {
-    if (!selectedZone) return;
+  const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
+
+  function runProject(project: Project, targetZoneId = selectedZone?.id) {
+    const targetZone = zones.find((zone) => zone.id === targetZoneId);
+    if (!targetZone) return;
     // Defensive: the UI never exposes a clickable project button pre-win
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
@@ -2661,11 +2660,11 @@ export default function KawasanDevelopmentPage() {
       setNotice(t(lang, "kawasan_page.winYourElectionFirstToUnlock"));
       return;
     }
-    if (selectedZone.projects.includes(project.id)) {
+    if (targetZone.projects.includes(project.id)) {
       setNotice(t(lang, "kawasan_page.projectAlreadyApprovedForThisZone"));
       return;
     }
-    const locked = lockReason(project, selectedZone, lang);
+    const locked = lockReason(project, targetZone, lang);
     if (locked) {
       setNotice(t(lang, "kawasan_page.projectStillLocked"));
       return;
@@ -2684,7 +2683,7 @@ export default function KawasanDevelopmentPage() {
         // its existing Malay-name form in both locales.
         message: t(lang, "kawasan_page.projectApprovedAlert", {
           project: t("ms", `kawasan_page.projectTitle_${project.id}`),
-          zone: zoneName("ms", selectedZone),
+          zone: zoneName("ms", targetZone),
           seat: ownSeat?.name ?? "kawasan",
         }),
         type: "positive",
@@ -2692,7 +2691,7 @@ export default function KawasanDevelopmentPage() {
     }));
 
     setZones((current) => current.map((zone) => {
-      if (zone.id !== selectedZone.id) return zone;
+      if (zone.id !== targetZone.id) return zone;
       const next = {
         ...zone,
         [project.target]: clamp(zone[project.target] + project.boost),
@@ -2700,8 +2699,15 @@ export default function KawasanDevelopmentPage() {
       };
       return { ...next, sentiment: clamp(Math.round((next.infra + next.welfare + next.economy) / 3)) };
     }));
-    setCelebration({ zoneId: selectedZone.id, at: Date.now() });
+    setSelectedZoneId(targetZone.id);
+    setPendingProjectId(null);
+    setCelebration({ zoneId: targetZone.id, at: Date.now() });
     setNotice(t(lang, "kawasan_page.projectApprovedLocalGridUpdated"));
+  }
+
+  function handleZoneSelect(zoneId: string) {
+    setSelectedZoneId(zoneId);
+    if (pendingProject) runProject(pendingProject, zoneId);
   }
 
   function quickDevelopPriority() {
@@ -2709,7 +2715,7 @@ export default function KawasanDevelopmentPage() {
     setSelectedZoneId(priorityZone.id);
     const open = PROJECTS.filter((project) => !priorityZone.projects.includes(project.id) && !lockReason(project, priorityZone, lang));
     const best = open.find((project) => project.target === weakestStat(priorityZone)) ?? open[0];
-    if (best) setTimeout(() => runProject(best), 0);
+    if (best) setTimeout(() => runProject(best, priorityZone.id), 0);
   }
 
   function launchQuickOperation(type: OpType) {
@@ -2759,7 +2765,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "radial-gradient(circle at 20% 0%, rgb(var(--cyan-rgb)/0.12), transparent 30%), radial-gradient(circle at 85% 8%, rgb(var(--gold-rgb)/0.10), transparent 24%), var(--bg)" }}>
+    <div className="kw-page-shell min-h-screen">
       <Header />
       {notice && (
         <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.16), rgb(var(--bg-rgb) / 0.96))", color: "var(--gold)", fontFamily: "Space Mono, monospace" }}>
@@ -2767,8 +2773,8 @@ export default function KawasanDevelopmentPage() {
         </div>
       )}
 
-      <main className="pt-[56px] pb-[58px] px-6 w-full">
-        <div className="mb-4 flex items-start justify-between gap-4">
+      <main className="kw-page-content pt-[56px] pb-[58px] px-6 w-full">
+        <div className="kw-page-heading mb-4 flex items-start justify-between gap-4">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "kawasan_page.constituencyBuilderSim")}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
@@ -2779,26 +2785,26 @@ export default function KawasanDevelopmentPage() {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => router.push("/warroom")} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "kawasan_page.enterWarRoom")}</button>
+          <div className="kw-page-actions flex gap-2">
+            <button onClick={() => router.push("/warroom")} className="kw-action-button kw-action-primary px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "kawasan_page.enterWarRoom")}</button>
             {unlocked ? (
-              <button onClick={quickDevelopPriority} className="px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
+              <button onClick={quickDevelopPriority} className="kw-action-button kw-action-success px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
             ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
             )}
             {hasWonElection ? (
-              <button onClick={() => router.push("/government")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
+              <button onClick={() => router.push("/government")} className="kw-action-button kw-action-gold px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
             ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
+              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
             )}
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{totalProjects}</div></div>
-          <div className="border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
+        <div className="kw-stat-grid mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
+          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
+          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{totalProjects}</div></div>
+          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
@@ -2809,9 +2815,9 @@ export default function KawasanDevelopmentPage() {
                 <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "kawasan_page.spent")}</div>
               </div>
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               ) : (
-                <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={setSelectedZoneId} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+                <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
             </div>
           </TacticalPanel>
@@ -2934,26 +2940,34 @@ export default function KawasanDevelopmentPage() {
                 </div>
               ) : (
               <div className="max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto p-4 space-y-3">
+                {pendingProject && (
+                  <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.62)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.14), rgb(var(--bg-rgb) / 0.78))", boxShadow: "0 0 22px rgb(var(--gold-rgb) / 0.12)" }}>
+                    <div className="text-[10px] font-black tracking-widest" style={{ color: "var(--gold)" }}>{t(lang, "kawasan_page.placementMode")}</div>
+                    <div className="mt-1 text-[11px] font-black text-white">{pendingProject.icon} {t(lang, `kawasan_page.projectTitle_${pendingProject.id}`)}</div>
+                    <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{t(lang, "kawasan_page.clickZoneToPlaceProject")}</div>
+                    <button type="button" onClick={() => setPendingProjectId(null)} className="mt-2 border px-2 py-1 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.35)", color: "var(--cyan)", background: "rgb(var(--bg-rgb) / 0.72)" }}>{t(lang, "kawasan_page.cancelPlacement")}</button>
+                  </div>
+                )}
                 {PROJECTS.map((project) => {
                   const done = selectedZone?.projects.includes(project.id) ?? false;
                   const locked = done ? null : lockReason(project, selectedZone, lang);
                   const affordable = resources.funds >= project.cost;
                   const accent = done ? "var(--neon-green)" : locked ? "var(--text-muted)" : affordable ? "var(--gold)" : "var(--neon-red)";
                   return (
-                    <button key={project.id} onClick={() => runProject(project)} disabled={done || !!locked || !affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: locked ? 0.45 : done || !affordable ? 0.55 : 1, borderColor: done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : affordable ? "rgb(var(--cyan-rgb)/0.22)" : "rgb(255 68 68 / 0.25)", background: done ? "rgb(0 255 136 / 0.06)" : locked ? "rgb(var(--bg-rgb) / 0.72)" : "rgb(var(--bg-rgb) / 0.72)" }}>
+                    <button key={project.id} onClick={() => { setPendingProjectId(project.id); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} disabled={!affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: !affordable ? 0.55 : 1, borderColor: pendingProjectId === project.id ? "rgb(var(--gold-rgb) / 0.72)" : done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : "rgb(var(--cyan-rgb)/0.22)", background: pendingProjectId === project.id ? "rgb(var(--gold-rgb) / 0.11)" : done ? "rgb(0 255 136 / 0.06)" : "rgb(var(--bg-rgb) / 0.72)" }}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-[12px] font-black tracking-wider" style={{ color: locked ? "var(--text-muted)" : "var(--text-primary)" }}>{locked ? "🔒" : project.icon} {t(lang, `kawasan_page.projectTitle_${project.id}`)}</div>
                           <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{t(lang, `kawasan_page.projectDetail_${project.id}`)}</div>
                         </div>
                         <div className="shrink-0 text-right text-[10px] font-black tracking-widest" style={{ color: accent }}>
-                          {done ? t(lang, "kawasan_page.done2") : locked ? t(lang, "kawasan_page.locked") : `RM ${formatNumber(project.cost)}`}
+                          {pendingProjectId === project.id ? t(lang, "kawasan_page.selectLocation") : done ? t(lang, "kawasan_page.done2") : locked ? t(lang, "kawasan_page.locked") : `RM ${formatNumber(project.cost)}`}
                         </div>
                       </div>
                       <div className="mt-2 flex items-start justify-between gap-3 text-[9px] font-bold tracking-wider">
                         <span className="shrink-0" style={{ color: "var(--cyan)" }}>+{project.boost} {project.target === "welfare" ? "RAKYAT" : project.target.toUpperCase()}</span>
                         <span className="text-right" style={{ color: locked ? "var(--warn-orange)" : affordable || done ? "var(--text-muted)" : "var(--neon-red)" }}>
-                          {done ? t(lang, "kawasan_page.visualUpgraded") : locked ?? t(lang, "kawasan_page.clickToBuild")}
+                          {pendingProjectId === project.id ? t(lang, "kawasan_page.clickZoneToPlaceProject") : done ? t(lang, "kawasan_page.visualUpgraded") : locked ?? t(lang, "kawasan_page.clickToBuild")}
                         </span>
                       </div>
                     </button>

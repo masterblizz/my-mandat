@@ -11,12 +11,14 @@ import { CameraRig, type CamState } from "./CameraRig";
 import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
+import { ProjectLandmarks } from "./buildingDetails";
 import {
   CityEnvironment, StreetLamps, TrafficLights, Traffic, Lrt, ZoneBeacon, type Weather,
 } from "./scenery";
 import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
+import { StreetFurniture } from "./streetFurniture";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
 import { Billboards } from "./billboards";
@@ -24,6 +26,7 @@ import { Pedestrians } from "./pedestrians";
 import { SkyLife } from "./skylife";
 import { EdgeLandscape } from "./edgeLandscape";
 import { Flags } from "./flags";
+import { Motorcyclists, Cyclists } from "./twowheelers";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -199,6 +202,7 @@ function Buildings({
           w: spec.w,
           d: spec.d,
           h: vertical ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize))) : h0,
+          projectId: spec.projectId,
         };
         const arr = byType.get(spec.type);
         if (arr) arr.push(inst);
@@ -259,6 +263,7 @@ function Buildings({
           </Suspense>
         ));
       })}
+      <ProjectLandmarks items={groups.flatMap(([, items]) => items.filter((item) => item.projectId))} groundY={GROUND_Y} />
     </group>
   );
 }
@@ -359,6 +364,7 @@ function Grid({
       ))}
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} claimed={claimed} />
+      <StreetFurniture placed={placed} claimed={claimed} />
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize) && gridSize < 22} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
@@ -479,8 +485,10 @@ export function CityScene({
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
       <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
+      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
-      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} />}
+      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
+      {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
 
       {landmark && (

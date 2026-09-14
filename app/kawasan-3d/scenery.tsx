@@ -472,8 +472,10 @@ export function TrafficLights({
 // ── traffic ─────────────────────────────────────────────────────────
 // Cars no longer slide along a single infinite lane. Each car is bound to
 // a closed LOOP made of straight segments joined by quarter-circle arcs,
-// so it actually corners at every junction; a few cars run the circular
-// loop around the central roundabout. Every loop carries GATES at the
+// so it actually corners at every junction. The four block loops that
+// would cut beneath the central roundabout are deliberately omitted;
+// cars at that junction use its dedicated circular loop instead. Every
+// loop carries GATES at the
 // grid junctions it crosses — a car reads signalStateFor() for the
 // direction it is travelling and brakes to the stop line on red, crawls
 // on amber, and accelerates on green. Cars also keep a gap to the car
@@ -531,7 +533,7 @@ type Piece = {
   // gate at the END of this piece (a grid junction the loop crosses)
   gateAxisIsX?: boolean;
 };
-type Loop = { pieces: Piece[]; L: number; gates: { s: number; axisIsX: boolean }[] };
+export type Loop = { pieces: Piece[]; L: number; gates: { s: number; axisIsX: boolean }[] };
 type Car = {
   loop: number;
   s: number;        // arc-length position around the loop
@@ -558,7 +560,7 @@ function finishLoop(pieces: Piece[]): Loop {
   }
   return { pieces, L: acc, gates };
 }
-function posAt(loop: Loop, s: number): [number, number] {
+export function posAt(loop: Loop, s: number): [number, number] {
   let ss = s % loop.L;
   if (ss < 0) ss += loop.L;
   const pcs = loop.pieces;
@@ -576,7 +578,7 @@ function posAt(loop: Loop, s: number): [number, number] {
 // lane is set OUT from the block edges by laneOff (so a counter-loop on a
 // shared road sits on the other side), corners are quarter arcs of turnR,
 // and each straight ends with a gate for the junction it feeds.
-function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: number, turnR: number): Loop {
+export function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: number, turnR: number): Loop {
   const L = laneOff, R = turnR;
   const tx0 = x0 - L, tx1 = x1 + L, tz0 = z0 - L, tz1 = z1 + L; // lane centreline box
   const pieces: Piece[] = [
@@ -598,7 +600,7 @@ function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: numb
 
 // A full circle around the central roundabout — no gates (roundabouts run
 // free), capped to the cornering speed.
-function roundaboutLoop(cx: number, cz: number, r: number): Loop {
+export function roundaboutLoop(cx: number, cz: number, r: number): Loop {
   return finishLoop([arcP(cx, cz, r, 0, -Math.PI * 2)]); // clockwise
 }
 
@@ -649,11 +651,19 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     for (const [a, b] of order) {
       if (loops.length >= maxLoops) break;
       if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
+      // These four blocks meet at the centre junction. Their normal
+      // quarter-turn sits inside the raised roundabout island, so keeping
+      // them would make cars visibly drive through the kerb / landscaping.
+      // The separate roundaboutLoop below is the only traffic route that
+      // occupies this junction.
+      const h = gridSize / 2;
+      if ((a === h - 1 || a === h) && (b === h - 1 || b === h)) continue;
       loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
       addCarsTo(loops.length - 1, peakPerLoop);
     }
-    // circular flow around the central roundabout on metro / dense grids
-    if (gridSize >= 10) {
+    // Circular flow around the central roundabout. It runs at r=120,
+    // safely inside the ring's 84..156 road band and outside the island.
+    if (gridSize >= 6) {
       const [rcx, rcz] = roundaboutCentre(gridSize);
       loops.push(roundaboutLoop(rcx, rcz, 120));
       addCarsTo(loops.length - 1, 20);
@@ -881,28 +891,51 @@ function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
   // leading.
   const frontZ = TRAIN_CARS[TRAIN_CARS.length - 1] + CAR_LEN / 2 + 0.4;
   const backZ = TRAIN_CARS[0] - CAR_LEN / 2 - 0.4;
+  const side = [-1, 1] as const;
   return (
     <group ref={tref} position={[0, DECK_Y + 8, 0]}>
       {TRAIN_CARS.map((z) => (
         <group key={z} position={[0, 0, z]}>
+          {/* Brushed-metal car shell. The window band is intentionally
+              composed from side panes below, rather than one blue box
+              around the whole car, so it reads as a train at any orbit. */}
           <mesh castShadow>
             <boxGeometry args={[12, 10, CAR_LEN]} />
-            <meshStandardMaterial color="#dfe6ee" roughness={0.4} metalness={0.25} />
+            <meshStandardMaterial color="#d9e1e8" roughness={0.32} metalness={0.42} />
           </mesh>
-          {/* window band, both sides */}
-          <mesh position={[0, 1, 0]}>
-            <boxGeometry args={[12.3, 3.4, CAR_LEN - 3]} />
-            <meshStandardMaterial color="#152230" emissive="#8fd3ff" emissiveIntensity={0.35} roughness={0.2} metalness={0.1} />
-          </mesh>
-          {/* livery accent stripe, low on the body */}
-          <mesh position={[0, -3.4, 0]}>
-            <boxGeometry args={[12.3, 1.1, CAR_LEN - 1]} />
-            <meshStandardMaterial color="#2f6bff" toneMapped={false} />
-          </mesh>
+          {side.map((xSide) => (
+            <group key={xSide}>
+              {/* Dark individual panes make the passenger saloon visible
+                  from the street, with a restrained cyan glow at night. */}
+              {[-8.4, -3.1, 3.1, 8.4].map((paneZ) => (
+                <mesh key={paneZ} position={[xSide * 6.08, 1.15, paneZ]}>
+                  <boxGeometry args={[0.22, 3.55, 4.15]} />
+                  <meshStandardMaterial color="#102235" emissive="#4fa9d8" emissiveIntensity={0.32} roughness={0.14} metalness={0.5} />
+                </mesh>
+              ))}
+              {/* Twin passenger doors and a clean blue lower livery line. */}
+              {[-5.7, 5.7].map((doorZ) => (
+                <mesh key={doorZ} position={[xSide * 6.12, -0.45, doorZ]}>
+                  <boxGeometry args={[0.18, 5.6, 4.8]} />
+                  <meshStandardMaterial color="#aab8c6" roughness={0.5} metalness={0.28} />
+                </mesh>
+              ))}
+              <mesh position={[xSide * 6.14, -3.55, 0]}>
+                <boxGeometry args={[0.2, 1.05, CAR_LEN - 1]} />
+                <meshStandardMaterial color="#177fc5" emissive="#0e5d9a" emissiveIntensity={0.18} roughness={0.3} metalness={0.2} />
+              </mesh>
+            </group>
+          ))}
+          {/* Roof equipment gives the three-car set a believable service
+              profile instead of a row of plain rectangular blocks. */}
           {/* roof-mounted AC pod */}
           <mesh position={[0, 5.7, 0]}>
             <boxGeometry args={[7.5, 1.4, 18]} />
-            <meshStandardMaterial color="#aeb6c2" roughness={0.6} />
+            <meshStandardMaterial color="#9daab8" roughness={0.52} metalness={0.25} />
+          </mesh>
+          <mesh position={[0, 6.5, 0]}>
+            <boxGeometry args={[5.6, 0.24, 16]} />
+            <meshStandardMaterial color="#66788b" roughness={0.7} />
           </mesh>
           {/* bogies, near each end */}
           {[-1, 1].map((s) => (
@@ -913,14 +946,33 @@ function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
           ))}
         </group>
       ))}
-      <mesh position={[0, -1, frontZ]}>
-        <sphereGeometry args={[0.9, 6, 5]} />
-        <meshBasicMaterial color="#fff6d8" toneMapped={false} />
-      </mesh>
-      <mesh position={[0, -1, backZ]}>
-        <sphereGeometry args={[0.9, 6, 5]} />
-        <meshBasicMaterial color="#fff6d8" toneMapped={false} />
-      </mesh>
+      {/* Distinct glazed cab faces at both ends. The set can reverse at a
+          terminus without looking like it is travelling backwards. */}
+      {[{ z: frontZ, dir: 1 }, { z: backZ, dir: -1 }].map(({ z, dir }) => (
+        <group key={dir}>
+          <mesh position={[0, 1.2, z + dir * 0.1]}>
+            <boxGeometry args={[8.5, 4.5, 0.3]} />
+            <meshStandardMaterial color="#0c263b" emissive="#3c90bd" emissiveIntensity={0.38} roughness={0.12} metalness={0.62} />
+          </mesh>
+          <mesh position={[0, -3.25, z + dir * 0.18]}>
+            <boxGeometry args={[11.2, 1.2, 0.38]} />
+            <meshStandardMaterial color="#177fc5" emissive="#0e5d9a" emissiveIntensity={0.18} roughness={0.3} />
+          </mesh>
+          {[-3.2, 3.2].map((x) => (
+            <mesh key={x} position={[x, -1.05, z + dir * 0.35]}>
+              <boxGeometry args={[1.25, 1.25, 0.45]} />
+              <meshBasicMaterial color={dir === 1 ? "#fff4c2" : "#f04444"} toneMapped={false} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Flexible gangway couplers between the car shells. */}
+      {[-15, 15].map((z) => (
+        <mesh key={z} position={[0, -2.1, z]}>
+          <boxGeometry args={[7.8, 5.4, 4.2]} />
+          <meshStandardMaterial color="#1d2a35" roughness={0.82} />
+        </mesh>
+      ))}
     </group>
   );
 }

@@ -191,6 +191,98 @@ button:not(:disabled):not(.kw-zone):active { transform: translateY(1px); }
   button:not(:disabled):not(.kw-zone):active { transform: none; }
 }
 
+/* Kawasan command interface: lift the shell around the city so the map
+   remains the hero while funds, status, and actions read like a concise
+   operations console. */
+.kw-page-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 52% 38% at 12% 0%, rgb(var(--cyan-rgb) / 0.16), transparent 72%),
+    radial-gradient(ellipse 38% 30% at 92% 4%, rgb(var(--gold-rgb) / 0.12), transparent 70%),
+    linear-gradient(180deg, rgb(4 12 27 / 0.98), var(--bg) 34%, var(--bg));
+}
+.kw-page-shell::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.19;
+  background-image: linear-gradient(rgb(var(--cyan-rgb) / 0.12) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.12) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, transparent 64%);
+}
+.kw-page-content { max-width: 1800px; margin-inline: auto; }
+.kw-page-heading {
+  position: relative;
+  padding: 18px 20px;
+  border: 1px solid rgb(var(--cyan-rgb) / 0.2);
+  border-left: 3px solid var(--cyan);
+  background: linear-gradient(105deg, rgb(4 14 31 / 0.9), rgb(var(--bg-rgb) / 0.68));
+  box-shadow: 0 16px 36px rgb(0 0 0 / 0.17), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.kw-page-heading::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 120px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+.kw-page-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.kw-action-button {
+  position: relative;
+  min-height: 38px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 6px 14px rgb(0 0 0 / 0.16);
+}
+.kw-action-button:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 25%, rgb(255 255 255 / 0.12) 50%, transparent 75%);
+  transform: translateX(-125%);
+  transition: transform 0.45s ease;
+}
+.kw-action-button:not(:disabled):hover::after { transform: translateX(125%); }
+.kw-action-primary { box-shadow: 0 0 22px rgb(var(--cyan-rgb) / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.08); }
+.kw-action-success { box-shadow: 0 0 22px rgb(0 255 136 / 0.09), inset 0 1px 0 rgb(255 255 255 / 0.08); }
+.kw-action-gold { box-shadow: 0 0 22px rgb(var(--gold-rgb) / 0.09), inset 0 1px 0 rgb(255 255 255 / 0.08); }
+.kw-stat-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.kw-stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 38px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.72;
+}
+.kw-stat-card:hover { transform: translateY(-2px); filter: brightness(1.08); }
+@media (max-width: 900px) {
+  .kw-page-content { padding-inline: 14px; }
+  .kw-page-heading { padding: 15px; }
+  .kw-page-heading, .kw-page-actions { align-items: stretch; }
+  .kw-page-heading { flex-direction: column; }
+  .kw-page-actions { justify-content: flex-start; }
+  .kw-page-actions .kw-action-button { flex: 1 1 180px; }
+}
+@media (max-width: 520px) {
+  .kw-page-heading h1 { font-size: 1.25rem; }
+  .kw-stat-grid { gap: 8px; }
+  .kw-stat-card { min-height: 72px; padding: 10px; }
+}
+
 /* ─── Motion kit (mm-) ────────────────────────────────────────────────────
    App-wide ambient motion: panel scan sweep, entrance rise, bar shimmer,
    radar sweep, particle drift, beacon blip. All honour reduced-motion. */

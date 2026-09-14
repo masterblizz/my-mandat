@@ -95,12 +95,15 @@ type Ped = {
 };
 
 export function Pedestrians({
-  placed, gridSize, trafficLevel = 0.5, claimed,
+  placed, gridSize, trafficLevel = 0.5, claimed, avoidCentre,
 }: {
   placed: CellPlacement[];
   gridSize: number;
   trafficLevel?: number;
   claimed?: Set<string>;
+  /** Central roundabout centre. Its four adjacent plots have no reliable
+      pedestrian pavement because the raised ring overlaps their inner edges. */
+  avoidCentre?: [number, number] | null;
 }) {
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
@@ -115,6 +118,13 @@ export function Pedestrians({
     const maxD = Math.hypot(mid, mid) || 1;
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed?.has(`${col},${row}`)) continue;
+      // The sidewalk route normally follows a tile perimeter. On the four
+      // plots beside the central roundabout, that route and its crossing
+      // route run under the roundabout deck / landscaped island. Suppress
+      // only those four local pedestrian spawners; all outer sidewalks and
+      // crossings remain active, so the junction stays free of walkers
+      // rather than having people visibly clip through the island or kerb.
+      if (avoidCentre && Math.hypot(cx - avoidCentre[0], cz - avoidCentre[1]) < PLOT) continue;
       const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
       const n = pedCount(zone.kind, coreness, gridSize);
       if (!n) continue;
@@ -145,7 +155,7 @@ export function Pedestrians({
       }
     }
     return out;
-  }, [placed, gridSize, claimed, perim]);
+  }, [placed, gridSize, claimed, avoidCentre, perim]);
 
   const torsoRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);

@@ -63,6 +63,10 @@ const kawasan_page = {
   locked: { ms: "TERKUNCI", en: "LOCKED" },
   visualUpgraded: { ms: "grafik dinaik taraf", en: "visual upgraded" },
   clickToBuild: { ms: "klik untuk bina", en: "click to build" },
+  placementMode: { ms: "MOD PENEMPATAN PEMBANGUNAN", en: "DEVELOPMENT PLACEMENT MODE" },
+  selectLocation: { ms: "PILIH LOKASI", en: "SELECT LOCATION" },
+  clickZoneToPlaceProject: { ms: "Klik zon pilihan anda pada peta 3D untuk membina projek ini di situ.", en: "Click your chosen zone on the 3D map to build this project there." },
+  cancelPlacement: { ms: "BATAL", en: "CANCEL" },
   localCityBuilder: { ms: "CITY BUILDER KAWASAN", en: "LOCAL CITY BUILDER" },
   rmSentimentProjects: { ms: "RM {formatNumberResourcesFunds} · SENTIMEN {overall}% · PROJEK {totalProjects}", en: "RM {formatNumberResourcesFunds} · SENTIMENT {overall}% · PROJECTS {totalProjects}" },
 
