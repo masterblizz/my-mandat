@@ -885,7 +885,13 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
 // a train passes the interchange roughly 3× as often as off-peak.
 const TRAIN_CARS = [-30, 0, 30];
 const CAR_LEN = 26;
-function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
+function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
+  tref: RefObject<THREE.Group>;
+  /** Line-coded livery accent (see LrtLine — each crossing line gets its
+   * own colour, same idea as KL's real multi-line rail network). */
+  livery?: string;
+  liveryDark?: string;
+}) {
   // Bidirectional service (LRT sets don't turn around at the terminus) —
   // a small headlight at each outermost end, whichever is currently
   // leading.
@@ -922,7 +928,7 @@ function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
               ))}
               <mesh position={[xSide * 6.14, -3.55, 0]}>
                 <boxGeometry args={[0.2, 1.05, CAR_LEN - 1]} />
-                <meshStandardMaterial color="#177fc5" emissive="#0e5d9a" emissiveIntensity={0.18} roughness={0.3} metalness={0.2} />
+                <meshStandardMaterial color={livery} emissive={liveryDark} emissiveIntensity={0.18} roughness={0.3} metalness={0.2} />
               </mesh>
             </group>
           ))}
@@ -950,13 +956,18 @@ function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
           terminus without looking like it is travelling backwards. */}
       {[{ z: frontZ, dir: 1 }, { z: backZ, dir: -1 }].map(({ z, dir }) => (
         <group key={dir}>
+          {/* destination / route LED strip above the windshield */}
+          <mesh position={[0, 3.85, z + dir * 0.12]}>
+            <boxGeometry args={[6.4, 0.8, 0.28]} />
+            <meshBasicMaterial color="#ffcf6b" toneMapped={false} />
+          </mesh>
           <mesh position={[0, 1.2, z + dir * 0.1]}>
             <boxGeometry args={[8.5, 4.5, 0.3]} />
             <meshStandardMaterial color="#0c263b" emissive="#3c90bd" emissiveIntensity={0.38} roughness={0.12} metalness={0.62} />
           </mesh>
           <mesh position={[0, -3.25, z + dir * 0.18]}>
             <boxGeometry args={[11.2, 1.2, 0.38]} />
-            <meshStandardMaterial color="#177fc5" emissive="#0e5d9a" emissiveIntensity={0.18} roughness={0.3} />
+            <meshStandardMaterial color={livery} emissive={liveryDark} emissiveIntensity={0.18} roughness={0.3} />
           </mesh>
           {[-3.2, 3.2].map((x) => (
             <mesh key={x} position={[x, -1.05, z + dir * 0.35]}>
@@ -977,6 +988,11 @@ function LrtTrain({ tref }: { tref: RefObject<THREE.Group> }) {
   );
 }
 function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number> }) {
+  // Line-coded livery — the N-S and E-W lines read as two distinct
+  // services where they cross at the interchange, the same way KL's
+  // real multi-line rail network colour-codes each line.
+  const livery = axis === "z" ? "#177fc5" : "#e8792a";
+  const liveryDark = axis === "z" ? "#0e5d9a" : "#a85a1a";
   const t1 = useRef<THREE.Group>(null);
   const t2 = useRef<THREE.Group>(null);
   const d1 = useRef(axis === "x" ? -1 : 1);
@@ -1033,8 +1049,8 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
           </mesh>
         </group>
       ))}
-      <LrtTrain tref={t1} />
-      <LrtTrain tref={t2} />
+      <LrtTrain tref={t1} livery={livery} liveryDark={liveryDark} />
+      <LrtTrain tref={t2} livery={livery} liveryDark={liveryDark} />
     </group>
   );
 }
