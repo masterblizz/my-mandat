@@ -30,6 +30,7 @@ import { SkyLife } from "./skylife";
 import { EdgeLandscape } from "./edgeLandscape";
 import { Flags } from "./flags";
 import { Motorcyclists, Cyclists } from "./twowheelers";
+import { CitySoundController } from "./CitySoundController";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -415,6 +416,7 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
+  soundEnabled = false,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -437,6 +439,10 @@ export function CityScene({
   hudRef?: MutableRefObject<HTMLDivElement | null>;
   onPerf?: (s: PerfSample) => void;
   quality: QualityTier;
+  /** Procedural traffic/LRT/ambient soundscape — see citySound.ts. Off by
+   * default (browser autoplay policy + don't surprise the player with
+   * sudden audio); the 🔊 toggle in City3DMapGL flips this on. */
+  soundEnabled?: boolean;
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
@@ -533,6 +539,13 @@ export function CityScene({
       )}
 
       <CameraRig camRef={camRef} movedRef={movedRef} distance={distance} hudRef={hudRef} targetRef={camTargetRef} />
+      <CitySoundController
+        enabled={soundEnabled}
+        camRef={camRef}
+        distance={distance}
+        trafficLevel={trafficLevel}
+        hasLrt={gridSize >= 10}
+      />
       {onPerf && <PerfProbe onSample={onPerf} />}
     </>
   );

@@ -72,6 +72,10 @@ export default function City3DMapGL({
   );
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
   const [showPerf, setShowPerf] = useState(false);
+  // Procedural traffic/LRT/ambient soundscape (citySound.ts) — off by
+  // default: browser autoplay policy blocks audio before a real click
+  // anyway, and starting the city silent doesn't surprise anyone.
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [perf, setPerf] = useState<PerfSample>({ fps: 0, calls: 0, tris: 0 });
 
   // Traffic density. "auto" tracks the real system clock (weekday rush
@@ -213,6 +217,7 @@ export default function City3DMapGL({
           quality={quality}
           trafficLevel={trafficLevel}
           camTargetRef={camTargetRef}
+          soundEnabled={soundEnabled}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>
@@ -249,6 +254,9 @@ export default function City3DMapGL({
         </button>
         <button type="button" aria-label="Cycle traffic density" style={compact ? css.btnSm : css.btnWide} onClick={cycleTraffic}>
           🚗{compact ? "" : ` ${trafficMode === "auto" ? `AUTO·${trafficWord}` : trafficWord}`}
+        </button>
+        <button type="button" aria-label="Toggle city sound" style={compact ? css.btnSm : css.btn} onClick={() => setSoundEnabled((v) => !v)}>
+          {soundEnabled ? "🔊" : "🔇"}
         </button>
         <button type="button" aria-label="Toggle perf readout" style={compact ? css.btnSm : css.btn} onClick={() => setShowPerf((v) => !v)}>ᐧ</button>
       </div>
