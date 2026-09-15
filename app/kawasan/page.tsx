@@ -2242,6 +2242,20 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           {LEG2_BOUNDS.slice(0, -1).map((segY, i) => (
             <div key={`deck-v-${segY}`} className="kw-3d absolute kw-lrt-deck-v" style={{ left: ROUTE_X - TRACK_W / 2, top: LEG2_BOUNDS[i + 1], width: TRACK_W, height: segY - LEG2_BOUNDS[i + 1], transform: `translateZ(${TRACK_DECK_Z}px)` }} />
           ))}
+          {/* The train and its support columns are sibling CSS-3D subtrees:
+              although their world volumes are deliberately separate (pylon
+              ends at deckZ - 2; train starts at deckZ + 3), CSS has no
+              cross-sibling depth buffer. The old pylon-then-train source
+              order let the animated train composite over the column at the
+              Town Centre road junction, which read as the consist passing
+              through solid concrete. Keep the deck first, then the moving
+              train, then the fixed columns: at the default/common orbit the
+              near, vertical columns now retain their foreground silhouette.
+              This is a paint-order mitigation, not a geometry collision
+              rule; arbitrary reverse camera angles remain a CSS-3D sorting
+              limitation (as with the zone/decor ordering below). */}
+          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} route={FWD_ROUTE} rot={LINE1_ROT} />
+          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev route={REV_ROUTE} rot={LINE1_ROT} />
           {ROADS_V.filter((x) => x > ROUTE_P0.x && x <= ROUTE_P1.x).map((x) => (
             <TransitPylon key={`pylon-h-${x}`} left={x - 5} top={ROUTE_Y - 5} deckZ={TRACK_DECK_Z} />
           ))}
@@ -2250,8 +2264,6 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
           ))}
           <TransitStation x={(ROUTE_P0.x + ROUTE_P1.x) / 2} y={ROUTE_Y} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
           <TransitStation x={ROUTE_X} y={(ROUTE_P2.y + ROUTE_P3.y) / 2} deckZ={TRACK_DECK_Z} tag={density >= 0.85 ? "MRT" : "LRT"} />
-          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${trainDur.toFixed(1)}s`} route={FWD_ROUTE} rot={LINE1_ROT} />
-          <TransitTrain z={TRACK_DECK_Z + 3} dur={`${(trainDur * 1.08).toFixed(1)}s`} delay={`${(-trainDur * 0.5).toFixed(1)}s`} rev route={REV_ROUTE} rot={LINE1_ROT} />
         </>
       )}
       {/* Line 2: a second, straight north-south route stacked above Line 1
