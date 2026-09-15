@@ -39,7 +39,9 @@ type WinSpec = {
 const SPEC: Partial<Record<BType, WinSpec>> = {
   tower: { cols: 5, rows: 8, litPct: 58, repeatY: 4 },
   skyscraper: { cols: 6, rows: 10, litPct: 55, repeatY: 6 },
-  shophouse: { cols: 4, rows: 3, litPct: 60, repeatY: 2 },
+  shophouse: { cols: 3, rows: 3, litPct: 48, repeatY: 1 },
+  shop: { cols: 3, rows: 2, litPct: 42, repeatY: 1 },
+  mall: { cols: 6, rows: 3, litPct: 58, repeatY: 1 },
   house: { cols: 3, rows: 2, litPct: 50, repeatY: 1 },
   terrace: { cols: 4, rows: 2, litPct: 46, repeatY: 1 },
   kampung: { cols: 3, rows: 2, litPct: 44, repeatY: 1 },

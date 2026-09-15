@@ -73,6 +73,7 @@ const BOXCAP_TYPES = new Set<BType>([
   "police", "fire", "hospital", "library", "museum", "powerplant",
 ]);
 const DOME_TYPES = new Set<BType>(["masjid"]);
+const COMMERCIAL_TYPES = new Set<BType>(["shop", "shophouse", "mall"]);
 export const PROCEDURAL_TYPES = new Set<BType>([
   ...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES),
   ...Array.from(BOXCAP_TYPES), ...Array.from(DOME_TYPES),
@@ -348,6 +349,22 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     );
     if (type === "skyscraper") geo = withMast(geo);
   }
+  if (COMMERCIAL_TYPES.has(type)) {
+    // Keep horizontal roof/canopy faces free of windows. Reorder triangles
+    // into two contiguous groups to retain just two draws per instance batch.
+    const flat = stripToPositionNormalUv(geo);
+    const normals = flat.getAttribute("normal");
+    const walls: number[] = [];
+    const caps: number[] = [];
+    for (let i = 0; i < normals.count; i += 3) {
+      (Math.abs(normals.getY(i)) > 0.5 ? caps : walls).push(i, i + 1, i + 2);
+    }
+    flat.setIndex([...walls, ...caps]);
+    flat.clearGroups();
+    flat.addGroup(0, walls.length, MAT_WALL);
+    flat.addGroup(walls.length, caps.length, MAT_ROOF);
+    geo = flat;
+  }
   templateCache.set(key, geo);
   return geo;
 }
@@ -426,12 +443,15 @@ function ProceduralVariant({
   // types get almost none; the flat-roof civic/retail (BOXCAP) get a
   // middling sheen. envMapIntensity is bumped on the glassy ones.
   const isGable = GABLE_TYPES.has(type);
+  const isCommercial = COMMERCIAL_TYPES.has(type);
   const materials = useMemo(() => {
     // Kept moderate: enough metalness/low-roughness for a clear sky
     // reflection on the office types, but not so much that the material
     // loses its diffuse body (pure-metal towers went to a blown-out gold
     // mass at night once the window emissive + bloom stacked on top).
-    const refl = SETBACK_TYPES.has(type)
+    const refl = isCommercial
+      ? { metalness: 0.08, roughness: 0.72, envMapIntensity: 0.65 }
+      : SETBACK_TYPES.has(type)
       ? { metalness: 0.5, roughness: 0.22, envMapIntensity: 1.15 }
       : GABLE_TYPES.has(type)
         ? { metalness: 0.08, roughness: 0.6, envMapIntensity: 0.5 }
@@ -448,11 +468,11 @@ function ProceduralVariant({
     });
     wall.userData.baseMetalness = refl.metalness;
     wall.userData.baseEnvMapIntensity = refl.envMapIntensity;
-    if (!isGable) return wall;
+    if (!isGable && !isCommercial) return wall;
     // Terracotta clay tile — the design canvas's one warm accent on an
     // otherwise near-greyscale palette. kampung leans a shade browner.
     const roof = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(type === "kampung" ? "#8c4634" : "#a4573f"),
+      color: new THREE.Color(isCommercial ? "#626a70" : type === "kampung" ? "#8c4634" : "#a4573f"),
       roughness: 0.92,
       metalness: 0.05,
     });
@@ -460,13 +480,13 @@ function ProceduralVariant({
     arr[MAT_WALL] = wall;
     arr[MAT_ROOF] = roof;
     return arr;
-  }, [type, variant, color, isGable]);
+  }, [type, variant, color, isGable, isCommercial]);
 
   useEffect(() => {
     // Window brightness by family: office setbacks need the strongest
     // glow (a big dark curtain-wall reads as black otherwise), boxcap /
     // dome civic in the middle, domestic gable the gentlest lived-in glow.
-    const gain = isGable ? 0.8 : SETBACK_TYPES.has(type) ? 1.9 : 1.25;
+    const gain = isCommercial ? 0.95 : isGable ? 0.8 : SETBACK_TYPES.has(type) ? 1.9 : 1.25;
     const wall = (Array.isArray(materials) ? materials[MAT_WALL] : materials) as THREE.MeshStandardMaterial;
     wall.emissiveIntensity = winLit * gain;
     // At night, drop the metalness / sky-reflection on the glassy setbacks
@@ -478,7 +498,7 @@ function ProceduralVariant({
       wall.metalness = baseM * (1 - winLit * 0.62);
       wall.envMapIntensity = baseE * (1 - winLit * 0.55);
     }
-  }, [materials, winLit, isGable, type]);
+  }, [materials, winLit, isGable, isCommercial, type]);
 
   useEffect(
     () => () => (Array.isArray(materials) ? materials : [materials]).forEach((m) => m.dispose()),

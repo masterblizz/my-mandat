@@ -72,6 +72,10 @@ const ROAD_COLOR = "#5a6270";
 // the lowered roughness / added metalness at the mesh below, picks up a
 // sheen off the sky/env map instead of the flat matte look on a clear day.
 const WET_ROAD_COLOR = "#33383f";
+// Simulate scattered city light so asphalt and lane paint remain readable
+// between street lamps. Reuse the road map to preserve its texture and markings.
+const ROAD_FILL_COLOR = "#687588";
+const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0, dusk: 0.08, night: 0.3 };
 
 export type PerfSample = { fps: number; calls: number; tris: number };
 
@@ -369,6 +373,9 @@ function Grid({
           <meshStandardMaterial
             color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
             map={roadTex.vertical}
+            emissive={ROAD_FILL_COLOR}
+            emissiveMap={roadTex.vertical}
+            emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
             roughness={weather === "rain" ? 0.28 : 1}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}
@@ -381,6 +388,9 @@ function Grid({
           <meshStandardMaterial
             color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
             map={roadTex.horizontal}
+            emissive={ROAD_FILL_COLOR}
+            emissiveMap={roadTex.horizontal}
+            emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
             roughness={weather === "rain" ? 0.28 : 1}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}

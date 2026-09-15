@@ -14,6 +14,7 @@ const TALL = new Set<BType>(["tower", "skyscraper", "antenna"]);
 const RESIDENTIAL = new Set<BType>(["tower", "house", "terrace", "kampung", "shophouse"]);
 const RETAIL = new Set<BType>(["shop", "stall", "shophouse", "mall", "clinic", "terminal"]);
 const INDUSTRIAL = new Set<BType>(["factory", "warehouse"]);
+const SHOPFRONT = new Set<BType>(["shop", "shophouse", "mall"]);
 const FACADE_BANDS = 4;
 const BALCONY_BANDS = 3;
 
@@ -30,11 +31,15 @@ export function ArchitecturalDetails({
   const facadeRef = useRef<THREE.InstancedMesh>(null);
   const balconyRef = useRef<THREE.InstancedMesh>(null);
   const canopyRef = useRef<THREE.InstancedMesh>(null);
+  const glazingRef = useRef<THREE.InstancedMesh>(null);
+  const fasciaRef = useRef<THREE.InstancedMesh>(null);
+  const frameRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const isTall = TALL.has(type);
   const isResidential = RESIDENTIAL.has(type);
   const isRetail = RETAIL.has(type);
   const isIndustrial = INDUSTRIAL.has(type);
+  const hasShopfront = SHOPFRONT.has(type);
   const hasEntrance = isRetail || isResidential || isIndustrial;
 
   const write = (i: number, h: number) => {
@@ -97,10 +102,38 @@ export function ArchitecturalDetails({
       dummy.updateMatrix();
       canopy.setMatrixAt(i, dummy.matrix);
     }
+    if (hasShopfront) {
+      const entranceH = Math.min(hh * 0.25, 10);
+      const front = it.z + it.d * 0.5;
+      const setPart = (mesh: THREE.InstancedMesh | null, index: number,
+        x: number, y: number, z: number, w: number, height: number, depth: number) => {
+        if (!mesh) return;
+        dummy.position.set(x, groundY + y, z);
+        dummy.scale.set(w, height, depth);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+      };
+      // Three large display bays, with a shorter central door. All details
+      // follow the same height tween as the shell during construction.
+      for (let bay = 0; bay < 3; bay++) {
+        setPart(glazingRef.current, i * 3 + bay,
+          it.x + (bay - 1) * it.w * 0.25, entranceH * 0.46, front + 0.3,
+          it.w * 0.23, entranceH * (bay === 1 ? 0.76 : 0.82), 0.45);
+      }
+      setPart(fasciaRef.current, i, it.x, entranceH + 1.8, front + 0.55,
+        it.w * 0.86, 2.4, 0.8);
+      for (let post = 0; post < 4; post++) {
+        setPart(frameRef.current, i * 4 + post,
+          it.x + (post - 1.5) * it.w * 0.25, entranceH * 0.46, front + 0.65,
+          Math.max(0.45, it.w * 0.018), entranceH * 0.92, 0.6);
+      }
+    }
   };
 
   const commit = () => {
-    [roofRef.current, plantRef.current, facadeRef.current, balconyRef.current, canopyRef.current].forEach((mesh) => {
+    [roofRef.current, plantRef.current, facadeRef.current, balconyRef.current, canopyRef.current,
+      glazingRef.current, fasciaRef.current, frameRef.current].forEach((mesh) => {
       if (!mesh) return;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
@@ -142,6 +175,23 @@ export function ArchitecturalDetails({
           <meshStandardMaterial color="#273746" metalness={0.55} roughness={0.35} emissive="#e8b66d" emissiveIntensity={winLit * 0.16} />
         </instancedMesh>
       )}
+      {hasShopfront && <>
+        <instancedMesh ref={glazingRef} args={[undefined, undefined, items.length * 3]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#456c78" metalness={0.3} roughness={0.22}
+            emissive="#f6d5a0" emissiveIntensity={winLit * 0.55} />
+        </instancedMesh>
+        <instancedMesh ref={fasciaRef} args={[undefined, undefined, items.length]} castShadow>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={type === "mall" ? "#b69a61" : "#327e79"}
+            roughness={0.5} metalness={0.12} emissive={type === "mall" ? "#e8bd72" : "#67b8aa"}
+            emissiveIntensity={winLit * 0.35} />
+        </instancedMesh>
+        <instancedMesh ref={frameRef} args={[undefined, undefined, items.length * 4]} castShadow>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#d8d1bc" roughness={0.65} metalness={0.15} />
+        </instancedMesh>
+      </>}
     </group>
   );
 }
