@@ -1848,6 +1848,16 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
   // (capped at 10 to bound DOM/animation cost on a big grid) — matching how
   // empty-vs-jammed a real small town and a real city centre actually look,
   // not just building density.
+  //
+  // The diagonal LRT chamfer needs no special exclusion here. It is an
+  // elevated, post-zone sibling (not a ground-road replacement), and these
+  // arrays deliberately take roads from the outer/interior edge inward. At
+  // Metro they stop at index 5 while the chamfer is at the middle index 8;
+  // at Dense Metro they stop at 10 while it is at index 15. Consequently no
+  // Car can inherit the deck's rotate(-45deg), or even occupy its tiny
+  // centre-grid footprint: every Car remains a straight X/Y WORLD-space
+  // sibling. A vehicle that appears diagonal below that deck is therefore a
+  // CSS-3D oblique-view layering/projection read, not car turn geometry.
   const carRoadsY = useMemo(() => {
     const carRoadCap = density >= 0.85 ? Math.min(interiorY.length, interiorX.length, 10) : density >= 0.62 ? 5 : 2;
     return interiorY.slice(0, carRoadCap);
