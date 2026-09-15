@@ -25,6 +25,21 @@ Aidilfitri and Aidiladha use green woven-leaf ketupat with diamond-shaped
 bodies and two hanging leaf tails; their texture is shaded as palm strips
 rather than flat coloured cubes.
 
+## Fireworks
+
+Active celebrations also run a silent firework display in clear night mode.
+Rockets ascend above the skyline, burst into the active festivals' colours,
+and leave fading sparks under gravity. Day/dusk, rain, and dates outside
+the decoration windows remove the display. This uses one pooled particle
+draw call, with two or three staggered shells and quality-scaled spark
+counts. It adds no point lights and does not intercept map clicks.
+
+Fireworks verification: production build, TypeScript and calendar checks
+passed. The browser loaded the night scene and accepted a real Rural preset
+click with no page/shader errors. Screenshot capture timed out under
+software WebGL before the planned rain-toggle check, so visual capture and
+interactive rain-removal verification remain incomplete.
+
 ## Calendar maintenance
 
 2026 moving dates are from the [official BKPP JPM calendar](https://www.kabinet.gov.my/storage/2025/08/HKA-2026.pdf).

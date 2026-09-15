@@ -30,6 +30,7 @@ import { SkyLife } from "./skylife";
 import { EdgeLandscape } from "./edgeLandscape";
 import { Flags } from "./flags";
 import { FestivalDecorations } from "./FestivalDecorations";
+import { CelebrationFireworks } from "./CelebrationFireworks";
 import type { Festival } from "./festivals";
 import type { Lang } from "../i18n/useLang";
 import { Motorcyclists, Cyclists } from "./twowheelers";
@@ -543,6 +544,8 @@ export function CityScene({
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
         claimed={claimed} avoidCentre={roundaboutAt} detail={qs.streetDetail}
         glow={TOD_ENV[tod].winLit} lang={lang} />}
+      {festivals.length > 0 && tod === "night" && weather !== "rain" &&
+        <CelebrationFireworks festivals={festivals} span={span} metro={klActive(gridSize)} detail={qs.streetDetail} />}
 
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
