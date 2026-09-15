@@ -25,7 +25,7 @@ const TILE_H = 4;
 // Built once, client-side only (canvas isn't available during SSR) and
 // shared by every flag instance.
 let sharedFlagTexture: THREE.CanvasTexture | null = null;
-function getFlagTexture(): THREE.CanvasTexture {
+export function getFlagTexture(): THREE.CanvasTexture {
   if (sharedFlagTexture) return sharedFlagTexture;
   const W = 300, H = 150; // official 1:2 ratio
   const cv = document.createElement("canvas");

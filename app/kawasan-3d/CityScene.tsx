@@ -29,6 +29,9 @@ import { Pedestrians } from "./pedestrians";
 import { SkyLife } from "./skylife";
 import { EdgeLandscape } from "./edgeLandscape";
 import { Flags } from "./flags";
+import { FestivalDecorations } from "./FestivalDecorations";
+import type { Festival } from "./festivals";
+import type { Lang } from "../i18n/useLang";
 import { Motorcyclists, Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
@@ -426,7 +429,7 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
-  soundEnabled = false,
+  soundEnabled = false, festivals = [], lang = "ms",
 }: {
   zones: Zone[];
   gridSize: number;
@@ -453,6 +456,8 @@ export function CityScene({
    * default (browser autoplay policy + don't surprise the player with
    * sudden audio); the 🔊 toggle in City3DMapGL flips this on. */
   soundEnabled?: boolean;
+  festivals?: Festival[];
+  lang?: Lang;
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
@@ -533,6 +538,9 @@ export function CityScene({
       {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
+      {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
+        claimed={claimed} avoidCentre={roundaboutAt} detail={qs.streetDetail}
+        glow={TOD_ENV[tod].winLit} lang={lang} />}
 
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />

@@ -24,6 +24,7 @@ import {
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
 import { PostFX } from "./postfx";
+import { activeFestivals, malaysiaDateKey } from "./festivals";
 import { defaultQualityForGridSize } from "./quality";
 import { t, type Lang } from "../i18n/useLang";
 
@@ -71,6 +72,17 @@ export default function City3DMapGL({
     [],
   );
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
+  // Real Malaysia date, independent of the game's turn and visual day/night.
+  // Refresh after midnight and when returning to a suspended browser tab.
+  const [festivalDate, setFestivalDate] = useState("");
+  useEffect(() => {
+    const refresh = () => setFestivalDate(malaysiaDateKey(new Date()));
+    refresh();
+    const timer = setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, []);
+  const festivals = useMemo(() => activeFestivals(festivalDate), [festivalDate]);
   const [showPerf, setShowPerf] = useState(false);
   // Procedural traffic/LRT/ambient soundscape (citySound.ts) — off by
   // default: browser autoplay policy blocks audio before a real click
@@ -218,6 +230,8 @@ export default function City3DMapGL({
           trafficLevel={trafficLevel}
           camTargetRef={camTargetRef}
           soundEnabled={soundEnabled}
+          festivals={festivals}
+          lang={lang}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>
@@ -263,6 +277,11 @@ export default function City3DMapGL({
 
       {/* scene label + perf (bottom-left) */}
       <div style={css.footL}>
+        {festivals.length > 0 && <span style={{ ...css.label, color: "#ffe3a0", maxWidth: compact ? 150 : 320,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={`${t(lang, "Tarikh Malaysia", "Malaysia date")}: ${festivalDate} · ${festivals.map(f => lang === "ms" ? f.ms : f.en).join(" / ")} · ${t(lang, "Hiasan: 7 hari sebelum hingga 2 hari selepas", "Decorations: 7 days before through 2 days after")}`}>
+          {festivals.map(f => lang === "ms" ? f.ms : f.en).join(" / ")}
+        </span>}
         <span style={css.label}>{densityLabel}</span>
         {isPeakNow && (
           <span style={css.peakTag}>{t(lang, "Waktu Puncak Trafik", "Peak Hour Traffic")}</span>
