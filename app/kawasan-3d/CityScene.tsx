@@ -332,7 +332,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell, weather = "clear",
+  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -342,6 +342,7 @@ function Grid({
   claimed: Set<string>;
   notchByCell: Map<string, RoundaboutCorner>;
   weather?: Weather;
+  nationalLighting?: boolean;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -418,7 +419,7 @@ function Grid({
       ))}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
-      {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} />}
+      {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
@@ -528,6 +529,7 @@ export function CityScene({
         claimed={claimed}
         notchByCell={notchByCell}
         weather={weather}
+        nationalLighting={tod === "night" && festivals.some(f => f.id === "malaysia" || f.id === "merdeka")}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />

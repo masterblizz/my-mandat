@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PLOT, type CellPlacement } from './cityData';
 import { type Festival } from './festivals';
 import { getFlagTexture } from './flags';
@@ -18,6 +19,24 @@ function FestivalBatch({ festival, sites, glow, lang }: {
   const ornaments = useRef<THREE.InstancedMesh>(null);
   const banners = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const weave = useMemo(() => {
+    if (festival.motif !== 'ketupat') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      const over = (row + col) % 2 === 0;
+      const x = col * 16, y = row * 16;
+      const shade = ctx.createLinearGradient(x, y, x + (over ? 16 : 0), y + (over ? 0 : 16));
+      shade.addColorStop(0, '#315c21'); shade.addColorStop(0.3, over ? '#b7cd69' : '#799b3d');
+      shade.addColorStop(0.8, over ? '#9bb956' : '#648835'); shade.addColorStop(1, '#355b26');
+      ctx.fillStyle = shade; ctx.fillRect(x, y, 16, 16);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    return tex;
+  }, [festival]);
+  useEffect(() => () => weave?.dispose(), [weave]);
   const banner = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 1024; canvas.height = 128;
@@ -33,9 +52,18 @@ function FestivalBatch({ festival, sites, glow, lang }: {
   }, [festival, lang]);
   const geometry = useMemo(() => {
     switch (festival.motif) {
-      case 'flag': return new THREE.PlaneGeometry(14, 7, 4, 1);
+      case 'flag': return new THREE.PlaneGeometry(20, 10, 8, 2);
       case 'ketupat': {
-        const g = new THREE.BoxGeometry(6, 6, 2.5); g.rotateZ(Math.PI / 4); return g;
+        const body = new THREE.BoxGeometry(7.5, 7.5, 3.5);
+        body.rotateZ(Math.PI / 4);
+        const tails = [-1, 1].map(side => {
+          const tail = new THREE.BoxGeometry(1.15, 8, 0.25);
+          tail.rotateZ(side * 0.18); tail.translate(side * 1.3, -8, 0);
+          return tail;
+        });
+        const merged = mergeGeometries([body, ...tails], false)!;
+        [body, ...tails].forEach(g => g.dispose());
+        return merged;
       }
       case 'tree': return new THREE.ConeGeometry(5, 11, 7);
       case 'harvest': return new THREE.OctahedronGeometry(4);
@@ -62,7 +90,7 @@ function FestivalBatch({ festival, sites, glow, lang }: {
       }
       write(cords.current!, i, site.x, 32, site.z, 180, 0.5, 0.5);
       for (let j = 0; j < 7; j++) ornaments.current!.setColorAt(i * 7 + j,
-        new THREE.Color(festival.motif === 'flag' ? '#ffffff' : festival.colors[j % festival.colors.length]));
+        new THREE.Color(festival.motif === 'flag' || festival.motif === 'ketupat' ? '#ffffff' : festival.colors[j % festival.colors.length]));
     });
     for (const mesh of [poles.current, cords.current, banners.current]) {
       mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere();
@@ -95,9 +123,9 @@ function FestivalBatch({ festival, sites, glow, lang }: {
       <planeGeometry /><meshStandardMaterial map={banner} emissiveMap={banner} emissive="#ffffff" emissiveIntensity={0.15 + glow * 0.45} roughness={0.8} />
     </instancedMesh>
     <instancedMesh ref={ornaments} geometry={geometry} args={[undefined, undefined, sites.length * 7]} frustumCulled={false}>
-      <meshStandardMaterial map={festival.motif === 'flag' ? getFlagTexture() : null}
-        side={THREE.DoubleSide} roughness={0.6} emissive={festival.colors[1]}
-        emissiveIntensity={glow * (festival.motif === 'flag' ? 0.06 : 0.4)} />
+      <meshStandardMaterial map={festival.motif === 'flag' ? getFlagTexture() : weave}
+        side={THREE.DoubleSide} roughness={0.8} emissive={festival.motif === 'ketupat' ? '#97ac57' : festival.colors[1]}
+        emissiveIntensity={glow * (festival.motif === 'flag' || festival.motif === 'ketupat' ? 0.12 : 0.4)} />
     </instancedMesh>
   </group>;
 }

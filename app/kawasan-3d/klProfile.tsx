@@ -159,7 +159,9 @@ const TWIN_APEX_Y = 535;
 const SPIRE_APEX_Y = 400;
 const TWIN_GAP = 110;
 
-export function KLProfile({ gridSize, winLit = 0 }: { gridSize: number; winLit?: number }) {
+export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
+  gridSize: number; winLit?: number; nationalLighting?: boolean;
+}) {
   const built = useMemo(() => {
     if (!klActive(gridSize)) return null;
     const twins = buildTwins();
@@ -192,6 +194,28 @@ export function KLProfile({ gridSize, winLit = 0 }: { gridSize: number; winLit?:
     });
     m.userData.baseMetalness = 0.42;
     m.userData.baseEnv = 1.15;
+    // Height-based architectural lighting, independent of the repeating
+    // window UVs: red/white shaft bands, a blue crown and a gold spire.
+    const national = { value: 0 };
+    m.userData.national = national;
+    m.onBeforeCompile = shader => {
+      shader.uniforms.nationalLighting = national;
+      shader.vertexShader = 'varying float towerHeight;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\ntowerHeight = position.y;');
+      shader.fragmentShader = 'uniform float nationalLighting;\nvarying float towerHeight;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `
+        #include <emissivemap_fragment>
+        float nationalH = clamp(towerHeight / ${TWIN_APEX_Y.toFixed(1)}, 0.0, 1.0);
+        float stripe = mod(floor(nationalH / 0.72 * 14.0), 2.0);
+        vec3 nationalColor = mix(vec3(0.85, 0.015, 0.035), vec3(0.95, 0.95, 0.88), stripe);
+        if (nationalH > 0.72) nationalColor = vec3(0.025, 0.12, 0.95);
+        if (nationalH > 0.94) nationalColor = vec3(1.0, 0.68, 0.025);
+        totalEmissiveRadiance = mix(totalEmissiveRadiance,
+          nationalColor * (0.45 + dot(totalEmissiveRadiance, vec3(0.333)) * 0.65), nationalLighting);
+      `);
+    };
+    m.customProgramCacheKey = () => 'klcc-national-lighting-v1';
     return m;
   }, []);
   const steel = useMemo(() => {
@@ -206,12 +230,13 @@ export function KLProfile({ gridSize, winLit = 0 }: { gridSize: number; winLit?:
   }, []);
 
   useEffect(() => {
+    mat.userData.national.value = nationalLighting ? 1 : 0;
     for (const m of [mat, steel]) {
       m.emissiveIntensity = winLit * 2.2;
       m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
-  }, [mat, steel, winLit]);
+  }, [mat, steel, winLit, nationalLighting]);
 
   useEffect(
     () => () => { mat.dispose(); steel.dispose(); },
