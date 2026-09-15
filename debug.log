@@ -30,3 +30,63 @@
 [0915/171453.352:ERROR:gpu\command_buffer\service\shared_image\shared_image_manager.cc:253] SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.
 [0915/171453.357:ERROR:gpu\command_buffer\service\shared_image\shared_image_manager.cc:253] SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.
 [0915/171453.357:ERROR:gpu\command_buffer\service\shared_image\shared_image_manager.cc:253] SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.
+[0915/175658.026:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175700.779:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175701.311:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175704.129:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175705.751:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175705.894:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175707.375:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175710.715:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175713.903:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175716.049:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175717.922:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175719.376:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175720.142:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175721.465:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175723.068:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175723.406:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175724.028:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175724.045:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175724.700:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175724.793:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3ffc001c6800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/175733.420:ERROR:gpu\command_buffer\service\shared_image\shared_image_manager.cc:253] SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.
+[0915/180241.805:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180245.958:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180247.082:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180247.653:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180248.133:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180249.138:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180249.414:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180250.099:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180251.124:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180252.559:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180253.899:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180254.406:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180254.705:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180254.971:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180255.335:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180255.692:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180256.068:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180256.092:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180256.375:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180256.806:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180257.135:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180257.572:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180257.961:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180258.220:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180258.331:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180258.694:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180259.399:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180259.493:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180300.047:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180300.272:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180300.506:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180300.884:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180301.413:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180301.943:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180302.018:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180302.215:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180304.380:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180719.041:ERROR:gpu\command_buffer\service\gl_utils.cc:426] [.WebGL-0x3f04001b8800] GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth stencil attachments cannot be the same image.
+[0915/180719.191:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.

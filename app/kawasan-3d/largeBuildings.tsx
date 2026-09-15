@@ -21,6 +21,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import * as THREE from "three";
+import { MallGlazing, MallSign } from "./mallDetails";
 import {
   PLOT, ROAD_GAP, plotXY, worldCentre, buildingHeight, BUILDING_COLOR,
   type CellPlacement, type BType, type ZoneKind,
@@ -214,7 +215,10 @@ export function LargeBuildings({
 
         if (l.type === "mall") {
           const baseH = 40;
-          parts.push(box("base", 0, TILE_H + baseH / 2, 0, fw, baseH, fd, color, 0.8, true, 0.06, "#4c5878"));
+          parts.push(box("base", 0, TILE_H + baseH / 2, 0, fw, baseH, fd, "#d8d0bd", 0.8));
+          parts.push(<group key="retail-windows" position={[0, TILE_H + baseH / 2, 0]}>
+            <MallGlazing width={fw} height={baseH - 4} depth={fd} winLit={winLit} />
+          </group>);
           // banded façade: three thin proud rings at quarter heights
           for (let f = 1; f <= 3; f++) {
             parts.push(box(`band${f}`, 0, TILE_H + (baseH / 4) * f, 0, fw + 3, 2.4, fd + 3, "#9b9182", 0.84));
@@ -222,13 +226,28 @@ export function LargeBuildings({
           // glazed atrium on the front (+z) face + a mullion strip
           parts.push(box("atrium", 0, TILE_H + baseH * 0.52, fd / 2 + 1, fw * 0.5, baseH * 0.82, 3, GLASS_COLOR, 0.18, true, 0.45, "#d8c193"));
           parts.push(box("mull", 0, TILE_H + baseH * 0.52, fd / 2 + 2.6, fw * 0.52, 1.6, 1.6, "#6b7278", 0.7, false, 0.2));
+          for (let pane = -2; pane <= 2; pane++) {
+            parts.push(box(`atrium-frame${pane}`, fw * pane * 0.1, TILE_H + baseH * 0.52,
+              fd / 2 + 2.7, 1.2, baseH * 0.82, 1, "#c7c3b4", 0.5));
+          }
+          parts.push(<group key="entrance-name" position={[0, TILE_H + baseH - 3, fd / 2 + 3.4]}>
+            <MallSign width={fw * 0.8} height={fw * 0.1} winLit={winLit} />
+          </group>);
           // flat entrance canopy on two columns
           parts.push(box("canopy", 0, TILE_H + 13, fd / 2 + 9, fw * 0.6, 1.8, 17, ANTENNA_COLOR, 0.55, true, 0.4));
           ([-0.24, 0.24] as const).forEach((cx, i) => {
             parts.push(box(`col${i}`, fw * cx, TILE_H + 6.5, fd / 2 + 15, 2.6, 13, 2.6, ANTENNA_COLOR, 0.55, false, 0.4));
           });
           // one setback office slab rising off the base — glassy
-          parts.push(box("tower", fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05, fw * 0.44, tall, fd * 0.34, color, 0.26, true, 0.5, "#4c5772"));
+          parts.push(box("tower", fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05, fw * 0.44, tall, fd * 0.34, "#8b9fa8", 0.5));
+          parts.push(<group key="tower-windows" position={[fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05]}>
+            <MallGlazing width={fw * 0.44} height={tall - 5} depth={fd * 0.34} winLit={winLit} tower />
+          </group>);
+          parts.push(box("name-backing", fw * 0.12, TILE_H + baseH + tall - 7, fd * 0.12 + 1,
+            fw * 0.56, 13, 2, "#132e36", 0.65));
+          parts.push(<group key="roof-name" position={[fw * 0.12, TILE_H + baseH + tall - 7, fd * 0.12 + 2.1]}>
+            <MallSign width={fw * 0.54} height={11.4} winLit={winLit} />
+          </group>);
           parts.push(box("deck", fw * 0.12, TILE_H + baseH + tall + 1.6, -fd * 0.05, fw * 0.3, 3, fd * 0.24, ROOF_DECK_COLOR, 0.85));
         } else if (l.type === "stadium") {
           // stepped bowl — two inset tiers, no full-footprint grey lid.

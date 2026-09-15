@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useHeightTween, type BuildingInstance } from "./models";
 import type { BType } from "./cityData";
+import { MallSign } from "./mallDetails";
 
 const TALL = new Set<BType>(["tower", "skyscraper", "antenna"]);
 const RESIDENTIAL = new Set<BType>(["tower", "house", "terrace", "kampung", "shophouse"]);
@@ -276,7 +277,10 @@ function FacilityKit({ item, groundY }: { item: BuildingInstance; groundY: numbe
       {project === "market" && (
         <group position={[0, roofY + 2, 0]}>{[-0.28, 0, 0.28].map((x, i) => <mesh key={x} position={[item.w * x, 0, 0]}><coneGeometry args={[5.4, 6, 4]} /><meshStandardMaterial color={["#ef4444", "#fbbf24", "#2563eb"][i]} /></mesh>)}</group>
       )}
-      {project === "mall" && <mesh position={[0, roofY + 5, 0]}><boxGeometry args={[item.w * 0.58, 9, 2.2]} /><meshStandardMaterial color="#a855f7" emissive="#a855f7" emissiveIntensity={0.2} /></mesh>}
+      {project === "mall" && <group position={[0, roofY + 5, 0]}>
+        <mesh><boxGeometry args={[item.w * 0.9, 9, 2.2]} /><meshStandardMaterial color="#132e36" roughness={0.6} /></mesh>
+        <group position={[0, 0, 1.2]}><MallSign width={item.w * 0.86} height={7} /></group>
+      </group>}
       {project === "office" && <mesh position={[0, roofY + 0.8, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[item.w * 0.16, item.w * 0.2, 24]} /><meshBasicMaterial color="#f8fafc" /></mesh>}
       {project === "hotel" && <mesh position={[0, roofY + 5, 0]}><boxGeometry args={[item.w * 0.55, 8, 1.2]} /><meshBasicMaterial color="#ec4899" /></mesh>}
       {project === "police" && <group position={[0, roofY + 4, 0]}><mesh><boxGeometry args={[10, 2.4, 3]} /><meshBasicMaterial color="#2563eb" /></mesh><mesh position={[0, 1.8, 0]}><sphereGeometry args={[1.2, 8, 6]} /><meshBasicMaterial color="#ef4444" /></mesh></group>}
