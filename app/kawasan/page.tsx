@@ -538,28 +538,40 @@ function zoneBuildings(zone: Zone, density: number, traits: SeatTraits): BSpec[]
   const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => ({ type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone), flag: zone.kind === "urban" && index === 0 }));
   const used = new Set(base.map((b) => b.slot));
   const free = [1, 3, 5, 7, 8, 6, 2, 0].filter((slot) => !used.has(slot));
+  // Projects are physical facilities, not a second visual layer over a
+  // zone's ordinary buildings. Reserve one unique slot for each project
+  // that the plot can physically display before filling high-density spare
+  // slots. This is especially visible with the Stadium project: its green
+  // oval is a stadium roof (PALETTES.stadium), not an interchange plaza or
+  // roundabout. The old facilities[index % free.length] assignment cycled
+  // after the remaining slots ran out, so a later project could be painted
+  // directly into that oval. The LRT interchange itself is centred on a
+  // road crossing and has no separate circular ground footprint; the nearby
+  // visual collision was therefore a generic project-slot collision, not
+  // building placement entering an infrastructure-reserved area.
+  const reservedFacilitySlots = Math.min(zone.projects.length, free.length);
   const fillers: BType[] = traits.paddy && (zone.kind === "village" || zone.kind === "river")
     ? ["sawah", "sawah", "house"]
     : ZONE_FILLER[zone.kind];
   const seed = seedFrom(zone.id);
   // Metro seats (high voter counts) grow true skyscrapers downtown
   const skyscraperCount = zone.kind === "urban"
-    ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
-    : zone.kind === "commercial" && density >= 0.8 ? 1 : 0;
-  const skyscrapers: BSpec[] = Array.from({ length: Math.min(skyscraperCount, free.length - 2) }, () => {
+    ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4), free.length - reservedFacilitySlots))
+    : zone.kind === "commercial" && density >= 0.8 ? Math.max(0, Math.min(1, free.length - reservedFacilitySlots)) : 0;
+  const skyscrapers: BSpec[] = Array.from({ length: Math.min(skyscraperCount, free.length - reservedFacilitySlots) }, () => {
     const slot = free.pop() as number;
     return { type: "skyscraper" as BType, slot, ...jitterFootprint("skyscraper", zone.id, slot), h: buildingHeight("skyscraper", zone) };
   });
   const extraBoost = (traits.industrial && zone.kind === "industry") || (traits.paddy && zone.kind === "village") ? 2 : 0;
-  const extraCount = Math.min(Math.round(density * 3) + extraBoost, Math.max(0, free.length - 2));
+  const extraCount = Math.min(Math.round(density * 3) + extraBoost, Math.max(0, free.length - reservedFacilitySlots));
   const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) => {
     const type = fillers[(seed + index) % fillers.length];
     const slot = free.pop() as number;
     return { type, slot, ...jitterFootprint(type, zone.id, slot), h: buildingHeight(type, zone) };
   });
-  const facilities: BSpec[] = zone.projects.map((projectId, index) => {
+  const facilities: BSpec[] = zone.projects.slice(0, free.length).map((projectId) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
-    const slot = free[index % free.length];
+    const slot = free.pop() as number;
     return {
       type,
       slot,
