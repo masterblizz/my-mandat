@@ -82,9 +82,10 @@ function buildGrassCanvas(): HTMLCanvasElement {
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext("2d")!;
-  // Mid-grey base: map multiplies colour, so ~0.5 grey ≈ "leave the base
-  // colour alone", blobs lighten/darken it a little.
-  ctx.fillStyle = "#7c7c7c";
+  // Albedo maps multiply the material colour in linear space: white is
+  // neutral, while sRGB #7c becomes roughly 0.2, crushing the lawn colour.
+  // Keep the texture near white and let the material supply the grass hue.
+  ctx.fillStyle = "#eeeeee";
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const rnd = lcg(20260908);
@@ -102,7 +103,7 @@ function buildGrassCanvas(): HTMLCanvasElement {
     }
   };
   for (let i = 0; i < 10; i++) {
-    blob(rnd() * SIZE, rnd() * SIZE, 22 + rnd() * 34, rnd() < 0.5 ? "150,158,120" : "40,46,28", 0.28 + rnd() * 0.22);
+    blob(rnd() * SIZE, rnd() * SIZE, 22 + rnd() * 34, rnd() < 0.5 ? "244,244,244" : "156,156,156", 0.12 + rnd() * 0.16);
   }
   // Grass-tick marks: short strokes at random lean, some lighter (fresh
   // blades catching light), some darker (shadow between tufts) — the
@@ -183,9 +184,9 @@ const PAVED: Partial<Record<ZoneKind, { surface: Surface; base: string; rough: n
 export const pavedSurfaceFor = (kind: ZoneKind) => PAVED[kind] ?? null;
 
 const RECIPE: Record<Surface, { fill: string; spots: [string, string, string]; count: number; blob: number; grid?: string; seed: number }> = {
-  asphalt: { fill: "#7c7c7c", spots: ["104,107,112", "150,154,160", "92,95,100"], count: 320, blob: 2.4, seed: 11 },
-  paver: { fill: "#8a8a8a", spots: ["120,116,108", "170,166,158", "138,134,126"], count: 160, blob: 2.0, grid: "rgba(70,68,64,0.55)", seed: 5 },
-  soil: { fill: "#828282", spots: ["150,138,120", "96,86,72", "176,164,150"], count: 360, blob: 4.2, seed: 23 },
+  asphalt: { fill: "#ededed", spots: ["196,196,196", "248,248,248", "180,180,180"], count: 320, blob: 2.4, seed: 11 },
+  paver: { fill: "#eeeeee", spots: ["210,210,210", "250,250,250", "224,224,224"], count: 160, blob: 2.0, grid: "rgba(100,100,100,0.3)", seed: 5 },
+  soil: { fill: "#e8e8e8", spots: ["218,218,218", "166,166,166", "244,244,244"], count: 360, blob: 4.2, seed: 23 },
 };
 
 const sharedPaved: Partial<Record<Surface, THREE.Texture>> = {};
@@ -201,7 +202,7 @@ function buildPavedCanvas(surface: Surface): HTMLCanvasElement {
   const rnd = lcg(r.seed * 2654435761 + 17);
   // Speckle grain: many small blobs in the recipe's spot tones, 3×3
   // wrapped so RepeatWrapping has no seam. `map` multiplies the base, so
-  // grey ~#7c7c7c ≈ "leave it", lighter/darker specks mottle it.
+  // near-white retains the material's base colour; grey specks weather it.
   for (let i = 0; i < r.count; i++) {
     const x = rnd() * SIZE;
     const y = rnd() * SIZE;

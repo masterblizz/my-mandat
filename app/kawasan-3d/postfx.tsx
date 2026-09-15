@@ -5,8 +5,8 @@
 // - Bloom: day/night-aware intensity. The lit-window / street-lamp
 //   emissive gates already computed per TOD (TOD_ENV.winLit / .lamp,
 //   consumed by scenery.tsx/models.tsx) double as the bloom driver here —
-//   a bright day sky has almost nothing above a low luminance threshold,
-//   so bloom stays subtle by threshold alone; dusk/night lower the
+//   daylight uses an HDR threshold to keep ordinary surfaces crisp;
+//   dusk/night lower the
 //   threshold and raise intensity so the same lit windows/lamps that
 //   already glow via emissive materials pick up an actual bloom halo.
 // - ToneMapping: ACES Filmic, replacing the plain Canvas `toneMappingExposure`
@@ -25,8 +25,10 @@ export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
   const env = TOD_ENV[tod];
   const settings = QUALITY_SETTINGS[quality];
   const glow = env.winLit + env.lamp; // 0 (day) .. ~1.9 (night)
-  const bloomIntensity = 0.22 + glow * 0.5;
-  const bloomThreshold = tod === "day" ? 0.86 : 0.5;
+  // Keep halos on luminous windows and lamps. Blooming ordinary daylight
+  // surfaces washes out concrete edges and makes the city look miniature.
+  const bloomIntensity = 0.08 + glow * 0.22;
+  const bloomThreshold = tod === "day" ? 1.1 : 0.85;
 
   // EffectComposer's children type is JSX.Element | JSX.Element[] (no
   // booleans), so the SSAO gate has to be an array push rather than `&&`.
