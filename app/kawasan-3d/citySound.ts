@@ -51,6 +51,7 @@ export class CitySound {
   private hornTimer: number | null = null;
   private closeness = 0;
   private trafficLevel = 0;
+  private gestureArmed = false;
 
   setEnabled(on: boolean) {
     if (on === this.enabled) return;
@@ -69,6 +70,18 @@ export class CitySound {
     // constructor call is inside a user-gesture chain — resume explicitly
     // rather than relying on that.
     void ctx.resume();
+    // Sound is now enabled by default (not behind a manual click), so the
+    // very first start() call usually happens with no gesture on the stack
+    // at all — autoplay policy then leaves the context permanently
+    // suspended. Arm a one-time listener on the first real interaction
+    // (dragging/clicking the map counts) to resume it, same fallback
+    // AmbientMusic uses for its own autoplay-gated track.
+    if (!this.gestureArmed) {
+      this.gestureArmed = true;
+      const resume = () => { void this.ctx?.resume(); };
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+    }
 
     const master = ctx.createGain();
     master.gain.value = 0;

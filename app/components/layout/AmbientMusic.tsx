@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useUIStore } from "../../store/uiStore";
 import { useLang, t } from "../../i18n/useLang";
 
@@ -16,6 +17,15 @@ export default function AmbientMusic() {
   const musicVolume   = useUIStore((s) => s.musicVolume);
   const toggleMusic   = useUIStore((s) => s.toggleMusic);
   const setMusicEnabled = useUIStore((s) => s.setMusicEnabled);
+
+  // The 3D kawasan map has its own procedural city soundscape (horns, LRT,
+  // traffic — see citySound.ts) which would otherwise play underneath this
+  // background music. Suppress the track (and hide this widget) on that
+  // route rather than touching musicEnabled/localStorage, so the player's
+  // actual music preference is untouched and comes right back elsewhere.
+  const pathname = usePathname();
+  const suppressed = pathname?.startsWith("/kawasan") ?? false;
+  const effectiveEnabled = musicEnabled && !suppressed;
 
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const [trackIdx, setTrackIdx]   = useState(0);
@@ -39,7 +49,7 @@ export default function AmbientMusic() {
     audioRef.current = audio;
 
     // If already enabled + user has gestured, start playing immediately
-    if (musicEnabled && gesturedRef.current) {
+    if (effectiveEnabled && gesturedRef.current) {
       audio.play().catch(() => setError(true));
     }
 
@@ -49,30 +59,31 @@ export default function AmbientMusic() {
   // Sync volume changes
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = musicEnabled
+      audioRef.current.volume = effectiveEnabled
         ? Math.max(0, Math.min(1, musicVolume / 100))
         : 0;
     }
-  }, [musicVolume, musicEnabled]);
+  }, [musicVolume, effectiveEnabled]);
 
-  // Play / pause based on store
+  // Play / pause based on store (and on entering/leaving the suppressed
+  // /kawasan route, so its own city soundscape doesn't play underneath this).
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !gesturedRef.current) return;
-    if (musicEnabled) {
+    if (effectiveEnabled) {
       audio.volume = Math.max(0, Math.min(1, musicVolume / 100));
       audio.play().catch(() => setError(true));
     } else {
       audio.pause();
     }
-  }, [musicEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // First gesture → start if enabled
   useEffect(() => {
     const onGesture = () => {
       if (gesturedRef.current) return;
       gesturedRef.current = true;
-      if (musicEnabled && audioRef.current) {
+      if (effectiveEnabled && audioRef.current) {
         audioRef.current.volume = Math.max(0, Math.min(1, musicVolume / 100));
         audioRef.current.play().catch(() => setError(true));
       }
@@ -104,6 +115,11 @@ export default function AmbientMusic() {
     : !ready
     ? t(lang, "components_layout_AmbientMusic.loading")
     : musicEnabled ? t(lang, "components_layout_AmbientMusic.on") : t(lang, "components_layout_AmbientMusic.off");
+
+  // Hidden on /kawasan — the city's own soundscape (horns/LRT/traffic)
+  // is the audio there; the toggle/track-switcher would otherwise sit on
+  // screen controlling a track that's deliberately silent.
+  if (suppressed) return null;
 
   return (
     <div

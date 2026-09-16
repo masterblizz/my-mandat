@@ -84,10 +84,12 @@ export default function City3DMapGL({
   }, []);
   const festivals = useMemo(() => activeFestivals(festivalDate), [festivalDate]);
   const [showPerf, setShowPerf] = useState(false);
-  // Procedural traffic/LRT/ambient soundscape (citySound.ts) — off by
-  // default: browser autoplay policy blocks audio before a real click
-  // anyway, and starting the city silent doesn't surprise anyone.
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  // Procedural traffic/LRT/ambient soundscape (citySound.ts) — on by
+  // default so the city reads as alive (horns, LRT rumble, traffic) as
+  // soon as the map loads, instead of relying on the player to find the
+  // 🔊 button. citySound.ts arms its own first-gesture listener to
+  // satisfy the browser autoplay policy, same pattern as AmbientMusic.
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [perf, setPerf] = useState<PerfSample>({ fps: 0, calls: 0, tris: 0 });
 
   // Traffic density. "auto" tracks the real system clock (weekday rush
@@ -153,12 +155,8 @@ export default function City3DMapGL({
     camRef.current = { ...CAM_DEFAULT, zoom: fitZoom(w) };
     camTargetRef.current = [0, 0];
   }, []);
-  const onSelect = useCallback(
-    (id: string) => { if (!movedRef.current) setSelectedZoneId(id); },
-    [setSelectedZoneId],
-  );
-  // Recentre the 3D view on a grid cell (minimap click). Same world-space
-  // formula as placeZones() in cityData.ts.
+  // Recentre the 3D view on a grid cell (minimap click / building click).
+  // Same world-space formula as placeZones() in cityData.ts.
   const panToCell = useCallback((col: number, row: number) => {
     const XY = plotXY(gridSize);
     const c = worldCentre(gridSize);
@@ -172,6 +170,27 @@ export default function City3DMapGL({
     });
     return m;
   }, [gridSize, zones]);
+
+  // Reverse lookup (zone id -> grid cell) so clicking a building's plot in
+  // the 3D scene itself recentres the camera on it, the same way a minimap
+  // click already does — not just picking the zone for the side panel.
+  const cellByZoneId = useMemo(() => {
+    const m = new Map<string, { col: number; row: number }>();
+    assignZonePositions(gridSize, zones.length).forEach((p, i) => {
+      if (zones[i]) m.set(zones[i].id, p);
+    });
+    return m;
+  }, [gridSize, zones]);
+
+  const onSelect = useCallback(
+    (id: string) => {
+      if (movedRef.current) return;
+      setSelectedZoneId(id);
+      const cell = cellByZoneId.get(id);
+      if (cell) panToCell(cell.col, cell.row);
+    },
+    [setSelectedZoneId, cellByZoneId, panToCell],
+  );
 
   // zone-0 is always the Pusat Bandar flagship in makeZones() — mark it
   // with a steady landmark beacon (mirrors the CSS isPrimary beacon).
