@@ -3,6 +3,8 @@
 import { CSSProperties, MutableRefObject, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import JourneyPanel from "../components/career/JourneyPanel";
+import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -12,7 +14,6 @@ import { generateConstituencies } from "../data/constituencies";
 import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
 
-const STORAGE_PREFIX = "mymandat-kawasan-development-v2";
 
 // ── 3D city map: WebGL cutover ────────────────────────────────────────
 // The live map is now <City3DMapGL> (app/kawasan-3d/City3DMapGL.tsx), the
@@ -2563,7 +2564,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, leader, resources, settings, hasWonElection, operations, addOperation, setLeader } = useGameStore();
+  const { states, leader, resources, settings, hasWonElection, operations, addOperation, setLeader, journey } = useGameStore();
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
@@ -2583,7 +2584,6 @@ export default function KawasanDevelopmentPage() {
   const ownSeat = constituencies.find((seat) => seat.id === leader.homeConstituencyId) ?? constituencies[0];
   const seatKindMS = settings.electionScope === "prn" ? "DUN" : "PARLIMEN";
   const officeMS = settings.electionScope === "prn" ? "ADUN" : "AHLI PARLIMEN";
-  const storageKey = `${STORAGE_PREFIX}:${ownSeat?.id ?? "unknown"}`;
 
   // City density scales with population per km² (people actually living
   // there, packed into the seat's modeled area) — not raw voter turnout,
@@ -2627,31 +2627,26 @@ export default function KawasanDevelopmentPage() {
   ].filter(Boolean).join(" · ");
   const sceneLabel = traitLabels ? `${densityLabel} · ${traitLabels}` : densityLabel;
 
+  const seatId = ownSeat?.id ?? "unknown";
   useEffect(() => {
-    if (!ownSeat) return;
-    try {
-      const raw = localStorage.getItem(storageKey) ?? localStorage.getItem(`mymandat-kawasan-development-v1:${ownSeat.id}`);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Zone[];
-        if (Array.isArray(parsed) && parsed.length) {
-          // Merge saved progress but let the generator's names/types win,
-          // so trait-based zone identities (fishing village, paddy village)
-          // apply to saves made before traits existed.
-          const upgraded = makeZones(ownSeat.id, traits, developedCount).map((fallback, index) => ({ ...fallback, ...(parsed[index] ?? {}), kind: fallback.kind, archetype: fallback.archetype, repeat: fallback.repeat }));
-          setZones(upgraded);
-          return;
+    const saved = journey.cityZones[seatId];
+    const base = saved ?? makeZones(seatId, traits, developedCount);
+    const completed = journey.pledges.filter(p => p.status === "delivered");
+    const display = base.map((zone, index) => {
+      if (index !== 0) return zone;
+      let next = { ...zone, projects: [...zone.projects] };
+      for (const pledge of completed) {
+        const id = pledge.id === "jobs" ? "market" : pledge.id;
+        if (!next.projects.includes(id)) {
+          const project = PROJECTS.find(p => p.id === id)!;
+          next.projects.push(id);
+          next = { ...next, [project.target]: clamp(next[project.target] + project.boost) };
         }
       }
-    } catch {
-      localStorage.removeItem(storageKey);
-    }
-    setZones(makeZones(ownSeat.id, traits, developedCount));
-  }, [ownSeat, storageKey, traits, developedCount]);
-
-  useEffect(() => {
-    if (!zones.length) return;
-    localStorage.setItem(storageKey, JSON.stringify(zones));
-  }, [zones, storageKey]);
+      return { ...next, sentiment: Math.round((next.infra + next.welfare + next.economy) / 3) };
+    });
+    setZones(display);
+  }, [seatId, traits, developedCount, journey.cityZones, journey.pledges]);
 
   useEffect(() => {
     if (!notice) return;
@@ -2676,7 +2671,7 @@ export default function KawasanDevelopmentPage() {
   // Development is available during the campaign; project costs and zone
   // progression still apply normally. Election victory continues to gate
   // the separate government route below.
-  const unlocked = true;
+  const unlocked = journey.chapter === "government";
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
   const spent = zones.reduce((sum, zone) => sum + zone.projects.reduce((projectSum, projectId) => projectSum + (PROJECTS.find((project) => project.id === projectId)?.cost ?? 0), 0), 0);
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
@@ -2690,8 +2685,8 @@ export default function KawasanDevelopmentPage() {
     // Defensive: the UI never exposes a clickable project button pre-win
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
-    if (!unlocked) {
-      setNotice(t(lang, "kawasan_page.winYourElectionFirstToUnlock"));
+    if (!unlocked || useGameStore.getState().careerProgress.month >= 60) {
+      setNotice(t(lang, "Formasi kerajaan membuka bajet pembangunan awam. Mulakan dengan janji di atas.", "Forming government unlocks the public development budget. Start with a commitment above."));
       return;
     }
     if (targetZone.projects.includes(project.id)) {
@@ -2703,40 +2698,22 @@ export default function KawasanDevelopmentPage() {
       setNotice(t(lang, "kawasan_page.projectStillLocked"));
       return;
     }
-    if (resources.funds < project.cost) {
+    if (journey.publicBudget < project.cost) {
       setNotice(t(lang, "kawasan_page.insufficientBudget"));
       return;
     }
 
-    useGameStore.setState((state) => ({
-      resources: { ...state.resources, funds: Math.max(0, state.resources.funds - project.cost) },
-      alerts: [{
-        id: `dev-${Date.now()}`,
-        time: new Date().toTimeString().slice(0, 5),
-        // Alert copy is stored, not re-rendered on language switch, so it keeps
-        // its existing Malay-name form in both locales.
-        message: t(lang, "kawasan_page.projectApprovedAlert", {
-          project: t("ms", `kawasan_page.projectTitle_${project.id}`),
-          zone: zoneName("ms", targetZone),
-          seat: ownSeat?.name ?? "kawasan",
-        }),
-        type: "positive",
-      }, ...state.alerts].slice(0, 12),
-    }));
-
-    setZones((current) => current.map((zone) => {
-      if (zone.id !== targetZone.id) return zone;
-      const next = {
-        ...zone,
-        [project.target]: clamp(zone[project.target] + project.boost),
-        projects: [...zone.projects, project.id],
-      };
-      return { ...next, sentiment: clamp(Math.round((next.infra + next.welfare + next.economy) / 3)) };
-    }));
+    const current = useGameStore.getState().journey;
+    if (current.construction.some(w => w.seat === seatId && w.zone === targetZone.id && w.project === project.id)) return;
+    useGameStore.setState(state => ({ journey: { ...state.journey,
+      publicBudget: state.journey.publicBudget - project.cost,
+      cityZones: { ...state.journey.cityZones, [seatId]: zones },
+      construction: [...state.journey.construction, { seat: seatId, zone: targetZone.id, project: project.id, target: project.target, boost: project.boost, remaining: 2 }],
+    } }));
     setSelectedZoneId(targetZone.id);
     setPendingProjectId(null);
-    setCelebration({ zoneId: targetZone.id, at: Date.now() });
-    setNotice(t(lang, "kawasan_page.projectApprovedLocalGridUpdated"));
+
+    setNotice(t(lang, "Pembinaan bermula. Siap dalam dua suku tahun.", "Construction started. Completion in two quarters."));
   }
 
   function handleZoneSelect(zoneId: string) {
@@ -2753,7 +2730,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   function launchQuickOperation(type: OpType) {
-    if (!homeState) return;
+    if (!homeState || journey.chapter !== "campaign" || journey.decisions < 1) return;
     const template = OP_TEMPLATES[type];
     if (resources.funds < template.fundsCost || resources.manpower < template.manpowerCost) return;
     // Display name only — the operation still scopes its actual support gain
@@ -2808,6 +2785,8 @@ export default function KawasanDevelopmentPage() {
       )}
 
       <main className="kw-page-content pt-[56px] pb-[58px] px-6 w-full">
+        <JourneyPanel local />
+        {journey.construction.length > 0 && <div className="mb-3 text-sm text-gold">{journey.construction.map(w => `${t(lang, `kawasan_page.projectTitle_${w.project}`)}: ${w.remaining} ${t(lang, "suku tahun", "quarters")}`).join(" · ")}</div>}
         <div className="kw-page-heading mb-4 flex items-start justify-between gap-4">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "kawasan_page.constituencyBuilderSim")}</div>
@@ -2827,7 +2806,7 @@ export default function KawasanDevelopmentPage() {
               <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
             )}
             {hasWonElection ? (
-              <button onClick={() => router.push("/government")} className="kw-action-button kw-action-gold px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
+              <button onClick={() => router.push(resumeRoute(useGameStore.getState()))} className="kw-action-button kw-action-gold px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
             ) : (
               <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
             )}
@@ -2835,7 +2814,7 @@ export default function KawasanDevelopmentPage() {
         </div>
 
         <div className="kw-stat-grid mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(resources.funds)}</div></div>
+          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{unlocked ? t(lang, "Bajet awam", "Public budget") : t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(unlocked ? journey.publicBudget : resources.funds)}</div></div>
           <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
           <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{totalProjects}</div></div>
           <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
@@ -2895,7 +2874,7 @@ export default function KawasanDevelopmentPage() {
                     <div className="grid grid-cols-2 gap-2">
                       {(Object.keys(OP_TEMPLATES) as OpType[]).map((type) => {
                         const template = OP_TEMPLATES[type];
-                        const affordable = resources.funds >= template.fundsCost && resources.manpower >= template.manpowerCost;
+                        const affordable = journey.chapter === "campaign" && journey.decisions > 0 && resources.funds >= template.fundsCost && resources.manpower >= template.manpowerCost;
                         const justLaunched = launchedType === type;
                         return (
                           <button
@@ -2985,7 +2964,7 @@ export default function KawasanDevelopmentPage() {
                 {PROJECTS.map((project) => {
                   const done = selectedZone?.projects.includes(project.id) ?? false;
                   const locked = done ? null : lockReason(project, selectedZone, lang);
-                  const affordable = resources.funds >= project.cost;
+                  const affordable = useGameStore.getState().careerProgress.month < 60 && journey.publicBudget >= project.cost && !journey.construction.some(w => w.seat === seatId && w.zone === selectedZone?.id && w.project === project.id);
                   const accent = done ? "var(--neon-green)" : locked ? "var(--text-muted)" : affordable ? "var(--gold)" : "var(--neon-red)";
                   return (
                     <button key={project.id} onClick={() => { setPendingProjectId(project.id); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} disabled={!affordable} className="w-full border p-3 text-left transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed" style={{ opacity: !affordable ? 0.55 : 1, borderColor: pendingProjectId === project.id ? "rgb(var(--gold-rgb) / 0.72)" : done ? "rgb(0 255 136 / 0.35)" : locked ? "rgba(148,163,184,0.28)" : "rgb(var(--cyan-rgb)/0.22)", background: pendingProjectId === project.id ? "rgb(var(--gold-rgb) / 0.11)" : done ? "rgb(0 255 136 / 0.06)" : "rgb(var(--bg-rgb) / 0.72)" }}>

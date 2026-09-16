@@ -1,4 +1,5 @@
 "use client";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, outcomeOf, journal, type Journey, type JourneyAction, type Chapter } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -9,7 +10,7 @@ import type { OpponentAction } from "./opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
 import { buildCampaignActionReaction, buildNominationReaction } from "../data/politicalReactions";
 import type { LiveNewsItem } from "../data/liveNews";
-import { calculateCampaignGain, getCampaignBaseGain } from "./campaignMath";
+import { calculateCampaignGain, getCampaignBaseGain, campaignCost } from "./campaignMath";
 import { generateConstituencies } from "../data/constituencies";
 
 export type NominationEntry =
@@ -75,6 +76,11 @@ export interface SandboxProgress {
 }
 
 export interface GameState {
+  journey: Journey;
+  journeyAction: (action: JourneyAction) => void;
+  finishElection: () => void;
+  confirmCoalition: (partners: string[]) => void;
+  enterTerm: (chapter: Chapter) => void;
   phase: "menu" | "setup" | "playing" | "ended";
   dataset: DatasetKind;
   nominations: Record<string, NominationEntry | null>;
@@ -237,6 +243,7 @@ const defaultOperations: Operation[] = [
 ];
 
 export const useGameStore = create<GameState>((set, get) => ({
+  journey: newJourney(),
   phase: "menu",
   dataset: "dummy",
   nominations: {},
@@ -263,7 +270,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   aiNews: [],
   hasWonElection: false,
   dailyChallengeDate: null,
-  careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
+  careerProgress: { completed: [], term: 1, month: 1 },
   governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
   sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
   settings: {
@@ -279,6 +286,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     permanentConsequences: true,
   },
 
+  journeyAction: (action) => set((state) => reduceJourney(state, action)),
+  finishElection: () => set((state) => finishElection(state)),
+  confirmCoalition: (partners) => set((state) => {
+    if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};
+    const valid = coalitionPool(state).filter(p => partners.includes(p.id));
+    if (outcomeOf(state).seatsWon + valid.reduce((n, p) => n + p.seats, 0) < outcomeOf(state).majorityTarget) return {};
+    return { journey: { ...state.journey, partners: valid.map(p => p.id), coalitionConfirmed: true, chapter: "formation", journal: journal(state.journey, "Perjanjian gabungan disahkan. Peruntukan rakan ditolak daripada bajet awal penggal.", "Coalition agreement confirmed. Partner allocations will be deducted from the opening public budget.") } };
+  }),
+  enterTerm: (chapter) => set((state) => {
+    if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};
+    if (!["government", "opposition", "rebuilding"].includes(chapter)) return {};
+    if (chapter === "government" && (!state.journey.coalitionConfirmed || !Object.values(state.journey.appointments).some(Boolean) || governingSeats(state) < outcomeOf(state).majorityTarget)) return {};
+    const cost = coalitionPool(state).filter(p => state.journey.partners.includes(p.id)).reduce((n, p) => n + p.cost, 0);
+    return { journey: { ...state.journey, chapter, publicBudget: chapter === "government" ? 900000 - cost : 0, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
+  }),
   setHasWonElection: (won) => set({ hasWonElection: won }),
   setDailyChallengeDate: (dateKey) => set({ dailyChallengeDate: dateKey }),
   setCareerProgress: (patch) => set((state) => ({ careerProgress: { ...state.careerProgress, ...patch } })),
@@ -323,7 +345,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   advanceDay: () =>
     set((gameState) => {
-      if (gameState.day >= gameState.totalDays) return {};
+      if (gameState.day >= gameState.totalDays || gameState.journey.chapter !== "campaign") return {};
       const result = processDay(gameState);
       const updatedStates = gameState.states.map((s) => {
         const u = result.stateUpdates.find((x) => x.id === s.id);
@@ -347,6 +369,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       return {
         day: gameState.day + 1,
+        journey: { ...gameState.journey, decisions: 3, actionsToday: [], journal: journal(gameState.journey, `Hari ${gameState.day + 1}: perubahan sokongan ${delta.toFixed(1)} mata selepas operasi, peristiwa dan tindak balas lawan.`, `Day ${gameState.day + 1}: support changed ${delta.toFixed(1)} points after operations, events and opponent responses.`) },
         states: updatedStates,
         resources: { ...gameState.resources, ...result.resourceUpdates },
         alerts: combinedAlerts,
@@ -377,6 +400,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem(AI_NEWS_KEY);
     }
     return set({
+      journey: newJourney(),
       phase: "menu",
       dataset: "dummy",
       nominations: {},
@@ -397,7 +421,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       aiNews: [],
       hasWonElection: false,
       dailyChallengeDate: null,
-      careerProgress: { completed: ["prn-test", "shadow-or-govern"], term: 1, month: 1 },
+      careerProgress: { completed: [], term: 1, month: 1 },
       governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
       sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
       settings: {
@@ -416,7 +440,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   addOperation: (op) =>
-    set((state) => ({ operations: [...state.operations, op] })),
+    set((state) => state.journey.chapter === "campaign" && state.day < state.totalDays && state.journey.decisions > 0 ? { operations: [...state.operations, op], journey: { ...state.journey, decisions: state.journey.decisions - 1 } } : {}),
 
   removeOperation: (id) =>
     set((state) => ({ operations: state.operations.filter((op) => op.id !== id) })),
@@ -464,9 +488,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   runCampaignMiniGame: (stateId, gameType, tactic) =>
     set((state) => {
-      const fundsCost = gameType === "ceramah" ? 75_000 : 45_000;
-      const mediaCost = gameType === "social" ? 65 : 15;
-      const manpowerCost = gameType === "ceramah" ? 42 : 12;
+      if (state.journey.chapter !== "campaign" || state.day >= state.totalDays || state.journey.decisions < 1) return {};
+      if (state.settings.electionScope === "prn" && stateId !== state.settings.prnStateId) return {};
+      if (!state.states.some(s => s.id === stateId)) return {};
+      const { funds: fundsCost, media: mediaCost, manpower: manpowerCost } = campaignCost(gameType, tactic);
+      if (state.resources.funds < fundsCost || state.resources.manpower < manpowerCost || state.resources.mediaBuy < mediaCost) return {};
       const ts = new Date().toTimeString().slice(0, 5);
       const targetState = state.states.find((s) => s.id === stateId);
       const projectedGain = targetState
@@ -484,6 +510,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       persistPoliticalReactions(politicalReactions);
 
       return {
+        journey: { ...state.journey, decisions: state.journey.decisions - 1, journal: journal(state.journey, `Kempen: +${projectedGain.toFixed(1)} sokongan; kos RM${fundsCost}.`, `Campaign: +${projectedGain.toFixed(1)} support; cost RM${fundsCost}.`) },
         states: state.states.map((s) => {
           if (s.id !== stateId) return s;
           const gain = calculateCampaignGain(s, gameType, tactic);

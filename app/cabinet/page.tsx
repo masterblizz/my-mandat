@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { governingSeats } from "../store/journey";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "../components/layout/Header";
@@ -110,53 +111,6 @@ function scoreBreakdown(member: PartyMember, post: CabinetPost) {
   return { total, specialty, experience, influence, credibility, charisma };
 }
 
-function clampValue(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function average(values: number[]) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-}
-
-type EffectGroups = { economy: string[]; media: string[]; stability: string[]; trust: string[] };
-
-const FEDERAL_EFFECT_GROUPS: EffectGroups = {
-  economy: ["min-fin", "min-trade"],
-  media: ["min-comm"],
-  stability: ["dpm1", "dpm2", "min-home", "min-def"],
-  trust: ["min-edu", "min-health", "min-women", "min-youth"],
-};
-
-const STATE_EFFECT_GROUPS: EffectGroups = {
-  economy: ["exco-fin", "exco-invest"],
-  media: ["exco-tourism"],
-  stability: ["exco-local", "exco-land", "exco-religion"],
-  trust: ["exco-edu", "exco-health", "exco-youth"],
-};
-
-function getCabinetGameplayEffects(posts: CabinetPost[], assignments: AssignmentMap, members: PartyMember[], groups: EffectGroups) {
-  const scoreFor = (postId: string) => {
-    const post = posts.find((item) => item.id === postId);
-    const member = members.find((candidate) => candidate.id === assignments[postId]);
-    return post && member ? scoreAssignment(member, post) : 0;
-  };
-  const appointedScores = posts.map((post) => scoreFor(post.id)).filter((score) => score > 0);
-  const economyScore = average(groups.economy.map(scoreFor).filter(Boolean));
-  const mediaScore = average(groups.media.map(scoreFor).filter(Boolean));
-  const stabilityScore = average(groups.stability.map(scoreFor).filter(Boolean));
-  const trustScore = average(groups.trust.map(scoreFor).filter(Boolean));
-  const weakAppointments = appointedScores.filter((score) => score > 0 && score < 65).length;
-  const averageScore = average(appointedScores);
-  return {
-    funds: clampValue(Math.round((economyScore - 60) * 2.2), -45, 85),
-    media: clampValue(Math.round((mediaScore - 60) * 1.6), -35, 65),
-    stability: clampValue(Math.round((stabilityScore - 60) * 1.8), -40, 75),
-    trust: clampValue(Math.round((trustScore - 60) * 1.7), -35, 70),
-    scandalRisk: clampValue(Math.round(42 - averageScore * 0.35 + weakAppointments * 9), 3, 70),
-    weakAppointments,
-  };
-}
-
 const LEADER_AVATARS = [
   "/avatars/leader-01.png",
   "/avatars/leader-02.png",
@@ -258,14 +212,14 @@ export default function CabinetPage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, difficulty, day, totalDays, nominations, settings, addPoliticalReaction } = useGameStore();
+  const { states, leader, difficulty, day, totalDays, nominations, settings, journey, addPoliticalReaction } = useGameStore();
   const outcome = useMemo(
     () => computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId }),
     [states, settings.electionScope, settings.prnStateId]
   );
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
   const isPrn = terms.isPrn;
-  const seatsWon = outcome.seatsWon;
+  const seatsWon = governingSeats(useGameStore.getState());
   const totalSeats = outcome.totalSeats;
   const majorityTarget = outcome.majorityTarget;
   const capacity = isPrn ? getStateCapacity(seatsWon, majorityTarget, terms.headTitle) : getFederalCapacity(seatsWon, majorityTarget);
@@ -288,18 +242,11 @@ export default function CabinetPage() {
   }, [canFormGovernment, isPrn, capacity.dpm, capacity.portfolios]);
 
   const autoCabinet = useAutoCabinet(activePosts, candidatePool);
-  const [assignments, setAssignments] = useState<AssignmentMap>(autoCabinet);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(activePosts[0]?.id ?? null);
-
-  // Settings hydrate from localStorage after mount, so the post list can switch
-  // between cabinet and EXCO on a later render — re-seed the line-up when it does.
-  const postsKey = activePosts.map((post) => post.id).join(",");
-  const [seededPostsKey, setSeededPostsKey] = useState(postsKey);
-  if (seededPostsKey !== postsKey) {
-    setSeededPostsKey(postsKey);
-    setAssignments(autoCabinet);
-    setSelectedPostId(activePosts[0]?.id ?? null);
+  const assignments: AssignmentMap = Object.keys(journey.appointments).length ? journey.appointments : autoCabinet;
+  function setAssignments(update: AssignmentMap | ((current: AssignmentMap) => AssignmentMap)) {
+    useGameStore.setState(state => ({ journey: { ...state.journey, appointments: typeof update === "function" ? update(assignments) : update } }));
   }
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(activePosts[0]?.id ?? null);
 
   const assignedMembers = useMemo(() => {
     return new Set(Object.values(assignments).filter(Boolean) as string[]);
@@ -312,8 +259,11 @@ export default function CabinetPage() {
     return member ? scoreAssignment(member, post) : 0;
   });
   const cabinetScore = activePosts.length ? Math.round(cabinetScores.reduce((sum, value) => sum + value, 0) / activePosts.length) : 0;
+  useEffect(() => {
+    if (journey.chapter !== "formation" || (Object.keys(journey.appointments).length && journey.cabinetQuality === cabinetScore)) return;
+    useGameStore.setState(state => ({ journey: { ...state.journey, appointments: assignments, cabinetQuality: cabinetScore } }));
+  }, [assignments, cabinetScore, journey.chapter, journey.appointments, journey.cabinetQuality]);
   const grade = getGrade(cabinetScore, isPrn ? "EXCO" : "KABINET", isPrn ? "EXCO" : "CABINET");
-  const gameplayEffects = getCabinetGameplayEffects(activePosts, assignments, candidatePool, isPrn ? STATE_EFFECT_GROUPS : FEDERAL_EFFECT_GROUPS);
   const capacityLabel = t(lang, capacity.labelKey);
   const capacityNote = t(lang, capacity.noteKey, capacity.noteVars);
   const postTitle = (post: CabinetPost) => t(lang, post.titleMS, post.titleEN);
@@ -360,7 +310,16 @@ export default function CabinetPage() {
   }
 
   function autoFillCabinet() {
-    setAssignments(autoCabinet);
+    setAssignments(current => {
+      const used = new Set(Object.values(current).filter(Boolean));
+      const next = { ...current };
+      for (const post of activePosts) {
+        if (next[post.id]) continue;
+        const member = [...candidatePool].filter(m => !used.has(m.id)).sort((a, b) => scoreAssignment(b, post) - scoreAssignment(a, post))[0];
+        if (member) { next[post.id] = member.id; used.add(member.id); }
+      }
+      return next;
+    });
   }
 
   return (
@@ -437,25 +396,8 @@ export default function CabinetPage() {
               </TacticalPanel>
 
               <TacticalPanel title={t(lang, "cabinet_page.effects", { termsExecutiveBody: terms.executiveBody })}>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { labelKey: "cabinet_page.effectFunds", value: gameplayEffects.funds, suffix: "%", good: true },
-                    { labelKey: "cabinet_page.effectMedia", value: gameplayEffects.media, suffix: "%", good: true },
-                    { labelKey: "cabinet_page.effectStability", value: gameplayEffects.stability, suffix: "%", good: true },
-                    { labelKey: "cabinet_page.effectTrust", value: gameplayEffects.trust, suffix: "%", good: true },
-                    { labelKey: "cabinet_page.effectScandalRisk", value: gameplayEffects.scandalRisk, suffix: "%", good: false, wide: true },
-                  ].map((effect) => {
-                    const positive = effect.good ? effect.value >= 0 : effect.value <= 25;
-                    const color = positive ? "var(--neon-green)" : effect.value === 0 ? "var(--text-muted)" : "var(--warn-orange)";
-                    const display = effect.good && effect.value > 0 ? `+${effect.value}${effect.suffix}` : `${effect.value}${effect.suffix}`;
-                    return (
-                      <div key={effect.labelKey} className={`${effect.wide ? "col-span-2" : ""} flex items-center justify-between gap-2 border px-2 py-1.5`} style={{ borderColor: "rgb(var(--cyan-rgb)/0.12)", background: "rgba(255,255,255,0.025)" }}>
-                        <span className="text-[9px] font-bold tracking-wider text-text-muted">{t(lang, effect.labelKey)}</span>
-                        <span className="text-[12px] font-black" style={{ color }}>{display}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <div className="text-sm text-cyan">{t(lang, "Kepercayaan setiap suku tahun", "Trust each quarter")}: {cabinetScore >= 70 ? "+1" : "−1"}</div>
+                <p className="mt-2 text-xs leading-relaxed text-text-muted">{t(lang, "Skor 70 ke atas meningkatkan keyakinan terhadap pelaksanaan. Pelantikan disimpan dan dibawa ke upacara serta penggal kerajaan.", "A score of 70 or above builds confidence in delivery. Appointments are saved and carry into the ceremony and governing term.")}</p>
               </TacticalPanel>
             </div>
 

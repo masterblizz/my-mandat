@@ -20,12 +20,6 @@ const MAJORITY = 112;
 
 type Verdict = "WIN" | "KINGMAKER" | "LOSS";
 
-function getVerdict(mandatSeats: number, majorityTarget = MAJORITY): Verdict {
-  if (mandatSeats >= majorityTarget) return "WIN";
-  if (mandatSeats >= Math.ceil(majorityTarget * 0.8)) return "KINGMAKER";
-  return "LOSS";
-}
-
 const VERDICT_CONFIG: Record<Verdict, { labelKey: string; color: string; borderColor: string; bgColor: string; badgeKey: string }> = {
   WIN: {
     labelKey: "results_page.verdictLabelWIN",
@@ -216,7 +210,7 @@ export default function ResultsPage() {
   const lawanSeats = electionOutcome.lawanSeats;
   const othersSeats = electionOutcome.othersSeats;
 
-  const verdict = getVerdict(mandatSeats, majorityTarget);
+  const verdict: Verdict = electionOutcome.status === "majority" ? "WIN" : electionOutcome.status === "hung" ? "KINGMAKER" : "LOSS";
   const verdictConfig = VERDICT_CONFIG[verdict];
   const cfg = {
     ...verdictConfig,
@@ -244,7 +238,9 @@ export default function ResultsPage() {
   const wonOwnSeat = ownSeatDetail?.result === "WIN";
 
   useEffect(() => {
-    if (recordedResultRef.current) return;
+    if (day < totalDays || recordedResultRef.current || useGameStore.getState().journey.resultRecorded) return;
+    useGameStore.getState().finishElection();
+    useGameStore.setState(s => ({ journey: { ...s.journey, resultRecorded: true } }));
     recordedResultRef.current = true;
 
     const sortedBySupport = [...resultStates].sort((a, b) => b.mandatSupport - a.mandatSupport);
@@ -643,7 +639,7 @@ export default function ResultsPage() {
               boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
             }}
           >
-            {isPending ? t(lang, "results_page.loading") : "♛ SAHKAN MANDAT"}
+            {isPending ? t(lang, "results_page.loading") : t(lang, "♛ SAHKAN MANDAT", "♛ CONFIRM MANDATE")}
           </button>
           <button
             onClick={handleNewCampaign}

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import JourneyPanel from "../components/career/JourneyPanel";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -850,6 +851,7 @@ export default function WarroomPage() {
 
       {/* Main Content */}
       <main className="pt-[164px] pb-[56px] px-6">
+        <JourneyPanel />
         <div className="flex flex-col gap-4 w-full">
 
           <TacticalPanel title={electionScope === "prn" ? t(lang, "warroom_page.prnCommandBriefing") : t(lang, "warroom_page.pruCommandBriefing")}>

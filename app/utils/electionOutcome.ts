@@ -56,9 +56,8 @@ export function computeElectionOutcome(states: StateData[], options: Options = {
     : 0;
   const statesWon = stateSummaries.filter((item) => item.wins > Math.max(item.losses, item.others)).length;
   const statesLost = stateSummaries.filter((item) => item.losses > Math.max(item.wins, item.others)).length;
-  const hungThreshold = electionScope === "prn" ? Math.ceil(totalSeats * 0.40) : 89;
   const oppositionThreshold = electionScope === "prn" ? Math.ceil(totalSeats * 0.18) : 40;
-  const status: MandateStatus = seatsWon >= majorityTarget ? "majority" : seatsWon >= hungThreshold ? "hung" : seatsWon >= oppositionThreshold ? "opposition" : "collapse";
+  const status: MandateStatus = seatsWon >= majorityTarget ? "majority" : lawanSeats < majorityTarget && othersSeats < majorityTarget ? "hung" : seatsWon >= oppositionThreshold ? "opposition" : "collapse";
   const statusLabelScope = electionScope === "prn" ? "prn" : "pru";
 
   return {

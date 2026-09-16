@@ -1,3 +1,4 @@
+import { normalizeJourney } from "./journey";
 import type { GameState } from "./gameStore";
 
 export const GAME_SAVE_KEY = "mymandat-save-v1";
@@ -7,6 +8,11 @@ export const MAX_SAVE_SLOTS = 5;
 
 export type SavedGameSnapshot = Pick<
   GameState,
+  | "journey"
+  | "opponentLog"
+  | "politicalReactions"
+  | "aiNews"
+  | "nationalSupportDelta"
   | "phase"
   | "dataset"
   | "nominations"
@@ -44,6 +50,11 @@ export interface SavedGameSlot extends SavedGameRecord {
 
 export function createSaveSnapshot(state: GameState): SavedGameSnapshot {
   return {
+    journey: state.journey,
+    opponentLog: state.opponentLog,
+    politicalReactions: state.politicalReactions,
+    aiNews: state.aiNews,
+    nationalSupportDelta: state.nationalSupportDelta,
     phase: state.phase,
     dataset: state.dataset,
     nominations: state.nominations,
@@ -92,7 +103,18 @@ function normalizeSlots(slots: SavedGameSlot[]) {
     while (used.has(slotNumber) && slotNumber <= MAX_SAVE_SLOTS) slotNumber += 1;
     if (slotNumber > MAX_SAVE_SLOTS) continue;
     used.add(slotNumber);
-    normalized.push({ ...slot, slotNumber });
+    const journey = normalizeJourney(slot.state.journey);
+    // Older city builds were stored by seat outside save slots. Copy them once
+    // into a legacy slot during migration; new campaigns never read global city data.
+    if (!slot.state.journey && isBrowser()) {
+      const seat = slot.state.leader.homeConstituencyId;
+      try {
+        const raw = localStorage.getItem(`mymandat-kawasan-development-v2:${seat}`) ?? localStorage.getItem(`mymandat-kawasan-development-v1:${seat}`);
+        const zones = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(zones) && zones.every(z => typeof z.id === "string" && Array.isArray(z.projects) && [z.infra, z.welfare, z.economy, z.sentiment].every(Number.isFinite))) journey.cityZones[seat] = zones;
+      } catch { /* An invalid legacy city must not prevent loading the campaign. */ }
+    }
+    normalized.push({ ...slot, state: { ...slot.state, journey, opponentLog: slot.state.opponentLog ?? [], politicalReactions: slot.state.politicalReactions ?? [], aiNews: slot.state.aiNews ?? [], nationalSupportDelta: slot.state.nationalSupportDelta ?? 0 }, slotNumber });
   }
 
   return normalized.sort((a, b) => a.slotNumber - b.slotNumber).slice(0, MAX_SAVE_SLOTS);

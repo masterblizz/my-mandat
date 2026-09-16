@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import ScenarioStart from "../components/career/ScenarioStart";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -266,6 +267,7 @@ export default function SetupPage() {
         </div>
       )}
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
+        {step === 0 && <ScenarioStart />}
         <div className="w-full max-w-[1100px] mt-6">
           {/* Step Indicator */}
           <div className="flex gap-0 mb-8">

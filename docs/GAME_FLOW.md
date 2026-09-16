@@ -1,5 +1,8 @@
 # MY MANDAT — Actual Game Flow (as implemented, Sep 2026)
 
+> Historical route audit before the career-loop update. For the current campaign,
+> formation, governing, save/resume, and reelection behavior, see [CAREER_LOOP.md](CAREER_LOOP.md).
+
 This is a factual map of how the app currently navigates between screens, derived
 by reading every `app/**/page.tsx` route and its `router.push`/`router.replace`
 calls, entry guards, and store reads/writes. It reflects the *code as it exists

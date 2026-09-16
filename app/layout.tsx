@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ThemeProvider from "./components/layout/ThemeProvider";
 import StoreHydrator from "./components/layout/StoreHydrator";
+import JourneyGuard from "./components/layout/JourneyGuard";
 import AutoSave from "./components/layout/AutoSave";
 import AmbientMusic from "./components/layout/AmbientMusic";
 import { Analytics } from "@vercel/analytics/next";
@@ -23,6 +24,7 @@ export default function RootLayout({
         <ThemeProvider />
         <StoreHydrator />
         <AutoSave />
+        <JourneyGuard />
         <AmbientMusic />
         {children}
         <Analytics />

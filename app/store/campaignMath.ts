@@ -57,3 +57,8 @@ export function gainToPositiveRatio(gain: number): number {
 export function rollCrowdRandom(): number {
   return Math.random();
 }
+
+export function campaignCost(game: MiniGameType, tactic: MiniGameTactic) {
+  const multiplier = tactic === "aggressive" ? 1.8 : tactic === "balanced" ? 1.2 : 1;
+  return { funds: Math.round((game === "ceramah" ? 75000 : 45000) * multiplier), manpower: game === "ceramah" ? 42 : 12, media: game === "social" ? 65 : 15 };
+}

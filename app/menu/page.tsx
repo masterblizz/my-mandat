@@ -10,6 +10,7 @@ import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
 import { advisors } from "../data/advisors";
+import { normalizeJourney, resumeRoute } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
 import { buildDailyChallenge } from "../utils/dailyChallenge";
@@ -217,8 +218,8 @@ export default function MainMenuPage() {
 
       if (slotToContinue) {
         setActiveSaveSlot(slotToContinue.id);
-        useGameStore.setState({ ...slotToContinue.state, phase: "playing" });
-        router.push("/kawasan");
+        useGameStore.setState({ ...slotToContinue.state, journey: normalizeJourney(slotToContinue.state.journey), phase: "playing" });
+        router.push(resumeRoute(slotToContinue.state));
       }
       return;
     }

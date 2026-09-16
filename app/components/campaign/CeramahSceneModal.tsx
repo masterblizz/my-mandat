@@ -5,6 +5,7 @@ import { useGameStore } from "../../store/gameStore";
 import { useLang, t } from "../../i18n/useLang";
 import {
   calculateCampaignGain,
+  campaignCost,
   gainToPositiveRatio,
   type MiniGameTactic,
   type MiniGameType,
@@ -25,7 +26,9 @@ const SETTLE_DELAY_MS = 1300;
 
 export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }: CeramahSceneModalProps) {
   const lang = useLang();
-  const { states, runCampaignMiniGame } = useGameStore();
+  const { states, runCampaignMiniGame, resources, journey, day, totalDays } = useGameStore();
+  const cost = campaignCost(gameType, tactic);
+  const allowed = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0 && resources.funds >= cost.funds && resources.manpower >= cost.manpower && resources.mediaBuy >= cost.media;
   const [phase, setPhase] = useState<ScenePhase>("topic");
   const [selectedTopic, setSelectedTopic] = useState<CampaignTopic | null>(null);
   const [triggerKey, setTriggerKey] = useState(0);
@@ -60,6 +63,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
   }, [phase, stateId, gameType, tactic, runCampaignMiniGame]);
 
   function handleTopicSelect(topic: CampaignTopic) {
+    if (!allowed) return;
     setSelectedTopic(topic);
     setTriggerKey((key) => key + 1);
     setPhase("reacting");
@@ -84,7 +88,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
           <span className="text-[14px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>
             {title} · {targetState?.name.toUpperCase() ?? ""}
           </span>
-          {phase === "done" && (
+          {phase !== "reacting" && (
             <button onClick={onClose} className="text-[22px] leading-none" style={{ color: "var(--text-muted)", cursor: "pointer" }}>
               ×
             </button>
@@ -117,6 +121,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                   {topics.map((topicOption) => (
                     <button
                       key={topicOption.id}
+                      disabled={!allowed}
                       onClick={() => handleTopicSelect(topicOption)}
                       className="px-3 py-3 text-center text-[12px] font-bold tracking-wide"
                       style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "var(--text-primary)", background: "rgb(var(--cyan-rgb)/0.06)", cursor: "pointer" }}

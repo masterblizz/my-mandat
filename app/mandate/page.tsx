@@ -52,7 +52,7 @@ export default function MandatePage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, settings } = useGameStore();
+  const { states, leader, settings, enterTerm, finishElection } = useGameStore();
   const outcome = computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId });
   const isPrn = settings.electionScope === "prn";
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
@@ -71,7 +71,7 @@ export default function MandatePage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/results")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "mandate_page.results")}</button>
-            <button onClick={() => navigate(copy.route)} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${copy.color}88`, color: copy.color, background: `${copy.color}14` }}>{isPending ? t(lang, "mandate_page.loading") : copy.action}</button>
+            <button onClick={() => { finishElection(); if (outcome.status === "opposition" || outcome.status === "collapse") enterTerm(outcome.status === "collapse" ? "rebuilding" : "opposition"); navigate(copy.route); }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${copy.color}88`, color: copy.color, background: `${copy.color}14` }}>{isPending ? t(lang, "mandate_page.loading") : copy.action}</button>
           </div>
         </div>
 

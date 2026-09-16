@@ -1,5 +1,6 @@
 "use client";
 
+import { coalitionPool, outcomeOf } from "../store/journey";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
@@ -7,33 +8,20 @@ import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
-import { computeElectionOutcome } from "../utils/electionOutcome";
 import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
-
-const FEDERAL_PARTNERS = [
-  { id: "borneo", seats: 18, stability: 74 },
-  { id: "centrist", seats: 14, stability: 68 },
-  { id: "regional", seats: 9, stability: 61 },
-];
-
-const STATE_PARTNERS = [
-  { id: "borneo", seats: 4, stability: 66 },
-  { id: "centrist", seats: 3, stability: 71 },
-  { id: "regional", seats: 2, stability: 58 },
-];
 
 export default function FormationPage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, settings } = useGameStore();
-  const outcome = computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId });
+  const game = useGameStore();
+  const { leader, settings } = game;
+  const outcome = outcomeOf(game);
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
-  const partnerPool = terms.isPrn ? STATE_PARTNERS : FEDERAL_PARTNERS;
-  const partnerScope = terms.isPrn ? "state" : "federal";
+  const partnerPool = coalitionPool(game);
   const majorityTarget = outcome.majorityTarget;
-  const [partners, setPartners] = useState<string[]>(outcome.status === "hung" ? ["borneo"] : []);
+  const [partners, setPartners] = useState<string[]>(game.journey.partners);
   const selectedPartners = partnerPool.filter((partner) => partners.includes(partner.id));
   const coalitionSeats = outcome.seatsWon + selectedPartners.reduce((sum, partner) => sum + partner.seats, 0);
   const confidenceScore = Math.min(100, Math.round((coalitionSeats / majorityTarget) * 74 + leader.negotiation / 4 + selectedPartners.reduce((sum, partner) => sum + partner.stability, 0) / Math.max(1, selectedPartners.length || 1) / 6));
@@ -58,7 +46,7 @@ export default function FormationPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/mandate")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "formation_page.mandate")}</button>
-            <button onClick={() => navigate(canForm ? "/cabinet" : "/opposition")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${canForm ? "rgb(var(--gold-rgb)/0.5)" : "rgb(255 176 0 / 0.38)"}`, color: canForm ? "var(--gold)" : "var(--warn-orange)", background: canForm ? "rgb(var(--gold-rgb)/0.08)" : "rgb(255 176 0 / 0.06)" }}>{isPending ? t(lang, "formation_page.loading") : canForm ? t(lang, "formation_page.form", { termsExecutiveBody: terms.executiveBody }) : t(lang, "formation_page.enterOpposition")}</button>
+            <button onClick={() => { game.finishElection(); if (canForm) { game.confirmCoalition(partners); navigate("/cabinet"); } else { game.enterTerm("opposition"); navigate("/opposition"); } }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${canForm ? "rgb(var(--gold-rgb)/0.5)" : "rgb(255 176 0 / 0.38)"}`, color: canForm ? "var(--gold)" : "var(--warn-orange)", background: canForm ? "rgb(var(--gold-rgb)/0.08)" : "rgb(255 176 0 / 0.06)" }}>{isPending ? t(lang, "formation_page.loading") : canForm ? t(lang, "formation_page.form", { termsExecutiveBody: terms.executiveBody }) : t(lang, "formation_page.enterOpposition")}</button>
           </div>
         </div>
 
@@ -73,14 +61,15 @@ export default function FormationPage() {
 
           <TacticalPanel title={t(lang, "formation_page.coalitionTalks")} noPadding>
             <div className="p-4 space-y-3">
+              {partnerPool.length === 0 && <p className="text-sm text-text-muted">{t(lang, "Tiada kerusi blok bebas untuk rundingan. Bentuk kerajaan jika anda mempunyai majoriti; jika tidak, bina pembangkang.", "No independent bloc seats are available for negotiation. Form government if you hold a majority; otherwise build an opposition.")}</p>}
               {partnerPool.map((partner) => {
                 const active = partners.includes(partner.id);
                 return (
                   <button key={partner.id} onClick={() => togglePartner(partner.id)} className="w-full border p-4 text-left transition hover:scale-[1.005]" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-[14px] font-black tracking-wider text-white">{t(lang, `formation_page.partner_${partnerScope}_${partner.id}_name`)}</div>
-                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, `formation_page.partner_${partnerScope}_${partner.id}_demand`)}</div>
+                        <div className="text-[14px] font-black tracking-wider text-white">{t(lang, partner.ms, partner.en)}</div>
+                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, `Peruntukan pembangunan: RM${partner.cost.toLocaleString()}`, `Development allocation: RM${partner.cost.toLocaleString()}`)}</div>
                         <div className="mt-3 flex gap-3 text-[10px] font-bold tracking-wider"><span style={{ color: "var(--gold)" }}>+{partner.seats} {t(lang, "formation_page.seats2")}</span><span style={{ color: "var(--cyan)" }}>{t(lang, "formation_page.stability")} {partner.stability}</span></div>
                       </div>
                       <div className="text-[10px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--text-muted)" }}>{active ? t(lang, "formation_page.agreed") : t(lang, "formation_page.negotiate")}</div>
@@ -105,7 +94,7 @@ export default function FormationPage() {
             </TacticalPanel>
             <TacticalPanel title={t(lang, "formation_page.keyDemands")}>
               <div className="space-y-2 text-[11px] leading-relaxed text-text-muted">
-                {selectedPartners.length ? selectedPartners.map((partner) => <div key={partner.id}>• {t(lang, `formation_page.partner_${partnerScope}_${partner.id}_demand`)}</div>) : <div>{t(lang, "formation_page.noCoalitionPartnerSelected")}</div>}
+                {selectedPartners.length ? selectedPartners.map((partner) => <div key={partner.id}>• {t(lang, `Peruntukan pembangunan: RM${partner.cost.toLocaleString()}`, `Development allocation: RM${partner.cost.toLocaleString()}`)}</div>) : <div>{t(lang, "formation_page.noCoalitionPartnerSelected")}</div>}
               </div>
             </TacticalPanel>
           </div>

@@ -33,7 +33,7 @@ export default function MessagingPage() {
   const lang = useLang();
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(keyMessages[0]);
   const [deployedAll, setDeployedAll] = useState(false);
-  const { operations, states, day, totalDays } = useGameStore();
+  const { operations, states, day, totalDays, journey } = useGameStore();
 
   const sortedChannels = [...channelEffectiveness].sort((a, b) => b.effectiveness - a.effectiveness);
 
@@ -266,8 +266,10 @@ export default function MessagingPage() {
                 <button
                   className="w-full py-2 text-[13px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80"
                   style={{ background: deployedAll ? "var(--neon-green)" : "var(--gold)", color: "#000", cursor: "pointer" }}
+                  disabled={journey.chapter !== "campaign" || day >= totalDays || journey.decisions < 1 || !operations.some(op => op.status === "planned")}
                   onClick={() => {
-                    useGameStore.setState((s) => ({
+                    useGameStore.setState((s) => s.journey.chapter !== "campaign" || s.day >= s.totalDays || s.journey.decisions < 1 || !s.operations.some(op => op.status === "planned") ? {} : ({
+                      journey: { ...s.journey, decisions: s.journey.decisions - 1 },
                       operations: s.operations.map((op: Operation) =>
                         op.status === "planned" ? { ...op, status: "active" as Operation["status"] } : op
                       ),

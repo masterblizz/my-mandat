@@ -1,4 +1,5 @@
 "use client";
+import { getSavedGames, getActiveSaveSlotId } from "../../store/saveGame";
 import { useEffect } from "react";
 import { useUIStore, type Lang } from "../../store/uiStore";
 import { useGameStore, readPersistedPoliticalReactions } from "../../store/gameStore";
@@ -33,6 +34,12 @@ export default function StoreHydrator() {
       }
     }
 
+    const activeId = getActiveSaveSlotId();
+    const active = getSavedGames().find(slot => slot.id === activeId);
+    if (active) {
+      useGameStore.setState({ ...active.state });
+      return;
+    }
     const politicalReactions = readPersistedPoliticalReactions();
     if (politicalReactions.length > 0) {
       useGameStore.setState({ politicalReactions });

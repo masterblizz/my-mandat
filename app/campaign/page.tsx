@@ -14,7 +14,7 @@ import type { StateData } from "../data/states";
 import { PARTY_MEMBERS, PartyMember } from "../data/members";
 import { buildCandidateFalloutReaction } from "../data/politicalReactions";
 import { useLang, t, type Lang } from "../i18n/useLang";
-import type { MiniGameTactic, MiniGameType } from "../store/campaignMath";
+import { campaignCost, type MiniGameTactic, type MiniGameType } from "../store/campaignMath";
 import CeramahSceneModal from "../components/campaign/CeramahSceneModal";
 
 type Tab = "NOMINATION" | "MINI-GAMES" | "OPERATIONS" | "VOLUNTEERS" | "RESOURCES" | "SCHEDULE" | "MESSAGING";
@@ -99,7 +99,7 @@ function StatusBadge({ status, lang }: { status: string; lang: Lang }) {
 
 function DeployModal({ onClose }: { onClose: () => void }) {
   const lang = useLang();
-  const { resources, states: gameStates, addOperation, settings } = useGameStore();
+  const { resources, states: gameStates, addOperation, settings, journey, day, totalDays } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const targetableStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [opType, setOpType] = useState<OpType>("ceramah");
@@ -108,7 +108,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
   const template = OP_TEMPLATES[opType];
   const canAffordFunds = resources.funds >= template.fundsCost;
   const canAffordManpower = resources.manpower >= template.manpowerCost;
-  const canDeploy = canAffordFunds && canAffordManpower && selectedStateIds.length > 0;
+  const canDeploy = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0 && canAffordFunds && canAffordManpower && selectedStateIds.length > 0;
 
   function toggleState(id: string) {
     setSelectedStateIds((prev) =>
@@ -117,6 +117,7 @@ function DeployModal({ onClose }: { onClose: () => void }) {
   }
 
   function handleDeploy() {
+    if (!canDeploy) return;
     const selectedNames = gameStates
       .filter((s) => selectedStateIds.includes(s.id))
       .map((s) => s.shortName)
@@ -1217,7 +1218,7 @@ export default function CampaignPage() {
   const [activeTab, setActiveTab] = useState<Tab>("NOMINATION");
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
-  const { operations, resources, states: gameStates, removeOperation, settings } = useGameStore();
+  const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const campaignStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [selectedMiniGameState, setSelectedMiniGameState] = useState(() => (isPrn ? settings.prnStateId : "selangor"));
@@ -1299,11 +1300,11 @@ export default function CampaignPage() {
                 {(Object.keys(MINI_GAME_TACTICS) as MiniGameTactic[]).map((tactic) => {
                   const option = MINI_GAME_TACTICS[tactic];
                   return (
-                    <button key={tactic} onClick={() => miniGameState && setActiveScene({ stateId: miniGameState.id, gameType: miniGameType, tactic })} className="p-5 text-left transition-all hover:scale-[1.01]" style={{ border: `1px solid ${option.color}55`, background: `${option.color}0d`, cursor: "pointer" }}>
+                    <button key={tactic} disabled={journey.chapter !== "campaign" || day >= totalDays || journey.decisions < 1 || resources.funds < campaignCost(miniGameType, tactic).funds || resources.manpower < campaignCost(miniGameType, tactic).manpower || resources.mediaBuy < campaignCost(miniGameType, tactic).media} onClick={() => miniGameState && setActiveScene({ stateId: miniGameState.id, gameType: miniGameType, tactic })} className="p-5 text-left transition-all hover:scale-[1.01]" style={{ border: `1px solid ${option.color}55`, background: `${option.color}0d`, cursor: "pointer" }}>
                       <div className="text-[13px] font-black tracking-widest" style={{ color: option.color }}>{t(lang, `campaign_page.tacticTitle_${tactic}`)}</div>
                       <div className="mt-2 min-h-[52px] text-[11px] leading-5" style={{ color: "#9fb0c2" }}>{t(lang, `campaign_page.tacticDesc_${tactic}`)}</div>
-                      <div className="mt-3 text-[10px] font-bold" style={{ color: option.color }}>{t(lang, `campaign_page.tacticRisk_${tactic}`)}</div>
-                      <div className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{miniGameType === "ceramah" ? t(lang, "campaign_page.rm75k42Man") : t(lang, "campaign_page.rm45k65Media")}</div>
+                      <div className="mt-3 text-[10px] font-bold" style={{ color: option.color }}>{t(lang, "Kos", "Cost")}: RM{campaignCost(miniGameType, tactic).funds.toLocaleString()} · {t(lang, "1 keputusan", "1 decision")}</div>
+                      <div className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>{campaignCost(miniGameType, tactic).manpower} {t(lang, "petugas", "volunteers")} · {campaignCost(miniGameType, tactic).media} {t(lang, "media", "media")}</div>
                     </button>
                   );
                 })}
@@ -1512,7 +1513,9 @@ export default function CampaignPage() {
             <button
               className="mt-4 px-6 py-2 text-[13px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80"
               style={{ background: recruitDone ? "var(--neon-green)" : "var(--gold)", color: "#000", cursor: "pointer" }}
+              disabled={journey.chapter !== "campaign" || day >= totalDays || journey.decisions < 1 || journey.actionsToday.includes("organise") || resources.funds < 40000}
               onClick={() => {
+                useGameStore.getState().journeyAction({ type: "campaign", action: "organise" });
                 setRecruitDone(true);
                 setTimeout(() => setRecruitDone(false), 2000);
               }}

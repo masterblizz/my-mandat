@@ -19,13 +19,13 @@ export default function SwearingInPage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, settings } = useGameStore();
+  const { states, leader, settings, journey, enterTerm } = useGameStore();
   const outcome = computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId });
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
   const allPosts = terms.isPrn ? EXCO_POSTS : [PM_POST, ...DPM_POSTS, ...MINISTER_POSTS];
   const keyPostIds = terms.isPrn ? KEY_STATE_POST_IDS : KEY_FEDERAL_POST_IDS;
-  const keyMinisters = keyPostIds.map((postId, index) => ({ post: allPosts.find((post) => post.id === postId), member: PARTY_MEMBERS[index] })).filter((item) => item.post && item.member);
-  const cabinetScore = Math.min(100, Math.round(58 + outcome.seatsWon / 5 + leader.credibility / 8));
+  const keyMinisters = keyPostIds.map((postId) => ({ post: allPosts.find((post) => post.id === postId), member: PARTY_MEMBERS.find(member => member.id === journey.appointments[postId]) })).filter((item) => item.post && item.member);
+  const cabinetScore = journey.cabinetQuality;
 
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb)/0.10), transparent 35%), var(--bg)" }}>
@@ -39,7 +39,7 @@ export default function SwearingInPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/cabinet")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {terms.executiveBody}</button>
-            <button onClick={() => navigate("/government")} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.10)" }}>{isPending ? t(lang, "swearing_in_page.loading") : t(lang, "swearing_in_page.startFirst100Days")}</button>
+            <button onClick={() => { enterTerm("government"); navigate("/government"); }} disabled={isPending || !journey.coalitionConfirmed || !Object.values(journey.appointments).some(Boolean)} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.10)" }}>{isPending ? t(lang, "swearing_in_page.loading") : t(lang, "swearing_in_page.startFirst100Days")}</button>
           </div>
         </div>
 
