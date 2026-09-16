@@ -221,7 +221,36 @@ export function LargeBuildings({
           </group>);
           // banded façade: three thin proud rings at quarter heights
           for (let f = 1; f <= 3; f++) {
-            parts.push(box(`band${f}`, 0, TILE_H + (baseH / 4) * f, 0, fw + 3, 2.4, fd + 3, "#9b9182", 0.84));
+            parts.push(box(`band${f}`, 0, TILE_H + (baseH / 4) * f, 0, fw + 3, 1.8, fd + 3, "#e8dfca", 0.65));
+          }
+          // Warm stone piers articulate the retail wings on all four sides.
+          for (const side of [-1, 1]) {
+            for (const t of [-0.43, -0.31, 0.31, 0.43]) {
+              parts.push(box(`front-pier-${side}-${t}`, fw * t, TILE_H + 20, side * (fd / 2 + 0.7),
+                3, 40, 2.2, "#dfd4bb", 0.7));
+              parts.push(box(`side-pier-${side}-${t}`, side * (fw / 2 + 0.7), TILE_H + 20, fd * t,
+                2.2, 40, 3, "#dfd4bb", 0.7));
+            }
+            parts.push(box(`roof-edge-${side}`, 0, TILE_H + baseH + 1, side * fd / 2,
+              fw + 4, 2, 2.4, "#c2a471", 0.4, true, 0.45, "#f6cf8b"));
+            parts.push(box(`roof-side-${side}`, side * fw / 2, TILE_H + baseH + 1, 0,
+              2.4, 2, fd, "#c2a471", 0.4, true, 0.45, "#f6cf8b"));
+          }
+          parts.push(box("roof-terrace", 0, TILE_H + baseH + 0.3, 0, fw - 4, 0.6, fd - 4, "#b5b0a0"));
+          // Roof gardens occupy the clear edges around the setback tower.
+          for (const side of [-1, 1]) {
+            parts.push(box(`garden-bed-${side}`, side * fw * 0.4, TILE_H + baseH + 2, 0,
+              fw * 0.12, 3, fd * 0.78, "#e0d4ba"));
+            parts.push(box(`garden-hedge-${side}`, side * fw * 0.4, TILE_H + baseH + 4, 0,
+              fw * 0.095, 2, fd * 0.75, "#53755b"));
+          }
+          parts.push(box("skylight-frame", -fw * 0.13, TILE_H + baseH + 2, fd * 0.31,
+            fw * 0.42, 3, fd * 0.18, "#d7c8aa", 0.45));
+          parts.push(box("skylight", -fw * 0.13, TILE_H + baseH + 3.6, fd * 0.31,
+            fw * 0.4, 0.6, fd * 0.16, "#648e94", 0.2, true, 0.35));
+          for (let rib = 0; rib < 7; rib++) {
+            parts.push(box(`skylight-rib-${rib}`, fw * (-0.32 + rib * 0.063), TILE_H + baseH + 4,
+              fd * 0.31, 0.8, 0.6, fd * 0.17, "#e1d6bf", 0.5));
           }
           // glazed atrium on the front (+z) face + a mullion strip
           parts.push(box("atrium", 0, TILE_H + baseH * 0.52, fd / 2 + 1, fw * 0.5, baseH * 0.82, 3, GLASS_COLOR, 0.18, true, 0.45, "#d8c193"));
@@ -234,7 +263,20 @@ export function LargeBuildings({
             <MallSign width={fw * 0.8} height={fw * 0.1} winLit={winLit} />
           </group>);
           // flat entrance canopy on two columns
-          parts.push(box("canopy", 0, TILE_H + 13, fd / 2 + 9, fw * 0.6, 1.8, 17, ANTENNA_COLOR, 0.55, true, 0.4));
+          parts.push(box("entry-paving", 0, PODIUM_TOP + 0.15, fd / 2 + 11, fw * 0.64, 0.3, 24, "#c2bca9"));
+          parts.push(box("canopy", 0, TILE_H + 13, fd / 2 + 9, fw * 0.6, 1.8, 17, "#263e43", 0.35, true, 0.4));
+          parts.push(box("canopy-light", 0, TILE_H + 12.7, fd / 2 + 17.6, fw * 0.6, 0.6, 0.5,
+            "#e0bd7b", 0.4, false, 0.3, "#ffe0a1"));
+          for (let slat = -5; slat <= 5; slat++) {
+            parts.push(box(`canopy-slat-${slat}`, slat * fw * 0.052, TILE_H + 14.2, fd / 2 + 9,
+              1.1, 0.7, 16, "#c5aa7d", 0.6));
+          }
+          for (const side of [-1, 1]) {
+            parts.push(box(`entry-planter-${side}`, side * fw * 0.4, PODIUM_TOP + 1.5, fd / 2 + 12,
+              fw * 0.12, 3, 10, "#ddd2bb"));
+            parts.push(box(`entry-green-${side}`, side * fw * 0.4, PODIUM_TOP + 4, fd / 2 + 12,
+              fw * 0.105, 2.5, 8, "#4b7658"));
+          }
           ([-0.24, 0.24] as const).forEach((cx, i) => {
             parts.push(box(`col${i}`, fw * cx, TILE_H + 6.5, fd / 2 + 15, 2.6, 13, 2.6, ANTENNA_COLOR, 0.55, false, 0.4));
           });
@@ -243,6 +285,15 @@ export function LargeBuildings({
           parts.push(<group key="tower-windows" position={[fw * 0.12, TILE_H + baseH + tall / 2, -fd * 0.05]}>
             <MallGlazing width={fw * 0.44} height={tall - 5} depth={fd * 0.34} winLit={winLit} tower />
           </group>);
+          for (const side of [-1, 1]) {
+            for (const edge of [-1, 1]) {
+              parts.push(box(`tower-fin-${side}-${edge}`, fw * (0.12 + side * 0.22),
+                TILE_H + baseH + tall / 2, fd * (-0.05 + edge * 0.17),
+                2, tall + 4, 2, "#d2c5a8", 0.4, true, 0.45));
+            }
+          }
+          parts.push(box("tower-crown", fw * 0.12, TILE_H + baseH + tall + 2,
+            -fd * 0.05, fw * 0.46, 3, fd * 0.36, "#c6ae7d", 0.4, true, 0.5, "#f7d399"));
           parts.push(box("name-backing", fw * 0.12, TILE_H + baseH + tall - 7, fd * 0.12 + 1,
             fw * 0.56, 13, 2, "#132e36", 0.65));
           parts.push(<group key="roof-name" position={[fw * 0.12, TILE_H + baseH + tall - 7, fd * 0.12 + 2.1]}>
@@ -316,7 +367,7 @@ export function LargeBuildings({
 
         // Floating icon pin — a slim post + a bright head, above the
         // tallest part, so the landmark is findable from across the map.
-        const pinBase = TILE_H + tall + (l.type === "mall" ? 30 : 16);
+        const pinBase = TILE_H + tall + (l.type === "mall" ? 48 : 16);
         parts.push(box("pinpost", 0, pinBase + 8, 0, 1.4, 16, 1.4, "#c8ccd2", 0.6, false));
         parts.push(box("pinhead", 0, pinBase + 20, 0, 10, 10, 3.5, PIN_COLOR, 0.5, false, 0.15));
 

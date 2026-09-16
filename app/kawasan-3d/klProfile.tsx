@@ -10,8 +10,8 @@
 //   1. klHeightMult() — a radial height multiplier the Buildings loop
 //      applies to vertical BTypes, so towers taper toward the edge.
 //   2. <KLProfile> — the twin supertall + skybridge at grid centre and a
-//      telecom spire on a mid-ring plot, each merged to ONE mesh so the
-//      whole profile costs 3 draw calls.
+//      telecom spire on a mid-ring plot. Merged shells, glass and trim
+//      keep the landmark profile to five draw calls including beacons.
 //
 // The centre cell + the spire cell are added to `claimed` in CityScene so
 // their ordinary per-cell towers step aside.
@@ -66,7 +66,7 @@ function tileCentre(index: number, gridSize: number): number {
 
 // ── geometry helpers (unit-agnostic, world scale) ───────────────────
 const HEX = new THREE.CylinderGeometry(1, 1, 1, 6);
-const CYL = new THREE.CylinderGeometry(1, 1, 1, 12);
+const CYL = new THREE.CylinderGeometry(1, 1, 1, 32);
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CONE = new THREE.ConeGeometry(1, 1, 10);
 
@@ -144,14 +144,43 @@ function buildTwins(): THREE.BufferGeometry {
 function buildSpire(): THREE.BufferGeometry {
   const H = 340;
   const parts: THREE.BufferGeometry[] = [];
-  parts.push(place(CYL, 0, TILE_H + 5, 0, 34, 10, 34));
+  parts.push(place(CYL, 0, TILE_H + 2, 0, 48, 4, 48));
+  parts.push(place(CYL, 0, TILE_H + 6, 0, 40, 4, 40));
+  parts.push(place(CYL, 0, TILE_H + 11, 0, 31, 6, 31));
   parts.push(place(CYL, 0, TILE_H + H * 0.36, 0, 13, H * 0.72, 13));
   parts.push(place(CYL, 0, TILE_H + H * 0.72 + 6, 0, 9, 24, 9));
-  parts.push(place(CYL, 0, TILE_H + H * 0.78, 0, 30, 30, 30));       // head pod
-  parts.push(place(CYL, 0, TILE_H + H * 0.78 + 16, 0, 25, 12, 25));  // pod collar
+  // Flared underside and shallow roof frame a panoramic observation deck.
+  const bowl = new THREE.CylinderGeometry(33, 12, 18, 32);
+  parts.push(place(bowl, 0, 252, 0, 1, 1, 1));
+  bowl.dispose();
+  parts.push(place(CYL, 0, 263, 0, 34, 4, 34));
+  parts.push(place(CYL, 0, 280, 0, 35, 4, 35));
+  parts.push(place(CYL, 0, 284, 0, 30, 4, 30));
+  parts.push(place(CYL, 0, 289, 0, 23, 6, 23));
   parts.push(place(CONE, 0, TILE_H + H * 0.92, 0, 6, 60, 6));
   parts.push(place(CYL, 0, TILE_H + H + 6, 0, 1.3, 90, 1.3));
   return mergeGeometries(parts, false) ?? parts[0];
+}
+
+function buildSpireDetails(glass: boolean): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  if (glass) {
+    parts.push(place(CYL, 0, 271.5, 0, 32.5, 13, 32.5));
+    parts.push(place(CYL, 0, 19, 0, 26, 10, 26));
+  } else {
+    // Recessed shaft ribs, deck mullions and thin champagne light rings.
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      parts.push(place(CYL, Math.sin(a) * 32.5, 271.5, Math.cos(a) * 32.5, 0.45, 13, 0.45));
+      if (i % 2 === 0) parts.push(place(CYL, Math.sin(a) * 13, 130, Math.cos(a) * 13, 0.55, 218, 0.55));
+    }
+    for (const [y, r] of [[261, 33.5], [278, 35.2], [286.5, 29], [24.5, 27]] as const) {
+      parts.push(place(CYL, 0, y, 0, r, 0.9, r));
+    }
+  }
+  const merged = mergeGeometries(parts, false)!;
+  parts.forEach(part => part.dispose());
+  return merged;
 }
 
 // apex heights (world units) — see shaft() / buildSpire() massing above.
@@ -175,10 +204,16 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
     return {
       twins,
       spire,
+      spireGlass: buildSpireDetails(true),
+      spireTrim: buildSpireDetails(false),
       twinAt: [tileCentre(mid, gridSize), tileCentre(mid, gridSize)] as const,
       spireAt: [tileCentre(sc, gridSize), tileCentre(sr, gridSize)] as const,
     };
   }, [gridSize]);
+
+  useEffect(() => () => {
+    if (built) [built.twins, built.spire, built.spireGlass, built.spireTrim].forEach(g => g.dispose());
+  }, [built]);
 
   // Gridded curtain-wall by day (getTowerFacadeTexture — vertical
   // mullions + floor bands + inset glass, so the twins match the
@@ -220,11 +255,11 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
   }, []);
   const steel = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: "#eef2f6", map: getTowerFacadeTexture(),
-      roughness: 0.36, metalness: 0.46, envMapIntensity: 1.05,
-      emissive: new THREE.Color("#cfe0ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+      color: "#e5ded0",
+      roughness: 0.62, metalness: 0.18, envMapIntensity: 1.05,
+      emissive: new THREE.Color("#9b805b"), emissiveIntensity: 0,
     });
-    m.userData.baseMetalness = 0.46;
+    m.userData.baseMetalness = 0.18;
     m.userData.baseEnv = 1.05;
     return m;
   }, []);
@@ -236,6 +271,7 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
       m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
+    steel.emissiveIntensity = winLit * 0.18;
   }, [mat, steel, winLit, nationalLighting]);
 
   useEffect(
@@ -277,6 +313,16 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
     <group>
       <mesh geometry={built.twins} material={mat} position={[built.twinAt[0], 0, built.twinAt[1]]} castShadow receiveShadow />
       <mesh geometry={built.spire} material={steel} position={[built.spireAt[0], 0, built.spireAt[1]]} castShadow receiveShadow />
+      <group position={[built.spireAt[0], 0, built.spireAt[1]]}>
+        <mesh geometry={built.spireGlass}>
+          <meshStandardMaterial color="#396775" metalness={0.48} roughness={0.2}
+            emissive="#b7ddd8" emissiveIntensity={winLit * 0.65} />
+        </mesh>
+        <mesh geometry={built.spireTrim}>
+          <meshStandardMaterial color="#d5ba83" metalness={0.65} roughness={0.3}
+            emissive="#ffcf83" emissiveIntensity={winLit * 1.2} />
+        </mesh>
+      </group>
       <instancedMesh ref={beaconRef} args={[undefined, undefined, 3]} frustumCulled={false}>
         <sphereGeometry args={[3.2, 8, 6]} />
         <meshBasicMaterial color="#ff2b2b" toneMapped={false} />
