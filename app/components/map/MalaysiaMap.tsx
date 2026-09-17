@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { StateData } from "../../data/states";
 import { formatNumber, formatPercent } from "../../utils/format";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import type { Operation } from "../../store/gameStore";
+import { stateTacticalVisual, type TacticalOverlay } from "../../data/tacticalMap";
 
 interface Props {
   states: StateData[];
@@ -12,6 +14,9 @@ interface Props {
   showHotspots?: boolean;
   compact?: boolean;
   tooltipPlacement?: "cursor" | "menu-static";
+  overlay?: TacticalOverlay;
+  operations?: Operation[];
+  mediaSentiment?: "positive" | "neutral" | "negative";
 }
 
 interface PathData {
@@ -96,6 +101,14 @@ function getStatusColors(status: string, hovered: boolean, selected: boolean) {
   }
 }
 
+function getTacticalColors(state: StateData, hovered: boolean, selected: boolean, overlay: TacticalOverlay, operations: Operation[], mediaSentiment: "positive" | "neutral" | "negative") {
+  if (overlay === "default") return getStatusColors(state.status, hovered, selected);
+  const tactical = stateTacticalVisual(state, overlay, operations, mediaSentiment);
+  if (selected) return { fill: tactical.active ? tactical.fill : "rgb(var(--gold-rgb) / 0.08)", stroke: "var(--gold)", strokeW: "1.5" };
+  if (!tactical.active) return { fill: "rgba(10,16,28,.62)", stroke: "rgba(148,163,184,.18)", strokeW: ".55" };
+  return { fill: tactical.fill, stroke: tactical.color, strokeW: hovered ? "1.55" : String(.8 + tactical.intensity * .55) };
+}
+
 function PathGroup({
   paths,
   stateMap,
@@ -105,6 +118,9 @@ function PathGroup({
   onHoverMove,
   onHoverLeave,
   onStateClick,
+  overlay,
+  operations,
+  mediaSentiment,
 }: {
   paths: PathData[];
   stateMap: Record<string, StateData>;
@@ -114,6 +130,9 @@ function PathGroup({
   onHoverMove: (gameId: string, e: React.MouseEvent | React.PointerEvent) => void;
   onHoverLeave: () => void;
   onStateClick?: (id: string) => void;
+  overlay: TacticalOverlay;
+  operations: Operation[];
+  mediaSentiment: "positive" | "neutral" | "negative";
 }) {
   return (
     <>
@@ -122,7 +141,7 @@ function PathGroup({
         const hovered = hoveredId === gameId;
         const selected = selectedStateId === gameId;
         const { fill, stroke, strokeW } = stateData
-          ? getStatusColors(stateData.status, hovered, selected)
+          ? getTacticalColors(stateData, hovered, selected, overlay, operations, mediaSentiment)
           : { fill: "#0d111755", stroke: "#ffffff18", strokeW: "0.5" };
         const glowFilter =
           hovered || selected
@@ -159,7 +178,7 @@ function PathGroup({
   );
 }
 
-export default function MalaysiaMap({ states, onStateClick, selectedStateId, showLabels = true, showHotspots = false, compact = false, tooltipPlacement = "cursor" }: Props) {
+export default function MalaysiaMap({ states, onStateClick, selectedStateId, showLabels = true, showHotspots = false, compact = false, tooltipPlacement = "cursor", overlay = "default", operations = [], mediaSentiment = "neutral" }: Props) {
   const [pathData, setPathData] = useState<PathData[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; state: StateData } | null>(null);
@@ -198,6 +217,7 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
     setTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
   };
   const handleHoverLeave = () => { setHoveredId(null); setTooltip(null); };
+  const tooltipTactical = tooltip ? stateTacticalVisual(tooltip.state, overlay, operations, mediaSentiment) : null;
 
   if (pathData.length === 0) {
     return (
@@ -272,6 +292,9 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
             onHoverMove={handleHoverMove}
             onHoverLeave={handleHoverLeave}
             onStateClick={onStateClick}
+            overlay={overlay}
+            operations={operations}
+            mediaSentiment={mediaSentiment}
           />
         </g>
 
@@ -286,6 +309,9 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
             onHoverMove={handleHoverMove}
             onHoverLeave={handleHoverLeave}
             onStateClick={onStateClick}
+            overlay={overlay}
+            operations={operations}
+            mediaSentiment={mediaSentiment}
           />
         </g>
 
@@ -297,9 +323,11 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
           const label = STATE_LABELS[gameId] || gameId.toUpperCase();
           const hovered = hoveredId === gameId;
           const selected = selectedStateId === gameId;
+          const tactical = stateTacticalVisual(stateData, overlay, operations, mediaSentiment);
           const labelColor =
             selected ? "var(--gold)" :
             hovered ? "#ffffff" :
+            overlay !== "default" ? tactical.active ? tactical.color : "rgba(148,163,184,.28)" :
             stateData.status === "winning" ? "rgb(var(--cyan-rgb) / 0.67)" :
             stateData.status === "losing" ? "rgb(255 68 68 / 0.67)" :
             stateData.status === "contested" ? "rgb(var(--gold-rgb) / 0.67)" : "#ffffff44";
@@ -393,6 +421,13 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
               </div>
             )}
           </div>
+
+          {overlay !== "default" && tooltipTactical && (
+            <div className="mb-2 border px-2 py-1.5" style={{ borderColor: tooltipTactical.color, background: tooltipTactical.fill }}>
+              <div className="text-[9px] font-black tracking-wider" style={{ color: tooltipTactical.color }}>{tooltipTactical.label["en"].toUpperCase()}</div>
+              <div className="mt-0.5 text-[9px] text-text-muted">{tooltipTactical.detail.en}</div>
+            </div>
+          )}
 
           {tooltipPlacement === "menu-static" ? (
             <>

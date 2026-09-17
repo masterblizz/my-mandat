@@ -10,6 +10,8 @@ const { computeElectionOutcome } = require('../app/utils/electionOutcome.ts');
 const { availableStories } = require('../app/data/careerStories.ts');
 const { evaluateCabinet } = require('../app/data/cabinetDynamics.ts');
 const { getPrnIssues, prnIssueActionKey } = require('../app/data/prnIssues.ts');
+const { generateConstituencies } = require('../app/data/constituencies.ts');
+const { seatTacticalVisual, stateTacticalVisual } = require('../app/data/tacticalMap.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -236,6 +238,24 @@ test('matching a PRN issue to its campaign channel adds diminishing persistent m
   assert.equal(store.getState().journey.prnIssueActions[key], 2);
   assert.equal(createSaveSnapshot(store.getState()).journey.prnIssueActions[key], 2);
   assert.ok(store.getState().journey.journal[0].en.includes('Affordable housing'));
+});
+test('tactical overlays identify marginal, opponent and swing DUN contests', () => {
+  const state = store.getState().states.find(item => item.id === 'selangor');
+  const base = generateConstituencies(state, 'dun')[0];
+  const marginal = { ...base, mandat: 46, lawan: 43, others: 11, winner: 'mandat', margin: 3, safety: 'danger' };
+  const opponent = { ...base, mandat: 31, lawan: 54, others: 15, winner: 'lawan', margin: 23, safety: 'safe' };
+  assert.equal(seatTacticalVisual(marginal, state, 'marginal').active, true);
+  assert.equal(seatTacticalVisual(marginal, state, 'swing').active, true);
+  assert.equal(seatTacticalVisual(opponent, state, 'opponent').active, true);
+  assert.equal(seatTacticalVisual(opponent, state, 'marginal').active, false);
+});
+test('campaign-reach overlay follows active operations and stays state-scoped', () => {
+  const selangor = store.getState().states.find(item => item.id === 'selangor');
+  const johor = store.getState().states.find(item => item.id === 'johor');
+  const operations = [{ id: 'reach', name: 'Field push', type: 'ceramah', location: 'Selangor', stateIds: ['selangor'], status: 'active', manpowerCost: 20, fundsCost: 10000, supportGain: 1 }];
+  assert.equal(stateTacticalVisual(selangor, 'reach', operations).active, true);
+  assert.equal(stateTacticalVisual(johor, 'reach', operations).active, false);
+  assert.ok(stateTacticalVisual(selangor, 'reach', operations).detail.en.includes('field'));
 });
 test('daily PRU and PRN projections agree with election-night seat counting', () => {
   for (const scope of ['pru', 'prn']) {

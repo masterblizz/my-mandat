@@ -25,6 +25,7 @@ import { generateConstituencies, type Constituency } from "../data/constituencie
 import dynamic from "next/dynamic";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { getPrnIssues } from "../data/prnIssues";
+import { seatTacticalVisual, type TacticalOverlay } from "../data/tacticalMap";
 
 const WarRoomLivingScene = dynamic(() => import("../components/warroom/WarRoomLivingScene"), {
   ssr: false,
@@ -435,7 +436,8 @@ export default function WarroomPage() {
   const reducedMotion = useReducedMotion();
   const [advancing, setAdvancing] = useState(false);
   const [manualSaveNotice, setManualSaveNotice] = useState<string | null>(null);
-  const { states: gameStates, resources, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, aiNews, settings, mediaSentiment, addAiNewsReaction } = useGameStore();
+  const [mapOverlay, setMapOverlay] = useState<TacticalOverlay>("default");
+  const { states: gameStates, resources, operations, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, aiNews, settings, mediaSentiment, addAiNewsReaction } = useGameStore();
   const [persistedReactions, setPersistedReactions] = useState<PoliticalReaction[]>([]);
 
   // False during the first render so the live-news list doesn't cascade in on
@@ -611,6 +613,20 @@ export default function WarroomPage() {
   const contestedSeats = electionScope === "prn"
     ? daerahList.filter((c) => c.safety === "marginal").length
     : seatScopeStates.filter((s) => s.status === "contested").reduce((sum, s) => sum + s.projectedSeats, 0);
+  const overlayOptions: { id: TacticalOverlay; ms: string; en: string; color: string }[] = [
+    { id: "default", ms: "Asas", en: "Base", color: "var(--cyan)" },
+    { id: "marginal", ms: "Marginal", en: "Marginal", color: "#ffd166" },
+    { id: "opponent", ms: "Kubu LAWAN", en: "LAWAN", color: "#ff4d5e" },
+    { id: "swing", ms: "Hotspot", en: "Hotspots", color: "#ff9f43" },
+    { id: "reach", ms: "Capaian", en: "Reach", color: "#35d9ff" },
+    { id: "sentiment", ms: "Sentimen", en: "Sentiment", color: "#00e5a8" },
+  ];
+  const parliamentOverlaySeats = electionScope === "pru" ? gameStates.flatMap(state => generateConstituencies(state, "parliament").map(seat => ({ state, seat }))) : [];
+  const overlayTargets = electionScope === "prn" && prnState
+    ? daerahList.map(seat => ({ name: seat.name, visual: seatTacticalVisual(seat, prnState, mapOverlay, operations, mediaSentiment) }))
+    : parliamentOverlaySeats.map(({ state, seat }) => ({ name: `${seat.name}, ${state.shortName}`, visual: seatTacticalVisual(seat, state, mapOverlay, operations, mediaSentiment) }));
+  const activeOverlayTargets = overlayTargets.filter(target => target.visual.active).sort((a, b) => b.visual.intensity - a.visual.intensity);
+  const strongestOverlayTarget = activeOverlayTargets[0];
 
   function getStatusBadge(status: string) {
     switch (status) {
@@ -956,15 +972,36 @@ export default function WarroomPage() {
 
           {/* Full-width Map Panel */}
           <TacticalPanel title={mapTitle} noPadding>
+            <div className="border-b p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "linear-gradient(90deg, rgb(var(--cyan-rgb)/0.045), transparent)" }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[9px] font-black tracking-[0.22em] text-text-muted">{t(lang, "LAPISAN TAKTIKAL", "TACTICAL LAYER")}</span>
+                {overlayOptions.map(option => {
+                  const active = mapOverlay === option.id;
+                  return <button key={option.id} onClick={() => setMapOverlay(option.id)} className="px-2.5 py-1.5 text-[9px] font-black tracking-wider transition" style={{ color: active ? option.color : "var(--text-muted)", border: `1px solid ${active ? option.color : "rgba(148,163,184,.18)"}`, background: active ? "rgba(255,255,255,.065)" : "rgba(255,255,255,.018)", boxShadow: active ? `0 0 14px ${option.color}` : "none" }}>{t(lang, option.ms, option.en)}</button>;
+                })}
+                <div className="ml-auto text-right text-[9px] text-text-muted">
+                  <b style={{ color: overlayOptions.find(option => option.id === mapOverlay)?.color }}>{activeOverlayTargets.length}</b> {t(lang, electionScope === "prn" ? "DUN ditanda" : "Parlimen ditanda", electionScope === "prn" ? "DUN seats flagged" : "Parliament seats flagged")}
+                  {strongestOverlayTarget && mapOverlay !== "default" ? ` · ${t(lang, "utama", "top")}: ${strongestOverlayTarget.name}` : ""}
+                </div>
+              </div>
+              <div className="mt-2 text-[9px] leading-relaxed text-text-muted">{t(lang,
+                mapOverlay === "marginal" ? "Menyerlahkan kerusi DUN atau Parlimen dengan jurang enam mata atau kurang." : mapOverlay === "opponent" ? "Menunjukkan kubu LAWAN yang memerlukan sumber tambahan atau strategi bertahan." : mapOverlay === "swing" ? "Mengesan kawasan dengan jurang boleh ubah dan kebarangkalian ayunan tinggi." : mapOverlay === "reach" ? "Memaparkan jejak operasi aktif. Lingkaran jingga ialah capaian lapangan; biru ialah capaian digital." : mapOverlay === "sentiment" ? "Peta haba menggabungkan arah sokongan, media dan operasi digital semasa." : "Paparan asas menunjukkan kedudukan pilihan raya semasa.",
+                mapOverlay === "marginal" ? "Highlights DUN or Parliament seats within six points." : mapOverlay === "opponent" ? "Shows LAWAN strongholds that need extra resources or a defensive strategy." : mapOverlay === "swing" ? "Finds movable contests and states with high swing probability." : mapOverlay === "reach" ? "Shows active operation footprints. Orange rings are field reach; blue rings are digital reach." : mapOverlay === "sentiment" ? "Heatmap combines support direction, media mood and current digital operations." : "The base view shows the current electoral position."
+              )}</div>
+            </div>
             <div className="relative" style={{ minHeight: "420px" }}>
               {electionScope === "prn" && prnState ? (
-                <StateZoomMap state={prnState} />
+                <StateZoomMap state={prnState} overlay={mapOverlay} operations={operations} mediaSentiment={mediaSentiment} reducedMotion={reducedMotion} />
               ) : (
                 <>
                   <MalaysiaMap
                     states={mapStates}
                     onStateClick={(id) => router.push(`/state/${id}`)}
                     showLabels
+                    showHotspots={mapOverlay === "swing"}
+                    overlay={mapOverlay}
+                    operations={operations}
+                    mediaSentiment={mediaSentiment}
                   />
                   {/* Sized for the full national map — on the much smaller
                       PRN state map this radar-sweep decoration overwhelmed

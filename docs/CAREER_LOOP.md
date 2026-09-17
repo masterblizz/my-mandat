@@ -30,6 +30,10 @@ in the earlier route audit, `GAME_FLOW.md`.
   rally or social-media mini-game earns extra support when the channel fits its
   target voters. Repeating an issue produces diminishing returns, and coverage
   persists in the campaign record.
+- The War Room map can switch between base, marginal-seat, LAWAN-stronghold,
+  swing-hotspot, campaign-reach and sentiment layers. PRN resolves individual DUN
+  points; PRU shades state risk while surfacing priority parliamentary seats. Reach
+  rings reflect active field and digital operations.
 - Eight non-repeating character dilemmas have scenario-specific effects. Earlier
   choices can unlock follow-up stories; poor relationships create term pressure.
 - Coalition partners offer development allocations, portfolio access, or
@@ -58,8 +62,8 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
-issue momentum, persistence, project delivery, story/policy repeat protection,
-opposition progression, and a second election.
+issue momentum, tactical-map classification, persistence, project delivery,
+story/policy repeat protection, opposition progression, and a second election.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
 mechanics, not real political forecasts. The three introductory scenarios use the

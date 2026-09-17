@@ -21,7 +21,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Coalition deal structures with budget, seat and cabinet trade-offs.
 - [x] Minister profiles, loyalty, defections and cabinet representation effects.
 - [x] State-specific PRN issues with channel fit and diminishing returns.
-- [ ] **NEXT:** Tactical map overlays for hotspots, marginal seats and campaign reach.
+- [x] Tactical map overlays for hotspots, marginal seats and campaign reach.
+- [ ] **NEXT:** Broader manifesto packages with voter-bloc trade-offs.
 
 ### 1. Connect the full political career — DONE
 
@@ -70,7 +71,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 23 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections and state-specific PRN issue momentum.
+- [x] 25 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum and tactical-map classification.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -81,6 +82,7 @@ improvements are complete; broader features and player validation remain open.
 - [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.
 - [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
 - [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
+- [ ] Browser-check every PRU/PRN tactical map layer and reduced-motion reach rings in an authenticated campaign.
 - [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
 
 The remaining sections retain the broader backlog. Earlier claims about cabinet
@@ -252,16 +254,20 @@ water/youth migration, Kedah padi/floods, Penang housing/development, Terengganu
 oil royalties/youth jobs, Johor cross-border economics, Sabah MA63/utilities and
 Sarawak autonomy/rural connectivity.
 
-## 11. Tactical map improvement — NEXT
+## 11. Tactical map improvement — DONE
 Add deeper tactical overlays to the map.
 
-Ideas:
-- PRN hotspots.
-- Marginal DUN/parliament seats.
-- Opponent stronghold.
-- Swing district.
-- Ceramah impact radius.
-- Social media sentiment heatmap.
+Implemented:
+- Six selectable War Room layers: base position, marginal contests, LAWAN
+  strongholds, swing hotspots, campaign reach and sentiment heatmap.
+- PRN layers classify and recolor individual DUN points using their simulated vote
+  margins; PRU shades state risk while counting and naming priority parliamentary seats.
+- Active field operations create orange reach rings while digital/youth operations
+  create wider cyan rings. Reduced-motion preference disables their animation.
+- The sentiment layer combines local support direction, daily trend, media mood and
+  active digital campaigning.
+- Each layer reports the number of flagged targets and names its strongest target.
+- Hover details explain why a DUN or state matches the selected tactical filter.
 
 ## 12. Manifesto system — PARTIALLY DONE
 Player chooses campaign manifesto.
@@ -396,6 +402,7 @@ Already implemented:
 - Minister/cabinet images.
 - PRN mode selector.
 - Actual cabinet effect score, guided starts, BM/EN career briefings and delivery celebrations.
+- Interactive PRU/PRN tactical map overlays and campaign-reach visualization.
 
 Remaining:
 - Election night animation.
@@ -404,7 +411,7 @@ Remaining:
 
 ## Recommended next implementation order
 1. Player balance/usability testing, including complete PRN and opposition browser runs.
-2. Minister profiles, loyalty and regional representation consequences.
-3. PRN MB candidate differentiation and state-specific campaign depth.
+2. Broader manifesto packages with voter-bloc trade-offs.
+3. PRN MB candidate differentiation.
 4. Richer election-night drama and a unified end-of-term report card.
 5. More scenario packs after the new branch data has been playtested.
