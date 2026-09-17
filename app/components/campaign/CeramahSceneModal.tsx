@@ -11,6 +11,7 @@ import {
   type MiniGameType,
 } from "../../store/campaignMath";
 import { generateCampaignTopics, type CampaignTopic } from "../../data/campaignTopics";
+import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../../data/prnIssues";
 import CrowdScene from "./CrowdScene";
 
 interface CeramahSceneModalProps {
@@ -26,7 +27,7 @@ const SETTLE_DELAY_MS = 1300;
 
 export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }: CeramahSceneModalProps) {
   const lang = useLang();
-  const { states, runCampaignMiniGame, resources, journey, day, totalDays } = useGameStore();
+  const { states, runCampaignMiniGame, resources, journey, day, totalDays, settings, careerProgress } = useGameStore();
   const cost = campaignCost(gameType, tactic);
   const allowed = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0 && resources.funds >= cost.funds && resources.manpower >= cost.manpower && resources.mediaBuy >= cost.media;
   const [phase, setPhase] = useState<ScenePhase>("topic");
@@ -38,17 +39,20 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
   // Fresh topic set per mount (i.e. per mini-game session) so replays don't
   // show the same fixed list — mixes state-specific issues with a random pool.
   const topics = useMemo(
-    () => (targetState ? generateCampaignTopics(targetState, gameType) : []),
+    () => (targetState ? generateCampaignTopics(targetState, gameType, 4, settings.electionScope === "prn") : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   // Read-only preview of the exact number `runCampaignMiniGame` will apply —
   // calculateCampaignGain() is the single source of truth for both.
-  const projectedGain = useMemo(
-    () => (targetState ? calculateCampaignGain(targetState, gameType, tactic) : 0),
-    [targetState, gameType, tactic]
-  );
+  const projectedGain = useMemo(() => {
+    if (!targetState) return 0;
+    const selectedIssue = settings.electionScope === "prn" ? findPrnIssue(stateId, selectedTopic?.prnIssueId) : undefined;
+    const key = selectedIssue ? prnIssueActionKey(careerProgress.term, stateId, selectedIssue.id) : null;
+    const bonus = selectedIssue ? prnIssueBonus(selectedIssue, gameType, key ? journey.prnIssueActions[key] ?? 0 : 0) : 0;
+    return Math.round((calculateCampaignGain(targetState, gameType, tactic) + bonus) * 100) / 100;
+  }, [targetState, gameType, tactic, settings.electionScope, stateId, selectedTopic, careerProgress.term, journey.prnIssueActions]);
   const positiveRatio = useMemo(() => gainToPositiveRatio(projectedGain), [projectedGain]);
 
   // Commits the real store mutation only after the crowd animation settles,
@@ -56,11 +60,11 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
   useEffect(() => {
     if (phase !== "reacting") return;
     const timeoutId = window.setTimeout(() => {
-      runCampaignMiniGame(stateId, gameType, tactic);
+      runCampaignMiniGame(stateId, gameType, tactic, selectedTopic?.prnIssueId);
       setPhase("done");
     }, SETTLE_DELAY_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [phase, stateId, gameType, tactic, runCampaignMiniGame]);
+  }, [phase, stateId, gameType, tactic, runCampaignMiniGame, selectedTopic]);
 
   function handleTopicSelect(topic: CampaignTopic) {
     if (!allowed) return;
@@ -126,7 +130,13 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                       className="px-3 py-3 text-center text-[12px] font-bold tracking-wide"
                       style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "var(--text-primary)", background: "rgb(var(--cyan-rgb)/0.06)", cursor: "pointer" }}
                     >
-                      {t(lang, topicOption.labelMS, topicOption.labelEN)}
+                      <span className="block">{t(lang, topicOption.labelMS, topicOption.labelEN)}</span>
+                      {topicOption.prnIssueId && (() => {
+                        const selectedIssue = findPrnIssue(stateId, topicOption.prnIssueId);
+                        const key = selectedIssue ? prnIssueActionKey(careerProgress.term, stateId, selectedIssue.id) : null;
+                        const bonus = selectedIssue ? prnIssueBonus(selectedIssue, gameType, key ? journey.prnIssueActions[key] ?? 0 : 0) : 0;
+                        return <span className="mt-1 block text-[9px] font-normal" style={{ color: topicOption.preferredChannel === gameType ? "var(--neon-green)" : "var(--gold)" }}>{t(lang, "Isu PRN", "PRN issue")} · +{bonus.toFixed(2)} · {topicOption.preferredChannel === gameType ? t(lang, "padanan kuat", "strong fit") : t(lang, "padanan sederhana", "partial fit")}</span>;
+                      })()}
                     </button>
                   ))}
                 </div>
@@ -140,7 +150,7 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                 </div>
                 {phase === "done" && (
                   <div className="mt-3 text-[12px] font-bold" style={{ color: "var(--neon-green)" }}>
-                    {t(lang, "components_campaign_CeramahSceneModal.campaignImpactRecorded")}
+                    {t(lang, "components_campaign_CeramahSceneModal.campaignImpactRecorded")} · +{projectedGain.toFixed(2)}
                   </div>
                 )}
               </div>

@@ -61,7 +61,7 @@ broader feature ideas and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 21 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation and defections.
+- [x] 23 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections and state-specific PRN issue momentum.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -221,18 +221,23 @@ Implemented metrics:
 - Regional reach, average loyalty and at-risk minister count.
 - The resulting score has a visible and persistent quarterly trust effect.
 
-## 10. PRN campaign issues — TODO
+## 10. PRN campaign issues — DONE
 Each state should have unique PRN issues.
 
-Examples:
-- Selangor: water, housing, urban voters.
-- Kelantan: clean water, religion, youth migration.
-- Kedah: padi, flood, rural Malay voters.
-- Penang: housing, development, urban voters.
-- Terengganu: religion, oil royalty, youth jobs.
-- Johor: Singapore economy, cost of living, urban-rural split.
-- Sabah: MA63, infrastructure, water, electricity.
-- Sarawak: autonomy, development, rural seats.
+Implemented:
+- Every PRN-eligible state has three bilingual issues, a target voter bloc and a
+  preferred campaign channel.
+- The daily briefing and War Room display the selected state's actual priorities.
+- State issues appear as selectable ceramah/social-media mini-game topics.
+- Matching the issue to its preferred channel gives a real support bonus and clear
+  feedback in the cause/effect journal.
+- Repeating one issue has diminishing returns, encouraging a broader campaign.
+- Issue coverage persists in save data and remains isolated to the selected PRN state.
+
+Examples now in play include Selangor water/housing/transport, Kelantan clean
+water/youth migration, Kedah padi/floods, Penang housing/development, Terengganu
+oil royalties/youth jobs, Johor cross-border economics, Sabah MA63/utilities and
+Sarawak autonomy/rural connectivity.
 
 ## 11. Tactical map improvement — TODO
 Add deeper tactical overlays to the map.

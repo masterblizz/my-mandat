@@ -1,5 +1,6 @@
 import type { StateData } from "./states";
 import type { MiniGameType } from "../store/campaignMath";
+import { getPrnIssues, type PrnCampaignIssue } from "./prnIssues";
 
 export interface CampaignTopic {
   id: string;
@@ -7,6 +8,8 @@ export interface CampaignTopic {
   labelEN: string;
   blurbMS: string;
   blurbEN: string;
+  prnIssueId?: string;
+  preferredChannel?: MiniGameType;
 }
 
 // Ceramah pool: live rally speech, so blurbs read as a crowd's physical reaction.
@@ -188,18 +191,36 @@ function issueTopic(issue: string, gameType: MiniGameType): CampaignTopic {
   };
 }
 
+function prnIssueTopic(issue: PrnCampaignIssue, gameType: MiniGameType): CampaignTopic {
+  const channelFit = issue.channel === gameType;
+  return {
+    id: issue.id,
+    labelMS: issue.title.ms,
+    labelEN: issue.title.en,
+    blurbMS: channelFit
+      ? `${issue.summary.ms} Saluran ini tepat untuk ${issue.voterBloc.ms.toLowerCase()}.`
+      : `${issue.summary.ms} Mesej sampai, tetapi saluran lain lebih kuat untuk kumpulan sasaran ini.`,
+    blurbEN: channelFit
+      ? `${issue.summary.en} This channel is a strong fit for ${issue.voterBloc.en.toLowerCase()}.`
+      : `${issue.summary.en} The message lands, but another channel would fit this voter group better.`,
+    prnIssueId: issue.id,
+    preferredChannel: issue.channel,
+  };
+}
+
 /**
  * Draws a fresh set of topics each time it's called: 1-2 pulled from the
  * target state's own `keyIssues` (so they vary by where you're campaigning)
  * mixed with a random sample from the generic pool, then shuffled. Called
  * once per mini-game session so replays don't show the same static list.
  */
-export function generateCampaignTopics(state: StateData, gameType: MiniGameType, count = 4): CampaignTopic[] {
+export function generateCampaignTopics(state: StateData, gameType: MiniGameType, count = 4, isPrn = false): CampaignTopic[] {
   const pool = gameType === "social" ? SOCIAL_POOL : CERAMAH_POOL;
-  const issueCount = Math.min(2, state.keyIssues.length);
-  const issuePicks = shuffle(state.keyIssues)
-    .slice(0, issueCount)
-    .map((issue) => issueTopic(issue, gameType));
+  const prnIssues = isPrn ? getPrnIssues(state.id) : [];
+  const issueCount = Math.min(2, prnIssues.length || state.keyIssues.length);
+  const issuePicks = prnIssues.length
+    ? shuffle(prnIssues).slice(0, issueCount).map(item => prnIssueTopic(item, gameType))
+    : shuffle(state.keyIssues).slice(0, issueCount).map(item => issueTopic(item, gameType));
 
   const genericNeeded = Math.max(0, count - issuePicks.length);
   const genericPicks = shuffle(pool).slice(0, genericNeeded);

@@ -26,6 +26,10 @@ in the earlier route audit, `GAME_FLOW.md`.
 
 - Safe/balanced/aggressive tactical actions cost 1x/1.2x/1.8x their base funding.
   Insufficient resources or an exhausted daily allowance block the action.
+- PRN campaigns surface three issues for the selected state. Choosing one in a
+  rally or social-media mini-game earns extra support when the channel fits its
+  target voters. Repeating an issue produces diminishing returns, and coverage
+  persists in the campaign record.
 - Eight non-repeating character dilemmas have scenario-specific effects. Earlier
   choices can unlock follow-up stories; poor relationships create term pressure.
 - Coalition partners offer development allocations, portfolio access, or
@@ -43,8 +47,8 @@ in the earlier route audit, `GAME_FLOW.md`.
 ## Persistence and safeguards
 
 The typed `journey` save contains cabinet appointments and loyalty, minister
-incidents, coalition agreements, projects, per-seat city zones, stories, term
-records, and the frozen election result.
+incidents, coalition agreements, PRN issue coverage, projects, per-seat city zones,
+stories, term records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
 Premature results/cabinet navigation is guarded; finished terms reject further actions.
@@ -53,8 +57,9 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
-coalition arithmetic, cabinet representation and defections, persistence, project
-delivery, story/policy repeat protection, opposition progression, and a second election.
+coalition arithmetic, cabinet representation and defections, state-specific PRN
+issue momentum, persistence, project delivery, story/policy repeat protection,
+opposition progression, and a second election.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
 mechanics, not real political forecasts. The three introductory scenarios use the

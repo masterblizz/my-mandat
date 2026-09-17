@@ -12,6 +12,7 @@ import { buildCampaignActionReaction, buildNominationReaction } from "../data/po
 import type { LiveNewsItem } from "../data/liveNews";
 import { calculateCampaignGain, getCampaignBaseGain, campaignCost } from "./campaignMath";
 import { generateConstituencies } from "../data/constituencies";
+import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../data/prnIssues";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -159,7 +160,7 @@ export interface GameState {
   addOperation: (op: Operation) => void;
   removeOperation: (id: string) => void;
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
-  runCampaignMiniGame: (stateId: string, gameType: "ceramah" | "social", tactic: "safe" | "balanced" | "aggressive") => void;
+  runCampaignMiniGame: (stateId: string, gameType: "ceramah" | "social", tactic: "safe" | "balanced" | "aggressive", issueId?: string) => void;
   addPoliticalReaction: (reaction: PoliticalReaction) => void;
   addAiNewsReaction: (item: LiveNewsItem) => void;
   applyCandidateFallout: (stateId: string, reaction: PoliticalReaction, lawanBoost: number, othersBoost: number) => void;
@@ -488,7 +489,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  runCampaignMiniGame: (stateId, gameType, tactic) =>
+  runCampaignMiniGame: (stateId, gameType, tactic, issueId) =>
     set((state) => {
       if (state.journey.chapter !== "campaign" || state.day >= state.totalDays || state.journey.decisions < 1) return {};
       if (state.settings.electionScope === "prn" && stateId !== state.settings.prnStateId) return {};
@@ -497,9 +498,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (state.resources.funds < fundsCost || state.resources.manpower < manpowerCost || state.resources.mediaBuy < mediaCost) return {};
       const ts = new Date().toTimeString().slice(0, 5);
       const targetState = state.states.find((s) => s.id === stateId);
-      const projectedGain = targetState
+      const prnIssue = state.settings.electionScope === "prn" ? findPrnIssue(stateId, issueId) : undefined;
+      const issueKey = prnIssue ? prnIssueActionKey(state.careerProgress.term, stateId, prnIssue.id) : null;
+      const previousIssueUses = issueKey ? state.journey.prnIssueActions[issueKey] ?? 0 : 0;
+      const issueGain = prnIssue ? prnIssueBonus(prnIssue, gameType, previousIssueUses) : 0;
+      const projectedGain = Math.round(((targetState
         ? calculateCampaignGain(targetState, gameType, tactic)
-        : getCampaignBaseGain(gameType, tactic);
+        : getCampaignBaseGain(gameType, tactic)) + issueGain) * 100) / 100;
       const reaction = buildCampaignActionReaction({
         day: state.day,
         stateId,
@@ -512,10 +517,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       persistPoliticalReactions(politicalReactions);
 
       return {
-        journey: { ...state.journey, decisions: state.journey.decisions - 1, journal: journal(state.journey, `Kempen: +${projectedGain.toFixed(1)} sokongan; kos RM${fundsCost}.`, `Campaign: +${projectedGain.toFixed(1)} support; cost RM${fundsCost}.`) },
+        journey: {
+          ...state.journey,
+          decisions: state.journey.decisions - 1,
+          prnIssueActions: issueKey ? { ...state.journey.prnIssueActions, [issueKey]: previousIssueUses + 1 } : state.journey.prnIssueActions,
+          journal: journal(state.journey,
+            prnIssue ? `Isu PRN “${prnIssue.title.ms}” diketengahkan melalui ${gameType === "ceramah" ? "ceramah" : "media sosial"}: +${projectedGain.toFixed(1)} sokongan termasuk bonus isu +${issueGain.toFixed(2)}.` : `Kempen: +${projectedGain.toFixed(1)} sokongan; kos RM${fundsCost}.`,
+            prnIssue ? `PRN issue “${prnIssue.title.en}” addressed through ${gameType === "ceramah" ? "a rally" : "social media"}: +${projectedGain.toFixed(1)} support including +${issueGain.toFixed(2)} issue bonus.` : `Campaign: +${projectedGain.toFixed(1)} support; cost RM${fundsCost}.`),
+        },
         states: state.states.map((s) => {
           if (s.id !== stateId) return s;
-          const gain = calculateCampaignGain(s, gameType, tactic);
+          const gain = Math.round((calculateCampaignGain(s, gameType, tactic) + issueGain) * 100) / 100;
           const mandatSupport = Math.min(82, Math.round((s.mandatSupport + gain) * 100) / 100);
           const lawanSupport = Math.max(8, Math.round((s.lawanSupport - gain * 0.5) * 100) / 100);
           const othersSupport = Math.max(4, Math.round((100 - mandatSupport - lawanSupport) * 100) / 100);
@@ -540,7 +552,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         alerts: [{
           id: `mini-${Date.now()}`,
           time: ts,
-          message: `${gameType === "ceramah" ? "Ceramah" : "Social media"} mini-game completed in ${stateId.toUpperCase()} using ${tactic.toUpperCase()} tactic.`,
+          message: `${gameType === "ceramah" ? "Ceramah" : "Social media"} completed in ${stateId.toUpperCase()} using ${tactic.toUpperCase()} tactic${prnIssue ? ` on ${prnIssue.title.en} (+${issueGain.toFixed(2)} issue fit)` : ""}.`,
           type: tactic === "aggressive" ? "warning" : "positive",
         }, ...state.alerts].slice(0, 12),
         politicalReactions,

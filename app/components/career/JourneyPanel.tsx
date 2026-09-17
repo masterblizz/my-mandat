@@ -8,6 +8,7 @@ import { useGameStore } from "../../store/gameStore";
 import { ISSUE_DATA, POLICY_DATA, resumeRoute, type Issue } from "../../store/journey";
 import { PARTY_MEMBERS } from "../../data/members";
 import { useLang, t } from "../../i18n/useLang";
+import { getPrnIssues, prnIssueActionKey } from "../../data/prnIssues";
 
 const button = "border border-cyan/30 px-3 py-2 text-sm text-cyan hover:bg-cyan/10 disabled:opacity-40 disabled:cursor-not-allowed text-left";
 export default function JourneyPanel({ local = false }: { local?: boolean }) {
@@ -26,6 +27,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const storyAvailable = !!story && (activeCampaign || term);
   const available = activeCampaign ? j.decisions > 0 : term && s.careerProgress.month < 60 && j.termActions.length < 2;
   const chapter = campaign ? t(lang, "Kempen", "Campaign") : j.chapter === "government" ? t(lang, "Kerajaan", "Government") : j.chapter === "opposition" ? t(lang, "Pembangkang", "Opposition") : j.chapter === "rebuilding" ? t(lang, "Bina semula", "Rebuild") : t(lang, "Mandat", "Mandate");
+  const prnIssues = campaign && s.settings.electionScope === "prn" ? getPrnIssues(s.settings.prnStateId) : [];
   return <section aria-label={t(lang, "Taklimat kerjaya", "Career briefing")} className="mb-5 border border-cyan/30 bg-black/20 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><Image src={`/avatars/leader-${String(s.leader.avatarIndex + 1).padStart(2, "0")}.png`} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
@@ -43,6 +45,25 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
     {campaign && !j.onboarded && <div className="mt-3 border border-gold/40 bg-gold/5 p-3">
       <strong className="text-gold">{t(lang, "Langkah pertama: dengar masalah penduduk", "First step: hear your residents")}</strong>
       <p className="mt-1 text-text-muted">{ISSUE_DATA[j.scenario].detail[lang]} {t(lang, "Pilih janji di bawah, lawati komuniti, kemudian majukan hari di Bilik Gerakan. Projek dibina selepas anda membentuk kerajaan.", "Choose a commitment below, visit the community, then advance the day in the War Room. Build public projects after forming government.")}</p>
+    </div>}
+    {activeCampaign && prnIssues.length > 0 && <div className="mt-3 border border-cyan/25 bg-cyan/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <strong className="text-cyan">{t(lang, `Isu penentu PRN · ${s.states.find(state => state.id === s.settings.prnStateId)?.name ?? s.settings.prnStateId}`, `PRN deciding issues · ${s.states.find(state => state.id === s.settings.prnStateId)?.name ?? s.settings.prnStateId}`)}</strong>
+          <p className="mt-1 text-xs text-text-muted">{t(lang, "Pilih isu ini dalam mini-game. Saluran yang sepadan memberi bonus lebih besar; pengulangan memberi pulangan berkurang.", "Choose these issues in a mini-game. The matching channel gives a larger bonus; repeated coverage has diminishing returns.")}</p>
+        </div>
+        <Link className={button} href="/campaign">{t(lang, "Bawa isu ke kempen →", "Take an issue to campaign →")}</Link>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        {prnIssues.map(issue => {
+          const uses = j.prnIssueActions[prnIssueActionKey(s.careerProgress.term, s.settings.prnStateId, issue.id)] ?? 0;
+          return <div key={issue.id} className="border border-white/10 p-2.5">
+            <div className="flex items-start justify-between gap-2"><b className="text-white">{issue.title[lang]}</b><span className="text-[9px] font-bold tracking-wider text-gold">{issue.channel === "ceramah" ? t(lang, "CERAMAH", "RALLY") : t(lang, "SOSIAL", "SOCIAL")}</span></div>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">{issue.summary[lang]}</p>
+            <div className="mt-2 text-[10px] text-cyan">{issue.voterBloc[lang]} · {uses ? t(lang, `diketengahkan ${uses}×`, `covered ${uses}×`) : t(lang, "belum diketengahkan", "not covered yet")}</div>
+          </div>;
+        })}
+      </div>
     </div>}
     {activeCampaign && <div className="mt-3 flex flex-wrap gap-2">
       {([ ["visit", "Lawatan komuniti · RM25,000 · sokongan +1.2", "Community visit · RM25,000 · support +1.2", 25000], ["fundraise", "Kutip dana · +RM90,000", "Fundraise · +RM90,000", 0], ["organise", "Latih jentera · RM40,000 · +40 petugas", "Train organisers · RM40,000 · +40 volunteers", 40000] ] as const).map(([action, ms, en, cost]) => <button key={action} className={button} disabled={!available || j.actionsToday.includes(action) || s.resources.funds < cost} onClick={() => s.journeyAction({ type: "campaign", action })}>{t(lang, ms, en)}</button>)}

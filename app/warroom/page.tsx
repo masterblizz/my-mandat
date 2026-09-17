@@ -24,6 +24,7 @@ import CountUpNumber from "../components/ui/CountUpNumber";
 import { generateConstituencies, type Constituency } from "../data/constituencies";
 import dynamic from "next/dynamic";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import { getPrnIssues } from "../data/prnIssues";
 
 const WarRoomLivingScene = dynamic(() => import("../components/warroom/WarRoomLivingScene"), {
   ssr: false,
@@ -451,6 +452,7 @@ export default function WarroomPage() {
 
   const electionScope = settings.electionScope ?? "pru";
   const prnState = gameStates.find((state) => state.id === (settings.prnStateId ?? "selangor")) ?? gameStates[0];
+  const prnIssues = electionScope === "prn" ? getPrnIssues(settings.prnStateId) : [];
   const mapStates = electionScope === "prn" && prnState ? [prnState] : gameStates;
 
   const allPoliticalReactions = [...politicalReactions, ...persistedReactions]
@@ -870,7 +872,7 @@ export default function WarroomPage() {
               </div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgba(255,255,255,0.025)" }}>
                 <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.issues")}</div>
-                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" ? t(lang, "warroom_page.localServicesMbCandidateStateSwing") : t(lang, "warroom_page.nationalMandateCoalitionsFederalPolicy")}</div>
+                <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" && prnIssues.length ? prnIssues.map(issue => issue.title[lang]).join(" · ") : electionScope === "prn" ? t(lang, "warroom_page.localServicesMbCandidateStateSwing") : t(lang, "warroom_page.nationalMandateCoalitionsFederalPolicy")}</div>
               </div>
             </div>
           </TacticalPanel>

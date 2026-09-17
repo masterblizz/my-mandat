@@ -9,6 +9,7 @@ const { createSaveSnapshot, getSavedGames, saveGameSnapshot, setActiveSaveSlot }
 const { computeElectionOutcome } = require('../app/utils/electionOutcome.ts');
 const { availableStories } = require('../app/data/careerStories.ts');
 const { evaluateCabinet } = require('../app/data/cabinetDynamics.ts');
+const { getPrnIssues, prnIssueActionKey } = require('../app/data/prnIssues.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -214,6 +215,27 @@ test('low-loyalty ambitious ministers can defect during a weak governing quarter
   assert.ok(store.getState().journey.ministerIncidents.some(event => event.includes("Dato' Sri Zulkifli Hamdan")));
   assert.ok(store.getState().journey.stability < 40);
   assert.equal(createSaveSnapshot(store.getState()).journey.ministerLoyalty['pm-001'], 17);
+});
+test('every PRN battlefield has three bilingual state-specific issues', () => {
+  for (const state of store.getState().states.filter(item => item.dunSeats > 0)) {
+    const issues = getPrnIssues(state.id);
+    assert.equal(issues.length, 3, state.id);
+    assert.ok(issues.every(issue => issue.title.ms && issue.title.en && issue.summary.ms && issue.summary.en), state.id);
+  }
+});
+test('matching a PRN issue to its campaign channel adds diminishing persistent momentum', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  const issueId = 'selangor-housing';
+  const key = prnIssueActionKey(store.getState().careerProgress.term, 'selangor', issueId);
+  const before = store.getState().states.find(state => state.id === 'selangor').mandatSupport;
+  store.getState().runCampaignMiniGame('selangor', 'social', 'safe', issueId);
+  const afterFirst = store.getState().states.find(state => state.id === 'selangor').mandatSupport;
+  store.getState().runCampaignMiniGame('selangor', 'social', 'safe', issueId);
+  const afterSecond = store.getState().states.find(state => state.id === 'selangor').mandatSupport;
+  assert.ok(afterFirst - before > afterSecond - afterFirst);
+  assert.equal(store.getState().journey.prnIssueActions[key], 2);
+  assert.equal(createSaveSnapshot(store.getState()).journey.prnIssueActions[key], 2);
+  assert.ok(store.getState().journey.journal[0].en.includes('Affordable housing'));
 });
 test('daily PRU and PRN projections agree with election-night seat counting', () => {
   for (const scope of ['pru', 'prn']) {
