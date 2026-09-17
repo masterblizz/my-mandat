@@ -5,6 +5,7 @@ import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
+import { coalitionCabinetPenalty } from "../store/journey";
 import { useLang, t } from "../i18n/useLang";
 import { DPM_POSTS, EXCO_POSTS, MINISTER_POSTS, PM_POST } from "../data/cabinet";
 import { PARTY_MEMBERS } from "../data/members";
@@ -25,7 +26,7 @@ export default function SwearingInPage() {
   const allPosts = terms.isPrn ? EXCO_POSTS : [PM_POST, ...DPM_POSTS, ...MINISTER_POSTS];
   const keyPostIds = terms.isPrn ? KEY_STATE_POST_IDS : KEY_FEDERAL_POST_IDS;
   const keyMinisters = keyPostIds.map((postId) => ({ post: allPosts.find((post) => post.id === postId), member: PARTY_MEMBERS.find(member => member.id === journey.appointments[postId]) })).filter((item) => item.post && item.member);
-  const cabinetScore = journey.cabinetQuality;
+  const cabinetScore = Math.max(0, journey.cabinetQuality - coalitionCabinetPenalty(useGameStore.getState()));
 
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb)/0.10), transparent 35%), var(--bg)" }}>

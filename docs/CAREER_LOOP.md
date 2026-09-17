@@ -16,7 +16,8 @@ in the earlier route audit, `GAME_FLOW.md`.
    enter opposition or rebuilding with an organisation and trust objective.
 5. During the term, fund promises from the public budget and choose up to two
    political actions each quarter. Projects take two quarters. Cabinet quality,
-   policies, delivery, relationships, and instability affect public trust.
+   representation, minister loyalty, policies, delivery, relationships, and
+   instability affect public trust and government stability.
 6. At month 60, begin the next election. The term record changes starting support;
    unfinished promises remain obligations. Campaign resources reset while the city,
    relationships, promises, and political legacy persist.
@@ -25,10 +26,15 @@ in the earlier route audit, `GAME_FLOW.md`.
 
 - Safe/balanced/aggressive tactical actions cost 1x/1.2x/1.8x their base funding.
   Insufficient resources or an exhausted daily allowance block the action.
-- Three rotating character dilemmas trade party relationships against public trust.
-  A story resolves once per day or quarter; poor relationships create term pressure.
-- Coalition commitments reduce the opening public budget. Partner seats are drawn
-  from the simulated independent total, never added out of thin air.
+- Eight non-repeating character dilemmas have scenario-specific effects. Earlier
+  choices can unlock follow-up stories; poor relationships create term pressure.
+- Coalition partners offer development allocations, portfolio access, or
+  confidence-and-supply. Each structure changes seats, cost, stability, or cabinet
+  freedom. Partner seats still come only from the simulated independent total.
+- Cabinet candidates have profiles for faction, regional/community base, loyalty,
+  ambition and scandal risk. A balanced cabinet earns trust; a concentrated cabinet
+  loses it. Loyalty changes with government stability, and an ambitious minister
+  can defect when loyalty collapses. PRN EXCO balance uses the selected state.
 - Promised clinic, flood, and market projects become visible in the constituency
   after delivery. Other constituency construction also uses public funds and time.
 - BM/EN briefings show remaining actions, next steps, costs, and a cause/effect journal.
@@ -36,8 +42,9 @@ in the earlier route audit, `GAME_FLOW.md`.
 
 ## Persistence and safeguards
 
-The typed `journey` save contains cabinet appointments, coalition agreements,
-projects, per-seat city zones, stories, term records, and the frozen election result.
+The typed `journey` save contains cabinet appointments and loyalty, minister
+incidents, coalition agreements, projects, per-seat city zones, stories, term
+records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
 Premature results/cabinet navigation is guarded; finished terms reject further actions.
@@ -46,8 +53,8 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
-coalition arithmetic, persistence, project delivery, story/policy repeat protection,
-opposition progression, and a second election.
+coalition arithmetic, cabinet representation and defections, persistence, project
+delivery, story/policy repeat protection, opposition progression, and a second election.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
 mechanics, not real political forecasts. The three introductory scenarios use the

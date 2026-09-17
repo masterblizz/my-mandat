@@ -1,6 +1,6 @@
 "use client";
 
-import { coalitionPool, outcomeOf } from "../store/journey";
+import { coalitionDealEffect, coalitionPool, outcomeOf, type CoalitionDeal } from "../store/journey";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
@@ -22,9 +22,12 @@ export default function FormationPage() {
   const partnerPool = coalitionPool(game);
   const majorityTarget = outcome.majorityTarget;
   const [partners, setPartners] = useState<string[]>(game.journey.partners);
+  const [dealTerms, setDealTerms] = useState<Record<string, CoalitionDeal>>(game.journey.coalitionTerms);
   const selectedPartners = partnerPool.filter((partner) => partners.includes(partner.id));
-  const coalitionSeats = outcome.seatsWon + selectedPartners.reduce((sum, partner) => sum + partner.seats, 0);
-  const confidenceScore = Math.min(100, Math.round((coalitionSeats / majorityTarget) * 74 + leader.negotiation / 4 + selectedPartners.reduce((sum, partner) => sum + partner.stability, 0) / Math.max(1, selectedPartners.length || 1) / 6));
+  const dealFor = (id: string) => dealTerms[id] ?? "development";
+  const coalitionSeats = outcome.seatsWon + selectedPartners.reduce((sum, partner) => sum + coalitionDealEffect(partner, dealFor(partner.id)).seats, 0);
+  const agreementStability = selectedPartners.reduce((sum, partner) => sum + partner.stability + coalitionDealEffect(partner, dealFor(partner.id)).stability, 0) / Math.max(1, selectedPartners.length);
+  const confidenceScore = Math.min(100, Math.round((coalitionSeats / majorityTarget) * 74 + leader.negotiation / 4 + agreementStability / 6));
   const canForm = coalitionSeats >= majorityTarget;
   const istanaText = canForm
     ? t(lang, "formation_page.majorityCanBeProvenIsReady", { termsAppointingAuthority: terms.appointingAuthority, termsHeadTitle: terms.headTitle, termsExecutiveBody: terms.executiveBody })
@@ -32,6 +35,7 @@ export default function FormationPage() {
 
   function togglePartner(id: string) {
     setPartners((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setDealTerms(current => ({ ...current, [id]: current[id] ?? "development" }));
   }
 
   return (
@@ -46,7 +50,7 @@ export default function FormationPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/mandate")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "formation_page.mandate")}</button>
-            <button onClick={() => { game.finishElection(); if (canForm) { game.confirmCoalition(partners); navigate("/cabinet"); } else { game.enterTerm("opposition"); navigate("/opposition"); } }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${canForm ? "rgb(var(--gold-rgb)/0.5)" : "rgb(255 176 0 / 0.38)"}`, color: canForm ? "var(--gold)" : "var(--warn-orange)", background: canForm ? "rgb(var(--gold-rgb)/0.08)" : "rgb(255 176 0 / 0.06)" }}>{isPending ? t(lang, "formation_page.loading") : canForm ? t(lang, "formation_page.form", { termsExecutiveBody: terms.executiveBody }) : t(lang, "formation_page.enterOpposition")}</button>
+            <button onClick={() => { game.finishElection(); if (canForm) { game.confirmCoalition(partners, dealTerms); navigate("/cabinet"); } else { game.enterTerm("opposition"); navigate("/opposition"); } }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${canForm ? "rgb(var(--gold-rgb)/0.5)" : "rgb(255 176 0 / 0.38)"}`, color: canForm ? "var(--gold)" : "var(--warn-orange)", background: canForm ? "rgb(var(--gold-rgb)/0.08)" : "rgb(255 176 0 / 0.06)" }}>{isPending ? t(lang, "formation_page.loading") : canForm ? t(lang, "formation_page.form", { termsExecutiveBody: terms.executiveBody }) : t(lang, "formation_page.enterOpposition")}</button>
           </div>
         </div>
 
@@ -65,16 +69,22 @@ export default function FormationPage() {
               {partnerPool.map((partner) => {
                 const active = partners.includes(partner.id);
                 return (
-                  <button key={partner.id} onClick={() => togglePartner(partner.id)} className="w-full border p-4 text-left transition hover:scale-[1.005]" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}>
-                    <div className="flex items-start justify-between gap-4">
+                  <div key={partner.id} className="w-full border p-4 text-left" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.16)", background: active ? "rgb(var(--gold-rgb)/0.10)" : "rgb(var(--bg-rgb) / 0.72)" }}>
+                    <button onClick={() => togglePartner(partner.id)} className="flex w-full items-start justify-between gap-4 text-left">
                       <div>
                         <div className="text-[14px] font-black tracking-wider text-white">{t(lang, partner.ms, partner.en)}</div>
-                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, `Peruntukan pembangunan: RM${partner.cost.toLocaleString()}`, `Development allocation: RM${partner.cost.toLocaleString()}`)}</div>
-                        <div className="mt-3 flex gap-3 text-[10px] font-bold tracking-wider"><span style={{ color: "var(--gold)" }}>+{partner.seats} {t(lang, "formation_page.seats2")}</span><span style={{ color: "var(--cyan)" }}>{t(lang, "formation_page.stability")} {partner.stability}</span></div>
+                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, "Pilih struktur perjanjian selepas membuka rundingan.", "Select a deal structure after opening talks.")}</div>
+                        <div className="mt-3 flex gap-3 text-[10px] font-bold tracking-wider"><span style={{ color: "var(--gold)" }}>+{active ? coalitionDealEffect(partner, dealFor(partner.id)).seats : partner.seats} {t(lang, "formation_page.seats2")}</span><span style={{ color: "var(--cyan)" }}>{t(lang, "formation_page.stability")} {partner.stability}</span></div>
                       </div>
                       <div className="text-[10px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--text-muted)" }}>{active ? t(lang, "formation_page.agreed") : t(lang, "formation_page.negotiate")}</div>
-                    </div>
-                  </button>
+                    </button>
+                    {active && <div className="mt-4 grid gap-2 sm:grid-cols-3">{(["development", "portfolio", "confidence"] as CoalitionDeal[]).map(deal => {
+                      const effect = coalitionDealEffect(partner, deal), chosen = dealFor(partner.id) === deal;
+                      const label = deal === "development" ? t(lang, "Peruntukan", "Development") : deal === "portfolio" ? t(lang, "Portfolio", "Portfolio") : t(lang, "Keyakinan & bekalan", "Confidence & supply");
+                      const detail = deal === "development" ? t(lang, `RM${effect.cost.toLocaleString()} · stabil +4`, `RM${effect.cost.toLocaleString()} · stability +4`) : deal === "portfolio" ? t(lang, `RM${effect.cost.toLocaleString()} · kabinet −5`, `RM${effect.cost.toLocaleString()} · cabinet −5`) : t(lang, `${effect.seats} sokongan · stabil −10`, `${effect.seats} support · stability −10`);
+                      return <button key={deal} onClick={() => setDealTerms(current => ({ ...current, [partner.id]: deal }))} className="border p-2 text-left text-[10px]" style={{ borderColor: chosen ? "var(--gold)" : "rgb(var(--cyan-rgb)/0.18)", color: chosen ? "var(--gold)" : "var(--text-muted)" }}><strong className="block text-[11px]">{label}</strong>{detail}</button>;
+                    })}</div>}
+                  </div>
                 );
               })}
             </div>
@@ -94,7 +104,7 @@ export default function FormationPage() {
             </TacticalPanel>
             <TacticalPanel title={t(lang, "formation_page.keyDemands")}>
               <div className="space-y-2 text-[11px] leading-relaxed text-text-muted">
-                {selectedPartners.length ? selectedPartners.map((partner) => <div key={partner.id}>• {t(lang, `Peruntukan pembangunan: RM${partner.cost.toLocaleString()}`, `Development allocation: RM${partner.cost.toLocaleString()}`)}</div>) : <div>{t(lang, "formation_page.noCoalitionPartnerSelected")}</div>}
+                {selectedPartners.length ? selectedPartners.map((partner) => { const deal = dealFor(partner.id), effect = coalitionDealEffect(partner, deal); return <div key={partner.id}>• {t(lang, partner.ms, partner.en)}: {deal === "development" ? t(lang, `peruntukan RM${effect.cost.toLocaleString()}`, `RM${effect.cost.toLocaleString()} allocation`) : deal === "portfolio" ? t(lang, `portfolio · penalti kabinet ${effect.cabinetPenalty}`, `portfolio · cabinet penalty ${effect.cabinetPenalty}`) : t(lang, `keyakinan & bekalan · ${effect.seats} sokongan`, `confidence & supply · ${effect.seats} support`)}</div>; }) : <div>{t(lang, "formation_page.noCoalitionPartnerSelected")}</div>}
               </div>
             </TacticalPanel>
           </div>

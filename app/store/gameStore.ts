@@ -1,5 +1,5 @@
 "use client";
-import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, outcomeOf, journal, type Journey, type JourneyAction, type Chapter } from "./journey";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, type Journey, type JourneyAction, type Chapter, type CoalitionDeal } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -79,7 +79,7 @@ export interface GameState {
   journey: Journey;
   journeyAction: (action: JourneyAction) => void;
   finishElection: () => void;
-  confirmCoalition: (partners: string[]) => void;
+  confirmCoalition: (partners: string[], terms?: Record<string, CoalitionDeal>) => void;
   enterTerm: (chapter: Chapter) => void;
   phase: "menu" | "setup" | "playing" | "ended";
   dataset: DatasetKind;
@@ -288,18 +288,20 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   journeyAction: (action) => set((state) => reduceJourney(state, action)),
   finishElection: () => set((state) => finishElection(state)),
-  confirmCoalition: (partners) => set((state) => {
+  confirmCoalition: (partners, terms = {}) => set((state) => {
     if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};
     const valid = coalitionPool(state).filter(p => partners.includes(p.id));
-    if (outcomeOf(state).seatsWon + valid.reduce((n, p) => n + p.seats, 0) < outcomeOf(state).majorityTarget) return {};
-    return { journey: { ...state.journey, partners: valid.map(p => p.id), coalitionConfirmed: true, chapter: "formation", journal: journal(state.journey, "Perjanjian gabungan disahkan. Peruntukan rakan ditolak daripada bajet awal penggal.", "Coalition agreement confirmed. Partner allocations will be deducted from the opening public budget.") } };
+    const coalitionTerms = Object.fromEntries(valid.map(p => [p.id, terms[p.id] ?? "development"])) as Record<string, CoalitionDeal>;
+    if (outcomeOf(state).seatsWon + valid.reduce((n, p) => n + coalitionDealEffect(p, coalitionTerms[p.id]).seats, 0) < outcomeOf(state).majorityTarget) return {};
+    return { journey: { ...state.journey, partners: valid.map(p => p.id), coalitionTerms, coalitionConfirmed: true, chapter: "formation", journal: journal(state.journey, "Perjanjian gabungan disahkan. Jenis sokongan menentukan kos, kestabilan dan kebebasan membentuk kabinet.", "Coalition agreement confirmed. Each deal now determines its cost, stability, and cabinet constraint.") } };
   }),
   enterTerm: (chapter) => set((state) => {
     if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};
     if (!["government", "opposition", "rebuilding"].includes(chapter)) return {};
     if (chapter === "government" && (!state.journey.coalitionConfirmed || !Object.values(state.journey.appointments).some(Boolean) || governingSeats(state) < outcomeOf(state).majorityTarget)) return {};
-    const cost = coalitionPool(state).filter(p => state.journey.partners.includes(p.id)).reduce((n, p) => n + p.cost, 0);
-    return { journey: { ...state.journey, chapter, publicBudget: chapter === "government" ? 900000 - cost : 0, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
+    const partners = coalitionPool(state).filter(p => state.journey.partners.includes(p.id));
+    const stability = partners.length ? Math.max(25, Math.min(85, Math.round(partners.reduce((sum, p) => sum + p.stability + coalitionDealEffect(p, state.journey.coalitionTerms[p.id] ?? "development").stability, 0) / partners.length))) : 72;
+    return { journey: { ...state.journey, chapter, publicBudget: chapter === "government" ? 900000 - coalitionOpeningCost(state) : 0, stability: chapter === "government" ? stability : state.journey.stability, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
   }),
   setHasWonElection: (won) => set({ hasWonElection: won }),
   setDailyChallengeDate: (dateKey) => set({ dailyChallengeDate: dateKey }),

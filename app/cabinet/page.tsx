@@ -1,6 +1,6 @@
 "use client";
 
-import { governingSeats } from "../store/journey";
+import { coalitionCabinetPenalty, governingSeats } from "../store/journey";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -10,6 +10,7 @@ import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
 import { PARTY_MEMBERS, type PartyMember } from "../data/members";
+import { evaluateCabinet, getMemberTraits, initialMinisterLoyalty, memberRegion } from "../data/cabinetDynamics";
 import { MINISTER_POSTS, DPM_POSTS, PM_POST, EXCO_POSTS, SECTOR_COLORS, SECTOR_LABEL, SPECIALTY_LABEL, getGrade, scoreAssignment, type CabinetPost } from "../data/cabinet";
 import { buildCabinetReaction } from "../data/politicalReactions";
 import { computeElectionOutcome } from "../utils/electionOutcome";
@@ -247,6 +248,7 @@ export default function CabinetPage() {
     useGameStore.setState(state => ({ journey: { ...state.journey, appointments: typeof update === "function" ? update(assignments) : update } }));
   }
   const [selectedPostId, setSelectedPostId] = useState<string | null>(activePosts[0]?.id ?? null);
+  const [profileMemberId, setProfileMemberId] = useState<string | null>(null);
 
   const assignedMembers = useMemo(() => {
     return new Set(Object.values(assignments).filter(Boolean) as string[]);
@@ -259,10 +261,16 @@ export default function CabinetPage() {
     return member ? scoreAssignment(member, post) : 0;
   });
   const cabinetScore = activePosts.length ? Math.round(cabinetScores.reduce((sum, value) => sum + value, 0) / activePosts.length) : 0;
+  const coalitionPenalty = coalitionCabinetPenalty(useGameStore.getState());
+  const effectiveCabinetScore = Math.max(0, cabinetScore - coalitionPenalty);
+  const cabinetBalance = useMemo(() => evaluateCabinet(assignments, journey.ministerLoyalty, { isPrn, stateId: settings.prnStateId }), [assignments, journey.ministerLoyalty, isPrn, settings.prnStateId]);
+  const profileMember = PARTY_MEMBERS.find(member => member.id === profileMemberId) ?? null;
+  const profileTraits = profileMember ? getMemberTraits(profileMember) : null;
   useEffect(() => {
-    if (journey.chapter !== "formation" || (Object.keys(journey.appointments).length && journey.cabinetQuality === cabinetScore)) return;
-    useGameStore.setState(state => ({ journey: { ...state.journey, appointments: assignments, cabinetQuality: cabinetScore } }));
-  }, [assignments, cabinetScore, journey.chapter, journey.appointments, journey.cabinetQuality]);
+    const missingLoyalty = Object.values(assignments).some(memberId => memberId && journey.ministerLoyalty[memberId] === undefined);
+    if (journey.chapter !== "formation" || (!missingLoyalty && Object.keys(journey.appointments).length && journey.cabinetQuality === cabinetScore)) return;
+    useGameStore.setState(state => ({ journey: { ...state.journey, appointments: assignments, cabinetQuality: cabinetScore, ministerLoyalty: initialMinisterLoyalty(assignments, state.journey.ministerLoyalty) } }));
+  }, [assignments, cabinetScore, journey.chapter, journey.appointments, journey.cabinetQuality, journey.ministerLoyalty]);
   const grade = getGrade(cabinetScore, isPrn ? "EXCO" : "KABINET", isPrn ? "EXCO" : "CABINET");
   const capacityLabel = t(lang, capacity.labelKey);
   const capacityNote = t(lang, capacity.noteKey, capacity.noteVars);
@@ -396,8 +404,21 @@ export default function CabinetPage() {
               </TacticalPanel>
 
               <TacticalPanel title={t(lang, "cabinet_page.effects", { termsExecutiveBody: terms.executiveBody })}>
-                <div className="text-sm text-cyan">{t(lang, "Kepercayaan setiap suku tahun", "Trust each quarter")}: {cabinetScore >= 70 ? "+1" : "−1"}</div>
-                <p className="mt-2 text-xs leading-relaxed text-text-muted">{t(lang, "Skor 70 ke atas meningkatkan keyakinan terhadap pelaksanaan. Pelantikan disimpan dan dibawa ke upacara serta penggal kerajaan.", "A score of 70 or above builds confidence in delivery. Appointments are saved and carry into the ceremony and governing term.")}</p>
+                <div className="text-sm text-cyan">{t(lang, "Kepercayaan setiap suku tahun", "Trust each quarter")}: {(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta >= 0 ? "+" : ""}{(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta}</div>
+                <p className="mt-2 text-xs leading-relaxed text-text-muted">{t(lang, `Skor berkesan ${effectiveCabinetScore}${coalitionPenalty ? ` selepas penalti portfolio koalisi −${coalitionPenalty}` : ""}. Skor 70 ke atas meningkatkan keyakinan.`, `Effective score ${effectiveCabinetScore}${coalitionPenalty ? ` after coalition portfolio penalty −${coalitionPenalty}` : ""}. A score of 70 or above builds confidence.`)}</p>
+                <div className="mt-4 border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)" }}>
+                  <div className="flex items-end justify-between">
+                    <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{t(lang, "KESEIMBANGAN WAKIL", "REPRESENTATION BALANCE")}</div>
+                    <div className="text-2xl font-black" style={{ color: cabinetBalance.score >= 65 ? "var(--neon-green)" : cabinetBalance.score >= 50 ? "var(--gold)" : "var(--warn-orange)" }}>{cabinetBalance.score}</div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-text-muted">
+                    <span>{t(lang, "Wanita", "Women")} <b className="text-white">{cabinetBalance.women}</b></span>
+                    <span>{t(lang, "Pelapis", "Emerging")} <b className="text-white">{cabinetBalance.emerging}</b></span>
+                    <span>{isPrn ? t(lang, "Wakil negeri", "State-based") : t(lang, "Sabah/Sarawak", "Sabah/Sarawak")} <b className="text-white">{cabinetBalance.territorial}</b></span>
+                    <span>{t(lang, "Komuniti", "Communities")} <b className="text-white">{cabinetBalance.communities}</b></span>
+                  </div>
+                  <div className="mt-3 text-[10px] text-text-muted">{t(lang, "Kesetiaan purata", "Average loyalty")} <b style={{ color: cabinetBalance.averageLoyalty >= 65 ? "var(--neon-green)" : "var(--warn-orange)" }}>{cabinetBalance.averageLoyalty}</b> · {t(lang, "Kestabilan", "Stability")} {cabinetBalance.stabilityDelta >= 0 ? "+" : ""}{cabinetBalance.stabilityDelta}/{t(lang, "suku", "quarter")}</div>
+                </div>
               </TacticalPanel>
             </div>
 
@@ -522,10 +543,10 @@ export default function CabinetPage() {
                       const breakdown = scoreBreakdown(member, selectedPost);
                       const specialtyMatch = member.specialty === selectedPost.requiredSpecialty;
                       return (
+                        <div key={member.id} className="relative">
                         <button
-                          key={member.id}
                           onClick={() => assignMember(selectedPost.id, member.id)}
-                          className="relative w-full overflow-hidden border p-3 text-left transition hover:scale-[1.006]"
+                          className="relative w-full overflow-hidden border p-3 pb-9 text-left transition hover:scale-[1.006]"
                           style={{
                             borderColor: appointedHere ? "rgb(var(--gold-rgb)/0.72)" : alreadyAssigned ? "rgba(255,255,255,0.08)" : "rgb(var(--cyan-rgb)/0.16)",
                             background: appointedHere ? "rgb(var(--gold-rgb)/0.12)" : alreadyAssigned ? "rgba(255,255,255,0.025)" : "rgb(var(--bg-rgb) / 0.72)",
@@ -557,6 +578,12 @@ export default function CabinetPage() {
                             </div>
                           </div>
                         </button>
+                        <button
+                          onClick={() => setProfileMemberId(member.id)}
+                          className="absolute bottom-2 right-2 z-10 px-2 py-1 text-[8px] font-black tracking-[0.18em]"
+                          style={{ color: "var(--cyan)", border: "1px solid rgb(var(--cyan-rgb)/0.28)", background: "rgb(var(--bg-rgb) / 0.94)" }}
+                        >{t(lang, "PROFIL", "PROFILE")}</button>
+                        </div>
                       );
                     })}
                   </div>
@@ -566,6 +593,56 @@ export default function CabinetPage() {
           </div>
         )}
       </main>
+      {profileMember && profileTraits && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4" onClick={() => setProfileMemberId(null)}>
+          <div className="w-full max-w-xl border p-5" onClick={event => event.stopPropagation()} style={{ borderColor: "rgb(var(--cyan-rgb)/0.48)", background: "linear-gradient(145deg, rgb(5 16 26 / 0.99), rgb(7 10 18 / 0.99))", boxShadow: "0 0 48px rgb(var(--cyan-rgb)/0.16)" }}>
+            <div className="flex items-start gap-4">
+              <CabinetPortrait src={memberPortrait(profileMember)} alt={`${profileMember.name} profile photo`} size="lg" tone="var(--cyan)" partyColor={leader.partyColor} label={isPrn ? "ADUN" : "MP"} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[9px] font-black tracking-[0.28em] text-cyan">{t(lang, "FAIL CALON", "CANDIDATE DOSSIER")}</div>
+                <div className="mt-1 text-xl font-black tracking-wider text-white">{profileMember.name}</div>
+                <div className="text-xs text-text-muted">{profileMember.role} · {profileMember.homeState.toUpperCase()}</div>
+              </div>
+              <button onClick={() => setProfileMemberId(null)} className="h-8 w-8 border text-sm text-text-muted" style={{ borderColor: "rgb(var(--cyan-rgb)/0.22)" }}>×</button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {[
+                [t(lang, "Kesetiaan", "Loyalty"), journey.ministerLoyalty[profileMember.id] ?? profileTraits.loyalty],
+                [t(lang, "Cita-cita", "Ambition"), profileTraits.ambition],
+                [t(lang, "Risiko skandal", "Scandal risk"), profileTraits.scandalRisk],
+                [t(lang, "Pengaruh", "Influence"), profileMember.influence],
+                [t(lang, "Kredibiliti", "Credibility"), profileMember.credibility],
+                [t(lang, "Karisma", "Charisma"), profileMember.charisma],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.13)", background: "rgb(var(--cyan-rgb)/0.035)" }}>
+                  <div className="text-[9px] tracking-wider text-text-muted">{label}</div>
+                  <div className="mt-1 text-xl font-black text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 text-[11px]">
+              <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.2)" }}>
+                <div className="text-[9px] font-bold tracking-[0.2em]" style={{ color: "var(--gold)" }}>{t(lang, "IDENTITI POLITIK", "POLITICAL IDENTITY")}</div>
+                <div className="mt-2 leading-6 text-text-muted">
+                  {t(lang, "Puak", "Faction")}: <b className="text-white">{profileTraits.faction.toUpperCase()}</b><br />
+                  {t(lang, "Komuniti", "Community")}: <b className="text-white">{profileTraits.community.toUpperCase()}</b><br />
+                  {t(lang, "Wilayah", "Region")}: <b className="text-white">{memberRegion(profileMember).toUpperCase()}</b><br />
+                  {t(lang, "Kepakaran", "Specialty")}: <b className="text-white">{specialtyLabel(profileMember.specialty)}</b>
+                </div>
+              </div>
+              <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)" }}>
+                <div className="text-[9px] font-bold tracking-[0.2em] text-cyan">{t(lang, "PENILAIAN PENASIHAT", "ADVISER ASSESSMENT")}</div>
+                <p className="mt-2 leading-relaxed text-text-muted">{t(lang,
+                  `${profileMember.name} membawa kekuatan ${specialtyLabel(profileMember.specialty).toLowerCase()} dari ${profileMember.homeState}. Kesetiaan rendah atau cita-cita tinggi boleh mencetuskan peletakan jawatan ketika kerajaan goyah.`,
+                  `${profileMember.name} brings ${specialtyLabel(profileMember.specialty).toLowerCase()} strength from ${profileMember.homeState}. Low loyalty or high ambition can trigger a resignation when the government weakens.`
+                )}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <StatusBar leftText={`${terms.scopeLabel} · ${t(lang, "cabinet_page.formation2", { termsExecutiveBody: terms.executiveBody })} · ${difficultyLabel}`} rightText={`${leader.partyAbbr} ${seatsWon} ${t(lang, "cabinet_page.seats", { termsSeatLabel: terms.seatLabel })} · ${t(lang, "cabinet_page.day")} ${day}/${totalDays}`} />
     </div>
   );

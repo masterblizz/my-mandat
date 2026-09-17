@@ -7,6 +7,8 @@ const { useGameStore: store } = require('../app/store/gameStore.ts');
 const { coalitionPool, governingSeats, resumeRoute, newJourney, normalizeJourney } = require('../app/store/journey.ts');
 const { createSaveSnapshot, getSavedGames, saveGameSnapshot, setActiveSaveSlot } = require('../app/store/saveGame.ts');
 const { computeElectionOutcome } = require('../app/utils/electionOutcome.ts');
+const { availableStories } = require('../app/data/careerStories.ts');
+const { evaluateCabinet } = require('../app/data/cabinetDynamics.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -94,11 +96,18 @@ test('construction persists in save and completes visibly in stored zones', () =
   assert.equal(store.getState().journey.cityZones.seat[0].infra, 62);
 });
 test('stories cannot be farmed repeatedly during one turn', () => {
-  act({ type: 'story', choice: 'compromise', character: 'Organiser' });
+  act({ type: 'story', storyId: 'loyalty-event', choice: 'compromise', character: 'Organiser' });
   const funds = store.getState().resources.funds;
-  act({ type: 'story', choice: 'compromise', character: 'Organiser' });
+  act({ type: 'story', storyId: 'loyalty-event', choice: 'compromise', character: 'Organiser' });
   assert.equal(store.getState().resources.funds, funds);
-  assert.equal(store.getState().journey.relationships.Organiser, 53);
+  assert.equal(store.getState().journey.relationships.Organiser, 54);
+  assert.equal(store.getState().journey.storyChoices['loyalty-event'], 'compromise');
+});
+test('story decisions unlock only their valid follow-up branches', () => {
+  assert.ok(!availableStories('term', store.getState().journey.storyChoices).some(s => s.id === 'loyalty-reckoning'));
+  act({ type: 'story', storyId: 'loyalty-event', choice: 'refuse', character: 'Organiser' });
+  assert.ok(availableStories('term', store.getState().journey.storyChoices).some(s => s.id === 'loyalty-reckoning'));
+  assert.ok(!availableStories('term', store.getState().journey.storyChoices).some(s => s.id === 'protected-figure-leak'));
 });
 test('policies charge once and resolve on the quarterly clock', () => {
   win();
@@ -163,10 +172,61 @@ test('finished terms reject spending but allow the next election', () => {
   const before = JSON.stringify(store.getState().journey);
   act({ type: 'policy', id: 'cost' });
   act({ type: 'term', action: 'branches' });
-  act({ type: 'story', choice: 'help', character: 'Ally' });
+  act({ type: 'story', storyId: 'branch-pressure', choice: 'help', character: 'Ally' });
   assert.equal(JSON.stringify(store.getState().journey), before);
   act({ type: 'next-election' });
   assert.equal(store.getState().journey.chapter, 'campaign');
   assert.equal(store.getState().careerProgress.term, 2);
+});
+test('coalition deal structures trade seats, money, stability and cabinet freedom', () => {
+  store.setState(s => ({ day: s.totalDays })); store.getState().finishElection();
+  patchJourney({ outcome: { ...store.getState().journey.outcome, seatsWon: 100, lawanSeats: 95, othersSeats: 27, majorityTarget: 112, totalSeats: 222, status: 'hung' } });
+  store.getState().confirmCoalition(['borneo'], { borneo: 'confidence' });
+  assert.equal(store.getState().journey.coalitionConfirmed, false);
+  store.getState().confirmCoalition(['borneo'], { borneo: 'portfolio' });
+  assert.equal(governingSeats(store.getState()), 113);
+  assert.equal(createSaveSnapshot(store.getState()).journey.coalitionTerms.borneo, 'portfolio');
+  patchJourney({ appointments: { 'min-fin': 'pm-003' }, cabinetQuality: 73 });
+  store.getState().enterTerm('government');
+  assert.equal(store.getState().journey.publicBudget, 837000);
+  assert.equal(store.getState().journey.stability, 75);
+  const trust = store.getState().journey.trust;
+  act({ type: 'quarter' });
+  assert.equal(store.getState().journey.trust, trust - 1);
+});
+test('cabinet representation rewards a broad, emerging and Borneo-inclusive team', () => {
+  const concentrated = evaluateCabinet({ a: 'pm-001', b: 'pm-006', c: 'pm-015', d: 'pm-018' });
+  const balanced = evaluateCabinet({ a: 'pm-002', b: 'pm-009', c: 'pm-013', d: 'pm-014', e: 'pm-005', f: 'pm-007' });
+  assert.ok(balanced.score > concentrated.score);
+  assert.ok(balanced.trustDelta > concentrated.trustDelta);
+  assert.equal(balanced.borneo, 2);
+  assert.ok(balanced.women >= 3);
+});
+test('low-loyalty ambitious ministers can defect during a weak governing quarter', () => {
+  win();
+  patchJourney({
+    appointments: { 'min-fin': 'pm-001', 'min-home': 'pm-006', 'min-youth': 'pm-015', 'min-rural': 'pm-018' },
+    ministerLoyalty: { 'pm-001': 20, 'pm-006': 70, 'pm-015': 70, 'pm-018': 70 },
+    stability: 40,
+  });
+  act({ type: 'quarter' });
+  assert.equal(store.getState().journey.appointments['min-fin'], null);
+  assert.ok(store.getState().journey.ministerIncidents.some(event => event.includes("Dato' Sri Zulkifli Hamdan")));
+  assert.ok(store.getState().journey.stability < 40);
+  assert.equal(createSaveSnapshot(store.getState()).journey.ministerLoyalty['pm-001'], 17);
+});
+test('daily PRU and PRN projections agree with election-night seat counting', () => {
+  for (const scope of ['pru', 'prn']) {
+    store.getState().resetGame();
+    store.getState().updateSettings({ electionScope: scope, prnStateId: 'selangor' });
+    const outside = JSON.stringify(store.getState().states.filter(s => s.id !== 'selangor'));
+    for (let day = 1; day < store.getState().totalDays; day++) {
+      store.getState().advanceDay();
+      const s = store.getState();
+      const projected = s.states.filter(x => scope === 'pru' || x.id === 'selangor').reduce((sum, x) => sum + x.projectedSeats, 0);
+      assert.equal(projected, computeElectionOutcome(s.states, s.settings).seatsWon);
+    }
+    if (scope === 'prn') assert.equal(JSON.stringify(store.getState().states.filter(s => s.id !== 'selangor')), outside);
+  }
 });
 console.log(`${passed} journey regression tests passed.`);

@@ -1,11 +1,80 @@
 # MyMandat Improvement Suggestions
 
 Status key:
-- DONE = already implemented and verified
+- DONE = implemented; verification scope is recorded below
+- PARTIALLY DONE = core behavior exists, with remaining work listed
 - IN PROGRESS = currently being implemented
 - TODO = not implemented yet
 
-Last updated: 2026-07-02
+Last updated: 2026-09-17
+
+## Latest game-flow improvement checklist
+
+Implementation baseline: `80737a0` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
+for the current rules. The five requested implementation stages are complete;
+broader feature ideas and player validation remain open.
+
+### 1. Connect the full political career — DONE
+
+- [x] Campaign → results → mandate → coalition → cabinet → ceremony → governing.
+- [x] Opposition and rebuilding paths with real progression.
+- [x] Coalition seats drawn from the election result and agreements persisted.
+- [x] Saved cabinet appointments carried into the ceremony and governing term.
+- [x] Next election at month 60, retaining commitments, city development and legacy.
+- [x] Save/load and Continue resume the current chapter.
+
+### 2. Make daily choices meaningful — DONE
+
+- [x] Daily briefing and three major decisions per campaign day.
+- [x] Visits, fundraising and organiser training with resource/support effects.
+- [x] Tactical deployments and stories share the daily decision allowance.
+- [x] Safe/balanced/aggressive tactics charge different actual costs.
+- [x] Affordability and repeat-action safeguards; cause/effect journal.
+
+### 3. Connect promises to delivery and reelection — DONE
+
+- [x] Flood, clinic and jobs commitments made during campaigns.
+- [x] Public development budget separate from campaign funds.
+- [x] Two-quarter construction and visible completed constituency projects.
+- [x] Delivery, trust, organisation and unfinished promises affect the next election.
+- [x] Policies resolve on the quarterly clock; finished terms reject further actions.
+
+### 4. Add characters, negotiation and scenarios — DONE
+
+- [x] Eight non-repeating dilemmas with persistent character relationships.
+- [x] Scenario-specific choices can change money, trust, stability, organisation and local support.
+- [x] Earlier decisions unlock or prevent later follow-up stories.
+- [x] Coalition allocation demands reduce the opening public budget.
+- [x] Guided fictional starts centred on flood protection, clinics or jobs.
+- [x] Coalition partners offer development, portfolio, or confidence-and-supply deals.
+- [x] Deal structures change supporting seats, opening budget, stability and effective cabinet quality.
+- [x] Add persistent minister loyalty, ambition, factions and defections during weak governments.
+- [ ] Add named coalition-partner representatives to the cabinet.
+
+### 5. Improve onboarding and presentation — CORE DONE
+
+- [x] Guided start alongside detailed setup.
+- [x] BM/EN next-step guidance, costs and remaining-action feedback.
+- [x] Player portrait and term/chapter identity in career briefings.
+- [x] Project-delivery celebrations respecting reduced motion.
+- [ ] Conduct new-player usability and mobile-layout testing across the full journey.
+
+### Verification and remaining validation
+
+- [x] 21 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation and defections.
+- [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
+- [x] Corrected daily PRN projections to use DUN counts and the election-result model.
+- [x] TypeScript check and production build passed (44 pages generated).
+- [x] Browser: guided start, BM/EN briefing, daily limits, election and formation flow.
+- [x] Browser: clinic funding, reload recovery, delivery celebration and constituency project.
+- [x] Browser: full governing term, second campaign and fresh election result.
+- [x] PRN scope/majority and opposition progression covered by regression tests.
+- [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.
+- [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
+- [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
+
+The remaining sections retain the broader backlog. Earlier claims about cabinet
+bonuses and the career screen have been updated to match the current implementation.
 
 ## Storyline transition layer — DONE
 Adds the missing narrative bridge so the game no longer jumps from one raw phase button to another.
@@ -15,7 +84,7 @@ Implemented:
 - New `/formation` screen for Istana/confidence check and coalition talks before cabinet formation.
 - Cabinet now flows from formation and advances to `/swearing-in`, not straight to government.
 - New `/swearing-in` cinematic screen for official cabinet oath before starting first 100 days.
-- New `/opposition` screen for failed government formation / election defeat with shadow cabinet and comeback strategy.
+- `/opposition` provides organisation, trust and comeback actions after defeat or failed formation.
 - New `/postmortem` screen for heavy defeat with party rebuild agenda.
 - Results button now says “Sahkan Mandat” and always routes into the storyline bridge.
 - War Room is locked after swearing-in/government/opposition/postmortem modes.
@@ -34,28 +103,22 @@ Implemented:
 Make cabinet appointments affect gameplay instead of being cosmetic.
 
 Implemented:
-- Finance and Trade appointments affect government funds/economy bonus.
-- Communications appointment affects media/comms bonus.
-- DPM, Home Affairs and Defence appointments affect stability.
-- Education, Health, Women/Family and Youth appointments affect public trust.
-- Weak or mismatched appointments increase scandal risk.
-- Cabinet screen now displays a live “Kesan Kabinet / Cabinet Effects” panel tied to current assignments.
-- New `/government` Phase 2 screen added for post-election governing: policy agenda, approval, public trust, coalition stability, fiscal space and crisis decisions.
-- Verified with typecheck, production build, and browser screenshot.
+- Appointments persist and determine cabinet quality.
+- Cabinet quality of 70 or above adds one trust point per quarter; lower quality subtracts one.
+- Cabinet Effects shows the actual quarterly trust effect.
+- `/government` provides public budgets, policies, projects, trust, stability and recurring dilemmas.
+- Earlier displayed portfolio-specific bonuses and scandal-risk figures were replaced; deeper ministry-specific effects remain future work.
 
 ## Phase 3 — Multi-term political career — DONE
 Game now continues beyond one election and one governing phase.
 
 Implemented:
-- New `/career` screen for multi-term political career.
-- Legacy score tracks long-term political reputation.
-- Career index tracks faction control, party machinery and next PRU readiness.
-- PRN and PRK risk panels show mid-term electoral pressure.
-- Career actions include PRN test, PRK machinery, party election, government/opposition mode and next PRU narrative.
-- Time advances by month inside each term before the next PRU window opens; 60 months complete one five-year term.
-- Party internal politics panel tracks Reformists, State Warlords, Youth Wing and Borneo Bloc demands.
-- Supports Government Mode if player has majority and Opposition Mode if player lacks majority.
-- Navigation from Phase 2 Government to Phase 3 Career added.
+- Shared career dashboard supports governing, opposition and rebuilding.
+- Time advances in quarters until month 60, then starts an actual new campaign.
+- Term records retain seats, public trust and completed commitments.
+- Branch building, candidate training and policy scrutiny affect organisation/trust.
+- Persistent relationships and unfinished promises carry consequences across terms.
+- Earlier illustrative faction/readiness panels are superseded by this playable loop; mid-term PRN/PRK contests and party elections remain future work.
 
 ## Phase 4 — Full Malaysia political sandbox — DONE
 Adds a national sandbox layer for long-term governing beyond election cycles.
@@ -70,8 +133,17 @@ Implemented:
 - Alternate history log explaining how policy choices affect the future.
 - Navigation from Phase 3 Career to Phase 4 Sandbox added.
 
-## 3. Minister loyalty and faction system — PARTIALLY DONE
+## 3. Minister loyalty and faction system — DONE
 Each minister can have loyalty, ambition, faction, popularity and scandal risk.
+
+Implemented:
+- Every candidate has a visible faction, loyalty, ambition and scandal-risk profile.
+- Minister loyalty persists in saves and rises or falls with government stability.
+- At-risk ministers reduce cabinet stability and highly ambitious, very disloyal
+  ministers can leave the administration during a quarterly turn.
+- Defections vacate the relevant portfolio, reduce trust/stability and enter the
+  persistent political journal and incident history.
+- Recurring story allies continue to have separate relationship scores.
 
 Possible events:
 - Leaks to media.
@@ -79,8 +151,13 @@ Possible events:
 - Demands bigger portfolio.
 - Becomes faction leader.
 
-## 4. Coalition negotiation screen — TODO
+## 4. Coalition negotiation screen — DONE
 After election results, if player lacks majority, require coalition negotiation.
+
+- [x] Formation screen, actual available partner seats, majority check and saved agreement.
+- [x] Public-budget allocation demands with real opening-budget costs.
+- [x] Portfolio bargaining and confidence-and-supply agreements have distinct trade-offs.
+- [ ] Named partner representatives and detailed policy-concession negotiations can extend the system later.
 
 Possible demands:
 - DPM post.
@@ -101,20 +178,21 @@ Implemented:
 - Appointment panel rows retain profile photos.
 - Verified with typecheck, production build, and browser screenshot.
 
-## 6. Minister profile modal — TODO
+## 6. Minister profile modal — DONE
 Click a minister to open a full profile modal.
 
-Show:
-- Large portrait.
-- Name and portfolio.
-- State base.
-- Specialty.
-- Influence, credibility, charisma.
-- Loyalty and risk.
-- Why AI advisor selected them.
+Implemented:
+- Profile control on every appointment candidate, with a large portrait and role.
+- State base, region, community, faction, specialty and experience context.
+- Influence, credibility, charisma, persistent loyalty, ambition and scandal risk.
+- Bilingual adviser assessment explaining the appointment's strengths and risks.
 
-## 7. News reaction after cabinet appointment — TODO
+## 7. News reaction after cabinet appointment — PARTIALLY DONE
 Generate media/public reactions after cabinet appointment.
+
+Current implementation: each appointment creates a named political reaction based
+on the member, portfolio, assignment score, party and PRU/PRN context. Cabinet-wide
+reaction headlines based on the final representation mix remain open.
 
 Examples:
 - Markets positive after Finance Minister appointment.
@@ -122,28 +200,26 @@ Examples:
 - Technocrat cabinet praised.
 - Controversial appointment criticised by opposition.
 
-## 8. Regional balance system — TODO
+## 8. Regional balance system — DONE
 Cabinet should reward balanced representation.
 
-Regions:
-- Semenanjung.
-- Sabah.
-- Sarawak.
-- Pantai Timur.
-- Johor.
-- Lembah Klang.
+Implemented:
+- Federal cabinets score northern, central, southern, east-coast and Borneo reach.
+- Sabah/Sarawak representation receives an explicit federal target.
+- PRN EXCOs use selected-state representation rather than an irrelevant federal
+  Borneo target.
+- Concentrated cabinets lose quarterly trust and can weaken stability.
 
-Penalty if cabinet too concentrated in one region.
-
-## 9. Gender / youth / ethnic representation score — TODO
+## 9. Gender / youth / ethnic representation score — DONE
 Add cabinet representation metrics.
 
-Metrics:
-- Youth representation.
+Implemented metrics:
 - Women representation.
-- Sabah/Sarawak representation.
-- Malay/Chinese/Indian/Bumiputera balance.
-- Technocrat vs politician balance.
+- Emerging/rising leadership representation.
+- Sabah/Sarawak representation for federal cabinets or selected-state depth for PRN.
+- Malay, Chinese, Indian, Sabah and Sarawak community breadth.
+- Regional reach, average loyalty and at-risk minister count.
+- The resulting score has a visible and persistent quarterly trust effect.
 
 ## 10. PRN campaign issues — TODO
 Each state should have unique PRN issues.
@@ -169,8 +245,11 @@ Ideas:
 - Ceramah impact radius.
 - Social media sentiment heatmap.
 
-## 12. Manifesto system — TODO
+## 12. Manifesto system — PARTIALLY DONE
 Player chooses campaign manifesto.
+
+- [x] Flood, clinic and jobs promises with funding, delivery and reelection consequences.
+- [ ] Broader ideological packages and distinct voter-bloc trade-offs listed below.
 
 Manifesto options:
 - Economy package.
@@ -220,15 +299,17 @@ Already implemented:
 - Load Game route/menu exists.
 - Save/load behavior exists.
 - Intro does not replay on load/setup.
+- Five save slots and autosave rewriting the active slot.
+- Current chapter resume and persisted coalition, cabinet, projects, relationships and legacy.
+- Older-save defaults and legacy city migration.
 
 Remaining:
-- 5 save slots with thumbnails.
+- Save-slot thumbnails.
 - Autosave label.
 - Campaign name.
 - PRU/PRN tag.
 - Party logo.
-- Current day.
-- Last route.
+- Exact last-screen resume (current implementation resumes the appropriate chapter).
 
 ## 16. Party HQ / War Room upgrades — TODO
 Add permanent campaign machinery upgrades.
@@ -272,8 +353,11 @@ Candidate archetypes:
 
 MB candidate gives PRN-specific bonuses.
 
-## 19. Endgame report card — TODO
+## 19. Endgame report card — PARTIALLY DONE
 After game ends, show final performance report.
+
+- [x] Election results and term legacy records for seats, trust and commitments delivered.
+- [ ] Unified report with strategy assessment, biggest mistake and historical rating.
 
 Metrics:
 - Seats won.
@@ -293,16 +377,16 @@ Already implemented:
 - Cabinet hierarchy view.
 - Minister/cabinet images.
 - PRN mode selector.
+- Actual cabinet effect score, guided starts, BM/EN career briefings and delivery celebrations.
 
 Remaining:
-- Cabinet effect score.
 - Election night animation.
 - News reaction after cabinet appointment.
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Finish cabinet photo polish.
-2. Cabinet gameplay effects.
-3. Minister profile modal.
-4. PRN MB candidate.
-5. News reaction after cabinet appointment.
+1. Player balance/usability testing, including complete PRN and opposition browser runs.
+2. Minister profiles, loyalty and regional representation consequences.
+3. PRN MB candidate differentiation and state-specific campaign depth.
+4. Richer election-night drama and a unified end-of-term report card.
+5. More scenario packs after the new branch data has been playtested.

@@ -1,5 +1,6 @@
 import { gameEvents } from "../data/events";
 import type { StateData } from "../data/states";
+import { generateConstituencies } from "../data/constituencies";
 import { runOpponentAI, type OpponentAction, type OpponentResult } from "./opponentAI";
 
 interface EngineInput {
@@ -140,11 +141,9 @@ export function processDay(state: EngineInput): DayResult {
     const newOthers = Math.max(4, 100 - newMandat - newLawan);
 
     const margin = newMandat - newLawan;
-    const winShare = Math.min(0.95, 0.5 + margin / 100 + 0.08);
-    const rawProjected = Math.round(s.seats * winShare);
-    const newProjected = margin > 0
-      ? clamp(rawProjected, 0, s.seats)
-      : clamp(s.seats - rawProjected, 0, s.seats);
+    // Use the same seat model as election night, including DUN counts in PRN.
+    const projectedState = { ...s, mandatSupport: round1(newMandat), lawanSupport: round1(newLawan), othersSupport: round1(newOthers) };
+    const projectedSeats = generateConstituencies(projectedState, electionScope === "prn" ? "dun" : "parliament").filter(seat => seat.mandat >= seat.lawan && seat.mandat >= seat.others).length;
 
     const newStatus: "winning" | "losing" | "contested" =
       margin >= 8 ? "winning" : margin <= -8 ? "losing" : "contested";
@@ -154,7 +153,7 @@ export function processDay(state: EngineInput): DayResult {
       mandatSupport: round1(newMandat),
       lawanSupport:  round1(newLawan),
       othersSupport: round1(newOthers),
-      projectedSeats: margin > 0 ? newProjected : s.seats - newProjected,
+      projectedSeats,
       status: newStatus,
       trend: round1(delta),
     };
