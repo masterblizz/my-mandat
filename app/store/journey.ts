@@ -6,6 +6,7 @@ import { CAREER_STORIES, type StoryChoice } from "../data/careerStories";
 import { PARTY_MEMBERS } from "../data/members";
 import { evaluateCabinet, getMemberTraits, initialMinisterLoyalty } from "../data/cabinetDynamics";
 import { getManifestoPackage, manifestoStateImpact, type ManifestoPackageId } from "../data/manifestoPackages";
+import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../data/campaignEvents";
 
 export type Chapter = "campaign" | "results" | "formation" | "government" | "opposition" | "rebuilding";
 export type Issue = "flood" | "clinic" | "jobs";
@@ -44,6 +45,7 @@ export interface Journey {
   prnIssueActions: Record<string, number>;
   manifestoPackageId: ManifestoPackageId | null;
   manifestoHistory: { term: number; id: ManifestoPackageId }[];
+  campaignEvents: { term: number; eventId: CampaignEventId; toneId: CampaignToneId; rating: CampaignEventRating; impact: number }[];
   relationships: Record<string, number>;
   journal: JournalEntry[];
   records: { term: number; seats: number; trust: number; delivered: number }[];
@@ -64,7 +66,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, manifestoPackageId: null, manifestoHistory: [], relationships: {}, journal: [], records: [], scenario: "flood", onboarded: false, resultRecorded: false, cityZones: {}, construction: [] };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", onboarded: false, resultRecorded: false, cityZones: {}, construction: [] };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };

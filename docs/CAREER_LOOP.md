@@ -35,6 +35,11 @@ in the earlier route audit, `GAME_FLOW.md`.
   or youth jobs. The choice costs funds and one major decision, immediately shifts
   each in-scope state according to its voter profile, and adds a smaller follow-through
   effect when the player uses the package's preferred campaign channel.
+- Five major campaign events unlock across the calendar: a youth town hall, press
+  conference, PM or MB/CM debate, viral-scandal response and closing mega rally.
+  The player chooses a calm, attack, populist, technocratic, religious or reformist
+  tone. Leader skills, audience demographics, manifesto alignment, media mood and
+  difficulty determine the support result and whether coverage becomes a win or backlash.
 - The War Room map can switch between base, marginal-seat, LAWAN-stronghold,
   swing-hotspot, campaign-reach and sentiment layers. PRN resolves individual DUN
   points; PRU shades state risk while surfacing priority parliamentary seats. Reach
@@ -56,7 +61,7 @@ in the earlier route audit, `GAME_FLOW.md`.
 ## Persistence and safeguards
 
 The typed `journey` save contains cabinet appointments and loyalty, minister
-incidents, coalition agreements, manifesto choice/history, PRN issue coverage, projects, per-seat city zones,
+incidents, coalition agreements, manifesto choice/history, campaign-event results, PRN issue coverage, projects, per-seat city zones,
 stories, term records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
@@ -67,7 +72,7 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
-issue momentum, manifesto trade-offs and channel fit, tactical-map classification, persistence, project delivery,
+issue momentum, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
 story/policy repeat protection, opposition progression, and a second election.
 
 Balance still requires player testing. Coalition blocs and story numbers are game

@@ -8,12 +8,13 @@ import { TOTAL_ELECTION_DAYS } from "../data/electionFlow";
 import type { DatasetKind } from "../data/datasets";
 import type { OpponentAction } from "./opponentAI";
 import type { PoliticalReaction } from "../data/politicalReactions";
-import { buildCampaignActionReaction, buildNominationReaction } from "../data/politicalReactions";
+import { buildCampaignActionReaction, buildCampaignEventReaction, buildNominationReaction } from "../data/politicalReactions";
 import type { LiveNewsItem } from "../data/liveNews";
 import { calculateCampaignGain, getCampaignBaseGain, campaignCost } from "./campaignMath";
 import { generateConstituencies } from "../data/constituencies";
 import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../data/prnIssues";
 import { getManifestoPackage, manifestoCampaignBonus } from "../data/manifestoPackages";
+import { getCampaignEvent, getCampaignTone, isCampaignEventUnlocked, previewCampaignEvent, type CampaignEventId, type CampaignToneId } from "../data/campaignEvents";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -162,6 +163,7 @@ export interface GameState {
   removeOperation: (id: string) => void;
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
   runCampaignMiniGame: (stateId: string, gameType: "ceramah" | "social", tactic: "safe" | "balanced" | "aggressive", issueId?: string) => void;
+  runCampaignEvent: (eventId: CampaignEventId, toneId: CampaignToneId) => void;
   addPoliticalReaction: (reaction: PoliticalReaction) => void;
   addAiNewsReaction: (item: LiveNewsItem) => void;
   applyCandidateFallout: (stateId: string, reaction: PoliticalReaction, lawanBoost: number, othersBoost: number) => void;
@@ -558,6 +560,72 @@ export const useGameStore = create<GameState>((set, get) => ({
           message: `${gameType === "ceramah" ? "Ceramah" : "Social media"} completed in ${stateId.toUpperCase()} using ${tactic.toUpperCase()} tactic${prnIssue ? ` on ${prnIssue.title.en} (+${issueGain.toFixed(2)} issue fit)` : ""}${manifesto ? ` with ${manifesto.title.en} (${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)} fit)` : ""}.`,
           type: tactic === "aggressive" ? "warning" : "positive",
         }, ...state.alerts].slice(0, 12),
+        politicalReactions,
+      };
+    }),
+
+  runCampaignEvent: (eventId, toneId) =>
+    set((state) => {
+      const event = getCampaignEvent(eventId);
+      const tone = getCampaignTone(toneId);
+      const completed = state.journey.campaignEvents.some(result => result.term === state.careerProgress.term && result.eventId === eventId);
+      if (!event || !tone || completed || state.journey.chapter !== "campaign" || state.day >= state.totalDays || state.journey.decisions < 1 || !isCampaignEventUnlocked(event, state.day, state.totalDays)) return {};
+      if (state.resources.funds < event.cost || state.resources.mediaBuy < event.mediaCost || state.resources.manpower < event.manpowerCost) return {};
+      const scope = state.settings.electionScope === "prn" ? state.states.filter(item => item.id === state.settings.prnStateId) : state.states;
+      const preview = previewCampaignEvent(eventId, toneId, scope, {
+        charisma: state.leader.charisma,
+        credibility: state.leader.credibility,
+        strategy: state.leader.strategy,
+        manifestoId: state.journey.manifestoPackageId,
+        mediaSentiment: state.mediaSentiment,
+        difficulty: state.settings.difficulty,
+      });
+      const impactByState = new Map(preview.stateImpacts.map(item => [item.stateId, item.impact]));
+      const eventTitle = state.settings.electionScope === "prn" && event.prnTitle ? event.prnTitle : event.title;
+      const ratingMS = { breakthrough: "cemerlang", solid: "kukuh", mixed: "bercampur", backlash: "makan diri" }[preview.rating];
+      const reaction = buildCampaignEventReaction({
+        day: state.day,
+        partyAbbr: state.leader.partyAbbr,
+        eventTitle: eventTitle.ms,
+        eventTitleEN: eventTitle.en,
+        tone: tone.title.ms,
+        toneEN: tone.title.en,
+        rating: preview.rating,
+        impact: preview.averageImpact,
+        strongestState: preview.strongest.stateName,
+        weakestState: preview.weakest.stateName,
+        scopeLabel: state.settings.electionScope === "prn" ? preview.strongest.stateName : "National",
+      });
+      const politicalReactions = [reaction, ...state.politicalReactions].slice(0, 30);
+      persistPoliticalReactions(politicalReactions);
+      return {
+        states: state.states.map(item => {
+          const impact = impactByState.get(item.id);
+          if (impact === undefined) return item;
+          const mandatSupport = Math.max(8, Math.min(82, Math.round((item.mandatSupport + impact) * 100) / 100));
+          const othersSupport = Math.max(4, Math.min(item.othersSupport, 100 - mandatSupport - 8));
+          const lawanSupport = Math.round((100 - mandatSupport - othersSupport) * 100) / 100;
+          const updated = { ...item, mandatSupport, lawanSupport, othersSupport, trend: impact };
+          const margin = mandatSupport - lawanSupport;
+          return {
+            ...updated,
+            projectedSeats: generateConstituencies(updated, state.settings.electionScope === "prn" ? "dun" : "parliament").filter(seat => seat.mandat >= seat.lawan && seat.mandat >= seat.others).length,
+            winProbability: Math.max(5, Math.min(95, Math.round((50 + margin * 2) * 100) / 100)),
+            status: margin >= 8 ? "winning" as const : margin <= -8 ? "losing" as const : "contested" as const,
+          };
+        }),
+        resources: { ...state.resources, funds: state.resources.funds - event.cost, mediaBuy: state.resources.mediaBuy - event.mediaCost, manpower: state.resources.manpower - event.manpowerCost },
+        mediaSentiment: preview.rating === "backlash" ? "negative" as const : preview.rating === "mixed" ? "neutral" as const : "positive" as const,
+        nationalSupportDelta: Math.round((state.nationalSupportDelta + preview.averageImpact) * 100) / 100,
+        journey: {
+          ...state.journey,
+          decisions: state.journey.decisions - 1,
+          campaignEvents: [...state.journey.campaignEvents, { term: state.careerProgress.term, eventId, toneId, rating: preview.rating, impact: preview.averageImpact }],
+          journal: journal(state.journey,
+            `${eventTitle.ms}: nada ${tone.title.ms} menghasilkan prestasi ${ratingMS}, purata sokongan ${preview.averageImpact >= 0 ? "+" : ""}${preview.averageImpact.toFixed(2)}. Terkuat di ${preview.strongest.stateName}; paling lemah di ${preview.weakest.stateName}.`,
+            `${eventTitle.en}: a ${tone.title.en.toLowerCase()} tone delivered a ${preview.rating} result, averaging ${preview.averageImpact >= 0 ? "+" : ""}${preview.averageImpact.toFixed(2)} support. Strongest in ${preview.strongest.stateName}; weakest in ${preview.weakest.stateName}.`),
+        },
+        alerts: [{ id: `event-${Date.now()}`, time: new Date().toTimeString().slice(0, 5), message: `${eventTitle.en}: ${preview.rating.toUpperCase()} (${preview.averageImpact >= 0 ? "+" : ""}${preview.averageImpact.toFixed(2)} average support).`, type: preview.rating === "backlash" ? "warning" : "positive" }, ...state.alerts].slice(0, 12),
         politicalReactions,
       };
     }),

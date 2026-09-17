@@ -13,6 +13,7 @@ const { getPrnIssues, prnIssueActionKey } = require('../app/data/prnIssues.ts');
 const { generateConstituencies } = require('../app/data/constituencies.ts');
 const { seatTacticalVisual, stateTacticalVisual } = require('../app/data/tacticalMap.ts');
 const { manifestoCampaignBonus, manifestoStateImpact } = require('../app/data/manifestoPackages.ts');
+const { CAMPAIGN_EVENTS, CAMPAIGN_TONES, campaignEventStateImpact, isCampaignEventUnlocked } = require('../app/data/campaignEvents.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -271,6 +272,42 @@ test('manifesto follow-through rewards its preferred campaign channel', () => {
   const penang = store.getState().states.find(state => state.id === 'penang');
   assert.ok(manifestoCampaignBonus('economy', penang, 'social') > manifestoCampaignBonus('economy', penang, 'ceramah'));
   assert.ok(manifestoCampaignBonus('conservative', penang, 'ceramah') > manifestoCampaignBonus('conservative', penang, 'social'));
+});
+test('campaign events and performance tones are complete and bilingual', () => {
+  assert.equal(CAMPAIGN_EVENTS.length, 5);
+  assert.equal(CAMPAIGN_TONES.length, 6);
+  assert.equal(new Set(CAMPAIGN_EVENTS.map(event => event.id)).size, 5);
+  assert.equal(new Set(CAMPAIGN_TONES.map(tone => tone.id)).size, 6);
+  assert.ok(CAMPAIGN_EVENTS.every(event => event.title.ms && event.title.en && event.description.ms && event.description.en));
+  assert.ok(CAMPAIGN_TONES.every(tone => tone.title.ms && tone.title.en && tone.risk.ms && tone.risk.en));
+});
+test('event tones reward audience, leader and manifesto fit while preserving risk', () => {
+  const penang = store.getState().states.find(state => state.id === 'penang');
+  const kelantan = store.getState().states.find(state => state.id === 'kelantan');
+  const context = { charisma: 72, credibility: 91, strategy: 84, manifestoId: 'anti-corruption', mediaSentiment: 'neutral', difficulty: 'normal' };
+  assert.ok(campaignEventStateImpact('press-conference', 'technocratic', penang, context) > campaignEventStateImpact('press-conference', 'religious', penang, context));
+  assert.ok(campaignEventStateImpact('mega-rally', 'religious', kelantan, { ...context, manifestoId: 'conservative' }) > campaignEventStateImpact('mega-rally', 'technocratic', kelantan, context));
+  assert.equal(isCampaignEventUnlocked(CAMPAIGN_EVENTS.find(event => event.id === 'leader-debate'), 1, 30), false);
+  assert.equal(isCampaignEventUnlocked(CAMPAIGN_EVENTS.find(event => event.id === 'leader-debate'), 10, 30), true);
+});
+test('major campaign events are one-time, persistent and isolated to the PRN state', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  const beforeOutside = JSON.stringify(store.getState().states.filter(state => state.id !== 'selangor'));
+  const before = { ...store.getState().resources };
+  store.getState().runCampaignEvent('youth-townhall', 'reformist');
+  const after = store.getState();
+  assert.equal(after.journey.decisions, 2);
+  assert.equal(after.journey.campaignEvents.length, 1);
+  assert.equal(after.journey.campaignEvents[0].eventId, 'youth-townhall');
+  assert.equal(after.resources.funds, before.funds - 90000);
+  assert.equal(after.resources.mediaBuy, before.mediaBuy - 45);
+  assert.equal(after.resources.manpower, before.manpower - 25);
+  assert.equal(JSON.stringify(after.states.filter(state => state.id !== 'selangor')), beforeOutside);
+  assert.equal(after.politicalReactions[0].actionType, 'debate');
+  assert.equal(createSaveSnapshot(after).journey.campaignEvents[0].toneId, 'reformist');
+  store.getState().runCampaignEvent('youth-townhall', 'attack');
+  assert.equal(store.getState().journey.campaignEvents.length, 1);
+  assert.equal(store.getState().journey.decisions, 2);
 });
 test('tactical overlays identify marginal, opponent and swing DUN contests', () => {
   const state = store.getState().states.find(item => item.id === 'selangor');

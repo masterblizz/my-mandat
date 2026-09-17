@@ -16,6 +16,8 @@ import { buildCandidateFalloutReaction } from "../data/politicalReactions";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { campaignCost, type MiniGameTactic, type MiniGameType } from "../store/campaignMath";
 import CeramahSceneModal from "../components/campaign/CeramahSceneModal";
+import CampaignEventModal from "../components/campaign/CampaignEventModal";
+import { CAMPAIGN_EVENTS, campaignEventUnlockDay, isCampaignEventUnlocked, type CampaignEventId } from "../data/campaignEvents";
 
 type Tab = "NOMINATION" | "MINI-GAMES" | "OPERATIONS" | "VOLUNTEERS" | "RESOURCES" | "SCHEDULE" | "MESSAGING";
 
@@ -26,12 +28,6 @@ const MINI_GAME_TACTICS: Record<MiniGameTactic, { color: string }> = {
   balanced: { color: "var(--cyan)" },
   aggressive: { color: "var(--warn-orange)" },
 };
-
-const UPCOMING_EVENTS = [
-  { date: "28 MAY", eventKey: "campaign_page.upcomingEvent_ceramahMegaPahang", location: "Kuantan, Pahang" },
-  { date: "30 MAY", eventKey: "campaign_page.upcomingEvent_youthTownHall", location: "Petaling Jaya, Selangor" },
-  { date: "02 JUN", eventKey: "campaign_page.upcomingEvent_pressConference", location: "Kuala Lumpur" },
-];
 
 const VOLUNTEER_DATA = [
   { region: "Selangor", volunteers: 180, target: 250 },
@@ -1218,13 +1214,14 @@ export default function CampaignPage() {
   const [activeTab, setActiveTab] = useState<Tab>("NOMINATION");
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
-  const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays } = useGameStore();
+  const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays, careerProgress } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const campaignStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [selectedMiniGameState, setSelectedMiniGameState] = useState(() => (isPrn ? settings.prnStateId : "selangor"));
   const [miniGameType, setMiniGameType] = useState<MiniGameType>("ceramah");
   const [recruitDone, setRecruitDone] = useState(false);
   const [activeScene, setActiveScene] = useState<{ stateId: string; gameType: MiniGameType; tactic: MiniGameTactic } | null>(null);
+  const [activeCampaignEvent, setActiveCampaignEvent] = useState<CampaignEventId | null>(null);
   const router = useRouter();
 
   const activeOpsCount = operations.filter((o) => o.status === "active" || o.status === "ongoing").length;
@@ -1245,6 +1242,7 @@ export default function CampaignPage() {
           onClose={() => setActiveScene(null)}
         />
       )}
+      {activeCampaignEvent && <CampaignEventModal eventId={activeCampaignEvent} onClose={() => setActiveCampaignEvent(null)} />}
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
@@ -1310,6 +1308,25 @@ export default function CampaignPage() {
                 })}
               </div>
             </TacticalPanel>
+            <div className="col-span-2">
+              <TacticalPanel title={t(lang, "ACARA BESAR: DEBAT & TV", "MAJOR EVENTS: DEBATES & TV") }>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-[11px] text-text-muted">{t(lang, "Setiap acara boleh dimainkan sekali setiap pilihan raya. Nada, profil pemimpin, manifesto, audiens negeri dan kesukaran menentukan hasil.", "Each event can be played once per election. Tone, leader profile, manifesto, state audiences and difficulty determine the result.")}</p><span className="text-[10px] font-bold tracking-wider text-gold">{journey.decisions}/3 {t(lang, "KEPUTUSAN", "DECISIONS")}</span></div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  {CAMPAIGN_EVENTS.map(event => {
+                    const completed = journey.campaignEvents.find(result => result.term === careerProgress.term && result.eventId === event.id);
+                    const unlocked = isCampaignEventUnlocked(event, day, totalDays);
+                    const eventTitle = isPrn && event.prnTitle ? event.prnTitle : event.title;
+                    const affordable = resources.funds >= event.cost && resources.mediaBuy >= event.mediaCost && resources.manpower >= event.manpowerCost;
+                    return <article key={event.id} className="flex flex-col p-3" style={{ border: `1px solid ${event.color}55`, background: `${event.color}09` }}>
+                      <div className="flex items-start justify-between gap-2"><strong className="text-xs leading-snug text-white">{eventTitle[lang]}</strong><span className="text-[8px] font-bold tracking-wider" style={{ color: completed ? "var(--neon-green)" : unlocked ? event.color : "var(--text-muted)" }}>{completed ? t(lang, "SELESAI", "DONE") : unlocked ? t(lang, "LANGSUNG", "LIVE") : `${t(lang, "HARI", "DAY")} ${campaignEventUnlockDay(event, totalDays)}`}</span></div>
+                      <p className="mt-2 min-h-[48px] text-[10px] leading-relaxed text-text-muted">{event.description[lang]}</p>
+                      <div className="mt-2 text-[9px] text-cyan">{event.audience[lang]}</div>
+                      {completed ? <div className="mt-auto pt-3 text-[10px] font-bold" style={{ color: completed.rating === "backlash" ? "var(--neon-red)" : completed.rating === "mixed" ? "var(--gold)" : "var(--neon-green)" }}>{completed.rating.toUpperCase()} · {completed.impact >= 0 ? "+" : ""}{completed.impact.toFixed(2)}</div> : <button className="mt-auto pt-3 text-left text-[10px] font-bold" style={{ color: unlocked && affordable ? event.color : "var(--text-muted)" }} disabled={!unlocked || !affordable || journey.chapter !== "campaign" || day >= totalDays || journey.decisions < 1} onClick={() => setActiveCampaignEvent(event.id)}>{unlocked ? `${t(lang, "MASUK STUDIO", "ENTER STUDIO")} · RM${event.cost.toLocaleString()}` : t(lang, "Belum dijadualkan", "Not scheduled yet")}</button>}
+                    </article>;
+                  })}
+                </div>
+              </TacticalPanel>
+            </div>
           </div>
         )}
 
@@ -1431,12 +1448,12 @@ export default function CampaignPage() {
               {/* Upcoming Events */}
               <TacticalPanel title={t(lang, "campaign_page.upcomingEvents")}>
                 <div className="flex flex-col gap-2">
-                  {UPCOMING_EVENTS.map((ev, i) => (
-                    <div key={i} className="flex items-start gap-3 py-1.5" style={{ borderBottom: i < 2 ? "1px solid rgb(var(--cyan-rgb) / 0.08)" : "none" }}>
-                      <span className="text-[12px] font-bold shrink-0" style={{ color: "var(--gold)", minWidth: "52px" }}>{ev.date}</span>
+                  {CAMPAIGN_EVENTS.filter(event => !journey.campaignEvents.some(result => result.term === careerProgress.term && result.eventId === event.id)).slice(0, 3).map((event, i) => (
+                    <div key={event.id} className="flex items-start gap-3 py-1.5" style={{ borderBottom: i < 2 ? "1px solid rgb(var(--cyan-rgb) / 0.08)" : "none" }}>
+                      <span className="text-[12px] font-bold shrink-0" style={{ color: "var(--gold)", minWidth: "52px" }}>{t(lang, "HARI", "DAY")} {campaignEventUnlockDay(event, totalDays)}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-white tracking-wider uppercase">{t(lang, ev.eventKey)}</div>
-                        <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.location}</div>
+                        <div className="text-[13px] text-white tracking-wider uppercase">{(isPrn && event.prnTitle ? event.prnTitle : event.title)[lang]}</div>
+                        <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{event.audience[lang]}</div>
                       </div>
                     </div>
                   ))}

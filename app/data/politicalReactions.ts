@@ -1,4 +1,5 @@
 import type { LiveNewsItem, LiveNewsTone } from "./liveNews";
+import type { CampaignEventRating } from "./campaignEvents";
 
 export type PoliticalActionType =
   | "nomination"
@@ -200,6 +201,47 @@ export function buildCampaignActionReaction(input: {
     socialReactionEN: social ? "Hashtag rises, but cynical comments also increase." : "Rally clips spread through local WhatsApp groups.",
     advisorWarning: aggressive ? "Pantau backlash dan sediakan rapid response." : "Momentum positif — susuli dengan operasi lapangan.",
     advisorWarningEN: aggressive ? "Monitor backlash and prepare rapid response." : "Positive momentum — follow up with ground operations.",
+    effects,
+  };
+}
+
+export function buildCampaignEventReaction(input: {
+  day: number;
+  partyAbbr: string;
+  eventTitle: string;
+  eventTitleEN: string;
+  tone: string;
+  toneEN: string;
+  rating: CampaignEventRating;
+  impact: number;
+  strongestState: string;
+  weakestState: string;
+  scopeLabel: string;
+}): PoliticalReaction {
+  const successful = input.rating === "breakthrough" || input.rating === "solid";
+  const tone: LiveNewsTone = input.rating === "breakthrough" ? "positive" : input.rating === "solid" ? "positive" : input.rating === "mixed" ? "neutral" : "negative";
+  const ratingMS = { breakthrough: "menang besar", solid: "meyakinkan", mixed: "bercampur", backlash: "makan diri" }[input.rating];
+  const ratingEN = { breakthrough: "breakthrough", solid: "solid", mixed: "mixed", backlash: "backlash" }[input.rating];
+  const effects = [`Average support ${input.impact >= 0 ? "+" : ""}${input.impact.toFixed(2)}`, `Strongest: ${input.strongestState}`, `Weakest: ${input.weakestState}`];
+  return {
+    id: `reaction-debate-${input.day}-${Date.now()}`,
+    day: input.day,
+    time: clockTime(),
+    outlet: "Siaran Politik",
+    headline: `${input.partyAbbr} catat persembahan ${ratingMS} dalam ${input.eventTitle}`,
+    headlineEN: `${input.partyAbbr} delivers a ${ratingEN} performance in the ${input.eventTitleEN}`,
+    summary: `Nada ${input.tone} diuji di hadapan pengundi. Kesan paling kuat direkodkan di ${input.strongestState}.`,
+    summaryEN: `The ${input.toneEN} tone was tested before voters. The strongest effect landed in ${input.strongestState}.`,
+    tone,
+    state: input.scopeLabel,
+    impact: effects.join(" · "),
+    actionType: "debate",
+    opponentAttack: successful ? "Lawan cuba mengecilkan kemenangan media dan mengalih isu." : "Lawan memetik kelemahan persembahan berulang kali dalam klip pendek.",
+    opponentAttackEN: successful ? "The opponent tries to minimise the media win and change the subject." : "The opponent repeatedly clips the performance's weak moments.",
+    socialReaction: successful ? "Klip jawapan terbaik mula tular dan penyokong menyusun potongan mesej." : "Reaksi netizen berpecah dan klip serangan lawan mendapat perhatian.",
+    socialReactionEN: successful ? "The strongest answers begin trending as supporters package short clips." : "Online reaction splits as opposition attack clips gain attention.",
+    advisorWarning: successful ? "Susuli kemenangan dengan operasi di negeri yang masih lemah." : "Lancarkan rapid response dan elak mengulang nada yang gagal.",
+    advisorWarningEN: successful ? "Follow the win with operations in states that remain weak." : "Launch a rapid response and avoid repeating the failed tone.",
     effects,
   };
 }

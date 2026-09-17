@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first seven follow-up
+for the current rules. The five core game-flow stages and the first eight follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -23,7 +23,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] State-specific PRN issues with channel fit and diminishing returns.
 - [x] Tactical map overlays for hotspots, marginal seats and campaign reach.
 - [x] Broader manifesto packages with voter-bloc trade-offs.
-- [ ] **NEXT:** Debate and TV appearance campaign events.
+- [x] Debate and TV appearance campaign events.
+- [ ] **NEXT:** Election-night seat reveal and late-count drama.
 
 ### 1. Connect the full political career — DONE
 
@@ -72,7 +73,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 28 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification and manifesto trade-offs.
+- [x] 31 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs and major campaign events.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -84,6 +85,7 @@ improvements are complete; broader features and player validation remain open.
 - [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
 - [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
 - [ ] Browser-check every PRU/PRN tactical map layer and reduced-motion reach rings in an authenticated campaign.
+- [ ] Browser-check debate/TV event scheduling, tone selection and result reveals in an authenticated PRU and PRN campaign.
 - [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
 
 The remaining sections retain the broader backlog. Earlier claims about cabinet
@@ -291,8 +293,20 @@ Manifesto options:
 
 Each manifesto gives voter bloc bonuses and trade-offs.
 
-## 13. Debate / TV appearance mini-game — TODO
+## 13. Debate / TV appearance mini-game — DONE
 Add major campaign event mini-games.
+
+Implemented:
+- Five scheduled, one-time events per election: PM/MB candidate debate, press
+  conference, viral scandal response, youth town hall and closing mega rally.
+- Six performance tones: calm, attack, populist, technocratic, religious and reformist.
+- Results combine leader charisma/credibility/strategy, event fit, state voter
+  demographics, manifesto alignment, media mood and difficulty.
+- Every appearance consumes one major decision plus actual campaign funds, media
+  and manpower, then changes support and seat projections in the relevant PRU/PRN scope.
+- Bilingual studio selection, audience and risk guidance, result reveal, strongest/
+  weakest state feedback, news reaction, alert and cause/effect journal.
+- Completed events and outcomes persist in saves and become available again in a new term.
 
 Events:
 - PM/MB candidate debate.
@@ -415,8 +429,8 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Debate and TV appearance campaign events.
+1. Richer election-night seat reveals and late-count drama.
 2. Player balance/usability testing, including complete PRN and opposition browser runs.
 3. PRN MB candidate differentiation.
-4. Richer election-night drama and a unified end-of-term report card.
+4. Unified end-of-term report card.
 5. More scenario packs after the new branch data has been playtested.
