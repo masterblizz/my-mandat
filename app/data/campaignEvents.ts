@@ -1,5 +1,6 @@
 import type { StateData } from "./states";
 import type { ManifestoPackageId } from "./manifestoPackages";
+import { prnCandidateToneBonus, type PrnCandidateId } from "./prnCandidates";
 
 export type CampaignEventId = "leader-debate" | "press-conference" | "scandal-response" | "youth-townhall" | "mega-rally";
 export type CampaignToneId = "calm" | "attack" | "populist" | "technocratic" | "religious" | "reformist";
@@ -39,6 +40,7 @@ export interface CampaignEventContext {
   manifestoId: ManifestoPackageId | null;
   mediaSentiment: "positive" | "neutral" | "negative";
   difficulty: "easy" | "normal" | "hard" | "nightmare";
+  prnCandidateId?: PrnCandidateId | null;
 }
 
 export interface CampaignEventPreview {
@@ -117,7 +119,8 @@ export function campaignEventStateImpact(eventId: CampaignEventId, toneId: Campa
   const manifestoMatch = context.manifestoId && manifestoTone[context.manifestoId]?.includes(toneId) ? .2 : 0;
   const media = context.mediaSentiment === "positive" ? .08 : context.mediaSentiment === "negative" ? -.12 : 0;
   const difficulty = { easy: 0, normal: .05, hard: .13, nightmare: .22 }[context.difficulty];
-  return round(Math.max(-.9, Math.min(1.8, event.power + toneMatch + toneAudienceFit(toneId, state) + eventAudienceFit(eventId, state) + leaderFit(toneId, context) + manifestoMatch + media - difficulty)));
+  const candidateFit = prnCandidateToneBonus(context.prnCandidateId ?? null, toneId, eventId);
+  return round(Math.max(-.9, Math.min(2.1, event.power + toneMatch + toneAudienceFit(toneId, state) + eventAudienceFit(eventId, state) + leaderFit(toneId, context) + manifestoMatch + candidateFit + media - difficulty)));
 }
 
 export function previewCampaignEvent(eventId: CampaignEventId, toneId: CampaignToneId, states: StateData[], context: CampaignEventContext): CampaignEventPreview {

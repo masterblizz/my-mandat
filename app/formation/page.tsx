@@ -10,6 +10,7 @@ import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
 import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
+import { getPrnCandidate } from "../data/prnCandidates";
 
 export default function FormationPage() {
   const router = useRouter();
@@ -21,13 +22,14 @@ export default function FormationPage() {
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
   const partnerPool = coalitionPool(game);
   const majorityTarget = outcome.majorityTarget;
+  const prnCandidate = terms.isPrn ? getPrnCandidate(game.journey.prnCandidateId) : undefined;
   const [partners, setPartners] = useState<string[]>(game.journey.partners);
   const [dealTerms, setDealTerms] = useState<Record<string, CoalitionDeal>>(game.journey.coalitionTerms);
   const selectedPartners = partnerPool.filter((partner) => partners.includes(partner.id));
   const dealFor = (id: string) => dealTerms[id] ?? "development";
   const coalitionSeats = outcome.seatsWon + selectedPartners.reduce((sum, partner) => sum + coalitionDealEffect(partner, dealFor(partner.id)).seats, 0);
   const agreementStability = selectedPartners.reduce((sum, partner) => sum + partner.stability + coalitionDealEffect(partner, dealFor(partner.id)).stability, 0) / Math.max(1, selectedPartners.length);
-  const confidenceScore = Math.min(100, Math.round((coalitionSeats / majorityTarget) * 74 + leader.negotiation / 4 + agreementStability / 6));
+  const confidenceScore = Math.min(100, Math.round((coalitionSeats / majorityTarget) * 74 + leader.negotiation / 4 + agreementStability / 6 + (prnCandidate?.formationBonus ?? 0)));
   const canForm = coalitionSeats >= majorityTarget;
   const istanaText = canForm
     ? t(lang, "formation_page.majorityCanBeProvenIsReady", { termsAppointingAuthority: terms.appointingAuthority, termsHeadTitle: terms.headTitle, termsExecutiveBody: terms.executiveBody })
@@ -61,6 +63,7 @@ export default function FormationPage() {
             <div className="mt-1 text-[12px] text-text-muted">{t(lang, "formation_page.majorityTarget")} {majorityTarget} · {terms.assemblyName}</div>
             <div className="mt-5 h-3 overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}><div className="h-full" style={{ width: `${Math.min(100, coalitionSeats / majorityTarget * 100)}%`, background: canForm ? "var(--neon-green)" : "var(--warn-orange)" }} /></div>
             <div className="mt-4 text-[12px] leading-relaxed text-text-muted">{istanaText}</div>
+            {prnCandidate && <div className="mt-4 border p-3" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}><div className="text-[9px] font-black tracking-[0.2em] text-text-muted">{t(lang, `CALON ${terms.headTitle.toUpperCase()}`, `${terms.headTitle.toUpperCase()} NOMINEE`)}</div><div className="mt-1 font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><div className="mt-1 text-[10px] text-text-muted">{prnCandidate.archetype[lang]} · {t(lang, "keyakinan pelantikan", "appointment confidence")} +{prnCandidate.formationBonus}</div></div>}
           </TacticalPanel>
 
           <TacticalPanel title={t(lang, "formation_page.coalitionTalks")} noPadding>

@@ -18,6 +18,7 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { useLang, t } from "../i18n/useLang";
 import { PREMIUM_PRICE_IDS } from "../config/premiumProducts";
+import { PRN_CANDIDATES, getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 
 const POSITIONS = [
   { id: "PRESIDENT" },
@@ -116,6 +117,7 @@ export default function SetupPage() {
   // kawasan before the player has to pick one.
   const [electionScope, setElectionScope] = useState<"pru" | "prn">(settings.electionScope ?? "pru");
   const [prnStateId, setPrnStateId] = useState(settings.prnStateId ?? "selangor");
+  const [prnCandidateId, setPrnCandidateId] = useState<PrnCandidateId | null>(null);
 
   // Nomination state — as party president, the player must contest a seat too.
   // In PRN mode this must be a DUN seat in the chosen PRN negeri, not a
@@ -206,6 +208,7 @@ export default function SetupPage() {
 
   function handleNext() {
     if (step === 1 && !leaderName.trim()) return;
+    if (step === 2 && electionScope === "prn" && !prnCandidateId) return;
     if (step === 3 && !contestConstituencyId) return;
     if (step < 5) setStep(step + 1);
   }
@@ -253,6 +256,9 @@ export default function SetupPage() {
         eventRandomness,
         permanentConsequences,
       });
+      if (electionScope === "prn" && prnCandidateId) {
+        useGameStore.getState().journeyAction({ type: "prn-candidate", id: prnCandidateId });
+      }
       setSelectedState(electionScope === "prn" ? prnStateId : null);
       setPhase("playing");
     });
@@ -806,12 +812,31 @@ export default function SetupPage() {
                   </div>
                 )}
                 {electionScope === "prn" && (
-                  <div className="mt-4 rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
-                    <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "setup_page.selectPrnState")}</div>
-                    <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full text-[13px]">
-                      {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} kerusi</option>)}
-                    </select>
-                    <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>{t(lang, "setup_page.prnModeWillSpotlightThisNegeri")}</div>
+                  <div className="mt-4 space-y-4">
+                    <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
+                      <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "setup_page.selectPrnState")}</div>
+                      <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full text-[13px]">
+                        {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} kerusi</option>)}
+                      </select>
+                      <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>{t(lang, "setup_page.prnModeWillSpotlightThisNegeri")}</div>
+                    </div>
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-end justify-between gap-2"><div><div className="text-[11px] font-black tracking-[0.2em] text-gold">{t(lang, "WAJIB · CALON MB/KETUA MENTERI", "REQUIRED · MB/CHIEF MINISTER CANDIDATE")}</div><p className="mt-1 text-[11px] text-text-muted">{t(lang, "Pilih wajah kerajaan negeri. Kesesuaian demografi, saluran kempen dan gaya debat memberi kesan sebenar.", "Choose the face of the state government. Demographic fit, campaign channel and debate style have real effects.")}</p></div><span className="text-[10px] text-cyan">{prnStateData.name}</span></div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                        {PRN_CANDIDATES.map(candidate => {
+                          const active = prnCandidateId === candidate.id;
+                          const impact = prnCandidateStateImpact(candidate.id, prnStateData);
+                          return <button key={candidate.id} type="button" onClick={() => setPrnCandidateId(candidate.id)} className="p-3 text-left transition-transform hover:-translate-y-0.5" style={{ border: `1px solid ${active ? candidate.color : "rgb(var(--cyan-rgb)/0.18)"}`, background: active ? `${candidate.color}14` : "rgba(255,255,255,0.025)", boxShadow: active ? `0 0 18px ${candidate.color}22` : "none" }}>
+                            <div className="flex items-start justify-between gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-full border text-xs font-black" style={{ borderColor: candidate.color, color: candidate.color }}>{candidate.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</span><span className="text-[9px] font-black" style={{ color: impact >= 1 ? "var(--neon-green)" : impact >= .5 ? "var(--gold)" : "var(--warn-orange)" }}>{impact >= 0 ? "+" : ""}{impact.toFixed(2)}</span></div>
+                            <div className="mt-2 text-[12px] font-black text-white">{candidate.name}</div><div className="mt-0.5 text-[10px] font-bold" style={{ color: candidate.color }}>{candidate.archetype[lang]}</div>
+                            <p className="mt-2 text-[10px] leading-relaxed text-text-muted">{candidate.pitch[lang]}</p>
+                            <div className="mt-2 text-[9px] text-cyan">↑ {candidate.strength[lang]}</div><div className="mt-1 text-[9px] text-amber-300">↓ {candidate.risk[lang]}</div>
+                            <div className="mt-2 text-[9px] font-bold text-text-muted">{candidate.preferredChannel === "ceramah" ? t(lang, "CERAMAH", "RALLY") : t(lang, "MEDIA SOSIAL", "SOCIAL")} · {t(lang, "jentera", "organisation")} {candidate.organisationDelta >= 0 ? "+" : ""}{candidate.organisationDelta} · {t(lang, "kepercayaan", "trust")} {candidate.trustDelta >= 0 ? "+" : ""}{candidate.trustDelta}</div>
+                          </button>;
+                        })}
+                      </div>
+                      {!prnCandidateId && <p className="mt-2 text-[10px] font-bold text-amber-300">{t(lang, "Pilih seorang calon untuk meneruskan.", "Select one candidate to continue.")}</p>}
+                    </div>
                   </div>
                 )}
               </TacticalPanel>
@@ -998,6 +1023,7 @@ export default function SetupPage() {
                   <div className="space-y-2">
                     <SummaryRow label={t(lang, "setup_page.dataMode")} value={t(lang, selectedDataset === "real-malaysia" ? "setup_page.dataModeReal" : "setup_page.dataModeFictional")} />
                     <SummaryRow label={t(lang, "setup_page.electionMode")} value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : t(lang, "setup_page.pruNational")} />
+                    {electionScope === "prn" && <SummaryRow label={t(lang, "Calon MB/KM", "MB/CM candidate")} value={getPrnCandidate(prnCandidateId)?.name ?? "—"} />}
                     <SummaryRow label={t(lang, "setup_page.difficulty")} value={t(lang, `setup_page.difficulty_${difficulty}_label`)} />
                     <SummaryRow label={t(lang, "setup_page.oppStrength")} value={`${oppStrength}%`} />
                     <SummaryRow label={t(lang, "setup_page.mediaBias")} value={t(lang, `setup_page.media_${mediaBias}`)} />
@@ -1072,7 +1098,8 @@ export default function SetupPage() {
               {step < 5 ? (
                 <button
                   onClick={handleNext}
-                  className="px-6 py-2 text-[13px] tracking-widest uppercase transition-all"
+                  disabled={(step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId)}
+                  className="px-6 py-2 text-[13px] tracking-widest uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
                     background: "var(--gold)",
                     color: "#000000",

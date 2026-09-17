@@ -15,6 +15,7 @@ import { generateConstituencies } from "../data/constituencies";
 import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../data/prnIssues";
 import { getManifestoPackage, manifestoCampaignBonus } from "../data/manifestoPackages";
 import { getCampaignEvent, getCampaignTone, isCampaignEventUnlocked, previewCampaignEvent, type CampaignEventId, type CampaignToneId } from "../data/campaignEvents";
+import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -507,9 +508,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       const issueGain = prnIssue ? prnIssueBonus(prnIssue, gameType, previousIssueUses) : 0;
       const manifesto = getManifestoPackage(state.journey.manifestoPackageId);
       const manifestoGain = targetState ? manifestoCampaignBonus(state.journey.manifestoPackageId, targetState, gameType) : 0;
+      const prnCandidate = state.settings.electionScope === "prn" ? getPrnCandidate(state.journey.prnCandidateId) : undefined;
+      const candidateGain = prnCandidate ? prnCandidateChannelBonus(prnCandidate.id, gameType) : 0;
       const projectedGain = Math.round(((targetState
         ? calculateCampaignGain(targetState, gameType, tactic)
-        : getCampaignBaseGain(gameType, tactic)) + issueGain + manifestoGain) * 100) / 100;
+        : getCampaignBaseGain(gameType, tactic)) + issueGain + manifestoGain + candidateGain) * 100) / 100;
       const reaction = buildCampaignActionReaction({
         day: state.day,
         stateId,
@@ -527,12 +530,12 @@ export const useGameStore = create<GameState>((set, get) => ({
           decisions: state.journey.decisions - 1,
           prnIssueActions: issueKey ? { ...state.journey.prnIssueActions, [issueKey]: previousIssueUses + 1 } : state.journey.prnIssueActions,
           journal: journal(state.journey,
-            prnIssue ? `Isu PRN “${prnIssue.title.ms}” diketengahkan melalui ${gameType === "ceramah" ? "ceramah" : "media sosial"}: +${projectedGain.toFixed(1)} sokongan termasuk bonus isu +${issueGain.toFixed(2)}${manifesto ? ` dan padanan manifesto ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}.` : `Kempen: +${projectedGain.toFixed(1)} sokongan; kos RM${fundsCost}${manifesto ? `; padanan manifesto ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}.`,
-            prnIssue ? `PRN issue “${prnIssue.title.en}” addressed through ${gameType === "ceramah" ? "a rally" : "social media"}: +${projectedGain.toFixed(1)} support including +${issueGain.toFixed(2)} issue bonus${manifesto ? ` and ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)} manifesto fit` : ""}.` : `Campaign: +${projectedGain.toFixed(1)} support; cost RM${fundsCost}${manifesto ? `; manifesto fit ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}.`),
+            prnIssue ? `Isu PRN “${prnIssue.title.ms}” diketengahkan melalui ${gameType === "ceramah" ? "ceramah" : "media sosial"}: +${projectedGain.toFixed(1)} sokongan termasuk bonus isu +${issueGain.toFixed(2)}${manifesto ? ` dan padanan manifesto ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}${prnCandidate ? ` serta calon ${candidateGain >= 0 ? "+" : ""}${candidateGain.toFixed(2)}` : ""}.` : `Kempen: +${projectedGain.toFixed(1)} sokongan; kos RM${fundsCost}${manifesto ? `; padanan manifesto ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}${prnCandidate ? `; calon ${candidateGain >= 0 ? "+" : ""}${candidateGain.toFixed(2)}` : ""}.`,
+            prnIssue ? `PRN issue “${prnIssue.title.en}” addressed through ${gameType === "ceramah" ? "a rally" : "social media"}: +${projectedGain.toFixed(1)} support including +${issueGain.toFixed(2)} issue bonus${manifesto ? ` and ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)} manifesto fit` : ""}${prnCandidate ? ` and ${candidateGain >= 0 ? "+" : ""}${candidateGain.toFixed(2)} candidate fit` : ""}.` : `Campaign: +${projectedGain.toFixed(1)} support; cost RM${fundsCost}${manifesto ? `; manifesto fit ${manifestoGain >= 0 ? "+" : ""}${manifestoGain.toFixed(2)}` : ""}${prnCandidate ? `; candidate fit ${candidateGain >= 0 ? "+" : ""}${candidateGain.toFixed(2)}` : ""}.`),
         },
         states: state.states.map((s) => {
           if (s.id !== stateId) return s;
-          const gain = Math.round((calculateCampaignGain(s, gameType, tactic) + issueGain + manifestoGain) * 100) / 100;
+          const gain = Math.round((calculateCampaignGain(s, gameType, tactic) + issueGain + manifestoGain + candidateGain) * 100) / 100;
           const mandatSupport = Math.min(82, Math.round((s.mandatSupport + gain) * 100) / 100);
           const lawanSupport = Math.max(8, Math.round((s.lawanSupport - gain * 0.5) * 100) / 100);
           const othersSupport = Math.max(4, Math.round((100 - mandatSupport - lawanSupport) * 100) / 100);
@@ -579,6 +582,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         manifestoId: state.journey.manifestoPackageId,
         mediaSentiment: state.mediaSentiment,
         difficulty: state.settings.difficulty,
+        prnCandidateId: state.settings.electionScope === "prn" ? state.journey.prnCandidateId : null,
       });
       const impactByState = new Map(preview.stateImpacts.map(item => [item.stateId, item.impact]));
       const eventTitle = state.settings.electionScope === "prn" && event.prnTitle ? event.prnTitle : event.title;

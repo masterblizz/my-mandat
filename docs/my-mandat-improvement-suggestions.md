@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first ten follow-up
+for the current rules. The five core game-flow stages and the first eleven follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -26,7 +26,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Debate and TV appearance campaign events.
 - [x] Election-night seat reveal and late-count drama.
 - [x] Scripted full PRN/opposition/rebuilding journeys and responsive-layout hardening.
-- [ ] **NEXT:** PRN MB/Ketua Menteri candidate differentiation.
+- [x] PRN MB/Ketua Menteri candidate differentiation.
+- [ ] **NEXT:** Unified end-of-term report card.
 
 ### 1. Connect the full political career — DONE
 
@@ -76,7 +77,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 35 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
+- [x] 38 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -404,7 +405,7 @@ difficulty multiplier (stuck reading a stale top-level `state.difficulty`
 instead of `state.settings.difficulty`) — "Nightmare" behaved identically to
 "Normal". Now synced in `gameStore.ts`'s `updateSettings`.
 
-## 18. MB Candidate for PRN — TODO
+## 18. MB Candidate for PRN — DONE
 PRN mode should require Menteri Besar / Ketua Menteri candidate.
 
 Candidate archetypes:
@@ -414,7 +415,13 @@ Candidate archetypes:
 - Youth reformer.
 - State warlord.
 
-MB candidate gives PRN-specific bonuses.
+Implemented:
+- PRN setup requires one of five named leadership candidates before continuing.
+- Each archetype has bilingual strengths, risks and a demographic fit score for the selected state.
+- Nomination changes only that PRN state's opening support, plus persistent trust and organisation.
+- Preferred rally/social channels and debate tones give real campaign bonuses; weak fits can penalise performance.
+- The nominee persists in save data and appears in the War Room, results, mandate, formation and swearing-in flow.
+- Formation confidence reflects the nominee's governing and bargaining profile.
 
 ## 19. Endgame report card — PARTIALLY DONE
 After game ends, show final performance report.
@@ -449,7 +456,6 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. PRN MB candidate differentiation.
-2. Unified end-of-term report card.
-3. More scenario packs after the new branch data has been playtested.
-4. Authenticated browser usability and balance validation remains open alongside feature work.
+1. Unified end-of-term report card.
+2. More scenario packs after the new branch data has been playtested.
+3. Authenticated browser usability and balance validation remains open alongside feature work.

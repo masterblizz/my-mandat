@@ -15,6 +15,7 @@ const { seatTacticalVisual, stateTacticalVisual } = require('../app/data/tactica
 const { manifestoCampaignBonus, manifestoStateImpact } = require('../app/data/manifestoPackages.ts');
 const { CAMPAIGN_EVENTS, CAMPAIGN_TONES, campaignEventStateImpact, isCampaignEventUnlocked } = require('../app/data/campaignEvents.ts');
 const { buildElectionNightTimeline, electionNightSeatUpdates } = require('../app/data/electionNight.ts');
+const { PRN_CANDIDATES, prnCandidateChannelBonus, prnCandidateStateImpact } = require('../app/data/prnCandidates.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -230,6 +231,37 @@ test('every PRN battlefield has three bilingual state-specific issues', () => {
     assert.equal(issues.length, 3, state.id);
     assert.ok(issues.every(issue => issue.title.ms && issue.title.en && issue.summary.ms && issue.summary.en), state.id);
   }
+});
+test('PRN leadership candidates offer five distinct bilingual archetypes and state fits', () => {
+  assert.equal(PRN_CANDIDATES.length, 5);
+  assert.equal(new Set(PRN_CANDIDATES.map(candidate => candidate.id)).size, 5);
+  assert.ok(PRN_CANDIDATES.every(candidate => candidate.archetype.ms && candidate.archetype.en && candidate.strength.ms && candidate.risk.en));
+  const kelantan = store.getState().states.find(state => state.id === 'kelantan');
+  const penang = store.getState().states.find(state => state.id === 'penang');
+  assert.ok(prnCandidateStateImpact('religious-figure', kelantan) > prnCandidateStateImpact('religious-figure', penang));
+  assert.ok(prnCandidateStateImpact('technocrat', penang) > prnCandidateStateImpact('technocrat', kelantan));
+});
+test('a required PRN leadership nomination applies once, stays scoped and persists', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  const outside = JSON.stringify(store.getState().states.filter(state => state.id !== 'selangor'));
+  const before = store.getState().states.find(state => state.id === 'selangor').mandatSupport;
+  act({ type: 'prn-candidate', id: 'youth-reformer' });
+  const after = store.getState();
+  assert.equal(after.journey.prnCandidateId, 'youth-reformer');
+  assert.equal(after.journey.prnCandidateHistory.length, 1);
+  assert.ok(after.states.find(state => state.id === 'selangor').mandatSupport > before);
+  assert.equal(JSON.stringify(after.states.filter(state => state.id !== 'selangor')), outside);
+  assert.equal(after.journey.organisation, 43);
+  act({ type: 'prn-candidate', id: 'state-warlord' });
+  assert.equal(store.getState().journey.prnCandidateId, 'youth-reformer');
+  assert.equal(store.getState().journey.prnCandidateHistory.length, 1);
+  assert.equal(createSaveSnapshot(store.getState()).journey.prnCandidateId, 'youth-reformer');
+});
+test('PRN candidate strategy rewards matching campaign channels and debate tones', () => {
+  const state = store.getState().states.find(item => item.id === 'selangor');
+  const context = { charisma: 72, credibility: 91, strategy: 84, manifestoId: null, mediaSentiment: 'neutral', difficulty: 'normal', prnCandidateId: 'technocrat' };
+  assert.ok(prnCandidateChannelBonus('technocrat', 'social') > prnCandidateChannelBonus('technocrat', 'ceramah'));
+  assert.ok(campaignEventStateImpact('leader-debate', 'technocratic', state, context) > campaignEventStateImpact('leader-debate', 'religious', state, context));
 });
 test('matching a PRN issue to its campaign channel adds diminishing persistent momentum', () => {
   store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });

@@ -16,6 +16,7 @@ import { computeElectionOutcome } from "../utils/electionOutcome";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import ElectionNightCount from "../components/results/ElectionNightCount";
 import { buildElectionNightTimeline } from "../data/electionNight";
+import { getPrnCandidate } from "../data/prnCandidates";
 
 const TOTAL_SEATS = 222;
 const MAJORITY = 112;
@@ -130,7 +131,7 @@ function resultLabel(lang: Lang, result: SeatDetail["result"]) {
 export default function ResultsPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
-  const { states, resources, day, totalDays, leader, operations, difficulty, settings, resetGame, dailyChallengeDate } = useGameStore();
+  const { states, resources, day, totalDays, leader, operations, difficulty, settings, resetGame, dailyChallengeDate, journey } = useGameStore();
   const addRecord = useHistoryStore((state) => state.addRecord);
   const recordedResultRef = useRef(false);
   const animPlayedRef = useRef(false);
@@ -167,6 +168,7 @@ export default function ResultsPage() {
 
   const partyDisplay = leader.partyAbbr || leader.party || "PLAYER";
   const isPrn = settings.electionScope === "prn";
+  const prnCandidate = isPrn ? getPrnCandidate(journey.prnCandidateId) : undefined;
   const electionOutcome = useMemo(
     () => computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId }),
     [states, settings.electionScope, settings.prnStateId]
@@ -354,6 +356,11 @@ export default function ResultsPage() {
             <div className="text-[12px] text-gold tracking-wider">{leader.position} · {leader.partyAbbr}</div>
           </div>
         </div>
+
+        {prnCandidate && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border px-4 py-3" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}>
+          <div><div className="text-[9px] font-black tracking-[0.24em] text-text-muted">{t(lang, "CALON KETUA KERAJAAN NEGERI", "STATE GOVERNMENT LEAD CANDIDATE")}</div><div className="mt-1 text-base font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><div className="text-[11px] text-text-muted">{prnCandidate.archetype[lang]} · {resultStates[0]?.name}</div></div>
+          <div className="max-w-xl text-[11px] leading-relaxed text-text-muted">{verdict === "WIN" ? t(lang, `${prnCandidate.name} membawa mandat untuk dilantik sebagai ketua kerajaan negeri.`, `${prnCandidate.name} carries the mandate to be appointed head of the state government.`) : t(lang, `${prnCandidate.name} akan mengetuai tindak balas parti terhadap keputusan ini.`, `${prnCandidate.name} will lead the party's response to this result.`)}</div>
+        </div>}
 
         {/* Verdict banner */}
         <div

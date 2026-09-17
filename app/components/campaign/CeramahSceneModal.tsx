@@ -13,6 +13,7 @@ import {
 import { generateCampaignTopics, type CampaignTopic } from "../../data/campaignTopics";
 import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../../data/prnIssues";
 import { getManifestoPackage, manifestoCampaignBonus } from "../../data/manifestoPackages";
+import { getPrnCandidate, prnCandidateChannelBonus } from "../../data/prnCandidates";
 import CrowdScene from "./CrowdScene";
 
 interface CeramahSceneModalProps {
@@ -38,6 +39,8 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
   const targetState = states.find((s) => s.id === stateId) ?? states[0];
   const manifesto = getManifestoPackage(journey.manifestoPackageId);
   const manifestoGain = targetState ? manifestoCampaignBonus(journey.manifestoPackageId, targetState, gameType) : 0;
+  const prnCandidate = settings.electionScope === "prn" ? getPrnCandidate(journey.prnCandidateId) : undefined;
+  const candidateGain = prnCandidate ? prnCandidateChannelBonus(prnCandidate.id, gameType) : 0;
 
   // Fresh topic set per mount (i.e. per mini-game session) so replays don't
   // show the same fixed list — mixes state-specific issues with a random pool.
@@ -54,8 +57,8 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
     const selectedIssue = settings.electionScope === "prn" ? findPrnIssue(stateId, selectedTopic?.prnIssueId) : undefined;
     const key = selectedIssue ? prnIssueActionKey(careerProgress.term, stateId, selectedIssue.id) : null;
     const bonus = selectedIssue ? prnIssueBonus(selectedIssue, gameType, key ? journey.prnIssueActions[key] ?? 0 : 0) : 0;
-    return Math.round((calculateCampaignGain(targetState, gameType, tactic) + bonus + manifestoGain) * 100) / 100;
-  }, [targetState, gameType, tactic, settings.electionScope, stateId, selectedTopic, careerProgress.term, journey.prnIssueActions, manifestoGain]);
+    return Math.round((calculateCampaignGain(targetState, gameType, tactic) + bonus + manifestoGain + candidateGain) * 100) / 100;
+  }, [targetState, gameType, tactic, settings.electionScope, stateId, selectedTopic, careerProgress.term, journey.prnIssueActions, manifestoGain, candidateGain]);
   const positiveRatio = useMemo(() => gainToPositiveRatio(projectedGain), [projectedGain]);
 
   // Commits the real store mutation only after the crowd animation settles,
@@ -126,6 +129,9 @@ export default function CeramahSceneModal({ stateId, gameType, tactic, onClose }
                 </div>
                 {manifesto && <div className="mb-3 border px-3 py-2 text-center text-[10px]" style={{ borderColor: `${manifesto.color}66`, color: manifesto.color }}>
                   {manifesto.title[lang]} · {gameType === manifesto.preferredChannel ? t(lang, "saluran utama", "preferred channel") : t(lang, "saluran sekunder", "secondary channel")} · {manifestoGain >= 0 ? "+" : ""}{manifestoGain.toFixed(2)}
+                </div>}
+                {prnCandidate && <div className="mb-3 border px-3 py-2 text-center text-[10px]" style={{ borderColor: `${prnCandidate.color}66`, color: prnCandidate.color }}>
+                  {prnCandidate.name} · {prnCandidate.archetype[lang]} · {gameType === prnCandidate.preferredChannel ? t(lang, "saluran calon utama", "candidate's preferred channel") : t(lang, "saluran calon lemah", "candidate's weaker channel")} · {candidateGain >= 0 ? "+" : ""}{candidateGain.toFixed(2)}
                 </div>}
                 <div className="grid grid-cols-2 gap-2">
                   {topics.map((topicOption) => (

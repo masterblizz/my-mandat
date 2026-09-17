@@ -7,6 +7,7 @@ import { PARTY_MEMBERS } from "../data/members";
 import { evaluateCabinet, getMemberTraits, initialMinisterLoyalty } from "../data/cabinetDynamics";
 import { getManifestoPackage, manifestoStateImpact, type ManifestoPackageId } from "../data/manifestoPackages";
 import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../data/campaignEvents";
+import { getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 
 export type Chapter = "campaign" | "results" | "formation" | "government" | "opposition" | "rebuilding";
 export type Issue = "flood" | "clinic" | "jobs";
@@ -43,6 +44,8 @@ export interface Journey {
   storyResolved: string[];
   storyChoices: Record<string, StoryChoice>;
   prnIssueActions: Record<string, number>;
+  prnCandidateId: PrnCandidateId | null;
+  prnCandidateHistory: { term: number; stateId: string; id: PrnCandidateId }[];
   manifestoPackageId: ManifestoPackageId | null;
   manifestoHistory: { term: number; id: ManifestoPackageId }[];
   campaignEvents: { term: number; eventId: CampaignEventId; toneId: CampaignToneId; rating: CampaignEventRating; impact: number }[];
@@ -66,7 +69,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", onboarded: false, resultRecorded: false, cityZones: {}, construction: [] };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", onboarded: false, resultRecorded: false, cityZones: {}, construction: [] };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };
@@ -147,6 +150,7 @@ export type JourneyAction =
   | { type: "term"; action: "branches" | "scrutiny" | "recruit" }
   | { type: "story"; storyId: string; choice: StoryChoice; character: string }
   | { type: "manifesto"; id: ManifestoPackageId }
+  | { type: "prn-candidate"; id: PrnCandidateId }
   | { type: "quarter" }
   | { type: "next-election" };
 
@@ -157,6 +161,35 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
   if (term && s.careerProgress.month >= 60 && action.type !== "next-election") return {};
   const key = action.type === "campaign" || action.type === "term" ? action.action : action.type;
   const log = (ms: string, en: string, patch: Partial<Journey> = {}): Journey => ({ ...j, ...patch, journal: journal(j, ms, en) });
+  if (action.type === "prn-candidate") {
+    const candidate = getPrnCandidate(action.id);
+    const target = s.states.find(state => state.id === s.settings.prnStateId);
+    if (!campaign || s.settings.electionScope !== "prn" || !candidate || !target || j.prnCandidateId) return {};
+    const impact = prnCandidateStateImpact(action.id, target);
+    const mandatSupport = Math.max(8, Math.min(82, Math.round((target.mandatSupport + impact) * 100) / 100));
+    const othersSupport = Math.max(4, Math.min(target.othersSupport, 100 - mandatSupport - 8));
+    const lawanSupport = Math.round((100 - mandatSupport - othersSupport) * 100) / 100;
+    const updatedTarget = { ...target, mandatSupport, lawanSupport, othersSupport, trend: impact };
+    const margin = mandatSupport - lawanSupport;
+    return {
+      states: s.states.map(state => state.id === target.id ? {
+        ...updatedTarget,
+        projectedSeats: generateConstituencies(updatedTarget, "dun").filter(seat => seat.mandat >= seat.lawan && seat.mandat >= seat.others).length,
+        winProbability: Math.max(5, Math.min(95, Math.round((50 + margin * 2) * 100) / 100)),
+        status: margin >= 8 ? "winning" as const : margin <= -8 ? "losing" as const : "contested" as const,
+      } : state),
+      journey: log(
+        `${candidate.name} dinamakan calon ketua kerajaan ${target.name}. Kesan awal ${impact >= 0 ? "+" : ""}${impact.toFixed(2)} sokongan; jentera ${candidate.organisationDelta >= 0 ? "+" : ""}${candidate.organisationDelta}; kepercayaan ${candidate.trustDelta >= 0 ? "+" : ""}${candidate.trustDelta}.`,
+        `${candidate.name} is nominated to lead the ${target.name} government. Opening effect ${impact >= 0 ? "+" : ""}${impact.toFixed(2)} support; organisation ${candidate.organisationDelta >= 0 ? "+" : ""}${candidate.organisationDelta}; trust ${candidate.trustDelta >= 0 ? "+" : ""}${candidate.trustDelta}.`,
+        {
+          prnCandidateId: action.id,
+          prnCandidateHistory: [...j.prnCandidateHistory, { term: s.careerProgress.term, stateId: target.id, id: action.id }],
+          organisation: Math.max(0, Math.min(100, j.organisation + candidate.organisationDelta)),
+          trust: Math.max(0, Math.min(100, j.trust + candidate.trustDelta)),
+        }
+      ),
+    };
+  }
   if (action.type === "manifesto") {
     const manifesto = getManifestoPackage(action.id);
     if (!campaign || !manifesto || j.manifestoPackageId || j.decisions < 1 || s.resources.funds < manifesto.cost) return {};

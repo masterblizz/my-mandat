@@ -26,6 +26,7 @@ import dynamic from "next/dynamic";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { getPrnIssues } from "../data/prnIssues";
 import { seatTacticalVisual, type TacticalOverlay } from "../data/tacticalMap";
+import { getPrnCandidate } from "../data/prnCandidates";
 
 const WarRoomLivingScene = dynamic(() => import("../components/warroom/WarRoomLivingScene"), {
   ssr: false,
@@ -437,7 +438,7 @@ export default function WarroomPage() {
   const [advancing, setAdvancing] = useState(false);
   const [manualSaveNotice, setManualSaveNotice] = useState<string | null>(null);
   const [mapOverlay, setMapOverlay] = useState<TacticalOverlay>("default");
-  const { states: gameStates, resources, operations, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, aiNews, settings, mediaSentiment, addAiNewsReaction } = useGameStore();
+  const { states: gameStates, resources, operations, day, totalDays, lastEvent, getTotalProjectedSeats, getNationalSupport, advanceDay, clearLastEvent, leader, nationalSupportDelta, opponentLog, politicalReactions, aiNews, settings, mediaSentiment, addAiNewsReaction, journey } = useGameStore();
   const [persistedReactions, setPersistedReactions] = useState<PoliticalReaction[]>([]);
 
   // False during the first render so the live-news list doesn't cascade in on
@@ -455,6 +456,7 @@ export default function WarroomPage() {
   const electionScope = settings.electionScope ?? "pru";
   const prnState = gameStates.find((state) => state.id === (settings.prnStateId ?? "selangor")) ?? gameStates[0];
   const prnIssues = electionScope === "prn" ? getPrnIssues(settings.prnStateId) : [];
+  const prnCandidate = electionScope === "prn" ? getPrnCandidate(journey.prnCandidateId) : undefined;
   const mapStates = electionScope === "prn" && prnState ? [prnState] : gameStates;
 
   const allPoliticalReactions = [...politicalReactions, ...persistedReactions]
@@ -873,7 +875,7 @@ export default function WarroomPage() {
         <div className="flex flex-col gap-4 w-full">
 
           <TacticalPanel title={electionScope === "prn" ? t(lang, "warroom_page.prnCommandBriefing") : t(lang, "warroom_page.pruCommandBriefing")}>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className={`grid gap-3 ${prnCandidate ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
               <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.32)", background: "rgb(var(--gold-rgb) / 0.06)" }}>
                 <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.mode")}</div>
                 <div className="mt-1 text-lg font-black tracking-widest" style={{ color: "var(--gold)" }}>{electionModeLabel}</div>
@@ -890,6 +892,11 @@ export default function WarroomPage() {
                 <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "warroom_page.issues")}</div>
                 <div className="mt-1 text-[11px] leading-snug text-text-muted">{electionScope === "prn" && prnIssues.length ? prnIssues.map(issue => issue.title[lang]).join(" · ") : electionScope === "prn" ? t(lang, "warroom_page.localServicesMbCandidateStateSwing") : t(lang, "warroom_page.nationalMandateCoalitionsFederalPolicy")}</div>
               </div>
+              {prnCandidate && <div className="border p-3" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}>
+                <div className="text-[9px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "CALON MB/KM", "MB/CM CANDIDATE")}</div>
+                <div className="mt-1 text-sm font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div>
+                <div className="mt-1 text-[10px] text-text-muted">{prnCandidate.archetype[lang]} · {prnCandidate.preferredChannel === "ceramah" ? t(lang, "utamakan ceramah", "prioritise rallies") : t(lang, "utamakan media sosial", "prioritise social media")}</div>
+              </div>}
             </div>
           </TacticalPanel>
 

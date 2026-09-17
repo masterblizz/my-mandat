@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CAMPAIGN_TONES, getCampaignEvent, previewCampaignEvent, type CampaignEventId, type CampaignEventPreview, type CampaignToneId } from "../../data/campaignEvents";
 import { getManifestoPackage } from "../../data/manifestoPackages";
+import { getPrnCandidate, prnCandidateToneBonus } from "../../data/prnCandidates";
 import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
 
@@ -15,6 +16,7 @@ export default function CampaignEventModal({ eventId, onClose }: { eventId: Camp
   const scope = store.settings.electionScope === "prn" ? store.states.filter(state => state.id === store.settings.prnStateId) : store.states;
   const title = event && store.settings.electionScope === "prn" && event.prnTitle ? event.prnTitle : event?.title;
   const manifesto = getManifestoPackage(store.journey.manifestoPackageId);
+  const prnCandidate = store.settings.electionScope === "prn" ? getPrnCandidate(store.journey.prnCandidateId) : undefined;
   const result = selectedTone ? store.journey.campaignEvents.find(item => item.term === store.careerProgress.term && item.eventId === eventId && item.toneId === selectedTone) : undefined;
 
   if (!event || !title) return null;
@@ -29,6 +31,7 @@ export default function CampaignEventModal({ eventId, onClose }: { eventId: Camp
       manifestoId: store.journey.manifestoPackageId,
       mediaSentiment: store.mediaSentiment,
       difficulty: store.settings.difficulty,
+      prnCandidateId: prnCandidate?.id ?? null,
     });
     store.runCampaignEvent(eventId, toneId);
     setResolvedPreview(preview);
@@ -43,21 +46,24 @@ export default function CampaignEventModal({ eventId, onClose }: { eventId: Camp
       </header>
 
       {!result ? <div className="p-5">
-        <div className="mb-4 grid gap-2 sm:grid-cols-4">
+        <div className={`mb-4 grid gap-2 ${prnCandidate ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
           <div className="border border-cyan/15 p-2"><span className="text-[9px] text-text-muted">{t(lang, "AUDIENS", "AUDIENCE")}</span><div className="mt-1 text-xs text-cyan">{event.audience[lang]}</div></div>
           <div className="border border-cyan/15 p-2"><span className="text-[9px] text-text-muted">{t(lang, "KOS", "COST")}</span><div className="mt-1 text-xs text-white">RM{event.cost.toLocaleString()}</div></div>
           <div className="border border-cyan/15 p-2"><span className="text-[9px] text-text-muted">{t(lang, "SUMBER", "RESOURCES")}</span><div className="mt-1 text-xs text-white">{event.mediaCost} {t(lang, "media", "media")} · {event.manpowerCost} {t(lang, "petugas", "staff")}</div></div>
           <div className="border border-cyan/15 p-2"><span className="text-[9px] text-text-muted">{t(lang, "MANIFESTO", "MANIFESTO")}</span><div className="mt-1 text-xs" style={{ color: manifesto?.color ?? "var(--text-muted)" }}>{manifesto?.title[lang] ?? t(lang, "Belum dipilih", "Not selected")}</div></div>
+          {prnCandidate && <div className="border border-cyan/15 p-2"><span className="text-[9px] text-text-muted">{t(lang, "CALON MB/KM", "MB/CM CANDIDATE")}</span><div className="mt-1 text-xs" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div></div>}
         </div>
         <div className="mb-3 text-center text-[11px] font-bold tracking-[0.2em] text-gold">{t(lang, "PILIH NADA PERSEMBAHAN", "CHOOSE YOUR PERFORMANCE TONE")}</div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {CAMPAIGN_TONES.map(tone => {
             const fit = event.preferredTones.includes(tone.id) ? t(lang, "PADANAN KUAT", "STRONG FIT") : event.riskyTones.includes(tone.id) ? t(lang, "RISIKO TINGGI", "HIGH RISK") : t(lang, "PADANAN SEDERHANA", "PARTIAL FIT");
             const fitColor = event.preferredTones.includes(tone.id) ? "var(--neon-green)" : event.riskyTones.includes(tone.id) ? "var(--neon-red)" : "var(--gold)";
+            const candidateFit = prnCandidate ? prnCandidateToneBonus(prnCandidate.id, tone.id, eventId) : 0;
             return <button key={tone.id} onClick={() => chooseTone(tone.id)} className="p-4 text-left transition-transform hover:scale-[1.01]" style={{ border: `1px solid ${tone.color}66`, background: `${tone.color}0d` }}>
               <div className="flex items-start justify-between gap-2"><strong className="text-sm uppercase tracking-wider" style={{ color: tone.color }}>{tone.title[lang]}</strong><span className="text-[8px] font-bold tracking-wider" style={{ color: fitColor }}>{fit}</span></div>
               <p className="mt-2 min-h-[42px] text-[11px] leading-relaxed text-text-muted">{tone.description[lang]}</p>
               <p className="mt-2 text-[10px] text-cyan">↑ {tone.strength[lang]}</p><p className="mt-1 text-[10px] text-amber-300">↓ {tone.risk[lang]}</p>
+              {prnCandidate && <p className="mt-2 text-[9px] font-bold" style={{ color: candidateFit > 0 ? "var(--neon-green)" : candidateFit < 0 ? "var(--neon-red)" : "var(--text-muted)" }}>{t(lang, "Padanan calon", "Candidate fit")} {candidateFit >= 0 ? "+" : ""}{candidateFit.toFixed(2)}</p>}
             </button>;
           })}
         </div>

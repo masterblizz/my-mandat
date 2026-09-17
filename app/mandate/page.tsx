@@ -9,6 +9,7 @@ import { useLang, t, type Lang } from "../i18n/useLang";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { computeElectionOutcome, type MandateStatus } from "../utils/electionOutcome";
 import { getGovernmentTerms, type GovernmentTerms } from "../utils/governmentTerms";
+import { getPrnCandidate } from "../data/prnCandidates";
 
 type StatusCopy = { color: string; text: string; action: string; route: string };
 
@@ -52,12 +53,13 @@ export default function MandatePage() {
   const router = useRouter();
   const { isPending, navigate } = usePendingNav();
   const lang = useLang();
-  const { states, leader, settings, enterTerm, finishElection } = useGameStore();
+  const { states, leader, settings, enterTerm, finishElection, journey } = useGameStore();
   const outcome = computeElectionOutcome(states, { electionScope: settings.electionScope, prnStateId: settings.prnStateId });
   const isPrn = settings.electionScope === "prn";
   const terms = getGovernmentTerms(lang, settings.electionScope, outcome.contestedStates[0]);
   const copy = getStatusCopy(lang, terms)[outcome.status];
   const scopeName = terms.scopeLabel;
+  const prnCandidate = isPrn ? getPrnCandidate(journey.prnCandidateId) : undefined;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
@@ -90,6 +92,7 @@ export default function MandatePage() {
 
           <TacticalPanel title={t(lang, "mandate_page.storylineDirection")}>
             <div className="text-[15px] leading-relaxed text-text-muted">{copy.text}</div>
+            {prnCandidate && <div className="mt-4 border p-4" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}><div className="text-[9px] font-black tracking-[0.22em] text-text-muted">{outcome.status === "majority" || outcome.status === "hung" ? t(lang, `CALON ${terms.headTitle.toUpperCase()}`, `${terms.headTitle.toUpperCase()} NOMINEE`) : t(lang, "KETUA PEMBANGKANG NEGERI", "STATE OPPOSITION LEAD")}</div><div className="mt-1 text-lg font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><p className="mt-1 text-[11px] text-text-muted">{prnCandidate.archetype[lang]} · {prnCandidate.pitch[lang]}</p></div>}
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <div className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.22)" }}><div className="text-[10px] text-text-muted tracking-widest">{isPrn ? t(lang, "mandate_page.stateSupport") : t(lang, "mandate_page.nationalSupport")}</div><div className="mt-2 text-3xl font-black" style={{ color: "var(--cyan)" }}>{outcome.nationalSupport}</div></div>
               <div className="border p-4" style={{ borderColor: "rgb(var(--gold-rgb)/0.22)" }}><div className="text-[10px] text-text-muted tracking-widest">{isPrn ? t(lang, "mandate_page.stateStatus") : t(lang, "mandate_page.statesWon")}</div><div className="mt-2 text-3xl font-black" style={{ color: "var(--gold)" }}>{outcome.statesWon}</div></div>

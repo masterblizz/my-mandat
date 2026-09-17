@@ -12,6 +12,7 @@ import { PARTY_MEMBERS } from "../data/members";
 import { computeElectionOutcome } from "../utils/electionOutcome";
 import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
+import { getPrnCandidate } from "../data/prnCandidates";
 
 const KEY_FEDERAL_POST_IDS = ["pm", "dpm1", "min-fin", "min-home", "min-edu", "min-health"];
 const KEY_STATE_POST_IDS = ["exco-fin", "exco-local", "exco-rural", "exco-edu", "exco-health"];
@@ -27,6 +28,8 @@ export default function SwearingInPage() {
   const keyPostIds = terms.isPrn ? KEY_STATE_POST_IDS : KEY_FEDERAL_POST_IDS;
   const keyMinisters = keyPostIds.map((postId) => ({ post: allPosts.find((post) => post.id === postId), member: PARTY_MEMBERS.find(member => member.id === journey.appointments[postId]) })).filter((item) => item.post && item.member);
   const cabinetScore = Math.max(0, journey.cabinetQuality - coalitionCabinetPenalty(useGameStore.getState()));
+  const prnCandidate = terms.isPrn ? getPrnCandidate(journey.prnCandidateId) : undefined;
+  const headName = prnCandidate?.name ?? leader.name;
 
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb)/0.10), transparent 35%), var(--bg)" }}>
@@ -49,8 +52,9 @@ export default function SwearingInPage() {
             <div className="text-[11px] font-bold tracking-[0.24em] text-text-muted">{terms.appointingAuthority}</div>
             <div className="mt-3 text-3xl font-black leading-tight" style={{ color: "var(--gold)" }}>{t(lang, "swearing_in_page.approved", { termsGovernmentName: terms.governmentName })}</div>
             <div className="mt-4 text-[13px] leading-relaxed text-text-muted">
-              {t(lang, "swearing_in_page.andTheFirstLineUpHave", { termsHeadTitle: terms.headTitle, leaderName: leader.name, termsExecutiveBody: terms.executiveBody })}
+              {t(lang, "swearing_in_page.andTheFirstLineUpHave", { termsHeadTitle: terms.headTitle, leaderName: headName, termsExecutiveBody: terms.executiveBody })}
             </div>
+            {prnCandidate && <div className="mt-4 border p-3" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}><div className="text-[9px] font-black tracking-[0.22em] text-text-muted">{terms.headTitle.toUpperCase()}</div><div className="mt-1 text-lg font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><div className="mt-1 text-[10px] text-text-muted">{prnCandidate.archetype[lang]}</div></div>}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, "swearing_in_page.publicReaction")}</div><div className="text-2xl font-black" style={{ color: "var(--neon-green)" }}>{t(lang, "swearing_in_page.positive")}</div></div>
               <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.32)" }}><div className="text-[10px] text-text-muted">{t(lang, "swearing_in_page.score", { termsExecutiveBody: terms.executiveBody })}</div><div className="text-2xl font-black" style={{ color: "var(--cyan)" }}>{cabinetScore}</div></div>
