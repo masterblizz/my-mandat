@@ -14,6 +14,8 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { computeSeatDetails, type SeatDetail } from "../utils/seatDetails";
 import { computeElectionOutcome } from "../utils/electionOutcome";
 import { useLang, t, type Lang } from "../i18n/useLang";
+import ElectionNightCount from "../components/results/ElectionNightCount";
+import { buildElectionNightTimeline } from "../data/electionNight";
 
 const TOTAL_SEATS = 222;
 const MAJORITY = 112;
@@ -136,6 +138,7 @@ export default function ResultsPage() {
   const [animPhase, setAnimPhase] = useState<AnimPhase>("pending");
   const [selectedStateId, setSelectedStateId] = useState(settings.electionScope === "prn" ? settings.prnStateId : (states[0]?.id ?? "johor"));
   const [showShare, setShowShare] = useState(false);
+  const [countComplete, setCountComplete] = useState(false);
 
   useEffect(() => {
     // Run-once flag so the reveal never replays on re-renders (state clicks
@@ -192,6 +195,7 @@ export default function ResultsPage() {
       return acc;
     }, {});
   }, [resultStates, partyDisplay, seatScope]);
+  const electionNightTimeline = useMemo(() => buildElectionNightTimeline(resultStates, partyDisplay, seatScope), [partyDisplay, resultStates, seatScope]);
   const stateSeatSummaries = useMemo(() => {
     return resultStates.reduce<Record<string, { wins: number; losses: number; others: number; totalVotes: number; avgTurnout: number }>>((acc, state) => {
       const details = allSeatDetailsByState[state.id] ?? [];
@@ -303,11 +307,12 @@ export default function ResultsPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
+      {!countComplete && <ElectionNightCount timeline={electionNightTimeline} partyName={partyDisplay} partyColor={leader.partyColor} totalSeats={totalSeats} majorityTarget={majorityTarget} scopeLabel={resultScopeLabel} onComplete={() => setCountComplete(true)} />}
 
       {/* WIN celebration — one-shot confetti burst in the winning party's
           colors plus neutral white/gray (canvas particles only, auto-stops).
           Not rendered at all when prefers-reduced-motion is set. */}
-      {verdict === "WIN" && animPhase === "play" && (
+      {verdict === "WIN" && animPhase === "play" && countComplete && (
         <ConfettiCanvas colors={[leader.partyColor, "#ffffff", "#9ca3af"]} duration={2500} />
       )}
 

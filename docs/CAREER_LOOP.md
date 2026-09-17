@@ -10,7 +10,9 @@ in the earlier route audit, `GAME_FLOW.md`.
    fundraising, organising, stories, or tactical deployments. End the day from the
    briefing or War Room to resolve opponents and ongoing operations.
 3. Election night freezes the result. PRU counts parliamentary seats; PRN counts
-   DUN seats in the selected state. The personal seat and party mandate are separate.
+   DUN seats in the selected state. A live seat-by-seat sequence reveals close calls,
+   postal swings, recounts, late rural boxes, kingmaker pressure and delayed Borneo
+   results before the official mandate. The personal seat and party mandate are separate.
 4. Confirm a majority using the actual available independent seats, save coalition
    commitments, appoint the cabinet, and attend the ceremony. Without government,
    enter opposition or rebuilding with an organisation and trust objective.

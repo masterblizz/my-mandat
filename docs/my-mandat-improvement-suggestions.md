@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first eight follow-up
+for the current rules. The five core game-flow stages and the first nine follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -24,7 +24,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Tactical map overlays for hotspots, marginal seats and campaign reach.
 - [x] Broader manifesto packages with voter-bloc trade-offs.
 - [x] Debate and TV appearance campaign events.
-- [ ] **NEXT:** Election-night seat reveal and late-count drama.
+- [x] Election-night seat reveal and late-count drama.
+- [ ] **NEXT:** Full PRN/opposition playtesting, mobile layout and usability pass.
 
 ### 1. Connect the full political career — DONE
 
@@ -73,7 +74,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 31 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs and major campaign events.
+- [x] 33 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs, major campaign events and exact PRU/PRN election-night counts.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -86,6 +87,7 @@ improvements are complete; broader features and player validation remain open.
 - [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
 - [ ] Browser-check every PRU/PRN tactical map layer and reduced-motion reach rings in an authenticated campaign.
 - [ ] Browser-check debate/TV event scheduling, tone selection and result reveals in an authenticated PRU and PRN campaign.
+- [ ] Browser-check election-night pacing, pause/fast/skip controls and mobile layout in PRU and PRN.
 - [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
 
 The remaining sections retain the broader backlog. Earlier claims about cabinet
@@ -323,8 +325,23 @@ Tone choices:
 - Religious.
 - Reformist.
 
-## 14. Election night drama — TODO
+## 14. Election night drama — DONE
 Improve Malam Keputusan.
+
+Implemented:
+- Full seat-by-seat live declaration sequence using the same deterministic PRU/PRN
+  constituency results as the official outcome.
+- Live MANDAT/LAWAN/others tallies, majority marker, declared-seat progress and
+  rolling declaration log.
+- Too-close-to-call, postal-vote swing and recount bulletins tied to the closest
+  actual simulated seats.
+- Rural boxes and Sabah/Sarawak declarations are held for the late count, with a
+  separate Borneo arrival bulletin in PRU mode.
+- A data-driven kingmaker-state bulletin highlights the state with the strongest
+  combination of close contests and smaller-bloc seats.
+- Pause, 3× speed, skip and official-result controls; reduced-motion users go
+  straight to the final accessible result.
+- PRN uses only the selected state's DUN and its actual majority threshold.
 
 Features:
 - Seat-by-seat reveal.
@@ -429,8 +446,7 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Richer election-night seat reveals and late-count drama.
-2. Player balance/usability testing, including complete PRN and opposition browser runs.
-3. PRN MB candidate differentiation.
-4. Unified end-of-term report card.
-5. More scenario packs after the new branch data has been playtested.
+1. Player balance/usability testing, including complete PRN and opposition browser runs.
+2. PRN MB candidate differentiation.
+3. Unified end-of-term report card.
+4. More scenario packs after the new branch data has been playtested.

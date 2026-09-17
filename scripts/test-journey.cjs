@@ -14,6 +14,7 @@ const { generateConstituencies } = require('../app/data/constituencies.ts');
 const { seatTacticalVisual, stateTacticalVisual } = require('../app/data/tacticalMap.ts');
 const { manifestoCampaignBonus, manifestoStateImpact } = require('../app/data/manifestoPackages.ts');
 const { CAMPAIGN_EVENTS, CAMPAIGN_TONES, campaignEventStateImpact, isCampaignEventUnlocked } = require('../app/data/campaignEvents.ts');
+const { buildElectionNightTimeline, electionNightSeatUpdates } = require('../app/data/electionNight.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -308,6 +309,29 @@ test('major campaign events are one-time, persistent and isolated to the PRN sta
   store.getState().runCampaignEvent('youth-townhall', 'attack');
   assert.equal(store.getState().journey.campaignEvents.length, 1);
   assert.equal(store.getState().journey.decisions, 2);
+});
+test('PRU election night reveals every seat once with all late-count drama beats', () => {
+  const states = store.getState().states;
+  const timeline = buildElectionNightTimeline(states, 'MANDAT', 'parliament');
+  const seatUpdates = electionNightSeatUpdates(timeline);
+  const outcome = computeElectionOutcome(states, { electionScope: 'pru' });
+  assert.equal(seatUpdates.length, outcome.totalSeats);
+  assert.equal(new Set(seatUpdates.map(update => update.id)).size, outcome.totalSeats);
+  assert.equal(seatUpdates.filter(update => update.result === 'WIN').length, outcome.seatsWon);
+  assert.equal(seatUpdates.filter(update => update.result === 'LOSS').length, outcome.lawanSeats);
+  const bulletins = timeline.filter(update => update.kind === 'bulletin').map(update => update.bulletinType);
+  for (const type of ['too-close', 'postal-swing', 'recount', 'late-rural', 'borneo-late', 'kingmaker', 'complete']) assert.ok(bulletins.includes(type), type);
+  const borneoBulletin = timeline.findIndex(update => update.kind === 'bulletin' && update.bulletinType === 'borneo-late');
+  const firstBorneoSeat = timeline.findIndex(update => update.kind === 'seat' && update.region === 'borneo');
+  assert.ok(firstBorneoSeat > borneoBulletin);
+});
+test('PRN election night counts only the selected state DUN', () => {
+  const selected = store.getState().states.find(state => state.id === 'selangor');
+  const timeline = buildElectionNightTimeline([selected], 'MANDAT', 'dun');
+  const seatUpdates = electionNightSeatUpdates(timeline);
+  assert.equal(seatUpdates.length, selected.dunSeats);
+  assert.ok(seatUpdates.every(update => update.stateId === 'selangor'));
+  assert.equal(new Set(seatUpdates.map(update => update.id)).size, selected.dunSeats);
 });
 test('tactical overlays identify marginal, opponent and swing DUN contests', () => {
   const state = store.getState().states.find(item => item.id === 'selangor');
