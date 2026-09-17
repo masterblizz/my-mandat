@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first eleven follow-up
+for the current rules. The five core game-flow stages and the first twelve follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -27,7 +27,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Election-night seat reveal and late-count drama.
 - [x] Scripted full PRN/opposition/rebuilding journeys and responsive-layout hardening.
 - [x] PRN MB/Ketua Menteri candidate differentiation.
-- [ ] **NEXT:** Unified end-of-term report card.
+- [x] Unified end-of-term report card.
+- [ ] **NEXT:** Curated historical and hypothetical scenario packs.
 
 ### 1. Connect the full political career — DONE
 
@@ -77,7 +78,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 38 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
+- [x] 40 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, end-of-term report grading/persistence, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -423,11 +424,19 @@ Implemented:
 - The nominee persists in save data and appears in the War Room, results, mandate, formation and swearing-in flow.
 - Formation confidence reflects the nominee's governing and bargaining profile.
 
-## 19. Endgame report card — PARTIALLY DONE
+## 19. Endgame report card — DONE
 After game ends, show final performance report.
 
 - [x] Election results and term legacy records for seats, trust and commitments delivered.
-- [ ] Unified report with strategy assessment, biggest mistake and historical rating.
+- [x] Unified report with strategy assessment, biggest mistake and historical rating.
+
+Implemented:
+- Month 60 now opens the report before the next-election action can run.
+- The report scores seats, popular vote, trust, delivered promises, cabinet/EXCO quality, stability and organisation.
+- Regional and voter-bloc support are derived from the actual in-scope PRU or PRN state data.
+- Actual campaign events, manifesto, delivery, cabinet incidents and term readiness determine the best strategy and biggest mistake.
+- A 0–100 historical rating and bilingual verdict compare the current term with earlier saved reports.
+- The complete report persists in the career record when the next election begins.
 
 Metrics:
 - Seats won.
@@ -456,6 +465,5 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Unified end-of-term report card.
-2. More scenario packs after the new branch data has been playtested.
-3. Authenticated browser usability and balance validation remains open alongside feature work.
+1. Curated historical and hypothetical scenario packs.
+2. Authenticated browser usability and balance validation remains open alongside feature work.

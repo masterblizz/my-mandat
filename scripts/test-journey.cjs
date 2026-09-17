@@ -16,6 +16,7 @@ const { manifestoCampaignBonus, manifestoStateImpact } = require('../app/data/ma
 const { CAMPAIGN_EVENTS, CAMPAIGN_TONES, campaignEventStateImpact, isCampaignEventUnlocked } = require('../app/data/campaignEvents.ts');
 const { buildElectionNightTimeline, electionNightSeatUpdates } = require('../app/data/electionNight.ts');
 const { PRN_CANDIDATES, prnCandidateChannelBonus, prnCandidateStateImpact } = require('../app/data/prnCandidates.ts');
+const { buildTermReport, termRatingBand } = require('../app/data/termReport.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -187,6 +188,34 @@ test('finished terms reject spending but allow the next election', () => {
   act({ type: 'next-election' });
   assert.equal(store.getState().journey.chapter, 'campaign');
   assert.equal(store.getState().careerProgress.term, 2);
+});
+test('end-of-term report grades actual delivery, strategy and mistakes', () => {
+  act({ type: 'pledge', issue: 'flood' });
+  win();
+  store.setState(state => ({ careerProgress: { ...state.careerProgress, month: 60 } }));
+  const report = buildTermReport(store.getState());
+  assert.equal(report.term, 1);
+  assert.equal(report.chapter, 'government');
+  assert.equal(report.delivered, 0);
+  assert.equal(report.totalPledges, 1);
+  assert.ok(report.biggestMistake.en.includes('1 term commitments'));
+  assert.equal(report.ratingBand, termRatingBand(report.rating));
+  assert.equal(report.voterBlocs.length, 5);
+  assert.ok(report.bestStrategy.en.length > 10);
+});
+test('next election preserves the complete report and PRN scope metrics', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  act({ type: 'prn-candidate', id: 'local-champion' });
+  win('prn');
+  store.setState(state => ({ careerProgress: { ...state.careerProgress, month: 60 } }));
+  const expected = buildTermReport(store.getState());
+  act({ type: 'next-election' });
+  const saved = store.getState().journey.records[0];
+  assert.equal(saved.rating, expected.rating);
+  assert.equal(saved.scope, 'prn');
+  assert.equal(saved.stateId, 'selangor');
+  assert.equal(saved.totalSeats, store.getState().states.find(state => state.id === 'selangor').dunSeats);
+  assert.equal(createSaveSnapshot(store.getState()).journey.records[0].bestStrategy.en, expected.bestStrategy.en);
 });
 test('coalition deal structures trade seats, money, stability and cabinet freedom', () => {
   store.setState(s => ({ day: s.totalDays })); store.getState().finishElection();

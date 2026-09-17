@@ -20,9 +20,12 @@ in the earlier route audit, `GAME_FLOW.md`.
    political actions each quarter. Projects take two quarters. Cabinet quality,
    representation, minister loyalty, policies, delivery, relationships, and
    instability affect public trust and government stability.
-6. At month 60, begin the next election. The term record changes starting support;
-   unfinished promises remain obligations. Campaign resources reset while the city,
-   relationships, promises, and political legacy persist.
+6. At month 60, review a unified term report before beginning the next election.
+   It grades election strength, popular support, trust, delivery, cabinet/EXCO,
+   stability, organisation, regions and voter blocs; it also identifies the best
+   strategy, biggest mistake and historical rating. The saved record changes starting
+   support; unfinished promises remain obligations. Campaign resources reset while
+   the city, relationships, promises, and political legacy persist.
 
 ## Choices and feedback
 
@@ -68,7 +71,7 @@ in the earlier route audit, `GAME_FLOW.md`.
 
 The typed `journey` save contains cabinet appointments and loyalty, minister
 incidents, coalition agreements, manifesto choice/history, campaign-event results, PRN issue coverage, the state leadership nominee, projects, per-seat city zones,
-stories, term records, and the frozen election result.
+stories, full term report records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
 Premature results/cabinet navigation is guarded; finished terms reject further actions.
@@ -78,7 +81,7 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
-issue momentum, state-leadership trade-offs, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
+issue momentum, state-leadership trade-offs, end-of-term grading and report persistence, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
 story/policy repeat protection, complete opposition/rebuilding progression, PRN
 scope retention into a second election, and responsive layout compilation.
 

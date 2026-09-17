@@ -19,7 +19,7 @@ const WAR_ROOM_FLOW_ROUTES = [
   "/cabinet",
 ];
 
-const GOVERNING_ROUTES = ["/swearing-in", "/government", "/career", "/sandbox", "/opposition", "/postmortem"];
+const GOVERNING_ROUTES = ["/swearing-in", "/government", "/career", "/report-card", "/sandbox", "/opposition", "/postmortem"];
 
 // Routes with no dedicated back/hub nav of their own (not part of the war
 // room flow, not one of the governing-flow pages with their own "back to
