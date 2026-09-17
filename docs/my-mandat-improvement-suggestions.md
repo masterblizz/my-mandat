@@ -10,9 +10,18 @@ Last updated: 2026-09-17
 
 ## Latest game-flow improvement checklist
 
-Implementation baseline: `80737a0` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five requested implementation stages are complete;
-broader feature ideas and player validation remain open.
+Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
+for the current rules. The five core game-flow stages and the first six follow-up
+improvements are complete; broader features and player validation remain open.
+
+### Current implementation sequence
+
+- [x] Reproducible PRU/PRN balance audit and projection corrections.
+- [x] Branching character stories with persistent consequences.
+- [x] Coalition deal structures with budget, seat and cabinet trade-offs.
+- [x] Minister profiles, loyalty, defections and cabinet representation effects.
+- [x] State-specific PRN issues with channel fit and diminishing returns.
+- [ ] **NEXT:** Tactical map overlays for hotspots, marginal seats and campaign reach.
 
 ### 1. Connect the full political career — DONE
 
@@ -71,6 +80,7 @@ broader feature ideas and player validation remain open.
 - [x] PRN scope/majority and opposition progression covered by regression tests.
 - [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.
 - [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
+- [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
 - [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
 
 The remaining sections retain the broader backlog. Earlier claims about cabinet
@@ -105,9 +115,11 @@ Make cabinet appointments affect gameplay instead of being cosmetic.
 Implemented:
 - Appointments persist and determine cabinet quality.
 - Cabinet quality of 70 or above adds one trust point per quarter; lower quality subtracts one.
-- Cabinet Effects shows the actual quarterly trust effect.
+- Cabinet Effects shows quality, representation, loyalty and the combined quarterly effect.
+- Candidate profiles expose faction, ambition, scandal risk, regional/community base
+  and persistent loyalty; unstable governments can suffer minister defections.
 - `/government` provides public budgets, policies, projects, trust, stability and recurring dilemmas.
-- Earlier displayed portfolio-specific bonuses and scandal-risk figures were replaced; deeper ministry-specific effects remain future work.
+- Deeper ministry-specific policy effects remain future work.
 
 ## Phase 3 — Multi-term political career — DONE
 Game now continues beyond one election and one governing phase.
@@ -134,7 +146,8 @@ Implemented:
 - Navigation from Phase 3 Career to Phase 4 Sandbox added.
 
 ## 3. Minister loyalty and faction system — DONE
-Each minister can have loyalty, ambition, faction, popularity and scandal risk.
+Each minister has loyalty, ambition, faction and scandal risk. A separate public
+popularity score remains a possible extension.
 
 Implemented:
 - Every candidate has a visible faction, loyalty, ambition and scandal-risk profile.
@@ -239,7 +252,7 @@ water/youth migration, Kedah padi/floods, Penang housing/development, Terengganu
 oil royalties/youth jobs, Johor cross-border economics, Sabah MA63/utilities and
 Sarawak autonomy/rural connectivity.
 
-## 11. Tactical map improvement — TODO
+## 11. Tactical map improvement — NEXT
 Add deeper tactical overlays to the map.
 
 Ideas:
