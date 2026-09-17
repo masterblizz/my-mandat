@@ -12,6 +12,7 @@ const { evaluateCabinet } = require('../app/data/cabinetDynamics.ts');
 const { getPrnIssues, prnIssueActionKey } = require('../app/data/prnIssues.ts');
 const { generateConstituencies } = require('../app/data/constituencies.ts');
 const { seatTacticalVisual, stateTacticalVisual } = require('../app/data/tacticalMap.ts');
+const { manifestoCampaignBonus, manifestoStateImpact } = require('../app/data/manifestoPackages.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -124,6 +125,7 @@ test('policies charge once and resolve on the quarterly clock', () => {
   assert.equal(store.getState().journey.trust, trust + 6);
 });
 test('two elections retain the governing record and constituency commitments', () => {
+  act({ type: 'manifesto', id: 'rural' });
   act({ type: 'pledge', issue: 'flood' }); win();
   act({ type: 'fund', issue: 'flood' });
   while (store.getState().careerProgress.month < 60) act({ type: 'quarter' });
@@ -134,6 +136,8 @@ test('two elections retain the governing record and constituency commitments', (
   assert.equal(store.getState().journey.chapter, 'campaign');
   assert.equal(store.getState().journey.records.length, 1);
   assert.equal(store.getState().journey.pledges[0].status, 'delivered');
+  assert.equal(store.getState().journey.manifestoPackageId, null);
+  assert.deepEqual(store.getState().journey.manifestoHistory, [{ term: 1, id: 'rural' }]);
   assert.ok(store.getState().states.find(s => s.id === 'selangor').mandatSupport > oldSupport);
   assert.equal(store.getState().journey.outcome, null);
   store.setState(s => ({ day: s.totalDays })); store.getState().finishElection();
@@ -238,6 +242,35 @@ test('matching a PRN issue to its campaign channel adds diminishing persistent m
   assert.equal(store.getState().journey.prnIssueActions[key], 2);
   assert.equal(createSaveSnapshot(store.getState()).journey.prnIssueActions[key], 2);
   assert.ok(store.getState().journey.journal[0].en.includes('Affordable housing'));
+});
+test('manifesto packages create distinct voter-bloc and regional trade-offs', () => {
+  const kelantan = store.getState().states.find(state => state.id === 'kelantan');
+  const penang = store.getState().states.find(state => state.id === 'penang');
+  const sabah = store.getState().states.find(state => state.id === 'sabah');
+  assert.ok(manifestoStateImpact('conservative', kelantan) > manifestoStateImpact('conservative', penang));
+  assert.ok(manifestoStateImpact('multiracial', penang) > manifestoStateImpact('multiracial', kelantan));
+  assert.ok(manifestoStateImpact('borneo', sabah) > manifestoStateImpact('borneo', penang));
+  assert.ok(manifestoStateImpact('borneo', penang) < 0);
+});
+test('a manifesto launches once, charges resources and stays inside a PRN battlefield', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  const outsideBefore = JSON.stringify(store.getState().states.filter(state => state.id !== 'selangor'));
+  const fundsBefore = store.getState().resources.funds;
+  act({ type: 'manifesto', id: 'economy' });
+  assert.equal(store.getState().journey.manifestoPackageId, 'economy');
+  assert.equal(store.getState().journey.decisions, 2);
+  assert.equal(fundsBefore - store.getState().resources.funds, 120000);
+  assert.equal(JSON.stringify(store.getState().states.filter(state => state.id !== 'selangor')), outsideBefore);
+  assert.deepEqual(createSaveSnapshot(store.getState()).journey.manifestoHistory, [{ term: 1, id: 'economy' }]);
+  act({ type: 'manifesto', id: 'rural' });
+  assert.equal(store.getState().journey.manifestoPackageId, 'economy');
+  assert.equal(store.getState().journey.decisions, 2);
+  assert.equal(store.getState().resources.funds, fundsBefore - 120000);
+});
+test('manifesto follow-through rewards its preferred campaign channel', () => {
+  const penang = store.getState().states.find(state => state.id === 'penang');
+  assert.ok(manifestoCampaignBonus('economy', penang, 'social') > manifestoCampaignBonus('economy', penang, 'ceramah'));
+  assert.ok(manifestoCampaignBonus('conservative', penang, 'ceramah') > manifestoCampaignBonus('conservative', penang, 'social'));
 });
 test('tactical overlays identify marginal, opponent and swing DUN contests', () => {
   const state = store.getState().states.find(item => item.id === 'selangor');

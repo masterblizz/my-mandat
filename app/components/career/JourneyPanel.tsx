@@ -9,6 +9,7 @@ import { ISSUE_DATA, POLICY_DATA, resumeRoute, type Issue } from "../../store/jo
 import { PARTY_MEMBERS } from "../../data/members";
 import { useLang, t } from "../../i18n/useLang";
 import { getPrnIssues, prnIssueActionKey } from "../../data/prnIssues";
+import { getManifestoPackage, MANIFESTO_PACKAGES, manifestoStateImpact } from "../../data/manifestoPackages";
 
 const button = "border border-cyan/30 px-3 py-2 text-sm text-cyan hover:bg-cyan/10 disabled:opacity-40 disabled:cursor-not-allowed text-left";
 export default function JourneyPanel({ local = false }: { local?: boolean }) {
@@ -28,6 +29,9 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const available = activeCampaign ? j.decisions > 0 : term && s.careerProgress.month < 60 && j.termActions.length < 2;
   const chapter = campaign ? t(lang, "Kempen", "Campaign") : j.chapter === "government" ? t(lang, "Kerajaan", "Government") : j.chapter === "opposition" ? t(lang, "Pembangkang", "Opposition") : j.chapter === "rebuilding" ? t(lang, "Bina semula", "Rebuild") : t(lang, "Mandat", "Mandate");
   const prnIssues = campaign && s.settings.electionScope === "prn" ? getPrnIssues(s.settings.prnStateId) : [];
+  const selectedManifesto = getManifestoPackage(j.manifestoPackageId);
+  const manifestoStates = s.settings.electionScope === "prn" ? s.states.filter(state => state.id === s.settings.prnStateId) : s.states;
+  const manifestoRanked = selectedManifesto ? manifestoStates.map(state => ({ state, impact: manifestoStateImpact(selectedManifesto.id, state) })).sort((a, b) => b.impact - a.impact) : [];
   return <section aria-label={t(lang, "Taklimat kerjaya", "Career briefing")} className="mb-5 border border-cyan/30 bg-black/20 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><Image src={`/avatars/leader-${String(s.leader.avatarIndex + 1).padStart(2, "0")}.png`} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
@@ -45,6 +49,31 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
     {campaign && !j.onboarded && <div className="mt-3 border border-gold/40 bg-gold/5 p-3">
       <strong className="text-gold">{t(lang, "Langkah pertama: dengar masalah penduduk", "First step: hear your residents")}</strong>
       <p className="mt-1 text-text-muted">{ISSUE_DATA[j.scenario].detail[lang]} {t(lang, "Pilih janji di bawah, lawati komuniti, kemudian majukan hari di Bilik Gerakan. Projek dibina selepas anda membentuk kerajaan.", "Choose a commitment below, visit the community, then advance the day in the War Room. Build public projects after forming government.")}</p>
+    </div>}
+    {activeCampaign && !selectedManifesto && <div className="mt-3 border border-gold/35 bg-gold/5 p-3">
+      <strong className="text-gold">{t(lang, "Pilih pakej manifesto", "Choose a manifesto package")}</strong>
+      <p className="mt-1 text-xs text-text-muted">{t(lang, "Pilihan ini kekal untuk pilihan raya semasa, menggunakan satu keputusan, dan mengubah sokongan mengikut profil pengundi setiap negeri.", "This choice lasts for the current election, uses one decision, and shifts support according to each state’s voter profile.")}</p>
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {MANIFESTO_PACKAGES.map(pkg => {
+          const impacts = manifestoStates.map(state => ({ state, impact: manifestoStateImpact(pkg.id, state) })).sort((a, b) => b.impact - a.impact);
+          const strongest = impacts[0], weakest = impacts[impacts.length - 1];
+          const average = impacts.reduce((sum, item) => sum + item.impact, 0) / Math.max(1, impacts.length);
+          const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+          return <article key={pkg.id} className="flex flex-col border bg-black/20 p-3" style={{ borderColor: `${pkg.color}55` }}>
+            <div className="flex items-start justify-between gap-2"><div><h3 className="font-bold text-white">{pkg.title[lang]}</h3><p className="text-xs" style={{ color: pkg.color }}>{pkg.slogan[lang]}</p></div><span className="text-[9px] font-bold tracking-wider text-text-muted">{pkg.preferredChannel === "ceramah" ? t(lang, "CERAMAH", "RALLY") : t(lang, "SOSIAL", "SOCIAL")}</span></div>
+            <p className="mt-2 text-xs leading-relaxed text-text-muted">{pkg.summary[lang]}</p>
+            <p className="mt-2 text-[10px] text-cyan">↑ {pkg.strengths[lang]}</p>
+            <p className="mt-1 text-[10px] text-amber-300">↓ {pkg.risks[lang]}</p>
+            <div className="mt-2 text-[10px] text-text-muted">{s.settings.electionScope === "prn" ? `${strongest?.state.name ?? "—"} ${strongest ? signed(strongest.impact) : "—"}` : `${t(lang, "Purata", "Average")} ${signed(average)} · ${strongest?.state.name} ${strongest ? signed(strongest.impact) : "—"} · ${weakest?.state.name} ${weakest ? signed(weakest.impact) : "—"}`}</div>
+            <button className={`${button} mt-3 w-full`} disabled={!available || s.resources.funds < pkg.cost} onClick={() => s.journeyAction({ type: "manifesto", id: pkg.id })}>{t(lang, "Lancarkan", "Launch")} · RM{pkg.cost.toLocaleString()} · {t(lang, "jentera", "organisation")} {pkg.organisationDelta >= 0 ? "+" : ""}{pkg.organisationDelta}</button>
+          </article>;
+        })}
+      </div>
+    </div>}
+    {activeCampaign && selectedManifesto && <div className="mt-3 border bg-black/25 p-3" style={{ borderColor: `${selectedManifesto.color}88` }}>
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><strong className="text-white">{t(lang, "Manifesto aktif", "Active manifesto")} · {selectedManifesto.title[lang]}</strong><p className="mt-1 text-xs" style={{ color: selectedManifesto.color }}>{selectedManifesto.slogan[lang]}</p></div><Link className={button} href="/campaign">{selectedManifesto.preferredChannel === "ceramah" ? t(lang, "Bawa ke ceramah →", "Take it to a rally →") : t(lang, "Bawa ke media sosial →", "Take it to social media →")}</Link></div>
+      <p className="mt-2 text-xs text-text-muted">{selectedManifesto.summary[lang]}</p>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px]"><span className="text-cyan">↑ {selectedManifesto.strengths[lang]}</span><span className="text-amber-300">↓ {selectedManifesto.risks[lang]}</span><span className="text-text-muted">{t(lang, "Terkuat", "Strongest")}: {manifestoRanked[0]?.state.name} {manifestoRanked[0] ? `${manifestoRanked[0].impact >= 0 ? "+" : ""}${manifestoRanked[0].impact.toFixed(2)}` : "—"}</span><span className="text-text-muted">{t(lang, "Risiko", "Risk")}: {manifestoRanked[manifestoRanked.length - 1]?.state.name} {manifestoRanked.length ? `${manifestoRanked[manifestoRanked.length - 1].impact >= 0 ? "+" : ""}${manifestoRanked[manifestoRanked.length - 1].impact.toFixed(2)}` : "—"}</span></div>
     </div>}
     {activeCampaign && prnIssues.length > 0 && <div className="mt-3 border border-cyan/25 bg-cyan/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

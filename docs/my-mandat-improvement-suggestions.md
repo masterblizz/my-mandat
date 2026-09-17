@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first six follow-up
+for the current rules. The five core game-flow stages and the first seven follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -22,7 +22,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Minister profiles, loyalty, defections and cabinet representation effects.
 - [x] State-specific PRN issues with channel fit and diminishing returns.
 - [x] Tactical map overlays for hotspots, marginal seats and campaign reach.
-- [ ] **NEXT:** Broader manifesto packages with voter-bloc trade-offs.
+- [x] Broader manifesto packages with voter-bloc trade-offs.
+- [ ] **NEXT:** Debate and TV appearance campaign events.
 
 ### 1. Connect the full political career — DONE
 
@@ -71,7 +72,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 25 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum and tactical-map classification.
+- [x] 28 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification and manifesto trade-offs.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -269,11 +270,15 @@ Implemented:
 - Each layer reports the number of flagged targets and names its strongest target.
 - Hover details explain why a DUN or state matches the selected tactical filter.
 
-## 12. Manifesto system — PARTIALLY DONE
+## 12. Manifesto system — DONE
 Player chooses campaign manifesto.
 
 - [x] Flood, clinic and jobs promises with funding, delivery and reelection consequences.
-- [ ] Broader ideological packages and distinct voter-bloc trade-offs listed below.
+- [x] Seven broader ideological packages with distinct voter-bloc and regional trade-offs.
+- [x] One package per election, with a real funding cost, one major decision and an organisation effect.
+- [x] Immediate state-by-state support and seat-projection changes; PRN effects stay inside the selected state.
+- [x] Persistent selection/history and fresh selection at the next election.
+- [x] Follow-through bonuses when rallies or social campaigning match the package, shown in previews and the cause/effect journal.
 
 Manifesto options:
 - Economy package.
@@ -410,8 +415,8 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Player balance/usability testing, including complete PRN and opposition browser runs.
-2. Broader manifesto packages with voter-bloc trade-offs.
+1. Debate and TV appearance campaign events.
+2. Player balance/usability testing, including complete PRN and opposition browser runs.
 3. PRN MB candidate differentiation.
 4. Richer election-night drama and a unified end-of-term report card.
 5. More scenario packs after the new branch data has been playtested.

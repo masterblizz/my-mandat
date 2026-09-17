@@ -30,6 +30,11 @@ in the earlier route audit, `GAME_FLOW.md`.
   rally or social-media mini-game earns extra support when the channel fits its
   target voters. Repeating an issue produces diminishing returns, and coverage
   persists in the campaign record.
+- Each election offers seven manifesto packages: economy, anti-corruption,
+  conservative values, multiracial reform, rural development, Borneo autonomy,
+  or youth jobs. The choice costs funds and one major decision, immediately shifts
+  each in-scope state according to its voter profile, and adds a smaller follow-through
+  effect when the player uses the package's preferred campaign channel.
 - The War Room map can switch between base, marginal-seat, LAWAN-stronghold,
   swing-hotspot, campaign-reach and sentiment layers. PRN resolves individual DUN
   points; PRU shades state risk while surfacing priority parliamentary seats. Reach
@@ -51,7 +56,7 @@ in the earlier route audit, `GAME_FLOW.md`.
 ## Persistence and safeguards
 
 The typed `journey` save contains cabinet appointments and loyalty, minister
-incidents, coalition agreements, PRN issue coverage, projects, per-seat city zones,
+incidents, coalition agreements, manifesto choice/history, PRN issue coverage, projects, per-seat city zones,
 stories, term records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
@@ -62,7 +67,7 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
-issue momentum, tactical-map classification, persistence, project delivery,
+issue momentum, manifesto trade-offs and channel fit, tactical-map classification, persistence, project delivery,
 story/policy repeat protection, opposition progression, and a second election.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
