@@ -41,14 +41,14 @@ export default function FormationPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
-      <main className="pt-[56px] pb-[58px] px-6 w-full">
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <main className="w-full px-3 pb-[58px] pt-[56px] sm:px-6">
+        <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {terms.appointingAuthority} · {t(lang, "formation_page.formation", { termsGovernmentName: terms.governmentName })}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "formation_page.negotiatePower")}</h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{terms.scopeLabel} · {leader.partyAbbr} · {outcome.seatsWon}/{outcome.totalSeats} {t(lang, "formation_page.seats", { termsSeatLabel: terms.seatLabel })}</div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => router.push("/mandate")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "formation_page.mandate")}</button>
             <button onClick={() => { game.finishElection(); if (canForm) { game.confirmCoalition(partners, dealTerms); navigate("/cabinet"); } else { game.enterTerm("opposition"); navigate("/opposition"); } }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${canForm ? "rgb(var(--gold-rgb)/0.5)" : "rgb(255 176 0 / 0.38)"}`, color: canForm ? "var(--gold)" : "var(--warn-orange)", background: canForm ? "rgb(var(--gold-rgb)/0.08)" : "rgb(255 176 0 / 0.06)" }}>{isPending ? t(lang, "formation_page.loading") : canForm ? t(lang, "formation_page.form", { termsExecutiveBody: terms.executiveBody }) : t(lang, "formation_page.enterOpposition")}</button>
           </div>

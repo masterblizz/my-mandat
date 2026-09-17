@@ -75,7 +75,8 @@ Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
 issue momentum, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
-story/policy repeat protection, opposition progression, and a second election.
+story/policy repeat protection, complete opposition/rebuilding progression, PRN
+scope retention into a second election, and responsive layout compilation.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
 mechanics, not real political forecasts. The three introductory scenarios use the

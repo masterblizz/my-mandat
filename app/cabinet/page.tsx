@@ -333,8 +333,8 @@ export default function CabinetPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
-      <main className="pt-[56px] pb-[58px] px-6 w-full">
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <main className="w-full px-3 pb-[58px] pt-[56px] sm:px-6">
+        <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "cabinet_page.formationAfter", { termsGovernmentName: terms.governmentName, termsScopeLabel: terms.scopeLabel })}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "cabinet_page.form", { termsExecutiveBody: terms.executiveBody })}</h1>
@@ -342,7 +342,7 @@ export default function CabinetPage() {
               {leader.partyAbbr} · {seatsWon}/{totalSeats} {t(lang, "cabinet_page.seats", { termsSeatLabel: terms.seatLabel })} · {capacityLabel}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => router.push("/formation")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "cabinet_page.formation")}</button>
             <button onClick={() => navigate("/swearing-in")} disabled={!canFormGovernment || isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-40 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--neon-green-rgb,0 255 136)/0.42)", color: "var(--neon-green)", background: "rgb(0 255 136 / 0.06)" }}>{isPending ? t(lang, "cabinet_page.loading") : t(lang, "cabinet_page.swearingIn")}</button>
             <button onClick={autoFillCabinet} disabled={!canFormGovernment} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-40" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "cabinet_page.aiAdvisorAutoFill")}</button>

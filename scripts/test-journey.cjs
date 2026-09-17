@@ -333,6 +333,35 @@ test('PRN election night counts only the selected state DUN', () => {
   assert.ok(seatUpdates.every(update => update.stateId === 'selangor'));
   assert.equal(new Set(seatUpdates.map(update => update.id)).size, selected.dunSeats);
 });
+test('full PRN defeat flows through opposition and back to a scoped second election', () => {
+  store.getState().updateSettings({ electionScope: 'prn', prnStateId: 'selangor' });
+  act({ type: 'manifesto', id: 'youth-jobs' });
+  while (store.getState().day < store.getState().totalDays) store.getState().advanceDay();
+  store.setState(state => ({ states: state.states.map(item => item.id === 'selangor' ? { ...item, mandatSupport: 35, lawanSupport: 55, othersSupport: 10 } : item) }));
+  store.getState().finishElection();
+  store.getState().enterTerm('opposition');
+  assert.equal(store.getState().journey.chapter, 'opposition');
+  assert.equal(resumeRoute(store.getState()), '/opposition');
+  while (store.getState().careerProgress.month < 60) act({ type: 'quarter' });
+  act({ type: 'next-election' });
+  assert.equal(store.getState().journey.chapter, 'campaign');
+  assert.equal(store.getState().settings.electionScope, 'prn');
+  assert.equal(store.getState().settings.prnStateId, 'selangor');
+  assert.equal(store.getState().careerProgress.term, 2);
+});
+test('heavy PRU defeat completes the rebuilding route and preserves its legacy', () => {
+  store.setState(state => ({ day: state.totalDays, states: state.states.map(item => ({ ...item, mandatSupport: 14, lawanSupport: 76, othersSupport: 10 })) }));
+  store.getState().finishElection();
+  assert.equal(store.getState().journey.outcome.status, 'collapse');
+  store.getState().enterTerm('rebuilding');
+  assert.equal(resumeRoute(store.getState()), '/postmortem');
+  act({ type: 'term', action: 'branches' });
+  while (store.getState().careerProgress.month < 60) act({ type: 'quarter' });
+  act({ type: 'next-election' });
+  assert.equal(store.getState().careerProgress.term, 2);
+  assert.equal(store.getState().journey.records.length, 1);
+  assert.equal(store.getState().journey.chapter, 'campaign');
+});
 test('tactical overlays identify marginal, opponent and swing DUN contests', () => {
   const state = store.getState().states.find(item => item.id === 'selangor');
   const base = generateConstituencies(state, 'dun')[0];

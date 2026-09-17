@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first nine follow-up
+for the current rules. The five core game-flow stages and the first ten follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -25,7 +25,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Broader manifesto packages with voter-bloc trade-offs.
 - [x] Debate and TV appearance campaign events.
 - [x] Election-night seat reveal and late-count drama.
-- [ ] **NEXT:** Full PRN/opposition playtesting, mobile layout and usability pass.
+- [x] Scripted full PRN/opposition/rebuilding journeys and responsive-layout hardening.
+- [ ] **NEXT:** PRN MB/Ketua Menteri candidate differentiation.
 
 ### 1. Connect the full political career — DONE
 
@@ -70,11 +71,12 @@ improvements are complete; broader features and player validation remain open.
 - [x] BM/EN next-step guidance, costs and remaining-action feedback.
 - [x] Player portrait and term/chapter identity in career briefings.
 - [x] Project-delivery celebrations respecting reduced motion.
+- [x] Responsive breakpoint hardening for campaign, War Room, election night, results, mandate, formation and cabinet screens.
 - [ ] Conduct new-player usability and mobile-layout testing across the full journey.
 
 ### Verification and remaining validation
 
-- [x] 33 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs, major campaign events and exact PRU/PRN election-night counts.
+- [x] 35 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -82,6 +84,7 @@ improvements are complete; broader features and player validation remain open.
 - [x] Browser: clinic funding, reload recovery, delivery celebration and constituency project.
 - [x] Browser: full governing term, second campaign and fresh election result.
 - [x] PRN scope/majority and opposition progression covered by regression tests.
+- [x] Scripted full PRN defeat → opposition → second election and PRU collapse → rebuilding → second election journeys.
 - [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.
 - [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
 - [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
@@ -446,7 +449,7 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Player balance/usability testing, including complete PRN and opposition browser runs.
-2. PRN MB candidate differentiation.
-3. Unified end-of-term report card.
-4. More scenario packs after the new branch data has been playtested.
+1. PRN MB candidate differentiation.
+2. Unified end-of-term report card.
+3. More scenario packs after the new branch data has been playtested.
+4. Authenticated browser usability and balance validation remains open alongside feature work.

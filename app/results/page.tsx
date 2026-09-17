@@ -330,7 +330,7 @@ export default function ResultsPage() {
       )}
 
       <main
-        className="pt-[56px] pb-[52px] px-8 w-full"
+        className="w-full px-3 pb-[52px] pt-[56px] sm:px-8"
         style={{
           opacity: reveal ? 1 : 0,
           transform: reveal ? "translateY(0)" : "translateY(12px)",
@@ -338,7 +338,7 @@ export default function ResultsPage() {
         }}
       >
         {/* Page title */}
-        <div className="flex items-center justify-between mb-5 mt-2">
+        <div className="mb-5 mt-2 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {isPrn ? t(lang, "results_page.prnResultsNightDunByDun") : t(lang, "results_page.resultsNightSeatBySeatCount")}</div>
             <h1
@@ -403,7 +403,7 @@ export default function ResultsPage() {
         </div>
 
         {/* Seat counts + bar */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { party: partyDisplay, seats: mandatSeats, color: leader.partyColor, target: t(lang, "results_page.target", { majorityTarget: majorityTarget }) },
             { party: "LAWAN", seats: lawanSeats, color: "var(--warn-orange)", target: t(lang, "results_page.seats") },
@@ -430,10 +430,10 @@ export default function ResultsPage() {
         </TacticalPanel>
 
         {/* State results + Campaign stats side by side */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
           {/* State Results */}
           <TacticalPanel title={stateResultsTitle} noPadding>
-            <div className="overflow-y-auto" style={{ maxHeight: "210px" }}>
+            <div className="overflow-auto" style={{ maxHeight: "210px" }}>
               <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
@@ -509,7 +509,7 @@ export default function ResultsPage() {
                   <div className="text-[11px] text-text-muted tracking-widest">{detailTitle}</div>
                   <div className="text-lg font-black text-white tracking-widest">{selectedState?.name ?? "-"}</div>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                   {[
                     { label: t(lang, "results_page.win"), value: selectedSeatSummary.wins, color: "var(--cyan)" },
                     { label: t(lang, "results_page.loss"), value: selectedSeatSummary.losses, color: "var(--warn-orange)" },
@@ -523,7 +523,7 @@ export default function ResultsPage() {
                   ))}
                 </div>
               </div>
-              <div className="overflow-y-auto" style={{ maxHeight: "280px" }}>
+              <div className="overflow-auto" style={{ maxHeight: "280px" }}>
                 <table className="w-full text-[11px]" style={{ fontFamily: "Space Mono, monospace" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
@@ -618,7 +618,7 @@ export default function ResultsPage() {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-wrap justify-end gap-3">
           <button
             onClick={handleRestart}
             disabled={isPending}

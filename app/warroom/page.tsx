@@ -702,7 +702,7 @@ export default function WarroomPage() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-6 top-[108px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.22em] uppercase"
+          className="fixed right-2 top-[108px] z-[80] border px-3 py-3 text-[10px] font-black tracking-[0.18em] uppercase sm:right-6 sm:px-5 sm:text-[11px] sm:tracking-[0.22em]"
           style={{
             borderColor: manualSaveNotice.startsWith("SAVE FAILED") ? "rgb(255 68 68 / 0.55)" : "rgb(var(--gold-rgb) / 0.65)",
             background: manualSaveNotice.startsWith("SAVE FAILED")
@@ -719,7 +719,7 @@ export default function WarroomPage() {
 
       {/* Top Stats Bar */}
       <div
-        className="fixed top-[40px] left-0 right-0 z-40 flex items-stretch"
+        className="fixed left-0 right-0 top-[40px] z-40 flex items-stretch overflow-x-auto"
         style={{
           height: "72px",
           background: "var(--panel)",
@@ -767,7 +767,7 @@ export default function WarroomPage() {
         ].map((item, i) => (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center justify-center px-2"
+            className="flex min-w-[112px] flex-1 flex-col items-center justify-center px-2"
             style={{
               borderRight: i < 4 ? "1px solid rgb(var(--cyan-rgb) / 0.15)" : "none",
             }}
@@ -868,7 +868,7 @@ export default function WarroomPage() {
       </div>
 
       {/* Main Content */}
-      <main className="pt-[164px] pb-[56px] px-6">
+      <main className="px-3 pb-[56px] pt-[164px] sm:px-6">
         <JourneyPanel />
         <div className="flex flex-col gap-4 w-full">
 
@@ -916,9 +916,9 @@ export default function WarroomPage() {
 
           {/* PRU Timeline — atas peta supaya terus kelihatan */}
           <TacticalPanel title={electionModeTitle}>
-            <div className="relative">
+            <div className="relative overflow-x-auto">
               <div className="absolute top-[22px] left-[calc(100%/12)] right-[calc(100%/12)] h-[2px]" style={{ background: "rgb(var(--cyan-rgb) / 0.15)" }} />
-              <div className="grid grid-cols-6 gap-3">
+              <div className="grid min-w-[720px] grid-cols-6 gap-3">
                 {[
                   { day: "T-30", tarikh: "12 JUN 2025", labelKey: "timelineDissolvedLabel",   subKey: "timelineDissolvedSub",     done: day > 1, active: day < NOMINATION_DAY      },
                   { day: "T-15", tarikh: "27 JUN 2025", labelKey: "timelineNominationLabel",  subKey: "timelineNominationSub",    done: day > NOMINATION_DAY, active: day === NOMINATION_DAY      },
@@ -1033,7 +1033,7 @@ export default function WarroomPage() {
 
           {/* Persistent Navigation Buttons */}
           <div
-            className="fixed left-0 right-0 top-[112px] z-40 grid grid-cols-5 gap-2 px-6 py-2"
+            className="fixed left-0 right-0 top-[112px] z-40 flex gap-2 overflow-x-auto px-3 py-2 sm:px-6"
             style={{
               background: "linear-gradient(180deg, var(--bg), rgba(8,12,20,0.90))",
               borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.18)",
@@ -1043,7 +1043,7 @@ export default function WarroomPage() {
               <button
                 key={path}
                 onClick={() => router.push(path)}
-                className="py-2.5 text-[12px] tracking-widest uppercase transition-all hover:opacity-80 flex items-center justify-center gap-2"
+                className="flex min-w-[150px] flex-1 items-center justify-center gap-2 py-2.5 text-[12px] tracking-widest uppercase transition-all hover:opacity-80"
                 style={{
                   background: "rgb(var(--cyan-rgb) / 0.06)",
                   border: "1px solid rgb(var(--cyan-rgb) / 0.2)",
@@ -1060,11 +1060,11 @@ export default function WarroomPage() {
           <ElectionFlowPanel day={day} totalDays={totalDays} lang={lang} electionScope={electionScope} prnStateName={prnState?.name} />
 
           {/* Bottom Row — 4 panels side by side */}
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row">
             {/* State / Daerah Summary Table */}
-            <div style={{ flex: "0 0 42%" }}>
+            <div className="xl:basis-[42%]">
               <TacticalPanel title={electionScope === "prn" ? `DUN — ${prnState?.name?.toUpperCase() ?? "NEGERI"}` : t(lang, "warroom_page.stateSummary")} noPadding>
-                <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+                <div className="overflow-auto" style={{ maxHeight: "300px" }}>
                   {electionScope === "prn" ? (
                     <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                       <thead>
@@ -1157,7 +1157,7 @@ export default function WarroomPage() {
             </div>
 
             {/* Seat Distribution */}
-            <div style={{ flex: "0 0 20%" }}>
+            <div className="xl:basis-[20%]">
               {electionScope === "prn" && prnState ? (
                 <TacticalPanel title={t(lang, "warroom_page.seatDistributionTotal", { prnStateDunSeats: prnState.dunSeats })}>
                   <SeatDonut
@@ -1186,12 +1186,12 @@ export default function WarroomPage() {
             </div>
 
             {/* Opposition Intel */}
-            <div style={{ flex: "0 0 20%" }}>
+            <div className="xl:basis-[20%]">
               <OppositionIntelPanel log={opponentLog} lang={lang} day={day} />
             </div>
 
             {/* Live News */}
-            <div style={{ flex: "0 0 18%" }}>
+            <div className="xl:basis-[18%]">
               <TacticalPanel title={t(lang, "warroom_page.liveNewsDay", { day: day })} noPadding>
                 <div className="overflow-y-auto px-4 pb-3" style={{ maxHeight: "300px" }}>
                   {todaysNews.map((news) => {

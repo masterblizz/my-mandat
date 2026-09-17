@@ -1244,15 +1244,15 @@ export default function CampaignPage() {
       )}
       {activeCampaignEvent && <CampaignEventModal eventId={activeCampaignEvent} onClose={() => setActiveCampaignEvent(null)} />}
 
-      <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
+      <main className="min-h-screen px-3 pb-[52px] pt-[56px] sm:px-6">
 
         {/* Tab Row */}
-        <div className="flex gap-0 border-b mb-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
+        <div className="mb-4 flex gap-0 overflow-x-auto border-b" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
+              className="shrink-0 whitespace-nowrap px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
               style={{
                 color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
                 borderBottom: activeTab === tab ? "2px solid var(--gold)" : "2px solid transparent",
@@ -1267,11 +1267,11 @@ export default function CampaignPage() {
         </div>
 
         {/* NOMINATION TAB */}
-        {activeTab === "NOMINATION" && <NominationTab />}
+        {activeTab === "NOMINATION" && <div className="overflow-x-auto"><NominationTab /></div>}
 
         {/* MINI-GAMES TAB */}
         {activeTab === "MINI-GAMES" && (
-          <div className="grid grid-cols-[340px_1fr] gap-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_1fr]">
             <TacticalPanel title={t(lang, "campaign_page.miniGameTarget")}>
               <div className="flex gap-2 mb-3">
                 {(["ceramah", "social"] as MiniGameType[]).map((type) => (
@@ -1289,12 +1289,12 @@ export default function CampaignPage() {
             </TacticalPanel>
 
             <TacticalPanel title={`${miniGameType === "ceramah" ? t(lang, "campaign_page.ceramahMiniGame") : t(lang, "campaign_page.socialMediaMiniGame")} — ${miniGameState?.name.toUpperCase() ?? t(lang, "campaign_page.state")}`}>
-              <div className="mb-4 grid grid-cols-3 gap-3">
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.audienceFit")}</div><div className="text-xl font-black" style={{ color: "var(--cyan)" }}>{miniGameType === "ceramah" ? t(lang, "campaign_page.rural", { miniGameStateDemographicsRural: miniGameState?.demographics.rural }) : t(lang, "campaign_page.youth", { miniGameStateDemographicsYouth: miniGameState?.demographics.youth })}</div></div>
                 <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.mediaBuy")}</div><div className="text-xl font-black" style={{ color: "var(--gold)" }}>{resources.mediaBuy}</div></div>
                 <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}><div className="text-[10px] text-text-muted">{t(lang, "campaign_page.funds")}</div><div className="text-xl font-black" style={{ color: "var(--neon-green)" }}>{formatRM(resources.funds)}</div></div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {(Object.keys(MINI_GAME_TACTICS) as MiniGameTactic[]).map((tactic) => {
                   const option = MINI_GAME_TACTICS[tactic];
                   return (
@@ -1308,7 +1308,7 @@ export default function CampaignPage() {
                 })}
               </div>
             </TacticalPanel>
-            <div className="col-span-2">
+            <div className="xl:col-span-2">
               <TacticalPanel title={t(lang, "ACARA BESAR: DEBAT & TV", "MAJOR EVENTS: DEBATES & TV") }>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-[11px] text-text-muted">{t(lang, "Setiap acara boleh dimainkan sekali setiap pilihan raya. Nada, profil pemimpin, manifesto, audiens negeri dan kesukaran menentukan hasil.", "Each event can be played once per election. Tone, leader profile, manifesto, state audiences and difficulty determine the result.")}</p><span className="text-[10px] font-bold tracking-wider text-gold">{journey.decisions}/3 {t(lang, "KEPUTUSAN", "DECISIONS")}</span></div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -1332,9 +1332,9 @@ export default function CampaignPage() {
 
         {/* OPERATIONS TAB */}
         {activeTab === "OPERATIONS" && (
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row">
             {/* Left Column ~55% */}
-            <div className="flex flex-col gap-4" style={{ flex: "0 0 55%" }}>
+            <div className="flex flex-col gap-4 xl:basis-[55%]">
 
               {/* Active Operations */}
               <TacticalPanel title={t(lang, "campaign_page.activeOperations")}>
