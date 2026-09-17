@@ -11,7 +11,7 @@ Last updated: 2026-09-17
 ## Latest game-flow improvement checklist
 
 Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first twelve follow-up
+for the current rules. The five core game-flow stages and the first thirteen follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -28,7 +28,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Scripted full PRN/opposition/rebuilding journeys and responsive-layout hardening.
 - [x] PRN MB/Ketua Menteri candidate differentiation.
 - [x] Unified end-of-term report card.
-- [ ] **NEXT:** Curated historical and hypothetical scenario packs.
+- [x] Curated historical and hypothetical scenario packs.
+- [ ] **NEXT:** Authenticated full-journey browser usability and balance validation.
 
 ### 1. Connect the full political career — DONE
 
@@ -62,6 +63,8 @@ improvements are complete; broader features and player validation remain open.
 - [x] Earlier decisions unlock or prevent later follow-up stories.
 - [x] Coalition allocation demands reduce the opening public budget.
 - [x] Guided fictional starts centred on flood protection, clinics or jobs.
+- [x] Six curated scenario packs: three history-inspired PRU campaigns and three hypothetical PRU/PRN futures.
+- [x] Scenario-specific resources, support geography, trust, organisation, opponent/media pressure and live objectives.
 - [x] Coalition partners offer development, portfolio, or confidence-and-supply deals.
 - [x] Deal structures change supporting seats, opening budget, stability and effective cabinet quality.
 - [x] Add persistent minister loyalty, ambition, factions and defections during weak governments.
@@ -78,7 +81,7 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 40 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, end-of-term report grading/persistence, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
+- [x] 43 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, scenario-pack starting conditions/objectives, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, end-of-term report grading/persistence, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
 - [x] TypeScript check and production build passed (44 pages generated).
@@ -465,5 +468,5 @@ Remaining:
 - Minister detail modal.
 
 ## Recommended next implementation order
-1. Curated historical and hypothetical scenario packs.
-2. Authenticated browser usability and balance validation remains open alongside feature work.
+1. Authenticated browser usability and balance validation.
+2. Named coalition representatives and cabinet-wide media reactions remain optional expansion work.

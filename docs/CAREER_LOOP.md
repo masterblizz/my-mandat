@@ -5,7 +5,9 @@ in the earlier route audit, `GAME_FLOW.md`.
 
 ## Player journey
 
-1. Choose a guided local issue (flood protection, clinic, or jobs), or use detailed setup.
+1. Choose one of six curated historical-inspired or hypothetical scenarios, or use
+   detailed setup. Scenario packs set the PRU/PRN scope, battlefield, resources,
+   opposition/media pressure, support geography and three live objectives.
 2. Spend three major decisions per campaign day on promises, community visits,
    fundraising, organising, stories, or tactical deployments. End the day from the
    briefing or War Room to resolve opponents and ongoing operations.
@@ -55,6 +57,10 @@ in the earlier route audit, `GAME_FLOW.md`.
   rings reflect active field and digital operations.
 - Eight non-repeating character dilemmas have scenario-specific effects. Earlier
   choices can unlock follow-up stories; poor relationships create term pressure.
+- The scenario archive contains three fictional campaigns inspired by the political
+  climates of 1998, 2008 and 2018, plus Borneo 2030, Selangor PRN 2032 and Kelantan
+  PRN 2035 alternatives. Historical labels provide context; parties, support numbers
+  and outcomes remain fictional. Objectives update from actual campaign state.
 - Coalition partners offer development allocations, portfolio access, or
   confidence-and-supply. Each structure changes seats, cost, stability, or cabinet
   freedom. Partner seats still come only from the simulated independent total.
@@ -70,7 +76,7 @@ in the earlier route audit, `GAME_FLOW.md`.
 ## Persistence and safeguards
 
 The typed `journey` save contains cabinet appointments and loyalty, minister
-incidents, coalition agreements, manifesto choice/history, campaign-event results, PRN issue coverage, the state leadership nominee, projects, per-seat city zones,
+incidents, coalition agreements, scenario identity, manifesto choice/history, campaign-event results, PRN issue coverage, the state leadership nominee, projects, per-seat city zones,
 stories, full term report records, and the frozen election result.
 Autosave updates the active slot. Refresh and Continue resume the current chapter.
 Older saves receive defaults and legacy constituency development is migrated.
@@ -81,10 +87,11 @@ Premature results/cabinet navigation is guarded; finished terms reject further a
 Run `node scripts/test-journey.cjs`, `npx tsc --noEmit --pretty false`, and
 `npm run build`. The regression suite exercises scarcity, affordability, PRN scope,
 coalition arithmetic, cabinet representation and defections, state-specific PRN
-issue momentum, state-leadership trade-offs, end-of-term grading and report persistence, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
+issue momentum, scenario starts/objectives, state-leadership trade-offs, end-of-term grading and report persistence, manifesto trade-offs and channel fit, campaign-event tone/audience fit, tactical-map classification, persistence, project delivery,
 story/policy repeat protection, complete opposition/rebuilding progression, PRN
 scope retention into a second election, and responsive layout compilation.
 
 Balance still requires player testing. Coalition blocs and story numbers are game
 mechanics, not real political forecasts. The three introductory scenarios use the
-fictional dataset; detailed setup retains the other available datasets.
+fictional dataset; detailed setup retains the other available datasets. PRN scenario
+packs follow the same premium access rule as detailed PRN setup.

@@ -16,6 +16,7 @@ import { findPrnIssue, prnIssueActionKey, prnIssueBonus } from "../data/prnIssue
 import { getManifestoPackage, manifestoCampaignBonus } from "../data/manifestoPackages";
 import { getCampaignEvent, getCampaignTone, isCampaignEventUnlocked, previewCampaignEvent, type CampaignEventId, type CampaignToneId } from "../data/campaignEvents";
 import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates";
+import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -152,6 +153,7 @@ export interface GameState {
   setCareerProgress: (patch: Partial<CareerProgress>) => void;
   setGovernmentProgress: (patch: Partial<GovernmentProgress>) => void;
   setSandboxProgress: (patch: Partial<SandboxProgress>) => void;
+  applyScenarioPack: (id: ScenarioPackId) => void;
   setPhase: (phase: GameState["phase"]) => void;
   setDataset: (dataset: DatasetKind) => void;
   setNomination: (constituencyId: string, entry: NominationEntry | null) => void;
@@ -313,6 +315,39 @@ export const useGameStore = create<GameState>((set, get) => ({
   setCareerProgress: (patch) => set((state) => ({ careerProgress: { ...state.careerProgress, ...patch } })),
   setGovernmentProgress: (patch) => set((state) => ({ governmentProgress: { ...state.governmentProgress, ...patch } })),
   setSandboxProgress: (patch) => set((state) => ({ sandboxProgress: { ...state.sandboxProgress, ...patch } })),
+  applyScenarioPack: (id) => set((state) => {
+    const pack = getScenarioPack(id);
+    if (!pack) return {};
+    const settings = {
+      ...state.settings,
+      campaignLength: "full" as const,
+      electionScope: pack.scope,
+      prnStateId: pack.scope === "prn" ? pack.stateId : state.settings.prnStateId,
+      difficulty: pack.difficulty,
+      startingFund: pack.funds,
+      oppositionStrength: pack.oppositionStrength,
+      mediaBias: pack.mediaBias,
+    };
+    if (typeof window !== "undefined") localStorage.setItem("mymandat-game-settings", JSON.stringify(settings));
+    return {
+      settings,
+      difficulty: pack.difficulty,
+      selectedStateId: pack.scope === "prn" ? pack.stateId : null,
+      operations: [],
+      states: applyScenarioState(state.states, pack),
+      resources: { ...state.resources, funds: pack.funds, manpower: pack.manpower, mediaBuy: pack.mediaBuy },
+      journey: {
+        ...state.journey,
+        scenario: pack.issue,
+        scenarioPackId: pack.id,
+        scenarioPackTerm: state.careerProgress.term,
+        trust: pack.trust,
+        organisation: pack.organisation,
+        journal: journal(state.journey, `Senario “${pack.title.ms}” bermula. Tiga objektif khas kini aktif.`, `“${pack.title.en}” scenario started. Three special objectives are now active.`),
+      },
+      alerts: [{ id: `scenario-${pack.id}`, time: "00:00", message: `${pack.year} SCENARIO: ${pack.title.en} · ${pack.scope.toUpperCase()} · ${pack.difficulty.toUpperCase()}`, type: "warning" }],
+    };
+  }),
 
   setPhase: (phase) => set({ phase }),
 

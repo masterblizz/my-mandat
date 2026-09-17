@@ -17,6 +17,7 @@ const { CAMPAIGN_EVENTS, CAMPAIGN_TONES, campaignEventStateImpact, isCampaignEve
 const { buildElectionNightTimeline, electionNightSeatUpdates } = require('../app/data/electionNight.ts');
 const { PRN_CANDIDATES, prnCandidateChannelBonus, prnCandidateStateImpact } = require('../app/data/prnCandidates.ts');
 const { buildTermReport, termRatingBand } = require('../app/data/termReport.ts');
+const { SCENARIO_PACKS, getScenarioPack, scenarioObjectiveProgress } = require('../app/data/scenarioPacks.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -116,6 +117,38 @@ test('story decisions unlock only their valid follow-up branches', () => {
   act({ type: 'story', storyId: 'loyalty-event', choice: 'refuse', character: 'Organiser' });
   assert.ok(availableStories('term', store.getState().journey.storyChoices).some(s => s.id === 'loyalty-reckoning'));
   assert.ok(!availableStories('term', store.getState().journey.storyChoices).some(s => s.id === 'protected-figure-leak'));
+});
+test('scenario archive contains six distinct bilingual historical and future starts', () => {
+  assert.equal(SCENARIO_PACKS.length, 6);
+  assert.equal(new Set(SCENARIO_PACKS.map(pack => pack.id)).size, 6);
+  assert.equal(SCENARIO_PACKS.filter(pack => pack.kind === 'historical').length, 3);
+  assert.equal(SCENARIO_PACKS.filter(pack => pack.kind === 'hypothetical').length, 3);
+  assert.ok(SCENARIO_PACKS.every(pack => pack.title.ms && pack.title.en && pack.premise.ms && pack.premise.en && pack.objectives.length === 3));
+});
+test('scenario packs apply real scoped resources, pressure and state support', () => {
+  const beforeJohor = store.getState().states.find(state => state.id === 'johor').mandatSupport;
+  const beforeMelaka = store.getState().states.find(state => state.id === 'melaka').mandatSupport;
+  store.getState().applyScenarioPack('change-government-2018');
+  const after = store.getState();
+  const pack = getScenarioPack('change-government-2018');
+  assert.equal(after.journey.scenarioPackId, pack.id);
+  assert.equal(after.journey.scenarioPackTerm, 1);
+  assert.equal(after.settings.difficulty, 'hard');
+  assert.equal(after.settings.oppositionStrength, 76);
+  assert.equal(after.resources.funds, 2300000);
+  assert.equal(after.journey.trust, 61);
+  assert.equal(after.states.find(state => state.id === 'johor').mandatSupport, beforeJohor + 3.5);
+  assert.equal(after.states.find(state => state.id === 'melaka').mandatSupport, beforeMelaka);
+  assert.equal(after.states.reduce((sum, state) => sum + state.projectedSeats, 0), computeElectionOutcome(after.states, after.settings).seatsWon);
+});
+test('scenario objectives update from actual campaign decisions and persist', () => {
+  store.getState().applyScenarioPack('selangor-climate-2032');
+  const pack = getScenarioPack('selangor-climate-2032');
+  const pledgeObjective = pack.objectives.find(objective => objective.id === 'promise');
+  assert.equal(scenarioObjectiveProgress(store.getState(), pledgeObjective.criterion).complete, false);
+  act({ type: 'pledge', issue: 'flood' });
+  assert.equal(scenarioObjectiveProgress(store.getState(), pledgeObjective.criterion).complete, true);
+  assert.equal(createSaveSnapshot(store.getState()).journey.scenarioPackId, 'selangor-climate-2032');
 });
 test('policies charge once and resolve on the quarterly clock', () => {
   win();

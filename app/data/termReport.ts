@@ -3,6 +3,7 @@ import { getManifestoPackage } from "./manifestoPackages";
 import type { StateData } from "./states";
 import type { GameState } from "../store/gameStore";
 import { computeElectionOutcome } from "../utils/electionOutcome";
+import type { ScenarioPackId } from "./scenarioPacks";
 
 type Bilingual = { ms: string; en: string };
 export type TermChapter = "government" | "opposition" | "rebuilding";
@@ -13,6 +14,7 @@ export interface TermReportRecord {
   chapter: TermChapter;
   scope: "pru" | "prn";
   stateId: string | null;
+  scenarioPackId: ScenarioPackId | null;
   seats: number;
   totalSeats: number;
   majorityTarget: number;
@@ -130,7 +132,7 @@ export function buildTermReport(state: GameState): TermReportRecord {
 
   return {
     term: state.careerProgress.term, chapter, scope: state.settings.electionScope,
-    stateId: isPrn ? state.settings.prnStateId : null,
+    stateId: isPrn ? state.settings.prnStateId : null, scenarioPackId: journey.scenarioPackTerm === state.careerProgress.term ? journey.scenarioPackId : null,
     seats: outcome.seatsWon, totalSeats: outcome.totalSeats, majorityTarget: outcome.majorityTarget,
     popularVote: outcome.nationalSupport, trust: journey.trust, delivered, totalPledges: termPledges.length,
     cabinetQuality, stability: journey.stability, organisation: journey.organisation,

@@ -8,6 +8,7 @@ import TacticalPanel from "../components/layout/TacticalPanel";
 import { buildTermReport, RATING_LABELS, type TermReportRecord } from "../data/termReport";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
+import { getScenarioPack } from "../data/scenarioPacks";
 
 const ratingColor = (rating: number) => rating >= 85 ? "var(--neon-green)" : rating >= 70 ? "var(--cyan)" : rating >= 55 ? "var(--gold)" : rating >= 40 ? "var(--warn-orange)" : "var(--neon-red)";
 
@@ -29,6 +30,7 @@ export default function ReportCardPage() {
   const strongestBloc = [...report.voterBlocs].sort((a, b) => b.support - a.support)[0];
   const weakestBloc = [...report.voterBlocs].sort((a, b) => a.support - b.support)[0];
   const roleLabel = report.chapter === "government" ? t(lang, "Kerajaan", "Government") : report.chapter === "opposition" ? t(lang, "Pembangkang", "Opposition") : t(lang, "Pembinaan semula", "Rebuilding");
+  const scenarioPack = getScenarioPack(report.scenarioPackId);
 
   function startNextElection() {
     game.journeyAction({ type: "next-election" });
@@ -38,7 +40,7 @@ export default function ReportCardPage() {
   return <div className="min-h-screen bg-[var(--bg)]"><Header />
     <main className="mx-auto w-full max-w-7xl px-3 pb-16 pt-16 sm:px-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div><div className="text-[10px] font-black tracking-[0.28em] text-gold">◇ {t(lang, "ARKIB PRESTASI POLITIK", "POLITICAL PERFORMANCE ARCHIVE")}</div><h1 className="mt-2 text-2xl font-black tracking-widest text-white">{t(lang, `KAD LAPORAN PENGGAL ${report.term}`, `TERM ${report.term} REPORT CARD`)}</h1><p className="mt-1 text-sm text-text-muted">{report.scope.toUpperCase()} {report.stateId ? `· ${game.states.find(state => state.id === report.stateId)?.name ?? report.stateId}` : "· Malaysia"} · {roleLabel}</p></div>
+        <div><div className="text-[10px] font-black tracking-[0.28em] text-gold">◇ {t(lang, "ARKIB PRESTASI POLITIK", "POLITICAL PERFORMANCE ARCHIVE")}</div><h1 className="mt-2 text-2xl font-black tracking-widest text-white">{t(lang, `KAD LAPORAN PENGGAL ${report.term}`, `TERM ${report.term} REPORT CARD`)}</h1><p className="mt-1 text-sm text-text-muted">{report.scope.toUpperCase()} {report.stateId ? `· ${game.states.find(state => state.id === report.stateId)?.name ?? report.stateId}` : "· Malaysia"} · {roleLabel}{scenarioPack ? ` · ${scenarioPack.year} ${scenarioPack.title[lang]}` : ""}</p></div>
         <div className="flex flex-wrap gap-2"><Link href="/career" className="border border-cyan/40 bg-cyan/5 px-4 py-2 text-xs font-bold tracking-wider text-cyan">← {t(lang, "Kerjaya", "Career")}</Link>{liveReport && <button onClick={startNextElection} className="border border-gold/60 bg-gold/10 px-4 py-2 text-xs font-bold tracking-wider text-gold">{t(lang, "Mulakan pilihan raya seterusnya →", "Start next election →")}</button>}</div>
       </div>
 

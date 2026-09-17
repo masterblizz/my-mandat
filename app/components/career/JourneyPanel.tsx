@@ -10,6 +10,7 @@ import { PARTY_MEMBERS } from "../../data/members";
 import { useLang, t } from "../../i18n/useLang";
 import { getPrnIssues, prnIssueActionKey } from "../../data/prnIssues";
 import { getManifestoPackage, MANIFESTO_PACKAGES, manifestoStateImpact } from "../../data/manifestoPackages";
+import { getScenarioPack, scenarioObjectiveProgress } from "../../data/scenarioPacks";
 
 const button = "border border-cyan/30 px-3 py-2 text-sm text-cyan hover:bg-cyan/10 disabled:opacity-40 disabled:cursor-not-allowed text-left";
 export default function JourneyPanel({ local = false }: { local?: boolean }) {
@@ -32,6 +33,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const selectedManifesto = getManifestoPackage(j.manifestoPackageId);
   const manifestoStates = s.settings.electionScope === "prn" ? s.states.filter(state => state.id === s.settings.prnStateId) : s.states;
   const manifestoRanked = selectedManifesto ? manifestoStates.map(state => ({ state, impact: manifestoStateImpact(selectedManifesto.id, state) })).sort((a, b) => b.impact - a.impact) : [];
+  const scenarioPack = j.scenarioPackTerm === s.careerProgress.term ? getScenarioPack(j.scenarioPackId) : undefined;
   return <section aria-label={t(lang, "Taklimat kerjaya", "Career briefing")} className="mb-5 border border-cyan/30 bg-black/20 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><Image src={`/avatars/leader-${String(s.leader.avatarIndex + 1).padStart(2, "0")}.png`} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
@@ -49,6 +51,10 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
     {campaign && !j.onboarded && <div className="mt-3 border border-gold/40 bg-gold/5 p-3">
       <strong className="text-gold">{t(lang, "Langkah pertama: dengar masalah penduduk", "First step: hear your residents")}</strong>
       <p className="mt-1 text-text-muted">{ISSUE_DATA[j.scenario].detail[lang]} {t(lang, "Pilih janji di bawah, lawati komuniti, kemudian majukan hari di Bilik Gerakan. Projek dibina selepas anda membentuk kerajaan.", "Choose a commitment below, visit the community, then advance the day in the War Room. Build public projects after forming government.")}</p>
+    </div>}
+    {scenarioPack && <div className="mt-3 border p-3" style={{ borderColor: `${scenarioPack.color}66`, background: `${scenarioPack.color}08` }}>
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="text-[9px] font-black tracking-[0.2em]" style={{ color: scenarioPack.color }}>{scenarioPack.year} · {scenarioPack.scope.toUpperCase()} · {scenarioPack.kind === "historical" ? t(lang, "INSPIRASI SEJARAH", "HISTORICAL-INSPIRED") : t(lang, "MASA DEPAN HIPOTESIS", "HYPOTHETICAL FUTURE")}</div><strong className="mt-1 block text-white">{scenarioPack.title[lang]}</strong><p className="mt-1 text-xs text-text-muted">{scenarioPack.subtitle[lang]}</p></div><span className="text-[9px] font-bold text-text-muted">{scenarioPack.difficulty.toUpperCase()}</span></div>
+      <div className="mt-3 grid gap-2 md:grid-cols-3">{scenarioPack.objectives.map(objective => { const progress = scenarioObjectiveProgress(s, objective.criterion); return <div key={objective.id} className="border p-2.5" style={{ borderColor: progress.complete ? "rgb(var(--neon-green-rgb,21 128 61) / .45)" : "rgba(255,255,255,.1)" }}><div className="flex items-start justify-between gap-2"><span className="text-[10px] font-bold text-white">{objective.title[lang]}</span><span className="text-[10px] font-black" style={{ color: progress.complete ? "var(--neon-green)" : "var(--gold)" }}>{progress.complete ? "✓" : `${progress.value}/${progress.target}`}</span></div><div className="mt-2 h-1 bg-white/10"><div className="h-1" style={{ width: `${Math.min(100, progress.value / Math.max(1, progress.target) * 100)}%`, background: progress.complete ? "var(--neon-green)" : scenarioPack.color }} /></div></div>; })}</div>
     </div>}
     {activeCampaign && !selectedManifesto && <div className="mt-3 border border-gold/35 bg-gold/5 p-3">
       <strong className="text-gold">{t(lang, "Pilih pakej manifesto", "Choose a manifesto package")}</strong>

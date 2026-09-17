@@ -1,44 +1,67 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "../../store/gameStore";
 import { setActiveSaveSlot } from "../../store/saveGame";
-import { ISSUE_DATA, type Issue } from "../../store/journey";
 import { useLang, t } from "../../i18n/useLang";
 import { getDatasetById } from "../../data/datasets";
 import { states } from "../../data/states";
 import { generateConstituencies } from "../../data/constituencies";
+import { getScenarioPack, SCENARIO_PACKS, type ScenarioPackId } from "../../data/scenarioPacks";
+import { usePremiumStatus } from "../../hooks/usePremiumStatus";
+import UpgradeButton from "../ui/UpgradeButton";
+import { PREMIUM_PRICE_IDS } from "../../config/premiumProducts";
 
 export default function ScenarioStart() {
-  const lang = useLang(), router = useRouter();
-  const [issue, setIssue] = useState<Issue>("flood");
+  const lang = useLang();
+  const router = useRouter();
+  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
+  const [packId, setPackId] = useState<ScenarioPackId>("reform-wave-1998");
   const [name, setName] = useState("");
-  const [stateId, setStateId] = useState("selangor");
   const [partyId, setPartyId] = useState(getDatasetById("dummy").parties[0].id);
   const parties = getDatasetById("dummy").parties;
+  const pack = getScenarioPack(packId)!;
+  const locked = pack.scope === "prn" && !premiumLoading && !hasPremium;
+
   function start() {
-    const party = parties.find(p => p.id === partyId)!;
-    const home = states.find(s => s.id === stateId)!;
-    const seat = generateConstituencies(home)[0];
+    if (locked || premiumLoading) return;
+    const party = parties.find(item => item.id === partyId)!;
+    const home = states.find(state => state.id === pack.stateId) ?? states[0];
+    const seat = generateConstituencies(home, pack.scope === "prn" ? "dun" : "parliament")[0];
     const store = useGameStore.getState();
     store.resetGame();
     setActiveSaveSlot(null);
-    store.setLeader({ name: name.trim() || party.leader, party: party.name, partyAbbr: party.abbreviation, partyColor: party.color, homeState: stateId, homeConstituencyId: seat.id, homeConstituencyName: seat.name });
+    store.setDataset("dummy");
+    store.setLeader({ name: name.trim() || party.leader, party: party.name, partyAbbr: party.abbreviation, partyColor: party.color, homeState: home.id, homeConstituencyId: seat.id, homeConstituencyName: seat.name });
     store.setNomination(seat.id, { type: "leader" });
-    store.updateSettings({ electionScope: "pru", difficulty: "easy", oppositionStrength: 40 });
-    useGameStore.setState(s => ({ operations: [], journey: { ...s.journey, scenario: issue } }));
+    store.applyScenarioPack(pack.id);
+    if (pack.scope === "prn" && pack.prnCandidateId) useGameStore.getState().journeyAction({ type: "prn-candidate", id: pack.prnCandidateId });
     store.startCampaign();
     router.push("/kawasan");
   }
-  return <section className="my-5 w-full max-w-5xl border border-gold/40 bg-gold/5 p-4">
-    <h2 className="text-lg font-bold text-gold">{t(lang, "Kempen pertama anda", "Your first campaign")}</h2>
-    <p className="my-2 text-sm text-text-muted">{t(lang, "Senario rekaan berpandu · PRU · Mudah · 30 hari. Pilih pemimpin dan isu; keputusan anda dibawa ke penggal dan pilihan raya seterusnya. Tetapan terperinci tersedia di bawah.", "Guided fictional scenario · PRU · Easy · 30 days. Choose your leader and issue; decisions carry into your term and next election. Detailed setup remains below.")}</p>
-    <div className="grid gap-3 sm:grid-cols-3">
-      <label className="text-xs text-text-muted">{t(lang, "Nama pemimpin", "Leader name")}<input aria-label={t(lang, "Nama pemimpin berpandu", "Guided leader name")} value={name} onChange={e => setName(e.target.value)} maxLength={60} placeholder={parties.find(p => p.id === partyId)?.leader} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white" /></label>
-      <label className="text-xs text-text-muted">{t(lang, "Parti rekaan", "Fictional party")}<select value={partyId} onChange={e => setPartyId(e.target.value)} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white">{parties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-      <label className="text-xs text-text-muted">{t(lang, "Negeri asal", "Home state")}<select value={stateId} onChange={e => setStateId(e.target.value)} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white">{states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+
+  return <section className="my-5 w-full max-w-[1100px] border border-gold/40 bg-gold/5 p-4">
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="text-[9px] font-black tracking-[0.28em] text-gold">{t(lang, "ARKIB SENARIO", "SCENARIO ARCHIVE")}</div><h2 className="mt-1 text-lg font-bold text-white">{t(lang, "Pilih titik perubahan Malaysia", "Choose a Malaysian turning point")}</h2><p className="mt-1 max-w-3xl text-xs leading-relaxed text-text-muted">{t(lang, "Tiga senario berasaskan suasana sejarah dan tiga masa depan alternatif. Semua parti, angka sokongan dan keputusan ialah fiksyen permainan.", "Three scenarios inspired by historical climates and three alternate futures. All parties, support figures and outcomes are fictional gameplay.")}</p></div><div className="text-[10px] font-bold tracking-widest text-cyan">6 {t(lang, "SENARIO", "SCENARIOS")} · PRU/PRN</div></div>
+
+    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{SCENARIO_PACKS.map(option => {
+      const active = option.id === packId;
+      const optionLocked = option.scope === "prn" && !premiumLoading && !hasPremium;
+      return <button key={option.id} type="button" onClick={() => setPackId(option.id)} className="relative p-4 text-left transition-transform hover:-translate-y-0.5" style={{ border: `1px solid ${active ? option.color : "rgb(var(--cyan-rgb)/0.18)"}`, background: active ? `${option.color}12` : "rgba(0,0,0,.18)", boxShadow: active ? `0 0 20px ${option.color}18` : "none", opacity: optionLocked ? .7 : 1 }}>
+        <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-black tracking-[0.2em]" style={{ color: option.color }}>{option.kind === "historical" ? t(lang, "INSPIRASI SEJARAH", "HISTORICAL-INSPIRED") : t(lang, "MASA DEPAN HIPOTESIS", "HYPOTHETICAL FUTURE")}</span><div className="mt-1 text-xl font-black text-white">{option.year}</div></div><span className="border px-2 py-1 text-[9px] font-black" style={{ borderColor: `${option.color}66`, color: option.color }}>{option.scope.toUpperCase()} · {option.difficulty.toUpperCase()}</span></div>
+        <h3 className="mt-3 text-sm font-black" style={{ color: option.color }}>{option.title[lang]}</h3><p className="mt-1 text-[11px] text-white">{option.subtitle[lang]}</p><p className="mt-2 text-[10px] leading-relaxed text-text-muted">{option.premise[lang]}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold text-text-muted"><span>{states.find(state => state.id === option.stateId)?.name}</span><span>RM{(option.funds / 1_000_000).toFixed(2)}m</span><span>{t(lang, "Lawan", "Opposition")} {option.oppositionStrength}</span>{optionLocked && <span className="text-gold">🔒 PREMIUM PRN</span>}</div>
+      </button>;
+    })}</div>
+
+    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="border p-4" style={{ borderColor: `${pack.color}55`, background: `${pack.color}08` }}><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[0.22em]" style={{ color: pack.color }}>{pack.year} · {pack.scope.toUpperCase()} · {states.find(state => state.id === pack.stateId)?.name}</div><h3 className="mt-1 text-lg font-black text-white">{pack.title[lang]}</h3></div><div className="text-right text-[10px] text-text-muted"><div>{t(lang, "Kepercayaan", "Trust")} {pack.trust}</div><div>{t(lang, "Jentera", "Organisation")} {pack.organisation}</div></div></div>
+        <p className="mt-3 text-xs leading-relaxed text-text-muted">{pack.disclaimer?.[lang] ?? t(lang, "Senario masa depan alternatif dengan angka rekaan.", "Alternate-future scenario with fictional figures.")}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">{pack.objectives.map((objective, index) => <div key={objective.id} className="border border-white/10 p-3"><div className="text-[9px] font-black text-gold">0{index + 1}</div><div className="mt-1 text-[11px] font-bold text-white">{objective.title[lang]}</div></div>)}</div>
+      </div>
+      <div className="space-y-3 border border-cyan/20 p-4"><label className="block text-xs text-text-muted">{t(lang, "Nama pemimpin", "Leader name")}<input aria-label={t(lang, "Nama pemimpin senario", "Scenario leader name")} value={name} onChange={event => setName(event.target.value)} maxLength={60} placeholder={parties.find(item => item.id === partyId)?.leader} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white" /></label><label className="block text-xs text-text-muted">{t(lang, "Parti rekaan", "Fictional party")}<select value={partyId} onChange={event => setPartyId(event.target.value)} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white">{parties.map(party => <option key={party.id} value={party.id}>{party.name}</option>)}</select></label>
+        {locked ? <UpgradeButton priceId={PREMIUM_PRICE_IDS.prnMode} mode="payment" label={t(lang, "Buka senario PRN", "Unlock PRN scenario")} className="w-full border border-gold bg-gold px-5 py-3 text-xs font-black tracking-wider text-black disabled:opacity-50" /> : <button onClick={start} disabled={premiumLoading} className="w-full border px-5 py-3 font-bold disabled:opacity-50" style={{ borderColor: pack.color, background: `${pack.color}12`, color: pack.color }}>{premiumLoading ? t(lang, "Menyemak akses…", "Checking access…") : t(lang, "Mulakan senario →", "Start scenario →")}</button>}
+      </div>
     </div>
-    <div className="my-3 grid gap-2 sm:grid-cols-3">{(Object.keys(ISSUE_DATA) as Issue[]).map(id => <button key={id} aria-pressed={issue === id} onClick={() => setIssue(id)} className={`border p-3 text-left text-sm ${issue === id ? "border-gold text-gold" : "border-cyan/20 text-text-muted"}`}><strong>{ISSUE_DATA[id][lang]}</strong><p className="mt-1 text-xs">{ISSUE_DATA[id].detail[lang]}</p></button>)}</div>
-    <button onClick={start} className="border border-gold bg-gold/10 px-5 py-3 font-bold text-gold">{t(lang, "Mulakan kempen berpandu →", "Start guided campaign →")}</button>
   </section>;
 }
