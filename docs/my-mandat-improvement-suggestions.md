@@ -81,20 +81,21 @@ improvements are complete; broader features and player validation remain open.
 
 ### Verification and remaining validation
 
-- [x] 43 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, scenario-pack starting conditions/objectives, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, end-of-term report grading/persistence, tactical-map classification, manifesto trade-offs, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
+- [x] 44 journey regression tests passed, including daily PRU/PRN projection consistency, branching stories, scenario-pack starting conditions/objectives, coalition trade-offs, cabinet representation, defections, PRN issue momentum, MB/Ketua Menteri candidate trade-offs, end-of-term report grading/persistence, tactical-map classification, manifesto trade-offs, bilingual incoming-event coverage, major campaign events, exact PRU/PRN election-night counts and full opposition/rebuilding return journeys.
 - [x] Reproducible 720-campaign balance baseline recorded in [balance-baseline-2026-09-17.md](balance-baseline-2026-09-17.md).
 - [x] Corrected daily PRN projections to use DUN counts and the election-result model.
-- [x] TypeScript check and production build passed (44 pages generated).
+- [x] TypeScript check and production build passed (45 pages generated).
 - [x] Browser: guided start, BM/EN briefing, daily limits, election and formation flow.
 - [x] Browser: clinic funding, reload recovery, delivery celebration and constituency project.
 - [x] Browser: full governing term, second campaign and fresh election result.
+- [x] Browser: local-fallback PRU scenario start, manifesto effects, BM/EN War Room briefing, all six tactical-map layers, calendar detail, debate tone selection and result reveal.
 - [x] PRN scope/majority and opposition progression covered by regression tests.
 - [x] Scripted full PRN defeat → opposition → second election and PRU collapse → rebuilding → second election journeys.
 - [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.
 - [ ] Browser-check the new coalition deal selector, conditional follow-up stories, cabinet profiles and representation panel in an authenticated browser session.
 - [ ] Browser-check PRN issue selection, channel-fit feedback and diminishing returns in an authenticated campaign.
-- [ ] Browser-check every PRU/PRN tactical map layer and reduced-motion reach rings in an authenticated campaign.
-- [ ] Browser-check debate/TV event scheduling, tone selection and result reveals in an authenticated PRU and PRN campaign.
+- [ ] Browser-check all PRN tactical-map layers and reduced-motion reach rings, then repeat the PRU layer pass in an authenticated campaign.
+- [ ] Browser-check debate/TV event scheduling, tone selection and result reveals in PRN, then repeat the PRU event pass in an authenticated campaign.
 - [ ] Browser-check election-night pacing, pause/fast/skip controls and mobile layout in PRU and PRN.
 - [ ] Playtest difficulty, dominant strategies, pacing, replayability and economy balance.
 

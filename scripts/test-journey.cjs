@@ -18,6 +18,7 @@ const { buildElectionNightTimeline, electionNightSeatUpdates } = require('../app
 const { PRN_CANDIDATES, prnCandidateChannelBonus, prnCandidateStateImpact } = require('../app/data/prnCandidates.ts');
 const { buildTermReport, termRatingBand } = require('../app/data/termReport.ts');
 const { SCENARIO_PACKS, getScenarioPack, scenarioObjectiveProgress } = require('../app/data/scenarioPacks.ts');
+const { gameEvents } = require('../app/data/events.ts');
 let passed = 0;
 function test(name, fn) { store.getState().resetGame(); fn(); passed++; console.log(`PASS ${name}`); }
 function act(action) { store.getState().journeyAction(action); }
@@ -473,6 +474,15 @@ test('campaign-reach overlay follows active operations and stays state-scoped', 
   assert.equal(stateTacticalVisual(selangor, 'reach', operations).active, true);
   assert.equal(stateTacticalVisual(johor, 'reach', operations).active, false);
   assert.ok(stateTacticalVisual(selangor, 'reach', operations).detail.en.includes('field'));
+});
+test('every incoming campaign event has complete BM and English copy', () => {
+  assert.equal(gameEvents.length, 15);
+  for (const event of gameEvents) {
+    assert.ok(event.title.trim(), `${event.id} English title`);
+    assert.ok(event.description.trim(), `${event.id} English description`);
+    assert.ok(event.titleMS?.trim(), `${event.id} BM title`);
+    assert.ok(event.descriptionMS?.trim(), `${event.id} BM description`);
+  }
 });
 test('daily PRU and PRN projections agree with election-night seat counting', () => {
   for (const scope of ['pru', 'prn']) {

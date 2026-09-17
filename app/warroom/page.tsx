@@ -50,6 +50,7 @@ const EVENT_TYPE_COLOR: Record<string, { border: string; tag: string; glow: stri
 };
 
 function EventModal({ event, onAck }: { event: GameEvent; onAck: () => void }) {
+  const lang = useLang();
   const colors = EVENT_TYPE_COLOR[event.type] ?? EVENT_TYPE_COLOR.political;
   const isPositive = (event.impact.national ?? 0) >= 0 && (event.impact.stateImpact ?? 0) >= 0;
   const impactColor = isPositive ? "var(--neon-green)" : "var(--neon-red)";
@@ -76,14 +77,14 @@ function EventModal({ event, onAck }: { event: GameEvent; onAck: () => void }) {
               className="text-[11px] font-bold tracking-widest px-2 py-0.5 uppercase"
               style={{ color: colors.tag, background: `${colors.glow}`, border: `1px solid ${colors.border}44` }}
             >
-              {event.type}
+              {t(lang, `warroom_page.eventType_${event.type}`)}
             </span>
             <span className="text-[11px] tracking-widest" style={{ color: "#4a5568" }}>
-              INCOMING EVENT
+              {t(lang, "warroom_page.incomingEvent")}
             </span>
           </div>
           <span className="text-[11px] tracking-widest font-bold" style={{ color: "#4a5568" }}>
-            DAY {event.day}
+            {t(lang, "warroom_page.eventDay", { eventDay: event.day })}
           </span>
         </div>
 
@@ -93,25 +94,25 @@ function EventModal({ event, onAck }: { event: GameEvent; onAck: () => void }) {
             className="font-bold tracking-wide uppercase"
             style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "Space Mono, monospace", textShadow: `0 0 16px ${colors.border}66` }}
           >
-            {event.title}
+            {lang === "ms" ? event.titleMS ?? event.title : event.title}
           </h2>
         </div>
 
         {/* Description */}
         <div className="px-6 py-4">
           <p className="text-[14px] leading-relaxed" style={{ color: "#aabbcc" }}>
-            {event.description}
+            {lang === "ms" ? event.descriptionMS ?? event.description : event.description}
           </p>
         </div>
 
         {/* Impact */}
         <div className="px-6 pb-4">
-          <div className="text-[11px] tracking-widest mb-2" style={{ color: "#4a5568" }}>IMPACT</div>
+          <div className="text-[11px] tracking-widest mb-2" style={{ color: "#4a5568" }}>{t(lang, "warroom_page.impact")}</div>
           <div className="flex flex-col gap-1.5">
             {event.impact.national !== undefined && (
               <div className="flex items-center gap-2 text-[13px]">
                 <span style={{ color: impactColor }}>{impactPrefix}</span>
-                <span style={{ color: "var(--text-muted)" }}>NATIONAL SUPPORT:</span>
+                <span style={{ color: "var(--text-muted)" }}>{t(lang, "warroom_page.nationalSupport")}:</span>
                 <span className="font-bold" style={{ color: impactColor }}>
                   {event.impact.national > 0 ? "+" : ""}{event.impact.national}%
                 </span>
@@ -131,7 +132,7 @@ function EventModal({ event, onAck }: { event: GameEvent; onAck: () => void }) {
             {event.impact.resource === "funds" && event.impact.resourceChange !== undefined && (
               <div className="flex items-center gap-2 text-[13px]">
                 <span style={{ color: "var(--neon-red)" }}>▼</span>
-                <span style={{ color: "var(--text-muted)" }}>CAMPAIGN FUNDS:</span>
+                <span style={{ color: "var(--text-muted)" }}>{t(lang, "warroom_page.campaignFunds")}:</span>
                 <span className="font-bold" style={{ color: "var(--neon-red)" }}>
                   RM {Math.abs(event.impact.resourceChange).toLocaleString()}
                 </span>
@@ -154,7 +155,7 @@ function EventModal({ event, onAck }: { event: GameEvent; onAck: () => void }) {
               cursor: "pointer",
             }}
           >
-            ACKNOWLEDGED →
+            {t(lang, "warroom_page.acknowledged")} →
           </button>
         </div>
       </div>
@@ -734,7 +735,9 @@ export default function WarroomPage() {
             value: electionScope === "prn"
               ? <CountUpNumber value={prnState?.projectedSeats ?? 0} duration={700} animateOnChange format={(n) => `${n}/${prnState?.dunSeats ?? 0}`} />
               : <CountUpNumber value={projectedSeats} duration={700} animateOnChange format={(n) => `${n}/222`} />,
-            label: electionScope === "prn" ? "PRN STATE SEATS" : "SEATS PROJECTED",
+            label: electionScope === "prn"
+              ? t(lang, "warroom_page.prnStateSeats")
+              : t(lang, "warroom_page.seatsProjected"),
             color: "var(--cyan)",
           },
           {
@@ -742,27 +745,27 @@ export default function WarroomPage() {
             value: <CountUpNumber value={partySupportPct} duration={700} animateOnChange format={(n) => `${n}%`} />,
             suffix: nationalSupportDelta !== 0 ? `${nationalSupportDelta > 0 ? "+" : ""}${nationalSupportDelta.toFixed(1)}%` : undefined,
             suffixColor: nationalSupportDelta >= 0 ? "var(--neon-green)" : "var(--neon-red)",
-            label: "PARTY SUPPORT",
+            label: t(lang, "warroom_page.partySupport"),
             color: "var(--text-primary)",
             flash: statFlash.support,
           },
           {
             icon: "💰",
             value: <CountUpNumber value={resources.funds} duration={700} animateOnChange format={formatFunds} />,
-            label: "CAMPAIGN FUND",
+            label: t(lang, "warroom_page.campaignFund"),
             color: "var(--gold)",
             flash: statFlash.funds,
           },
           {
             icon: "📅",
             value: <FlipValue value={daysLeft} />,
-            label: "DAYS TO POLL",
+            label: t(lang, "warroom_page.daysToPoll"),
             color: "var(--text-primary)",
           },
           {
             icon: "💪",
             value: <CountUpNumber value={resources.manpower} duration={700} animateOnChange />,
-            label: "GROUND STRENGTH",
+            label: t(lang, "warroom_page.groundStrength"),
             color: "var(--text-primary)",
             flash: statFlash.manpower,
           },
@@ -846,7 +849,7 @@ export default function WarroomPage() {
                   boxShadow: advancing ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "0 0 12px rgb(var(--cyan-rgb) / 0.2)",
                 }}
               >
-                {advancing ? "⟳ PROCESS" : "» NEXT DAY"}
+                {advancing ? `⟳ ${t(lang, "warroom_page.processing")}` : `» ${t(lang, "warroom_page.nextDay")}`}
               </button>
             ) : (
               <button

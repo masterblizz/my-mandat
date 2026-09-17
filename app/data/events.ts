@@ -1,7 +1,9 @@
 export interface GameEvent {
   id: string;
   title: string;
+  titleMS: string;
   description: string;
+  descriptionMS: string;
   type: "political" | "economic" | "social" | "media" | "ground";
   impact: {
     national?: number;
@@ -18,7 +20,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev01",
     title: "Opposition Leader Gaffe",
+    titleMS: "Kecuaian Pemimpin Pembangkang",
     description: "Parti Lawan leader makes controversial statement about minority rights. National sentiment shifts.",
+    descriptionMS: "Pemimpin Parti Lawan membuat kenyataan kontroversi tentang hak minoriti. Sentimen nasional berubah.",
     type: "political",
     impact: { national: 2.5, states: ["selangor", "penang", "wp"], stateImpact: 3 },
     probability: 0.15,
@@ -27,7 +31,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev02",
     title: "Petrol Price Hike",
+    titleMS: "Kenaikan Harga Petrol",
     description: "Government announces fuel subsidy reduction. Urban voters react negatively.",
+    descriptionMS: "Kerajaan mengumumkan pengurangan subsidi bahan api. Pengundi bandar bertindak balas secara negatif.",
     type: "economic",
     impact: { national: -1.5, states: ["selangor", "wp", "penang", "johor"], stateImpact: -2.5 },
     probability: 0.2,
@@ -36,7 +42,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev03",
     title: "MANDAT Youth Rally",
+    titleMS: "Himpunan Belia MANDAT",
     description: "Massive youth rally in KL draws 50,000 attendees. Social media buzzes.",
+    descriptionMS: "Himpunan belia besar di KL menarik 50,000 hadirin. Media sosial menjadi hangat.",
     type: "political",
     impact: { national: 1.8, states: ["wp", "selangor"], stateImpact: 4 },
     probability: 0.3,
@@ -45,7 +53,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev04",
     title: "Corruption Scandal — Lawan MP",
+    titleMS: "Skandal Rasuah — Ahli Parlimen Lawan",
     description: "Leaked documents reveal financial misconduct by senior Lawan parliamentarian.",
+    descriptionMS: "Dokumen bocor mendedahkan salah laku kewangan seorang ahli Parlimen kanan Lawan.",
     type: "media",
     impact: { national: 3.2, states: ["perak", "kedah"], stateImpact: 5 },
     probability: 0.12,
@@ -54,7 +64,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev05",
     title: "Flood Crisis — East Coast",
+    titleMS: "Krisis Banjir — Pantai Timur",
     description: "Severe flooding in Kelantan and Terengganu. Voters demand government response.",
+    descriptionMS: "Banjir teruk melanda Kelantan dan Terengganu. Pengundi menuntut tindak balas kerajaan.",
     type: "social",
     impact: { national: -0.5, states: ["kelantan", "terengganu", "pahang"], stateImpact: -1.5 },
     probability: 0.25,
@@ -63,7 +75,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev06",
     title: "Business Leaders Endorse MANDAT",
+    titleMS: "Pemimpin Perniagaan Sokong MANDAT",
     description: "FMM and ACCCIM issue joint endorsement of MANDAT economic policies.",
+    descriptionMS: "FMM dan ACCCIM mengeluarkan sokongan bersama terhadap dasar ekonomi MANDAT.",
     type: "media",
     impact: { national: 1.5, states: ["selangor", "johor", "penang"], stateImpact: 2.5 },
     probability: 0.18,
@@ -72,7 +86,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev07",
     title: "Sabah Kingmaker Talks",
+    titleMS: "Rundingan Penentu Kuasa Sabah",
     description: "Sabah-based parties open to coalition discussions with MANDAT.",
+    descriptionMS: "Parti-parti Sabah membuka ruang rundingan gabungan dengan MANDAT.",
     type: "political",
     impact: { national: 0.5, states: ["sabah"], stateImpact: 8 },
     probability: 0.22,
@@ -81,7 +97,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev08",
     title: "Digital Economy Announcement",
+    titleMS: "Pengumuman Ekonomi Digital",
     description: "MANDAT announces RM 5B digital economy plan. Tech sector responds positively.",
+    descriptionMS: "MANDAT mengumumkan rancangan ekonomi digital bernilai RM5 bilion. Sektor teknologi memberi reaksi positif.",
     type: "economic",
     impact: { national: 2.0, states: ["selangor", "wp", "penang"], stateImpact: 3.5 },
     probability: 0.35,
@@ -90,7 +108,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev09",
     title: "Viral Social Media Controversy",
+    titleMS: "Kontroversi Media Sosial Tular",
     description: "Edited video of MANDAT leader circulates. Rapid response team needed.",
+    descriptionMS: "Video pemimpin MANDAT yang disunting mula tersebar. Pasukan tindak balas pantas diperlukan.",
     type: "media",
     impact: { national: -2.0, resource: "media", resourceChange: -200000 },
     probability: 0.15,
@@ -99,7 +119,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev10",
     title: "Borneo Autonomy Promise",
+    titleMS: "Janji Autonomi Borneo",
     description: "MANDAT promises expanded autonomy for Sabah and Sarawak under MA63.",
+    descriptionMS: "MANDAT menjanjikan peluasan autonomi untuk Sabah dan Sarawak di bawah MA63.",
     type: "political",
     impact: { states: ["sabah", "sarawak"], stateImpact: 6 },
     probability: 0.4,
@@ -108,7 +130,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev11",
     title: "Cost of Living Survey Released",
+    titleMS: "Tinjauan Kos Sara Hidup Dikeluarkan",
     description: "New survey shows 73% of Malaysians struggling. MANDAT responds with aid package.",
+    descriptionMS: "Tinjauan baharu menunjukkan 73% rakyat Malaysia sedang tertekan. MANDAT membalas dengan pakej bantuan.",
     type: "economic",
     impact: { national: 1.2 },
     probability: 0.5,
@@ -117,7 +141,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev12",
     title: "Opposition Internal Conflict",
+    titleMS: "Konflik Dalaman Pembangkang",
     description: "Factional dispute within Lawan coalition surfaces publicly.",
+    descriptionMS: "Pertikaian puak dalam gabungan Lawan terbongkar kepada umum.",
     type: "political",
     impact: { national: 2.0 },
     probability: 0.2,
@@ -126,7 +152,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev13",
     title: "Rural Roads Funding Announced",
+    titleMS: "Dana Jalan Luar Bandar Diumumkan",
     description: "MANDAT pledges rural infrastructure fund. Northern states react positively.",
+    descriptionMS: "MANDAT menjanjikan dana infrastruktur luar bandar. Negeri-negeri utara memberi reaksi positif.",
     type: "social",
     impact: { states: ["kedah", "kelantan", "terengganu", "perak"], stateImpact: 2 },
     probability: 0.3,
@@ -135,7 +163,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev14",
     title: "Celebrity Endorsement",
+    titleMS: "Sokongan Selebriti",
     description: "Popular national artist endorses MANDAT. Youth engagement increases.",
+    descriptionMS: "Artis popular negara menyokong MANDAT. Penglibatan belia meningkat.",
     type: "media",
     impact: { national: 1.0, states: ["wp", "selangor", "johor"], stateImpact: 1.5 },
     probability: 0.25,
@@ -144,7 +174,9 @@ export const gameEvents: GameEvent[] = [
   {
     id: "ev15",
     title: "New Polling Data Released",
+    titleMS: "Data Tinjauan Baharu Dikeluarkan",
     description: "Independent pollster shows MANDAT at 48%, highest in campaign period.",
+    descriptionMS: "Peninjau bebas meletakkan MANDAT pada 48%, tahap tertinggi sepanjang tempoh kempen.",
     type: "media",
     impact: { national: 0.8 },
     probability: 0.6,
