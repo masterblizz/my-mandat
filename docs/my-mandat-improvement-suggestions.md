@@ -11,7 +11,7 @@ Last updated: 2026-09-18
 ## Latest game-flow improvement checklist
 
 Implementation baseline: current `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first fifteen follow-up
+for the current rules. The five core game-flow stages and the first sixteen follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -31,6 +31,7 @@ improvements are complete; broader features and player validation remain open.
 - [x] Curated historical and hypothetical scenario packs.
 - [x] Metro `/kawasan` realism polish with an animated urban river, retained green banks, road bridges and river-aware traffic paths.
 - [x] Cinematic night-lighting pass with sparse occupied windows, balanced exposure/bloom and restrained landmark accents.
+- [x] Varied metro skyline with five high-rise profiles, restrained material variation and deterministic height rhythm.
 - [ ] **NEXT:** Authenticated full-journey browser usability and balance validation.
 
 ### 1. Connect the full political career — DONE

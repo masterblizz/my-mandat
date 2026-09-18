@@ -2230,6 +2230,35 @@ landmark's window emission with broad, fully luminous colour bands.
   triangles on the development renderer.
 - TypeScript, lint, the journey suite and production build passed.
 
+## Item 24 — RENTAK SKYLINE: break the repeated tower forest
+
+Dense metro used three versions of the same two-box setback, with nearly
+identical heights and one material colour per building family. The radial CBD
+profile worked at city scale, but medium and close views still exposed rows of
+stamped towers.
+
+### What changed
+
+- Tower, skyscraper and hotel families now select from five instanced profiles:
+  three conventional setbacks, an offset four-stage terrace and an octagonal
+  shaft with a tapered crown.
+- Each profile carries a restrained glass/concrete tone. Colour follows the
+  geometry variant, keeping the draw-call cost to one bucket per profile rather
+  than multiplying every profile by an independent palette.
+- A stable per-zone and per-lot height factor adds ±16% variation before the
+  existing radial KL taper. Roof lines no longer form synthetic flat rows, and
+  buildings do not jump when the scene rerenders.
+
+### Verification
+
+- Computer Use browser pass on the 30×30 `/kawasan-3d` harness: whole-city
+  day overview plus close day/night views. The conventional, terraced and
+  octagonal profiles remained distinct while the centre retained one dominant
+  skyline peak; the clean browser session reported no console warnings/errors.
+- Dense 30×30 night sampled at 22 fps, 2,411 draws and 3.942M triangles on
+  the development renderer at the 1280×720 test viewport.
+- TypeScript, lint, the journey suite and production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

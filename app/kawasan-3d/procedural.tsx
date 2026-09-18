@@ -89,6 +89,11 @@ export const PROCEDURAL_TYPES = new Set<BType>([
 // of these types (a kampung, a row of heritage shophouses) show exactly
 // this kind of muted, varied-but-harmonious palette, not a rainbow.
 const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
+  // Tall-building tones are linked to their geometry variant below so
+  // variety costs one bucket per silhouette, not a variant × colour grid.
+  tower: ["#718995", "#8499a2", "#687f8c", "#788d95", "#8a9599"],
+  skyscraper: ["#4f6876", "#607987", "#526f79", "#6d7f88", "#596f78"],
+  hotel: ["#a47d62", "#8c7a70", "#788892", "#9b8870", "#71828a"],
   kampung: ["#b89a7c", "#c9ac8c", "#a9c2a0", "#b6c6d2", "#d2b6a4"],
   house: ["#e0d3b6", "#d8c4a8", "#c9d4c0", "#d2c8d8", "#e0c8b8"],
   terrace: ["#c9b79c", "#bfa98c", "#a9b8a0", "#b2b9c8", "#c9b0a0"],
@@ -96,17 +101,19 @@ const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
   shop: ["#dcd2be", "#d2c8a8", "#c8d4c8", "#d8c8d0"],
   stall: ["#ded7c6", "#d4c8a8", "#c8d0c0"],
 };
+const VARIANT_LINKED_PALETTES = new Set<BType>(["tower", "skyscraper", "hotel"]);
 // Same well-tested hash as pickVariantIndex, keyed with a suffix so the
 // colour pick doesn't correlate 1:1 with the geometry-variant pick.
 function pickColorIndex(key: string, count: number): number {
   return pickVariantIndex(`${key}:hue`, count);
 }
-// Gable + setback carry 3 shape variants; the flat-roof / dome families
-// carry 2 (the variety there is rooftop-unit placement, not proportion).
+// High-rises carry five skyline profiles; gables and low-rise setbacks use
+// three, while flat-roof / dome families carry two.
 export function variantCount(type: BType): number {
+  if (type === "tower" || type === "skyscraper" || type === "hotel") return 5;
   return GABLE_TYPES.has(type) || SETBACK_TYPES.has(type) ? 3 : 2;
 }
-export const PROCEDURAL_VARIANT_COUNT = 3; // kept for callers that want the max
+export const PROCEDURAL_VARIANT_COUNT = 5; // kept for callers that want the max
 
 // Gable templates carry two geometry groups so the sloped roof can take a
 // plain material while the walls take the lit-window emissiveMap — a
@@ -231,6 +238,49 @@ function buildSetbackTemplate(
   return merged;
 }
 
+// Four offset volumes form a terraced slab. The stepped centre of gravity
+// breaks up a skyline dominated by symmetric two-box setbacks while staying
+// inside the same unit footprint and instancing contract.
+function buildTerracedTowerTemplate(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const add = (w: number, h: number, d: number, y: number, x = 0, z = 0) => {
+    const box = new THREE.BoxGeometry(w, h, d);
+    box.translate(x, y, z);
+    parts.push(box);
+  };
+  add(1, 0.18, 1, 0.09);
+  add(0.84, 0.32, 0.86, 0.34, -0.05, 0.02);
+  add(0.68, 0.28, 0.7, 0.64, 0.06, -0.04);
+  add(0.46, 0.22, 0.5, 0.89, 0.12, -0.07);
+  for (const y of [0.5, 0.78]) add(0.88 - y * 0.25, 0.014, 0.9 - y * 0.25, y, 0.03, -0.02);
+  const merged = mergeGeometries(parts.map(stripToPositionNormalUv), false);
+  if (!merged) return parts[0];
+  merged.clearGroups();
+  return merged;
+}
+
+// An octagonal glass shaft gives the fifth profile a different highlight
+// roll-off from the box families. Low-poly rings keep its floors legible.
+function buildOctagonalTowerTemplate(): THREE.BufferGeometry {
+  const podium = new THREE.BoxGeometry(1, 0.2, 1);
+  podium.translate(0, 0.1, 0);
+  const shaft = new THREE.CylinderGeometry(0.42, 0.5, 0.66, 8, 1, false);
+  shaft.translate(0, 0.53, 0);
+  const crown = new THREE.CylinderGeometry(0.25, 0.36, 0.14, 8, 1, false);
+  crown.translate(0, 0.93, 0);
+  const rings = [0.36, 0.56, 0.76].map((y) => {
+    const ring = new THREE.CylinderGeometry(0.48 - y * 0.08, 0.48 - y * 0.08, 0.014, 8);
+    ring.translate(0, y, 0);
+    return ring;
+  });
+  const merged = mergeGeometries(
+    [podium, shaft, crown, ...rings].map(stripToPositionNormalUv), false,
+  );
+  if (!merged) return podium;
+  merged.clearGroups();
+  return merged;
+}
+
 // A sawtooth (north-light) roof strip sitting on y=wallFrac — the
 // design canvas's BENTUK cue for the factory / warehouse. One extruded
 // polygon: `teeth` asymmetric ridges across local X (vertical riser
@@ -338,15 +388,21 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     // shophouse: barely recessed upper floor (real low-rise proportions)
     // + a five-foot-way awning along its front.
     const isShop = type === "shophouse";
-    const pronounced = isShop
-      ? { lower: [0.72, 0.76, 0.8], setback: [0.9, 0.86, 0.82] }
-      : { lower: [0.55, 0.62, 0.68], setback: [0.44, 0.58, 0.7] };
-    geo = buildSetbackTemplate(
-      pronounced.lower[variant] ?? 0.6,
-      pronounced.setback[variant] ?? 0.6,
-      isShop ? 0 : 4,
-      isShop ? 0.16 : 0,
-    );
+    if (!isShop && variant === 3) {
+      geo = buildTerracedTowerTemplate();
+    } else if (!isShop && variant === 4) {
+      geo = buildOctagonalTowerTemplate();
+    } else {
+      const pronounced = isShop
+        ? { lower: [0.72, 0.76, 0.8], setback: [0.9, 0.86, 0.82] }
+        : { lower: [0.55, 0.62, 0.68], setback: [0.44, 0.58, 0.7] };
+      geo = buildSetbackTemplate(
+        pronounced.lower[variant] ?? 0.6,
+        pronounced.setback[variant] ?? 0.6,
+        isShop ? 0 : 4,
+        isShop ? 0.16 : 0,
+      );
+    }
     if (type === "skyscraper") geo = withMast(geo);
   }
   if (COMMERCIAL_TYPES.has(type)) {
@@ -384,7 +440,9 @@ export function ProceduralBuildings({
     const m = new Map<string, { variant: number; colorIdx: number; items: BuildingInstance[] }>();
     for (const it of items) {
       const vi = pickVariantIndex(it.key, vc);
-      const ci = palette ? pickColorIndex(it.key, palette.length) : 0;
+      const ci = palette
+        ? VARIANT_LINKED_PALETTES.has(type) ? vi % palette.length : pickColorIndex(it.key, palette.length)
+        : 0;
       const bk = `${vi}:${ci}`;
       const bucket = m.get(bk);
       if (bucket) bucket.items.push(it);

@@ -415,11 +415,18 @@ export function zoneBuildings(
   // Height lift for the vertical types, strongest at the centre — gentle
   // enough that a core tower stays a believable slab (item 10 shipped
   // x1.55, which read as needles once every slot was packed with one).
-  const lift = (type: BType, h: number): number =>
-    type === "tower" || type === "skyscraper" ? Math.round(h * (1 + hi * 0.3)) : h;
+  const lift = (type: BType, h: number, slot: number): number => {
+    if (type !== "tower" && type !== "skyscraper" && type !== "hotel") return h;
+    // A real skyline has neighbouring towers from different development
+    // phases. Stable ±16% variation prevents same-type roofs from forming
+    // synthetic horizontal rows while retaining the CBD-to-edge taper.
+    const roll = ((zseed * 29 + slot * 47 + type.length * 13) % 101) / 100;
+    const individual = 0.84 + roll * 0.32;
+    return Math.round(h * individual * (1 + hi * 0.3));
+  };
   const spec = (type: BType, slot: number, extra?: Partial<BSpec>): BSpec => {
     const t = upgrade(type, slot);
-    return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone)), ...extra };
+    return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone), slot), ...extra };
   };
 
   // A river zone's pond is its whole reason for being "Riverside" — at
