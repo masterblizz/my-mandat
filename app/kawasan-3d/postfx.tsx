@@ -2,33 +2,33 @@
 
 // Phase E: post-processing pipeline.
 //
-// - Bloom: day/night-aware intensity. The lit-window / street-lamp
-//   emissive gates already computed per TOD (TOD_ENV.winLit / .lamp,
-//   consumed by scenery.tsx/models.tsx) double as the bloom driver here —
-//   daylight uses an HDR threshold to keep ordinary surfaces crisp;
-//   dusk/night lower the
-//   threshold and raise intensity so the same lit windows/lamps that
-//   already glow via emissive materials pick up an actual bloom halo.
-// - ToneMapping: ACES Filmic, replacing the plain Canvas `toneMappingExposure`
-//   tweak that was the only tone control before this phase.
+// - Bloom: explicit day/dusk/night values keep daylight crisp and give
+//   lamps a narrow halo without washing luminous windows across a façade.
+// - ToneMapping: ACES Filmic with per-TOD renderer exposure. Night has
+//   enough headroom to preserve lit-window colour and deep building mass.
 // - SSAO (N8AO): quality-tier gated (only at "high") — see
 //   docs/webgl-migration-log.md's Phase E section for the measured
 //   Dense-metro cost that led to gating it instead of shipping it
 //   unconditionally, and quality.ts for the tier scaffold.
 
+import { useEffect } from "react";
 import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
+import { useThree } from "@react-three/fiber";
 import { ToneMappingMode } from "postprocessing";
-import { TOD_ENV, type Tod } from "./cityData";
+import type { Tod } from "./cityData";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 
 export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
-  const env = TOD_ENV[tod];
+  const gl = useThree((state) => state.gl);
   const settings = QUALITY_SETTINGS[quality];
-  const glow = env.winLit + env.lamp; // 0 (day) .. ~1.9 (night)
-  // Keep halos on luminous windows and lamps. Blooming ordinary daylight
-  // surfaces washes out concrete edges and makes the city look miniature.
-  const bloomIntensity = 0.08 + glow * 0.22;
-  const bloomThreshold = tod === "day" ? 1.1 : 0.85;
+  const exposure = tod === "night" ? 0.72 : tod === "dusk" ? 0.9 : 1.04;
+  const bloomIntensity = tod === "night" ? 0.2 : tod === "dusk" ? 0.14 : 0.05;
+  const bloomThreshold = tod === "night" ? 1.08 : tod === "dusk" ? 1.05 : 1.15;
+
+  useEffect(() => {
+    gl.toneMappingExposure = exposure;
+    return () => { gl.toneMappingExposure = 1.08; };
+  }, [gl, exposure]);
 
   // EffectComposer's children type is JSX.Element | JSX.Element[] (no
   // booleans), so the SSAO gate has to be an array push rather than `&&`.
@@ -37,7 +37,7 @@ export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
       key="bloom"
       intensity={bloomIntensity}
       luminanceThreshold={bloomThreshold}
-      luminanceSmoothing={0.3}
+      luminanceSmoothing={0.22}
       mipmapBlur={settings.bloomMipmapBlur}
     />,
     <ToneMapping key="tonemap" mode={ToneMappingMode.ACES_FILMIC} />,

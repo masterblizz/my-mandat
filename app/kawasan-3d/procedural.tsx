@@ -483,10 +483,10 @@ function ProceduralVariant({
   }, [type, variant, color, isGable, isCommercial]);
 
   useEffect(() => {
-    // Window brightness by family: office setbacks need the strongest
-    // glow (a big dark curtain-wall reads as black otherwise), boxcap /
-    // dome civic in the middle, domestic gable the gentlest lived-in glow.
-    const gain = isCommercial ? 0.95 : isGable ? 0.8 : SETBACK_TYPES.has(type) ? 1.9 : 1.25;
+    // Window brightness by family stays below the façade's body lighting.
+    // Sparse office grids get a little more energy; domestic windows remain
+    // a soft lived-in glow. This preserves mass and shadow at skyline range.
+    const gain = isCommercial ? 0.55 : isGable ? 0.4 : SETBACK_TYPES.has(type) ? 0.85 : 0.62;
     const wall = (Array.isArray(materials) ? materials[MAT_WALL] : materials) as THREE.MeshStandardMaterial;
     wall.emissiveIntensity = winLit * gain;
     // At night, drop the metalness / sky-reflection on the glassy setbacks

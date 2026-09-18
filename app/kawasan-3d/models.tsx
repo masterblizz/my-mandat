@@ -301,8 +301,8 @@ export function InstancedBoxes({
         metalness={0.25}
         roughness={0.45}
         envMapIntensity={1}
-        emissive="#ffd9a8"
-        emissiveIntensity={winLit * 0.4}
+        emissive="#c89562"
+        emissiveIntensity={winLit * 0.09}
       />
     </instancedMesh>
   );

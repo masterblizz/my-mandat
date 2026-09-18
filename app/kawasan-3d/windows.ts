@@ -12,9 +12,9 @@
 // LCG walk and constants as `litWindowMap` (no Math.random — same seed
 // yields the same pattern every reload), drawn onto a small offscreen
 // canvas as an emissiveMap: near-black everywhere (emissiveMap multiplies
-// the material's `emissive`, so black = no glow) with warm `rgb(255,206,
-// 120)` panes — the exact CSS lit colour — plus a soft halo so the scene
-// bloom (Phase E) has something to catch.
+// the material's `emissive`, so black = no glow) with a varied warm/cool
+// palette. A restrained halo gives the scene bloom something to catch
+// without turning distant façades into solid white slabs.
 //
 // One texture per (type, variant): all instances in a given
 // InstancedMesh share it (same granularity the procedural geometry
@@ -33,20 +33,20 @@ type WinSpec = {
 };
 
 // Tall commercial/residential blocks tile vertically many times; squat
-// domestic types get a handful of windows and no vertical tiling.
-// litPct raised across the board (towers were going near-black at night —
-// a 38% grid of tiny warm dots on a huge dark slab read as "no lights").
+// domestic types get a handful of windows and no vertical tiling. The
+// occupancy is deliberately sparse: mipmaps blend tiny panes at skyline
+// distance, so a realistic 20–34% reads brighter than the raw number.
 const SPEC: Partial<Record<BType, WinSpec>> = {
-  tower: { cols: 5, rows: 8, litPct: 58, repeatY: 4 },
-  skyscraper: { cols: 6, rows: 10, litPct: 55, repeatY: 6 },
-  shophouse: { cols: 3, rows: 3, litPct: 48, repeatY: 1 },
-  shop: { cols: 3, rows: 2, litPct: 42, repeatY: 1 },
-  mall: { cols: 6, rows: 3, litPct: 58, repeatY: 1 },
-  house: { cols: 3, rows: 2, litPct: 50, repeatY: 1 },
-  terrace: { cols: 4, rows: 2, litPct: 46, repeatY: 1 },
-  kampung: { cols: 3, rows: 2, litPct: 44, repeatY: 1 },
+  tower: { cols: 5, rows: 8, litPct: 32, repeatY: 4 },
+  skyscraper: { cols: 6, rows: 10, litPct: 30, repeatY: 6 },
+  shophouse: { cols: 3, rows: 3, litPct: 28, repeatY: 1 },
+  shop: { cols: 3, rows: 2, litPct: 24, repeatY: 1 },
+  mall: { cols: 6, rows: 3, litPct: 34, repeatY: 1 },
+  house: { cols: 3, rows: 2, litPct: 26, repeatY: 1 },
+  terrace: { cols: 4, rows: 2, litPct: 24, repeatY: 1 },
+  kampung: { cols: 3, rows: 2, litPct: 22, repeatY: 1 },
 };
-const DEFAULT_SPEC: WinSpec = { cols: 5, rows: 7, litPct: 52, repeatY: 3 };
+const DEFAULT_SPEC: WinSpec = { cols: 5, rows: 7, litPct: 28, repeatY: 3 };
 
 // A real city at night is not one warm colour. Each lit pane picks from
 // this weighted palette via the same deterministic LCG that decides
@@ -163,14 +163,14 @@ export function getWindowTexture(type: BType, variant: number): THREE.Texture {
       // colour from the weighted palette, plus a per-pane brightness so
       // the grid isn't a uniform sheet of identical squares
       const [pr, pg, pb] = pickPaneColor(((next() >>> 8) % 1000) / 1000);
-      const bri = 0.72 + (((next() >>> 7) % 100) / 100) * 0.28;
+      const bri = 0.58 + (((next() >>> 7) % 100) / 100) * 0.32;
       const R = Math.round(pr * bri);
       const G = Math.round(pg * bri);
       const B = Math.round(pb * bri);
 
-      const halo = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(cw, ch) * 0.75);
-      halo.addColorStop(0, `rgba(${R},${G},${B},0.85)`);
-      halo.addColorStop(0.5, `rgba(${R},${G},${B},0.32)`);
+      const halo = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(cw, ch) * 0.55);
+      halo.addColorStop(0, `rgba(${R},${G},${B},0.55)`);
+      halo.addColorStop(0.5, `rgba(${R},${G},${B},0.18)`);
       halo.addColorStop(1, `rgba(${R},${G},${B},0)`);
       ctx.fillStyle = halo;
       ctx.fillRect(c * cw - mx, r * ch - my, cw + mx * 2, ch + my * 2);
@@ -199,9 +199,8 @@ export function getWindowTexture(type: BType, variant: number): THREE.Texture {
 
 // Dense window grid for the KL landmark shafts (klProfile.tsx). Those are
 // merged cylinder/box geometry, so the emissiveMap just tiles over
-// everything with heavy RepeatWrapping — from any distance it reads as a
-// fully-glazed tower lit up at night, which is the whole point ("nampak
-// bentuk menara"). Uses the same palette, mostly cool/office tones.
+// everything with heavy RepeatWrapping. Its sparse mostly cool office
+// lights preserve the tower silhouette instead of whitening the shaft.
 let towerStrip: THREE.Texture | null = null;
 export function getTowerStripTexture(): THREE.Texture {
   if (towerStrip) return towerStrip;
@@ -223,11 +222,11 @@ export function getTowerStripTexture(): THREE.Texture {
   const my = chh * 0.28;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if ((next() >>> 9) % 100 >= 80) continue;
+      if ((next() >>> 9) % 100 >= 34) continue;
       const roll = ((next() >>> 8) % 1000) / 1000;
       // bias toward cool/office for a corporate-tower read
       const [pr, pg, pb] = roll < 0.5 ? [223, 233, 255] : roll < 0.8 ? [169, 198, 255] : roll < 0.9 ? [255, 236, 200] : [120, 255, 240];
-      const bri = 0.7 + (((next() >>> 7) % 100) / 100) * 0.3;
+      const bri = 0.6 + (((next() >>> 7) % 100) / 100) * 0.3;
       ctx.fillStyle = `rgb(${Math.round(pr * bri)},${Math.round(pg * bri)},${Math.round(pb * bri)})`;
       ctx.fillRect(c * cw + mx, r * chh + my, cw - mx * 2, chh - my * 2);
     }

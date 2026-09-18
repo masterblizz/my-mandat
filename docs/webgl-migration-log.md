@@ -2200,6 +2200,36 @@ closer to the urban river hierarchy found in Kuala Lumpur.
   for every repeated detail and adds no per-frame geometry allocation.
 - TypeScript, lint, the 44-test journey suite and production build passed.
 
+## Item 23 — MALAM SINEMATIK: retain the city's mass after dark
+
+The night preset previously pushed more than half of most window grids into
+bloom, while fallback buildings emitted across their whole body. At skyline
+distance those bright texels blended through mipmaps and made the city read as
+white blocks with little depth. The Malaysia lighting also replaced the twin
+landmark's window emission with broad, fully luminous colour bands.
+
+### What changed
+
+- Occupied-window ratios now range from 22–34%, with dimmer panes and tighter
+  texture halos. The KL landmark strip uses the same sparse logic.
+- Procedural window emission is balanced by building family, while fallback
+  blocks retain only a faint body warmth. Façades and shadows therefore remain
+  visible around the lit rooms.
+- Night exposure and bloom now have explicit conservative values. Dusk remains
+  warmer and brighter; day keeps the crisp high threshold.
+- Malaysia lighting adds narrow architectural rings to the existing window map.
+  The twin shafts keep their material detail, with quieter blue/gold accents.
+
+### Verification
+
+- Computer Use browser pass on `/kawasan`: default and close-orbit night,
+  rainy night, then reset to clear day. Building silhouettes, façade detail,
+  selective windows and the quieter national rings remained readable with no
+  browser console warnings or errors.
+- Dense 30×30 local-fallback scene sampled at 24 fps, 1,625 draws and 3.896M
+  triangles on the development renderer.
+- TypeScript, lint, the journey suite and production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

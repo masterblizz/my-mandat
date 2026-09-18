@@ -229,8 +229,9 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
     });
     m.userData.baseMetalness = 0.42;
     m.userData.baseEnv = 1.15;
-    // Height-based architectural lighting, independent of the repeating
-    // window UVs: red/white shaft bands, a blue crown and a gold spire.
+    // Height-based architectural accents, independent of the repeating
+    // window UVs: narrow red/white rings, a blue crown and a gold tip.
+    // They add to the occupied-window map rather than replacing it.
     const national = { value: 0 };
     m.userData.national = national;
     m.onBeforeCompile = shader => {
@@ -242,15 +243,23 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
       shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `
         #include <emissivemap_fragment>
         float nationalH = clamp(towerHeight / ${TWIN_APEX_Y.toFixed(1)}, 0.0, 1.0);
-        float stripe = mod(floor(nationalH / 0.72 * 14.0), 2.0);
-        vec3 nationalColor = mix(vec3(0.85, 0.015, 0.035), vec3(0.95, 0.95, 0.88), stripe);
-        if (nationalH > 0.72) nationalColor = vec3(0.025, 0.12, 0.95);
-        if (nationalH > 0.94) nationalColor = vec3(1.0, 0.68, 0.025);
-        totalEmissiveRadiance = mix(totalEmissiveRadiance,
-          nationalColor * (0.45 + dot(totalEmissiveRadiance, vec3(0.333)) * 0.65), nationalLighting);
+        float ringPhase = fract(nationalH * 10.0);
+        float ringMask = smoothstep(0.38, 0.46, ringPhase) * (1.0 - smoothstep(0.58, 0.66, ringPhase));
+        float stripe = mod(floor(nationalH * 10.0), 2.0);
+        vec3 nationalColor = mix(vec3(0.72, 0.018, 0.028), vec3(0.92, 0.88, 0.78), stripe);
+        float accentStrength = ringMask * 0.30;
+        if (nationalH > 0.72) {
+          nationalColor = vec3(0.025, 0.10, 0.72);
+          accentStrength = 0.22;
+        }
+        if (nationalH > 0.94) {
+          nationalColor = vec3(0.95, 0.55, 0.025);
+          accentStrength = 0.28;
+        }
+        totalEmissiveRadiance += nationalColor * accentStrength * nationalLighting;
       `);
     };
-    m.customProgramCacheKey = () => 'klcc-national-lighting-v1';
+    m.customProgramCacheKey = () => 'klcc-national-lighting-v2';
     return m;
   }, []);
   const steel = useMemo(() => {
@@ -267,7 +276,7 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
   useEffect(() => {
     mat.userData.national.value = nationalLighting ? 1 : 0;
     for (const m of [mat, steel]) {
-      m.emissiveIntensity = winLit * 2.2;
+      m.emissiveIntensity = winLit * 0.82;
       m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
@@ -316,11 +325,11 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
       <group position={[built.spireAt[0], 0, built.spireAt[1]]}>
         <mesh geometry={built.spireGlass}>
           <meshStandardMaterial color="#396775" metalness={0.48} roughness={0.2}
-            emissive="#b7ddd8" emissiveIntensity={winLit * 0.65} />
+            emissive="#b7ddd8" emissiveIntensity={winLit * 0.28} />
         </mesh>
         <mesh geometry={built.spireTrim}>
           <meshStandardMaterial color="#d5ba83" metalness={0.65} roughness={0.3}
-            emissive="#ffcf83" emissiveIntensity={winLit * 1.2} />
+            emissive="#ffcf83" emissiveIntensity={winLit * 0.55} />
         </mesh>
       </group>
       <instancedMesh ref={beaconRef} args={[undefined, undefined, 3]} frustumCulled={false}>
