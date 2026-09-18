@@ -2156,11 +2156,49 @@ skybridge and the spire breaking above it — "one peak", per the card.
 The harness's fixed low camera clips the twin tops; the interactive page
 orbits freely.
 
-**Still open from the KL variant:** SUNGAI & HIJAU (one road corridor →
-brown river with earth banks + bridge decks; 1.6× denser tree canopy
-with palms; jungle on undeveloped plots).
+**SUNGAI & HIJAU is completed in Item 22 below.**
 
 Committed as: `feat(kawasan-3d): SILUET KL — radial height falloff + twin peak + spire`.
+
+## Item 22 — SUNGAI & HIJAU: an urban river through the KL grid
+
+The dense metro previously read as a procedural tower grid because every
+street continued unchanged from edge to edge. Metro grids now replace one
+near-core north/south road with a continuous engineered river corridor,
+closer to the urban river hierarchy found in Kuala Lumpur.
+
+### What changed
+
+**`urbanRiver.tsx` (new)**
+
+- A muted green-brown animated water surface sits above a visible channel
+  bed and responds to clear/rain weather and day/dusk/night lighting.
+- Earth banks, stone retaining edges and paved towpaths fill the former
+  road reserve. Mid-block broadleaf trees soften both sides without
+  blocking bridge approaches.
+- Every east/west road receives a raised bridge deck, guard rails and lane
+  markings. Decks, rails, markings, trunks and crowns are instanced; the
+  complete corridor adds 13 authored draw groups regardless of grid size.
+- The river runs at 40% of the grid width: close enough to shape the core,
+  but clear of the central roundabout and KL landmark axis. Rural and
+  semi-urban grids remain unchanged.
+
+**Traffic integration**
+
+- The replaced vertical road is omitted from the asphalt grid.
+- Car and motorcycle block loops adjoining that road are filtered out, so
+  traffic never drives along the water. East/west roads remain visually
+  connected by the bridge decks.
+
+### Verification
+
+- Computer Use browser pass on `/kawasan`: clear day, rainy night, close
+  orbit and reset/default camera; the channel, planted banks and bridges
+  remained readable with no browser console warnings or errors.
+- Dense 30×30 local-fallback scene sampled at 19 fps, 1,395 draws and
+  3.877M triangles on the development renderer. The river uses instancing
+  for every repeated detail and adds no per-frame geometry allocation.
+- TypeScript, lint, the 44-test journey suite and production build passed.
 
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 

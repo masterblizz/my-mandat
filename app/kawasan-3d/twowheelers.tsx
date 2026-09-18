@@ -69,7 +69,13 @@ const MC_BRAKE_LOOKAHEAD = 100;
 
 type Rider = { loop: number; s: number; speed: number; lean: number; spin: number; color: THREE.Color; helmet: THREE.Color };
 
-export function Motorcyclists({ gridSize, trafficLevel = 0.5 }: { gridSize: number; trafficLevel?: number }) {
+export function Motorcyclists({
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null,
+}: {
+  gridSize: number;
+  trafficLevel?: number;
+  riverRoadIndex?: number | null;
+}) {
   const centre = worldCentre(gridSize);
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
@@ -107,6 +113,7 @@ export function Motorcyclists({ gridSize, trafficLevel = 0.5 }: { gridSize: numb
     order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
     for (const [a, b] of order) {
       if (loops.length >= maxLoops) break;
+      if (riverRoadIndex !== null && (a === riverRoadIndex || a + 1 === riverRoadIndex)) continue;
       // a different coverage roll from <Traffic>'s cars, same central-
       // junction exclusion (those quarter-turns sit inside the roundabout
       // island).
@@ -122,7 +129,7 @@ export function Motorcyclists({ gridSize, trafficLevel = 0.5 }: { gridSize: numb
       addTo(loops.length - 1, 6);
     }
     return { loops, riders };
-  }, [gridSize, centre]);
+  }, [gridSize, centre, riverRoadIndex]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);

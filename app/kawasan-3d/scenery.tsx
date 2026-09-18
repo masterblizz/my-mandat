@@ -611,7 +611,14 @@ export function roundaboutLoop(cx: number, cz: number, r: number): Loop {
   return finishLoop([arcP(cx, cz, r, 0, -Math.PI * 2)]); // clockwise
 }
 
-export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; trafficLevel?: number }) {
+export function Traffic({
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null,
+}: {
+  gridSize: number;
+  trafficLevel?: number;
+  /** Vertical road replaced by the urban river; adjacent block loops cannot use it. */
+  riverRoadIndex?: number | null;
+}) {
   const centre = worldCentre(gridSize);
 
   // read the live density in useFrame without re-rendering / rebuilding
@@ -657,6 +664,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
     order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
     for (const [a, b] of order) {
       if (loops.length >= maxLoops) break;
+      if (riverRoadIndex !== null && (a === riverRoadIndex || a + 1 === riverRoadIndex)) continue;
       if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
       // These four blocks meet at the centre junction. Their normal
       // quarter-turn sits inside the raised roundabout island, so keeping
@@ -684,7 +692,7 @@ export function Traffic({ gridSize, trafficLevel = 0.5 }: { gridSize: number; tr
       addCarsTo(loops.length - 1, 20, "car");
     }
     return { loops, cars, roundaboutLoopIdx };
-  }, [gridSize, centre]);
+  }, [gridSize, centre, riverRoadIndex]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);

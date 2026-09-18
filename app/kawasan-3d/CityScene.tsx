@@ -42,6 +42,7 @@ import {
 } from "./ground";
 import { reserveLargeFootprints, LargeBuildings } from "./largeBuildings";
 import { KLProfile, klClaims, klHeightMult, klActive } from "./klProfile";
+import { UrbanRiver, urbanRiverRoadIndex } from "./urbanRiver";
 import {
   Roundabout, roundaboutTiles, roundaboutCentre, cornerSign, CLEAR_R,
   type RoundaboutCorner,
@@ -350,6 +351,7 @@ function Grid({
   const span = worldSize(gridSize);
   const vRoads = useMemo(() => roadsV(gridSize).map((x) => x - centre + ROAD_W / 2), [gridSize, centre]);
   const hRoads = useMemo(() => roadsH(gridSize).map((y) => y - centre + ROAD_W / 2), [gridSize, centre]);
+  const riverRoadIndex = urbanRiverRoadIndex(gridSize);
 
   // Cached-by-lane-count textures (see roadTexture.ts) — only the repeat
   // needs setting per grid, since only one map/CityScene is ever mounted
@@ -372,7 +374,7 @@ function Grid({
       {gridSize < 22 && empties.map(({ col, row, cx, cz }) => (
         <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} />
       ))}
-      {vRoads.map((x, i) => (
+      {vRoads.map((x, i) => i === riverRoadIndex ? null : (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
           <planeGeometry args={[ROAD_W, span]} />
           <meshStandardMaterial
@@ -402,6 +404,7 @@ function Grid({
           />
         </mesh>
       ))}
+      <UrbanRiver gridSize={gridSize} tod={tod} weather={weather} />
       <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
       <Sidewalks placed={placed} claimed={claimed} />
       <StreetFurniture placed={placed} claimed={claimed} />
@@ -463,6 +466,7 @@ export function CityScene({
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
+  const riverRoadIndex = urbanRiverRoadIndex(gridSize);
   const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
   const developedCells = useMemo(
     () => new Set(placed.map((p) => `${p.col},${p.row}`)),
@@ -535,8 +539,8 @@ export function CityScene({
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
       <UtilityLines gridSize={gridSize} />
-      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} />
-      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} />
+      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
+      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
       {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}

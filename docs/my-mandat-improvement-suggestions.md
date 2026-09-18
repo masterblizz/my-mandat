@@ -6,12 +6,12 @@ Status key:
 - IN PROGRESS = currently being implemented
 - TODO = not implemented yet
 
-Last updated: 2026-09-17
+Last updated: 2026-09-18
 
 ## Latest game-flow improvement checklist
 
-Implementation baseline: `0c5ed4f` on `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first thirteen follow-up
+Implementation baseline: current `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
+for the current rules. The five core game-flow stages and the first fourteen follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -29,6 +29,7 @@ improvements are complete; broader features and player validation remain open.
 - [x] PRN MB/Ketua Menteri candidate differentiation.
 - [x] Unified end-of-term report card.
 - [x] Curated historical and hypothetical scenario packs.
+- [x] Metro `/kawasan` realism polish with an animated urban river, retained green banks, road bridges and river-aware traffic paths.
 - [ ] **NEXT:** Authenticated full-journey browser usability and balance validation.
 
 ### 1. Connect the full political career — DONE
