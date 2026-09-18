@@ -85,8 +85,11 @@ export function Motorcyclists({
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
     const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
     const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
-    const laneOff = ROAD_W * 0.06; // hugs the kerb — a distinct lane from cars' 0.2
-    const turnR = ROAD_W * 0.42;
+    // Motorcycles filter on the kerb-side strip of Malaysia's left lane.
+    // The arc consumes the remaining asphalt up to the plot corner, keeping
+    // riders clear of both the car lane and the centre of the junction.
+    const laneOff = ROAD_W * 0.35;
+    const turnR = ROAD_W / 2 - laneOff;
 
     const loops: Loop[] = [];
     const riders: Rider[] = [];

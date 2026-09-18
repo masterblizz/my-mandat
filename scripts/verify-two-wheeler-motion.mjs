@@ -28,11 +28,13 @@ for (const dt of [1 / 30, 1 / 60, 1 / 144]) {
   for (let i = 0; i < 200; i++) speed = approach(speed, 0, 300 * dt);
   assert.equal(speed, 0);
 }
-const loop = blockLoop(-129, 129, -129, 129, 0, 12);
+const loop = blockLoop(-129, 129, -129, 129, 14, 6);
 for (let s = 0; s < loop.L; s += 0.5) {
   const a = tangent(loop, s), b = tangent(loop, s + 0.5);
-  assert.ok(Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a))) < 0.05);
-  assert.equal(cornerLean(loop, s, 0, 0.22), 0);
+  // The kerb-side 6u radius changes heading by ~0.083 rad per 0.5u
+  // sample, but remains continuous across every line/arc join.
+  assert.ok(Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a))) < 0.1);
+  assert.ok(Math.abs(cornerLean(loop, s, 0, 0.22)) < Number.EPSILON);
   assert.ok(Math.abs(cornerLean(loop, s, 30, 0.22)) <= 0.22);
   const facing = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, -a, 0, 'YXZ'));
   assert.ok(facing.dot(new THREE.Vector3(Math.cos(a), 0, Math.sin(a))) > 0.9999);

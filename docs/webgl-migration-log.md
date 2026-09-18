@@ -2290,6 +2290,38 @@ depth and pushed concrete, roads and vegetation toward one pale khaki family.
   development renderer at the 1280×720 test viewport.
 - TypeScript, lint, the journey suite and production build passed.
 
+## Item 26 — ALIRAN TRAFIK: believable Malaysian junction behaviour
+
+The block loops used wide right turns whose arcs crossed the centre of each
+junction. Neighbouring loops therefore shared the same physical space, and the
+rendered body yaw used the opposite sign from Three.js' Y-axis convention.
+Peak-hour spacing also treated a bumper gap as the complete centre-to-centre
+distance, allowing vans, lorries and buses to telescope into one another.
+
+### What changed
+
+- Block traffic now follows Malaysia's left-hand pattern: westbound on the
+  upper lane, southbound on the left, eastbound below and northbound on the
+  right. Turns wrap around the plot-side quadrant and stay on the asphalt.
+- Motorcycles use a separate kerb-side line with a smaller corner radius, so
+  filtering riders remain clear of the car lane and junction centre.
+- Vehicle yaw now follows the actual path tangent. A wheelbase-length chord
+  smooths vans, lorries and buses through the straight-to-arc transition.
+- Cars brake progressively for corners, red lights and queues. Amber decisions
+  use stopping distance, and following distance includes both vehicle bodies
+  plus a real bumper gap.
+- Initial fleets are evenly spaced. Changing traffic density reflows newly
+  activated vehicles once, preventing a parked car from respawning inside a
+  moving one.
+
+### Verification
+
+- Computer Use pass on the `/kawasan-3d` harness at peak traffic: close overhead
+  views of normal four-way junctions and the roundabout, plus normal-to-peak
+  density transitions. Vehicles stayed in their lanes, turned with their nose
+  aligned to travel, queued with visible separation and did not collide.
+- A fresh browser session reported no console warnings or errors.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

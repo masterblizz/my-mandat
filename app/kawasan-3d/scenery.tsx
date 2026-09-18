@@ -518,7 +518,8 @@ const CAR_BASE_SPEED = 78;   // world units / sec on a clear straight
 const CAR_ACCEL = 130;
 const CAR_BRAKE = 240;
 const CAR_ARC_SPEED = 34;     // cornering / roundabout speed cap
-const CAR_GAP = 26;           // bumper gap kept to the car ahead
+const CAR_GAP_LIGHT = 18;     // clear-road bumper gap
+const CAR_GAP_PEAK = 7;       // compact but still visibly separated in a jam
 const STOP_MARGIN = 12;       // how far back from the junction to hold on red
 const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
 // The roundabout's own carriageway deck sits this far above the tile-top
@@ -581,26 +582,29 @@ export function posAt(loop: Loop, s: number): [number, number] {
   return [p.cx! + Math.cos(a) * p.r!, p.cz! + Math.sin(a) * p.r!];
 }
 
-// One clockwise loop around the single plot bounded by x0<x1, z0<z1. The
-// lane is set OUT from the block edges by laneOff (so a counter-loop on a
-// shared road sits on the other side), corners are quarter arcs of turnR,
-// and each straight ends with a gate for the junction it feeds.
+// One Malaysian left-hand-traffic loop around the plot bounded by
+// x0<x1, z0<z1. The carriageway runs counter-clockwise with the plot on
+// the driver's left: westbound on the top road, southbound on the left,
+// eastbound on the bottom and northbound on the right. Each corner is
+// therefore a protected left turn around its own quadrant of the junction,
+// rather than the old wide right turn that crossed the junction centre and
+// overlapped the neighbouring block's path.
 export function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: number, turnR: number): Loop {
   const L = laneOff, R = turnR;
-  const tx0 = x0 - L, tx1 = x1 + L, tz0 = z0 - L, tz1 = z1 + L; // lane centreline box
+  const tx0 = x0 + L, tx1 = x1 - L, tz0 = z0 + L, tz1 = z1 - L; // lane centreline box
   const pieces: Piece[] = [
-    // top edge, travelling +x -> gate for the NE junction (E-W movement)
-    lineP(tx0 + R, tz0, tx1 - R, tz0, true),
-    arcP(tx1 - R, tz0 + R, R, -Math.PI / 2, 0),
-    // right edge, travelling +z -> gate for the SE junction (N-S movement)
-    lineP(tx1, tz0 + R, tx1, tz1 - R, false),
-    arcP(tx1 - R, tz1 - R, R, 0, Math.PI / 2),
-    // bottom edge, travelling -x
-    lineP(tx1 - R, tz1, tx0 + R, tz1, true),
-    arcP(tx0 + R, tz1 - R, R, Math.PI / 2, Math.PI),
-    // left edge, travelling -z
-    lineP(tx0, tz1 - R, tx0, tz0 + R, false),
-    arcP(tx0 + R, tz0 + R, R, Math.PI, Math.PI * 1.5),
+    // top edge, travelling west -> gate for the NW junction (E-W movement)
+    lineP(tx1 - R, tz0, tx0 + R, tz0, true),
+    arcP(tx0 + R, tz0 + R, R, -Math.PI / 2, -Math.PI),
+    // left edge, travelling south -> gate for the SW junction (N-S movement)
+    lineP(tx0, tz0 + R, tx0, tz1 - R, false),
+    arcP(tx0 + R, tz1 - R, R, Math.PI, Math.PI / 2),
+    // bottom edge, travelling east -> gate for the SE junction
+    lineP(tx0 + R, tz1, tx1 - R, tz1, true),
+    arcP(tx1 - R, tz1 - R, R, Math.PI / 2, 0),
+    // right edge, travelling north -> gate for the NE junction
+    lineP(tx1, tz1 - R, tx1, tz0 + R, false),
+    arcP(tx1 - R, tz0 + R, R, 0, -Math.PI / 2),
   ];
   return finishLoop(pieces);
 }
@@ -631,16 +635,22 @@ export function Traffic({
     const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
     const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
     const laneOff = ROAD_W * 0.2;
-    const turnR = ROAD_W * 0.55;
+    // The lane and arc meet at the plot corner (20 u from the road centre),
+    // keeping the whole turn on asphalt instead of cutting into the plot.
+    const turnR = ROAD_W / 2 - laneOff;
 
     const loops: Loop[] = [];
     const cars: Car[] = [];
     const addCarsTo = (loopIdx: number, n: number, forceKind?: VKind) => {
       const L = loops[loopIdx].L;
+      const phase = rnd();
       for (let k = 0; k < n; k++) {
         cars.push({
           loop: loopIdx,
-          s: ((k + rnd()) / n) * L,
+          // A shared phase keeps the fleet evenly spaced on first paint.
+          // Per-car jitter could place two long vehicles almost nose-to-tail
+          // before the following-distance solver had run its first frame.
+          s: ((k + phase) / n) * L,
           speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
           color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
           kind: forceKind ?? pickKind(rnd()),
@@ -700,6 +710,7 @@ export function Traffic({
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const taillightRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const activeCountsRef = useRef<number[]>([]);
 
   // Car indices grouped per loop and ordered by position, so each frame a
   // car only has to look at the single car immediately ahead of it.
@@ -739,7 +750,7 @@ export function Traffic({
     const activeLoops = Math.max(1, Math.ceil(loops.length * (0.32 + 0.68 * lv)));
     const perLoopFrac = 0.16 + 0.84 * lv;               // how full each active loop is
     const baseSpeed = CAR_BASE_SPEED * (1 - 0.62 * lv); // 78 → ~30 at full jam
-    const gap = CAR_GAP * (1 - 0.62 * lv);              // 26 → ~10 at full jam
+    const bumperGap = THREE.MathUtils.lerp(CAR_GAP_LIGHT, CAR_GAP_PEAK, lv);
 
     const parkOne = (ci: number) => {
       dummy.position.set(0, -1000, 0);
@@ -764,6 +775,17 @@ export function Traffic({
       // around the ring (not the first N, which would bunch on one arc),
       // the rest parked. nActive == ring.length at PEAK → bumper-to-bumper.
       const nActive = Math.max(1, Math.min(ring.length, Math.round(ring.length * perLoopFrac)));
+      // A traffic-mode change can bring previously parked cars back into
+      // service. Re-space the stocked fleet once at that transition so a
+      // stale hidden car never materialises inside a moving vehicle.
+      if (activeCountsRef.current[li] !== nActive) {
+        const anchor = cars[ring[0]].s;
+        ring.forEach((ci, k) => {
+          cars[ci].s = anchor + (k * loop.L) / ring.length;
+          cars[ci].speed = Math.min(cars[ci].speed, baseSpeed);
+        });
+        activeCountsRef.current[li] = nActive;
+      }
       const activeIdx: number[] = [];
       const used = new Set<number>();
       for (let j = 0; j < nActive; j++) {
@@ -779,38 +801,47 @@ export function Traffic({
         const ci = ring[k];
         const c = cars[ci];
 
-        // desired speed from the road + the next signal
+        // Desired speed from the road, the next corner and the next signal.
         let target = baseSpeed;
-        // which piece are we on? (arcs are slow)
         let sMod = c.s % loop.L; if (sMod < 0) sMod += loop.L;
+        // Brake before the turn rather than reaching an arc at straight-line
+        // speed and snapping down to the corner limit in a single frame.
         for (const p of loop.pieces) {
-          if (sMod >= p.s0 && sMod < p.s0 + p.len) { if (p.kind === "arc") target = Math.min(target, CAR_ARC_SPEED); break; }
+          if (p.kind !== "arc") continue;
+          const inside = sMod >= p.s0 && sMod < p.s0 + p.len;
+          const distance = inside ? 0 : (p.s0 - sMod + loop.L) % loop.L;
+          target = Math.min(target, Math.sqrt(CAR_ARC_SPEED ** 2 + 2 * CAR_BRAKE * distance));
         }
         // nearest gate ahead
         let gateHold = Infinity;
         for (const gate of loop.gates) {
           let d = gate.s - sMod;
-          if (d < -4) d += loop.L;              // wrapped round
-          if (d < 0) d = 0;
+          if (d <= 0.01) d += loop.L;            // gate already passed: use its next lap
           if (d > BRAKE_LOOKAHEAD) continue;
           const st = signalStateFor(gate.axisIsX, now); // 0 green 1 amber 2 red
-          if (st === 2) { gateHold = Math.min(gateHold, c.s + d - STOP_MARGIN); target = Math.min(target, 0); }
-          else if (st === 1) target = Math.min(target, d > 40 ? baseSpeed * 0.32 : 0); // amber: slow, stop if too close to clear
+          const canStopOnAmber = d > STOP_MARGIN + c.speed ** 2 / (2 * CAR_BRAKE);
+          if (st === 2 || (st === 1 && canStopOnAmber)) {
+            gateHold = Math.min(gateHold, c.s + d - STOP_MARGIN);
+            target = Math.min(target, Math.sqrt(2 * CAR_BRAKE * Math.max(0, d - STOP_MARGIN)));
+          }
         }
 
-        // gap to the car immediately ahead among the ACTIVE cars — longer
-        // vehicles need more room so a bus doesn't telescope into the car ahead
+        // Centre-to-centre spacing must include BOTH body half-lengths plus
+        // a real bumper gap. The previous rule treated the bumper gap as the
+        // whole spacing, so long vehicles overlapped in peak-hour queues.
         const ahead = nActive > 1 ? cars[ring[activeIdx[(ai + 1) % nActive]]] : null;
         let gapHold = Infinity;
         if (ahead) {
           let as = ahead.s;
           while (as <= c.s) as += loop.L;
-          gapHold = as - gap - (V_SPEC[ahead.kind].half - 9) * 1.1;
+          const safeCentreGap = V_SPEC[c.kind].half + V_SPEC[ahead.kind].half + bumperGap;
+          gapHold = as - safeCentreGap;
+          target = Math.min(target, Math.sqrt(ahead.speed ** 2 + 2 * CAR_BRAKE * Math.max(0, gapHold - c.s)));
         }
 
         // integrate speed toward target, then advance, then clamp to holds
         const accel = target >= c.speed ? CAR_ACCEL : CAR_BRAKE;
-        c.speed += Math.sign(target - c.speed) * accel * step;
+        c.speed += THREE.MathUtils.clamp(target - c.speed, -accel * step, accel * step);
         if (c.speed < 0) c.speed = 0;
         if (c.speed > baseSpeed) c.speed = baseSpeed;
         let ns = c.s + c.speed * step;
@@ -820,16 +851,24 @@ export function Traffic({
 
         // write transforms
         const [x, z] = posAt(loop, c.s);
-        const [x2, z2] = posAt(loop, c.s + 3);
-        const heading = Math.atan2(z2 - z, x2 - x);
+        const spec = V_SPEC[c.kind];
+        // Use a rear-to-front chord scaled to the vehicle wheelbase. It
+        // gives vans, lorries and buses a stable, gradual yaw through the
+        // line/arc join instead of pivoting their long body at its centre.
+        const poseSpan = Math.min(8, Math.max(3, spec.half * 0.55));
+        const [rx, rz] = posAt(loop, c.s - poseSpan);
+        const [fx, fz] = posAt(loop, c.s + poseSpan);
+        const heading = Math.atan2(fz - rz, fx - rx);
         const cos = Math.cos(heading), sin = Math.sin(heading);
         const local = (fwd: number, side: number) =>
           [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
-        const spec = V_SPEC[c.kind];
 
         const [bx, bz] = local(spec.bodyDX, 0);
         dummy.position.set(bx, spec.bodyY + yLift, bz);
-        dummy.rotation.set(0, heading, 0);
+        // Three.js positive Y rotation turns local +X toward -Z, while our
+        // path heading uses atan2(+Z, +X). Negate it so the rendered nose,
+        // cabin and lights point along the direction of travel on a turn.
+        dummy.rotation.set(0, -heading, 0);
         dummy.scale.set(spec.bodyS[0], spec.bodyS[1], spec.bodyS[2]);
         dummy.updateMatrix();
         body.setMatrixAt(ci, dummy.matrix);
@@ -845,12 +884,12 @@ export function Traffic({
         [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
           const [wx, wz] = local(f, s);
           dummy.position.set(wx, wy, wz);
-          dummy.rotation.set(Math.PI / 2, heading, 0);
+          dummy.rotation.set(Math.PI / 2, -heading, 0);
           dummy.scale.set(spec.wheel, spec.wheel, spec.wheel);
           dummy.updateMatrix();
           wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
         });
-        dummy.rotation.set(0, heading, 0);
+        dummy.rotation.set(0, -heading, 0);
         dummy.scale.set(1, 1, 1);
         const lf = spec.half * 1.02;
         const ly = 2.4 + spec.bodyY * 0.4 + yLift;
