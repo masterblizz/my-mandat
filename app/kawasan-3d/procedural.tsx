@@ -91,9 +91,9 @@ export const PROCEDURAL_TYPES = new Set<BType>([
 const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
   // Tall-building tones are linked to their geometry variant below so
   // variety costs one bucket per silhouette, not a variant × colour grid.
-  tower: ["#718995", "#8499a2", "#687f8c", "#788d95", "#8a9599"],
-  skyscraper: ["#4f6876", "#607987", "#526f79", "#6d7f88", "#596f78"],
-  hotel: ["#a47d62", "#8c7a70", "#788892", "#9b8870", "#71828a"],
+  tower: ["#8ea5ad", "#9cabb0", "#849aa5", "#91a2a7", "#a2acad"],
+  skyscraper: ["#728b97", "#8297a1", "#6d8792", "#8c9ca2", "#788e96"],
+  hotel: ["#b08b70", "#99867b", "#87979f", "#a69379", "#81929a"],
   kampung: ["#b89a7c", "#c9ac8c", "#a9c2a0", "#b6c6d2", "#d2b6a4"],
   house: ["#e0d3b6", "#d8c4a8", "#c9d4c0", "#d2c8d8", "#e0c8b8"],
   terrace: ["#c9b79c", "#bfa98c", "#a9b8a0", "#b2b9c8", "#c9b0a0"],

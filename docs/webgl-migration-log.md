@@ -2259,6 +2259,37 @@ stamped towers.
   the development renderer at the 1280×720 test viewport.
 - TypeScript, lint, the journey suite and production build passed.
 
+## Item 25 — PALET SIANG: tropical clarity without the olive wash
+
+The clear-day preset used an almost white horizon, a bright olive perimeter
+sheet and yellow-brown hemisphere bounce. Together they flattened distant
+depth and pushed concrete, roads and vegetation toward one pale khaki family.
+
+### What changed
+
+- The midday sky now grades from clear blue to humid blue-cyan haze. Fog uses
+  the same cooler horizon family, so distant towers recede without bleaching.
+- Neutral green-grey ground bounce replaces the yellow-olive fill, while the
+  perimeter terrain is darker and closer to the planted city tiles.
+- Grass, undeveloped land, asphalt, pavers and soil have distinct restrained
+  values. High-rise materials are lifted slightly so their façade grids remain
+  readable beside the darker roads.
+- A subtle daylight-only saturation and contrast grade restores material
+  separation after ACES tone mapping. Dusk receives a lighter version; night
+  grading remains unchanged from Item 23.
+- Sound cleanup now checks the AudioContext state after its fade timer, avoiding
+  a harmless but noisy `InvalidStateError` during hot reload or route teardown.
+
+### Verification
+
+- Computer Use browser pass on the 30×30 `/kawasan-3d` harness: whole-city and
+  close daylight, dusk transition and night regression. The cooler horizon,
+  neutral perimeter, roads, lawns and lifted façades remained visually distinct;
+  the final clean browser session reported no console warnings/errors.
+- Dense 30×30 night sampled at 18 fps, 2,411 draws and 3.942M triangles on the
+  development renderer at the 1280×720 test viewport.
+- TypeScript, lint, the journey suite and production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

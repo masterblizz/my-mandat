@@ -72,7 +72,7 @@ const TILE_BORDER_W = 5;
 // (unlike zone tiles) since real asphalt doesn't change hue with time of
 // day, only its lit brightness — and a fixed neutral colour holds contrast
 // against every TOD's zone palette by construction, not by coincidence.
-const ROAD_COLOR = "#5a6270";
+const ROAD_COLOR = "#4d555e";
 // Wet asphalt: darker (water film absorbs more light) and, combined with
 // the lowered roughness / added metalness at the mesh below, picks up a
 // sheen off the sky/env map instead of the flat matte look on a clear day.

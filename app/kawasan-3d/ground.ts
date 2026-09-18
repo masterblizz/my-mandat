@@ -33,15 +33,15 @@ export const isGrassKind = (kind: ZoneKind): boolean => GRASS_KINDS.has(kind);
 // than the old zoneGroundColor() values (#1d2a24 etc.), which read as
 // "dark olive/navy", not grass.
 const GRASS_BASE: Partial<Record<ZoneKind, string>> = {
-  housing: "#3f5a36",
-  village: "#47613c",
-  education: "#42603b",
-  community: "#3c5738",
+  housing: "#3f6241",
+  village: "#52683f",
+  education: "#426a47",
+  community: "#395d40",
 };
-const GRASS_FALLBACK = "#425c39";
+const GRASS_FALLBACK = "#456342";
 // Undeveloped land: drier, scrubbier, slightly yellow-green so unbuilt
 // cells still read as distinct from a kept lawn.
-export const UNDEVELOPED_GRASS = "#4a5330";
+export const UNDEVELOPED_GRASS = "#596044";
 
 // Deterministic LCG (same family as windows.ts / vegetation.ts).
 function lcg(seed: number) {
@@ -176,10 +176,10 @@ type Surface = "asphalt" | "paver" | "soil";
 // which is the point: lit daytime pavement is grey, not black). Kinds not
 // listed (river, and anything new) fall back to zoneGroundColor().
 const PAVED: Partial<Record<ZoneKind, { surface: Surface; base: string; rough: number }>> = {
-  urban: { surface: "asphalt", base: "#4e5157", rough: 0.95 },
-  commercial: { surface: "asphalt", base: "#53565c", rough: 0.95 },
-  market: { surface: "paver", base: "#9c988e", rough: 0.9 },
-  industry: { surface: "soil", base: "#8a7f6b", rough: 1 },
+  urban: { surface: "asphalt", base: "#484e55", rough: 0.95 },
+  commercial: { surface: "asphalt", base: "#50565d", rough: 0.95 },
+  market: { surface: "paver", base: "#8f8a80", rough: 0.9 },
+  industry: { surface: "soil", base: "#786e5c", rough: 1 },
 };
 export const pavedSurfaceFor = (kind: ZoneKind) => PAVED[kind] ?? null;
 

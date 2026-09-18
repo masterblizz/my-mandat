@@ -721,24 +721,24 @@ export type TodEnv = {
   stars: number;
 };
 export const TOD_ENV: Record<Tod, TodEnv> = {
-  // clear blue midday, sun high in the east; no lamps, no lit windows.
-  // Colours + intensities from REAL_OVERRIDE.day (design canvas): softer
-  // hazy sky, warmer sun, a bright olive ground sheet instead of near-black.
+  // Humid tropical midday: blue-cyan haze instead of a white horizon, with
+  // neutral green bounce. This separates the skyline from the terrain without
+  // the previous yellow-olive wash across every shaded surface.
   day: {
-    skyTop: "#5d8fb8", skyBottom: "#e6ecec",
-    sun: [0.35, 0.92, 0.2], sunColor: "#fff2dc", sunIntensity: 2.5,
-    ambientColor: "#c3cfd6", ambientIntensity: 0.5,
-    hemiSky: "#dceaf2", hemiGround: "#8f8a6c", hemiIntensity: 0.95,
-    fog: "#eef3f4", ground: "#7e8461", lamp: 0, winLit: 0, stars: 0,
+    skyTop: "#4d82ad", skyBottom: "#c6dce2",
+    sun: [0.35, 0.92, 0.2], sunColor: "#fff0d4", sunIntensity: 2.35,
+    ambientColor: "#afc5d0", ambientIntensity: 0.44,
+    hemiSky: "#cde0e7", hemiGround: "#4f5b56", hemiIntensity: 0.8,
+    fog: "#c8d9dd", ground: "#3f4b43", lamp: 0, winLit: 0, stars: 0,
   },
-  // purple-to-amber sunset, low sun in the west; lamps + windows ~half on.
-  // REAL_OVERRIDE.dusk keeps the warm sun colour, lifts the ground.
+  // Blue-violet shadows against a restrained amber horizon. The previous
+  // orange fog + brown ground + orange sun stack made the whole city sepia.
   dusk: {
-    skyTop: "#3a3358", skyBottom: "#eab473",
-    sun: [-0.86, 0.17, -0.18], sunColor: "#ff9d55", sunIntensity: 1.7,
-    ambientColor: "#5c4a66", ambientIntensity: 0.5,
-    hemiSky: "#8f7590", hemiGround: "#5b4a38", hemiIntensity: 0.7,
-    fog: "#e4b57f", ground: "#4d4a38", lamp: 0.55, winLit: 0.6, stars: 0.35,
+    skyTop: "#343650", skyBottom: "#d69a70",
+    sun: [-0.86, 0.17, -0.18], sunColor: "#ffad6b", sunIntensity: 1.55,
+    ambientColor: "#596177", ambientIntensity: 0.46,
+    hemiSky: "#7e7990", hemiGround: "#454940", hemiIntensity: 0.65,
+    fog: "#bd9279", ground: "#3e433d", lamp: 0.55, winLit: 0.6, stars: 0.35,
   },
   // deep blue night, moon mid-high; lamps + windows full on, stars out.
   // REAL_OVERRIDE.night: a touch more sky/hemi lift so massing stays read.

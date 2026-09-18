@@ -150,7 +150,12 @@ export class CitySound {
     const master = this.master;
     if (!ctx || !master) return;
     master.gain.setTargetAtTime(0, ctx.currentTime, 0.35);
-    window.setTimeout(() => { void ctx.suspend(); }, 650);
+    window.setTimeout(() => {
+      // React/HMR can dispose the controller before this fade timer fires.
+      // Suspending an AudioContext that dispose() has already closed throws
+      // InvalidStateError and pollutes an otherwise healthy scene console.
+      if (ctx.state !== "closed") void ctx.suspend().catch(() => undefined);
+    }, 650);
   }
 
   private honk() {
