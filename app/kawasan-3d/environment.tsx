@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TOD_ENV, type Tod } from "./cityData";
+import type { Weather } from "./scenery";
 
 function gradientEquirect(top: string, ground: string, horizon: string): THREE.CanvasTexture {
   const w = 256;
@@ -37,7 +38,11 @@ function gradientEquirect(top: string, ground: string, horizon: string): THREE.C
   return tex;
 }
 
-export function SceneEnvironment({ tod }: { tod: Tod }) {
+function overcast(hex: string, target: string, amount: number): string {
+  return `#${new THREE.Color(hex).lerp(new THREE.Color(target), amount).getHexString()}`;
+}
+
+export function SceneEnvironment({ tod, weather = "clear" }: { tod: Tod; weather?: Weather }) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
 
@@ -46,7 +51,12 @@ export function SceneEnvironment({ tod }: { tod: Tod }) {
     // The lower hemisphere reflects terrain, not another bright sky.
     // This grounds glass facades and gives upper/lower panes a believable
     // contrast without adding lights or per-building reflection probes.
-    const src = gradientEquirect(env.skyTop, env.ground, env.skyBottom);
+    const wet = weather === "rain";
+    const src = gradientEquirect(
+      wet ? overcast(env.skyTop, "#536273", 0.62) : env.skyTop,
+      wet ? overcast(env.ground, "#202a33", 0.5) : env.ground,
+      wet ? overcast(env.skyBottom, "#788695", 0.55) : env.skyBottom,
+    );
     const pmrem = new THREE.PMREMGenerator(gl);
     pmrem.compileEquirectangularShader();
     const rt = pmrem.fromEquirectangular(src);
@@ -59,7 +69,7 @@ export function SceneEnvironment({ tod }: { tod: Tod }) {
       pmrem.dispose();
       src.dispose();
     };
-  }, [gl, scene, tod]);
+  }, [gl, scene, tod, weather]);
 
   return null;
 }

@@ -148,12 +148,16 @@ export function CityEnvironment({
 }
 
 // ── rain ────────────────────────────────────────────────────────────
-// Instanced thin streaks in a box above the pivot; they fall and wrap.
+// Instanced wind-driven streaks and expanding ground splashes. Both effects
+// keep a fixed instance budget and only update matrices, so rain density does
+// not create or destroy objects while the camera is moving.
 function Rain({ span }: { span: number }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
+  const dropRef = useRef<THREE.InstancedMesh>(null);
+  const splashRef = useRef<THREE.InstancedMesh>(null);
   const N = 1400;
+  const SPLASH_N = 220;
   const H = span * 0.8;
-  const state = useMemo(() => {
+  const drops = useMemo(() => {
     let s = 7;
     const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
     const h = span * 0.8;
@@ -164,39 +168,91 @@ function Rain({ span }: { span: number }) {
       v: 600 + rnd() * 500,
     }));
   }, [span]);
+  const splashes = useMemo(() => {
+    let s = 71;
+    const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    return Array.from({ length: SPLASH_N }, () => ({
+      x: (rnd() - 0.5) * span * 1.25,
+      z: (rnd() - 0.5) * span * 1.25,
+      life: rnd(),
+      rate: 0.75 + rnd() * 1.3,
+    }));
+  }, [span]);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const rainTilt = useMemo(() => {
+    const downwind = new THREE.Vector3(-0.2, -1, 0.065).normalize();
+    return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), downwind);
+  }, []);
 
   useLayoutEffect(() => {
-    const m = ref.current;
-    if (!m) return;
-    state.forEach((d, i) => {
+    const dropMesh = dropRef.current;
+    const splashMesh = splashRef.current;
+    if (!dropMesh || !splashMesh) return;
+    drops.forEach((d, i) => {
       dummy.position.set(d.x, d.y, d.z);
+      dummy.quaternion.copy(rainTilt);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      m.setMatrixAt(i, dummy.matrix);
+      dropMesh.setMatrixAt(i, dummy.matrix);
     });
-    m.instanceMatrix.needsUpdate = true;
-  }, [state, dummy]);
+    splashes.forEach((s, i) => {
+      const scale = 0.4 + s.life * 4.2;
+      dummy.position.set(s.x, 1.05, s.z);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      splashMesh.setMatrixAt(i, dummy.matrix);
+    });
+    dropMesh.instanceMatrix.needsUpdate = true;
+    splashMesh.instanceMatrix.needsUpdate = true;
+  }, [drops, splashes, dummy, rainTilt]);
 
   useFrame((_, dt) => {
-    const m = ref.current;
-    if (!m) return;
-    for (let i = 0; i < state.length; i++) {
-      const d = state[i];
-      d.y -= d.v * dt;
+    const dropMesh = dropRef.current;
+    const splashMesh = splashRef.current;
+    if (!dropMesh || !splashMesh) return;
+    const step = Math.min(dt, 0.05);
+    const half = span * 0.65;
+    for (let i = 0; i < drops.length; i++) {
+      const d = drops[i];
+      d.x -= d.v * 0.2 * step;
+      d.z += d.v * 0.065 * step;
+      d.y -= d.v * step;
       if (d.y < 0) d.y += H;
+      if (d.x < -half) d.x += half * 2;
+      if (d.z > half) d.z -= half * 2;
       dummy.position.set(d.x, d.y, d.z);
+      dummy.quaternion.copy(rainTilt);
+      dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      m.setMatrixAt(i, dummy.matrix);
+      dropMesh.setMatrixAt(i, dummy.matrix);
     }
-    m.instanceMatrix.needsUpdate = true;
+    for (let i = 0; i < splashes.length; i++) {
+      const splash = splashes[i];
+      splash.life += splash.rate * step;
+      if (splash.life >= 1) splash.life -= 1;
+      const scale = 0.4 + splash.life * 4.2;
+      dummy.position.set(splash.x, 1.05, splash.z);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      splashMesh.setMatrixAt(i, dummy.matrix);
+    }
+    dropMesh.instanceMatrix.needsUpdate = true;
+    splashMesh.instanceMatrix.needsUpdate = true;
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, N]} frustumCulled={false}>
-      <boxGeometry args={[0.7, 16, 0.7]} />
-      <meshBasicMaterial color="#9fb4c8" transparent opacity={0.35} fog={false} toneMapped={false} />
-    </instancedMesh>
+    <group>
+      <instancedMesh ref={dropRef} args={[undefined, undefined, N]} frustumCulled={false}>
+        <boxGeometry args={[0.7, 16, 0.7]} />
+        <meshBasicMaterial color="#b7cbdb" transparent opacity={0.38} fog={false} toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={splashRef} args={[undefined, undefined, SPLASH_N]} frustumCulled={false}>
+        <ringGeometry args={[0.32, 0.48, 8]} />
+        <meshBasicMaterial color="#d6e8f2" transparent opacity={0.24} depthWrite={false} toneMapped={false} />
+      </instancedMesh>
+    </group>
   );
 }
 
@@ -482,6 +538,8 @@ export function TrafficLights({
 // ahead on the same loop, so they queue at a red instead of stacking.
 
 const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827"];
+const TAIL_RUNNING = new THREE.Color("#791014");
+const TAIL_BRAKING = new THREE.Color("#ff332e");
 
 // Vehicle variety. Every kind rides the same loops / signal / gap logic;
 // they differ only in how the shared body+cabin+wheel+light instances are
@@ -546,6 +604,8 @@ type Car = {
   loop: number;
   s: number;        // arc-length position around the loop
   speed: number;
+  wheelSpin: number;
+  braking: boolean;
   color: THREE.Color;
   kind: VKind;
 };
@@ -652,6 +712,8 @@ export function Traffic({
           // before the following-distance solver had run its first frame.
           s: ((k + phase) / n) * L,
           speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
+          wheelSpin: rnd() * Math.PI * 2,
+          braking: false,
           color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
           kind: forceKind ?? pickKind(rnd()),
         });
@@ -710,6 +772,10 @@ export function Traffic({
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const taillightRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const wheelYaw = useMemo(() => new THREE.Quaternion(), []);
+  const wheelMount = useMemo(() => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), []);
+  const wheelRoll = useMemo(() => new THREE.Quaternion(), []);
+  const wheelAxisY = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const activeCountsRef = useRef<number[]>([]);
 
   // Car indices grouped per loop and ordered by position, so each frame a
@@ -724,13 +790,17 @@ export function Traffic({
   useLayoutEffect(() => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
-    if (!body || !cabin) return;
+    const taillights = taillightRef.current;
+    if (!body || !cabin || !taillights) return;
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
       cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), V_SPEC[c.kind].tint));
+      taillights.setColorAt(i * 2, TAIL_RUNNING);
+      taillights.setColorAt(i * 2 + 1, TAIL_RUNNING);
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
+    if (taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
   }, [cars]);
 
   useFrame((_, dt) => {
@@ -751,6 +821,7 @@ export function Traffic({
     const perLoopFrac = 0.16 + 0.84 * lv;               // how full each active loop is
     const baseSpeed = CAR_BASE_SPEED * (1 - 0.62 * lv); // 78 → ~30 at full jam
     const bumperGap = THREE.MathUtils.lerp(CAR_GAP_LIGHT, CAR_GAP_PEAK, lv);
+    let tailColorDirty = false;
 
     const parkOne = (ci: number) => {
       dummy.position.set(0, -1000, 0);
@@ -840,6 +911,7 @@ export function Traffic({
         }
 
         // integrate speed toward target, then advance, then clamp to holds
+        const previousSpeed = c.speed;
         const accel = target >= c.speed ? CAR_ACCEL : CAR_BRAKE;
         c.speed += THREE.MathUtils.clamp(target - c.speed, -accel * step, accel * step);
         if (c.speed < 0) c.speed = 0;
@@ -847,6 +919,16 @@ export function Traffic({
         let ns = c.s + c.speed * step;
         if (ns > gapHold) { ns = Math.max(c.s, gapHold); c.speed = 0; }
         if (ns > gateHold) { ns = Math.max(c.s, gateHold); c.speed = 0; }
+        const braking = previousSpeed - c.speed > 0.35 || (c.speed < 0.25 && (gapHold < Infinity || gateHold < Infinity));
+        if (braking !== c.braking) {
+          c.braking = braking;
+          const tailColor = braking ? TAIL_BRAKING : TAIL_RUNNING;
+          taillights.setColorAt(ci * 2, tailColor);
+          taillights.setColorAt(ci * 2 + 1, tailColor);
+          tailColorDirty = true;
+        }
+        const travelled = Math.max(0, ns - c.s);
+        c.wheelSpin = (c.wheelSpin + travelled / (2.05 * V_SPEC[c.kind].wheel)) % (Math.PI * 2);
         c.s = ns;
 
         // write transforms
@@ -884,7 +966,12 @@ export function Traffic({
         [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
           const [wx, wz] = local(f, s);
           dummy.position.set(wx, wy, wz);
-          dummy.rotation.set(Math.PI / 2, -heading, 0);
+          // Cylinder geometry rolls around its original local Y axis. Mount
+          // that axle across the car, apply the travelled-distance roll, then
+          // yaw the complete wheel to match the current road tangent.
+          wheelYaw.setFromAxisAngle(wheelAxisY, -heading);
+          wheelRoll.setFromAxisAngle(wheelAxisY, c.wheelSpin);
+          dummy.quaternion.copy(wheelYaw).multiply(wheelMount).multiply(wheelRoll);
           dummy.scale.set(spec.wheel, spec.wheel, spec.wheel);
           dummy.updateMatrix();
           wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
@@ -910,6 +997,7 @@ export function Traffic({
     wheels.instanceMatrix.needsUpdate = true;
     headlights.instanceMatrix.needsUpdate = true;
     taillights.instanceMatrix.needsUpdate = true;
+    if (tailColorDirty && taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
   });
 
   return (
@@ -932,7 +1020,7 @@ export function Traffic({
       </instancedMesh>
       <instancedMesh ref={taillightRef} args={[undefined, undefined, cars.length * 2]} key={`car-taillights-${cars.length}`}>
         <boxGeometry args={[0.7, 1.2, 1.55]} />
-        <meshBasicMaterial color="#ff3b30" toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
     </group>
   );

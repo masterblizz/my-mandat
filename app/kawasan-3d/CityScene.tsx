@@ -516,7 +516,7 @@ export function CityScene({
   return (
     <>
       <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
-      <SceneEnvironment tod={tod} />
+      <SceneEnvironment tod={tod} weather={weather} />
       {weather !== "rain" && <SkyLife tod={tod} span={span} />}
       <EdgeLandscape traits={traits} tod={tod} span={span} />
       <Grid
@@ -543,7 +543,7 @@ export function CityScene({
       <Traffic gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
       <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
-      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
+      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}

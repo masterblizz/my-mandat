@@ -19,7 +19,7 @@ import { useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PLOT, ROAD_GAP, type CellPlacement, type ZoneKind } from "./cityData";
-import { signalStateFor } from "./scenery";
+import { signalStateFor, type Weather } from "./scenery";
 
 const TILE_H = 4;
 const ROAD_W = ROAD_GAP - PLOT;
@@ -28,6 +28,8 @@ const SHIRT_COL = SHIRTS.map((h) => new THREE.Color(h));
 const PANTS = ["#2b3140", "#1f2937", "#3f4a5c", "#584a3a", "#0f172a"];
 const PANTS_COL = PANTS.map((h) => new THREE.Color(h));
 const SKIN_COL = "#caa987";
+const UMBRELLAS = ["#c53d4f", "#e2b84b", "#277da1", "#40513b", "#6d597a", "#d8e2dc"];
+const UMBRELLA_COL = UMBRELLAS.map((h) => new THREE.Color(h));
 
 // rig proportions (before per-person scale) — feet at TILE_H
 const LEG_LEN = 4.2;
@@ -81,6 +83,7 @@ function pedCount(kind: ZoneKind, coreness: number, gridSize: number): number {
 type Ped = {
   cx: number; cz: number;
   speed: number; phase: number; shirt: number; pants: number; build: number;
+  umbrella: number;
   cross: boolean;
   // LOOP
   s: number;
@@ -95,11 +98,12 @@ type Ped = {
 };
 
 export function Pedestrians({
-  placed, gridSize, trafficLevel = 0.5, claimed, avoidCentre,
+  placed, gridSize, trafficLevel = 0.5, claimed, avoidCentre, weather = "clear",
 }: {
   placed: CellPlacement[];
   gridSize: number;
   trafficLevel?: number;
+  weather?: Weather;
   claimed?: Set<string>;
   /** Central roundabout centre. Its four adjacent plots have no reliable
       pedestrian pavement because the raised ring overlaps their inner edges. */
@@ -142,6 +146,7 @@ export function Pedestrians({
           shirt: Math.floor(rnd() * SHIRTS.length),
           pants: Math.floor(rnd() * PANTS.length),
           build: 0.86 + rnd() * 0.28,
+          umbrella: Math.floor(rnd() * UMBRELLAS.length),
           cross,
           s: rnd() * perim,
           axisX,
@@ -161,6 +166,8 @@ export function Pedestrians({
   const headRef = useRef<THREE.InstancedMesh>(null);
   const legRef = useRef<THREE.InstancedMesh>(null);
   const armRef = useRef<THREE.InstancedMesh>(null);
+  const umbrellaRef = useRef<THREE.InstancedMesh>(null);
+  const umbrellaShaftRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   // Leg/arm geometry pivots at the HIP / SHOULDER end (not centre) so a
@@ -182,6 +189,7 @@ export function Pedestrians({
     const torso = torsoRef.current;
     const legs = legRef.current;
     const arms = armRef.current;
+    const umbrellas = umbrellaRef.current;
     if (!torso || !legs || !arms) return;
     peds.forEach((p, i) => {
       torso.setColorAt(i, SHIRT_COL[p.shirt]);
@@ -189,18 +197,23 @@ export function Pedestrians({
         legs.setColorAt(i * 2 + n, PANTS_COL[p.pants]);
         arms.setColorAt(i * 2 + n, SHIRT_COL[p.shirt]);
       }
+      if (umbrellas) umbrellas.setColorAt(i, UMBRELLA_COL[p.umbrella]);
     });
     if (torso.instanceColor) torso.instanceColor.needsUpdate = true;
     if (legs.instanceColor) legs.instanceColor.needsUpdate = true;
     if (arms.instanceColor) arms.instanceColor.needsUpdate = true;
-  }, [peds]);
+    if (umbrellas?.instanceColor) umbrellas.instanceColor.needsUpdate = true;
+  }, [peds, weather]);
 
   useFrame((_, dt) => {
     const torso = torsoRef.current;
     const head = headRef.current;
     const legs = legRef.current;
     const arms = armRef.current;
-    if (!torso || !head || !legs || !arms) return;
+    const umbrellas = umbrellaRef.current;
+    const umbrellaShafts = umbrellaShaftRef.current;
+    const rainy = weather === "rain";
+    if (!torso || !head || !legs || !arms || (rainy && (!umbrellas || !umbrellaShafts))) return;
     const step = Math.min(dt, 0.05);
     const lv = Math.max(0, Math.min(1, levelRef.current));
     const active = Math.max(1, Math.round(peds.length * (0.32 + 0.68 * lv)));
@@ -217,6 +230,8 @@ export function Pedestrians({
       legs.setMatrixAt(i * 2 + 1, dummy.matrix);
       arms.setMatrixAt(i * 2, dummy.matrix);
       arms.setMatrixAt(i * 2 + 1, dummy.matrix);
+      umbrellas?.setMatrixAt(i, dummy.matrix);
+      umbrellaShafts?.setMatrixAt(i, dummy.matrix);
     };
 
     for (let i = 0; i < peds.length; i++) {
@@ -306,11 +321,32 @@ export function Pedestrians({
         dummy.updateMatrix();
         arms.setMatrixAt(i * 2 + n, dummy.matrix);
       });
+
+      if (rainy && umbrellas && umbrellaShafts) {
+        // One hand carries the umbrella slightly to the pedestrian's right.
+        // The shared lean gives the rainy crowd a coherent wind direction;
+        // the small gait bob keeps each canopy attached to its owner.
+        const [ux, uz] = side(1.15 * b);
+        const headY = TILE_H + (HEAD_Y - TILE_H) * b - bob * 0.3;
+        dummy.position.set(ux, headY + 1.05 * b, uz);
+        dummy.rotation.set(0.07, heading, -0.1);
+        dummy.scale.set(b, b, b);
+        dummy.updateMatrix();
+        umbrellaShafts.setMatrixAt(i, dummy.matrix);
+
+        dummy.position.set(ux, headY + 3.0 * b, uz);
+        dummy.updateMatrix();
+        umbrellas.setMatrixAt(i, dummy.matrix);
+      }
     }
     torso.instanceMatrix.needsUpdate = true;
     head.instanceMatrix.needsUpdate = true;
     legs.instanceMatrix.needsUpdate = true;
     arms.instanceMatrix.needsUpdate = true;
+    if (rainy && umbrellas && umbrellaShafts) {
+      umbrellas.instanceMatrix.needsUpdate = true;
+      umbrellaShafts.instanceMatrix.needsUpdate = true;
+    }
   });
 
   if (!peds.length) return null;
@@ -330,6 +366,18 @@ export function Pedestrians({
       <instancedMesh ref={armRef} args={[armGeo, undefined, peds.length * 2]} key={`ped-a-${peds.length}`} castShadow>
         <meshStandardMaterial color="#ffffff" roughness={0.85} />
       </instancedMesh>
+      {weather === "rain" && (
+        <>
+          <instancedMesh ref={umbrellaShaftRef} args={[undefined, undefined, peds.length]} key={`ped-us-${peds.length}`} castShadow>
+            <cylinderGeometry args={[0.12, 0.12, 4.2, 5]} />
+            <meshStandardMaterial color="#30353b" metalness={0.45} roughness={0.5} />
+          </instancedMesh>
+          <instancedMesh ref={umbrellaRef} args={[undefined, undefined, peds.length]} key={`ped-u-${peds.length}`} castShadow>
+            <coneGeometry args={[3.35, 1.25, 10, 1, true]} />
+            <meshStandardMaterial color="#ffffff" side={THREE.DoubleSide} roughness={0.78} />
+          </instancedMesh>
+        </>
+      )}
     </group>
   );
 }

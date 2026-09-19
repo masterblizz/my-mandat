@@ -2351,6 +2351,59 @@ streets and undeveloped green plots read as static set dressing.
   warnings or errors.
 - TypeScript, lint, the 44-test journey suite and production build passed.
 
+## Item 28 — GERAK KENDERAAN: rolling wheels and live brake feedback
+
+Vehicles followed the corrected junction paths, but their wheels remained fixed
+and every rear lamp emitted the same red regardless of motion. Close camera work
+therefore made moving traffic feel like rigid models sliding over the road.
+
+### What changed
+
+- Every wheel now rotates from the actual distance its vehicle advances, with
+  wheel radius included so cars, buses, vans and lorries roll at the right rate.
+- Quaternion composition keeps the wheel axle mounted across the body while the
+  vehicle yaws through corners, avoiding Euler-axis wobble on junction arcs.
+- Rear lamps use per-vehicle instance colours. They brighten during deceleration,
+  queue holds and red-light stops, then settle to a restrained running red.
+- Existing instanced meshes are reused; the change adds no draw calls.
+
+## Item 29 — PAYUNG JALANAN: rain-aware pedestrian life
+
+Rain previously changed the road and skyline while pedestrians continued their
+clear-weather routine. That broke the weather story most clearly near crossings.
+
+### What changed
+
+- Rain now equips active pedestrians with coloured umbrella canopies and slim
+  shafts, deterministically varied across the crowd.
+- Umbrellas inherit each person's position, heading, scale and gait bob, including
+  kerb waits and signal-controlled crossings.
+- Two instanced meshes cover the whole crowd and disappear in clear weather, so
+  the detail remains inexpensive and does not affect dry-scene draw counts.
+
+## Item 30 — SUASANA RIBUT: directional rain, splashes and wet reflections
+
+The first rain pass fell vertically and the reflection probe still described a
+clear sky. Wet roads therefore reflected light that did not match the visible
+weather, and rainfall lacked contact with the ground.
+
+### What changed
+
+- Rain streaks now share a visible wind direction and drift across the city while
+  falling, with wrapping that keeps density even around the camera.
+- A fixed pool of expanding instanced rings creates small surface splashes without
+  spawning particles or changing object counts during play.
+- Rain rebuilds the shared PMREM environment from subdued overcast sky, horizon
+  and terrain colours, making glass and wet asphalt reflect the current weather.
+
+### Verification for Items 28–30
+
+- Computer Use passes covered metro and rural presets, clear daytime, rainy
+  daytime, close junction views and a clear night traffic view.
+- Angled streaks, ground contact, wet overcast reflections and weather switching
+  rendered correctly; a fresh browser session reported no warnings or errors.
+- TypeScript, lint, journey tests and the production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:
