@@ -2404,6 +2404,31 @@ weather, and rainfall lacked contact with the ground.
   rendered correctly; a fresh browser session reported no warnings or errors.
 - TypeScript, lint, journey tests and the production build passed.
 
+## Item 31 — ISYARAT SIMPANG: readable turn intent
+
+Correct paths and braking made traffic physically believable, but drivers gave
+no visual warning before turning. At a busy junction the flow could still feel
+mechanical because every manoeuvre began without an observable cue.
+
+### What changed
+
+- Block-loop vehicles now activate amber indicators before entering their next
+  protected left-turn arc and keep blinking until the corner is complete.
+- Front and rear markers share the existing vehicle pose, body width and light
+  height, so vans, buses, lorries and cars keep the signal attached correctly.
+- Roundabout circulation stays unlit because the current circular route does
+  not yet represent a chosen exit; showing a permanent indicator there would
+  communicate false intent.
+- One instanced mesh covers the full fleet, adding a single draw call while
+  inactive lights collapse to zero scale.
+
+### Verification
+
+- Computer Use close-view passes covered rural junctions in daylight and at
+  night. Signal timing remained attached to moving vehicles and the fresh
+  browser session reported no warnings or errors.
+- TypeScript, lint, the 44-test journey suite and production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

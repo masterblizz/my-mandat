@@ -11,7 +11,7 @@ Last updated: 2026-09-19
 ## Latest game-flow improvement checklist
 
 Implementation baseline: current `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first twenty-two follow-up
+for the current rules. The five core game-flow stages and the first twenty-three follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -38,6 +38,7 @@ improvements are complete; broader features and player validation remain open.
 - [x] Cinematic vehicle feedback with distance-driven wheel rotation and responsive brake-light intensity.
 - [x] Rain-aware street life with individually coloured umbrellas that remain attached to moving pedestrians.
 - [x] Coherent storm atmosphere with wind-angled rain, animated ground splashes and overcast wet-surface reflections.
+- [x] Readable junction intent with amber vehicle indicators that begin before each protected left turn.
 - [ ] **NEXT:** Authenticated full-journey browser usability and balance validation.
 
 ### 1. Connect the full political career — DONE

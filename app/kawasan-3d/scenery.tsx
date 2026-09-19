@@ -771,6 +771,7 @@ export function Traffic({
   const wheelRef = useRef<THREE.InstancedMesh>(null);
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const taillightRef = useRef<THREE.InstancedMesh>(null);
+  const indicatorRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const wheelYaw = useMemo(() => new THREE.Quaternion(), []);
   const wheelMount = useMemo(() => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), []);
@@ -809,7 +810,8 @@ export function Traffic({
     const wheels = wheelRef.current;
     const headlights = headlightRef.current;
     const taillights = taillightRef.current;
-    if (!body || !cabin || !wheels || !headlights || !taillights) return;
+    const indicators = indicatorRef.current;
+    if (!body || !cabin || !wheels || !headlights || !taillights || !indicators) return;
     const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
     const now = performance.now() / 1000;
 
@@ -832,6 +834,7 @@ export function Traffic({
       cabin.setMatrixAt(ci, dummy.matrix);
       for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
       for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
+      for (let n = 0; n < 2; n++) indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
     };
 
     for (let li = 0; li < loops.length; li++) {
@@ -874,6 +877,7 @@ export function Traffic({
 
         // Desired speed from the road, the next corner and the next signal.
         let target = baseSpeed;
+        let turnDistance = Infinity;
         let sMod = c.s % loop.L; if (sMod < 0) sMod += loop.L;
         // Brake before the turn rather than reaching an arc at straight-line
         // speed and snapping down to the corner limit in a single frame.
@@ -881,6 +885,7 @@ export function Traffic({
           if (p.kind !== "arc") continue;
           const inside = sMod >= p.s0 && sMod < p.s0 + p.len;
           const distance = inside ? 0 : (p.s0 - sMod + loop.L) % loop.L;
+          turnDistance = Math.min(turnDistance, distance);
           target = Math.min(target, Math.sqrt(CAR_ARC_SPEED ** 2 + 2 * CAR_BRAKE * distance));
         }
         // nearest gate ahead
@@ -990,6 +995,19 @@ export function Traffic({
           dummy.updateMatrix();
           taillights.setMatrixAt(ci * 2 + n, dummy.matrix);
         });
+
+        // Every block route uses protected left turns. Signal intent before
+        // reaching the arc and through the manoeuvre; roundabout circulation
+        // stays unlit because these loops do not model an exit choice.
+        const indicatorOn = li !== roundaboutLoopIdx && turnDistance < 62 && Math.floor(now * 2.2) % 2 === 0;
+        dummy.scale.set(indicatorOn ? 1 : 0, indicatorOn ? 1 : 0, indicatorOn ? 1 : 0);
+        const indicatorSide = -3.45 * spec.bodyS[2];
+        [lf, -lf].forEach((fwd, n) => {
+          const [ix, iz] = local(fwd, indicatorSide);
+          dummy.position.set(ix, ly + 0.45, iz);
+          dummy.updateMatrix();
+          indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
+        });
       }
     }
     body.instanceMatrix.needsUpdate = true;
@@ -997,6 +1015,7 @@ export function Traffic({
     wheels.instanceMatrix.needsUpdate = true;
     headlights.instanceMatrix.needsUpdate = true;
     taillights.instanceMatrix.needsUpdate = true;
+    indicators.instanceMatrix.needsUpdate = true;
     if (tailColorDirty && taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
   });
 
@@ -1021,6 +1040,10 @@ export function Traffic({
       <instancedMesh ref={taillightRef} args={[undefined, undefined, cars.length * 2]} key={`car-taillights-${cars.length}`}>
         <boxGeometry args={[0.7, 1.2, 1.55]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={indicatorRef} args={[undefined, undefined, cars.length * 2]} key={`car-indicators-${cars.length}`}>
+        <boxGeometry args={[0.8, 1, 0.9]} />
+        <meshBasicMaterial color="#ff9f1c" toneMapped={false} />
       </instancedMesh>
     </group>
   );
