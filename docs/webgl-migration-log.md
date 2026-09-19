@@ -2322,6 +2322,35 @@ distance, allowing vans, lorries and buses to telescope into one another.
   aligned to travel, queued with visible separation and did not collide.
 - A fresh browser session reported no console warnings or errors.
 
+## Item 27 — NAFAS HIJAU: weather-responsive city canopy
+
+Water, flags, traffic and pedestrians already moved, but every freestanding
+tree remained rigid. At close and medium distance the mismatch made planted
+streets and undeveloped green plots read as static set dressing.
+
+### What changed
+
+- Broadleaf, conifer and palm canopies now share a two-band wind motion with a
+  stable position-based phase, so gusts travel across the city instead of every
+  tree rocking in synchrony.
+- Clear weather uses restrained, slow displacement. Rain increases amplitude
+  and frequency by species; flexible palm fronds react most, while conifers
+  remain comparatively firm.
+- Motion is injected into `MeshStandardMaterial`, preserving scene lighting,
+  fog, tone mapping and per-instance colour variation.
+- Trunks and instance transforms remain static. Three shared time uniforms
+  animate the complete canopy without per-tree CPU updates or new draw calls.
+
+### Verification
+
+- Computer Use close-view pass on the `/kawasan-3d` harness in clear daylight
+  and rain. Canopies retained their grounded trunks, material response and
+  species silhouettes while the rainy gust read visibly stronger.
+- Dense 30×30 rainy daylight sampled at 19 fps, 2,182 draws and 3.954M
+  triangles on the development renderer. A fresh session reported no console
+  warnings or errors.
+- TypeScript, lint, the 44-test journey suite and production build passed.
+
 ## Why four separate bugs surfaced in Phases E-F, and none in A-D
 
 Worth calling out as a pattern, not just listing each fix separately:

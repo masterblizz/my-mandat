@@ -31,13 +31,13 @@
 // species' canopy may stack several lobes/fronds — those are extra
 // INSTANCES in the same mesh, not extra draws.
 //
-// Trees are static (no sway): the instance matrices are written once in a
-// useLayoutEffect and never touched again. Every foliage mesh is scaled
-// UNIFORMLY in X/Z (see the "canopies" section) so nothing can render as
-// a stretched oval; per-tree variety is size (s.scale) + yaw (s.rotY)
-// only.
+// Tree transforms remain static: the instance matrices are written once in
+// a useLayoutEffect. Canopy movement is applied in the standard-material
+// vertex shader, so thousands of leaves share three time uniforms rather
+// than rebuilding instance matrices on the CPU every frame.
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PLOT, type CellPlacement, type SeatTraits, type ZoneKind } from "./cityData";
 
@@ -86,7 +86,7 @@ function pickSpecies(rnd: () => number, traits: SeatTraits, kind?: ZoneKind, lus
 }
 
 export function Trees({
-  placed, empties, traits, claimed, lush = false,
+  placed, empties, traits, claimed, lush = false, weather = "clear",
 }: {
   placed: CellPlacement[];
   empties: { col: number; row: number; cx: number; cz: number }[];
@@ -95,6 +95,8 @@ export function Trees({
   claimed?: Set<string>;
   /** SUNGAI & HIJAU: denser canopy + palms + jungle empties (KL variant). */
   lush?: boolean;
+  /** Rain drives a faster, wider gust while clear weather stays gentle. */
+  weather?: "clear" | "rain";
 }) {
   const spots = useMemo(() => {
     const out: TreeSpot[] = [];
@@ -155,9 +157,9 @@ export function Trees({
   return (
     <group>
       <TreeTrunks spots={spots} />
-      <RoundCanopy spots={bySpecies.round} />
-      <ConiferCanopy spots={bySpecies.conifer} />
-      <PalmCanopy spots={bySpecies.palm} />
+      <RoundCanopy spots={bySpecies.round} weather={weather} />
+      <ConiferCanopy spots={bySpecies.conifer} weather={weather} />
+      <PalmCanopy spots={bySpecies.palm} weather={weather} />
     </group>
   );
 }
@@ -213,12 +215,78 @@ function TreeTrunks({ spots }: { spots: TreeSpot[] }) {
 //     the same mesh, not more draw calls).
 const TRUNK_TOP = (s: TreeSpot) => s.groundY + TRUNK_H * s.scale;
 
+type WindProfile = {
+  clearAmp: number;
+  rainAmp: number;
+  clearFreq: number;
+  rainFreq: number;
+  roughness: number;
+  side?: THREE.Side;
+  cacheKey: string;
+};
+
+// Preserve MeshStandardMaterial's light, fog, tone-mapping and per-instance
+// colours; only displace its local vertex before the instance transform.
+// The two sine bands keep motion from reading as a metronomic pendulum, and
+// the world-position phase makes a gust travel across the city canopy.
+function useWindFoliageMaterial(weather: "clear" | "rain", profile: WindProfile) {
+  const wind = useMemo(() => ({
+    time: { value: 0 },
+    amp: { value: profile.clearAmp },
+    freq: { value: profile.clearFreq },
+  }), [profile.clearAmp, profile.clearFreq]);
+
+  const material = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: "#ffffff",
+      roughness: profile.roughness,
+      side: profile.side ?? THREE.FrontSide,
+    });
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uWindTime = wind.time;
+      shader.uniforms.uWindAmp = wind.amp;
+      shader.uniforms.uWindFreq = wind.freq;
+      shader.vertexShader = `
+        uniform float uWindTime;
+        uniform float uWindAmp;
+        uniform float uWindFreq;
+      ` + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>", `
+        #include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float windPhase = dot(instanceMatrix[3].xz, vec2(0.037, 0.051));
+          float windWeight = smoothstep(-0.8, 0.8, position.y);
+          float windMain = sin(uWindTime * uWindFreq + windPhase);
+          float windGust = sin(uWindTime * uWindFreq * 0.43 + windPhase * 1.71);
+          transformed.x += (windMain + windGust * 0.34) * uWindAmp * windWeight;
+          transformed.z += cos(uWindTime * uWindFreq * 0.71 + windPhase * 0.83)
+            * uWindAmp * 0.32 * windWeight;
+        #endif
+      `);
+    };
+    m.customProgramCacheKey = () => profile.cacheKey;
+    return m;
+  }, [profile.cacheKey, profile.roughness, profile.side, wind]);
+
+  useEffect(() => {
+    wind.amp.value = weather === "rain" ? profile.rainAmp : profile.clearAmp;
+    wind.freq.value = weather === "rain" ? profile.rainFreq : profile.clearFreq;
+  }, [weather, profile.clearAmp, profile.clearFreq, profile.rainAmp, profile.rainFreq, wind]);
+  useFrame((_, dt) => { wind.time.value += Math.min(dt, 0.05); });
+  useEffect(() => () => material.dispose(), [material]);
+  return material;
+}
+
 // Broadleaf: a big lower sphere + a smaller upper lobe nudged off-axis,
 // both perfectly round.
-function RoundCanopy({ spots }: { spots: TreeSpot[] }) {
+function RoundCanopy({ spots, weather }: { spots: TreeSpot[]; weather: "clear" | "rain" }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const col = useMemo(() => new THREE.Color(), []);
+  const material = useWindFoliageMaterial(weather, {
+    clearAmp: 0.045, rainAmp: 0.09, clearFreq: 0.72, rainFreq: 1.3,
+    roughness: 0.9, cacheKey: "tree-wind-round-v1",
+  });
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -255,17 +323,21 @@ function RoundCanopy({ spots }: { spots: TreeSpot[] }) {
   return (
     <instancedMesh ref={ref} key={`round-${spots.length}`} args={[undefined, undefined, spots.length * 2]} castShadow frustumCulled={false}>
       <sphereGeometry args={[1, 9, 7]} />
-      <meshStandardMaterial color="#ffffff" roughness={0.9} />
+      <primitive object={material} attach="material" />
     </instancedMesh>
   );
 }
 
 // Conifer: two stacked cones (wide skirt + narrow top), each uniform in
 // X/Z, height ≈ 2.3× radius.
-function ConiferCanopy({ spots }: { spots: TreeSpot[] }) {
+function ConiferCanopy({ spots, weather }: { spots: TreeSpot[]; weather: "clear" | "rain" }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const col = useMemo(() => new THREE.Color(), []);
+  const material = useWindFoliageMaterial(weather, {
+    clearAmp: 0.032, rainAmp: 0.065, clearFreq: 0.62, rainFreq: 1.12,
+    roughness: 0.92, cacheKey: "tree-wind-conifer-v1",
+  });
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -297,7 +369,7 @@ function ConiferCanopy({ spots }: { spots: TreeSpot[] }) {
   return (
     <instancedMesh ref={ref} key={`conifer-${spots.length}`} args={[undefined, undefined, spots.length * 2]} castShadow frustumCulled={false}>
       <coneGeometry args={[1, 1, 8]} />
-      <meshStandardMaterial color="#ffffff" roughness={0.92} />
+      <primitive object={material} attach="material" />
     </instancedMesh>
   );
 }
@@ -306,11 +378,15 @@ function ConiferCanopy({ spots }: { spots: TreeSpot[] }) {
 // radially. The fronds ARE blades (long on their own axis) — a
 // deliberate shape, arranged as a spiky star, not a flattened canopy.
 const PALM_FRONDS = 7;
-function PalmCanopy({ spots }: { spots: TreeSpot[] }) {
+function PalmCanopy({ spots, weather }: { spots: TreeSpot[]; weather: "clear" | "rain" }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const col = useMemo(() => new THREE.Color(), []);
   const per = PALM_FRONDS + 1;
+  const material = useWindFoliageMaterial(weather, {
+    clearAmp: 0.065, rainAmp: 0.13, clearFreq: 0.86, rainFreq: 1.55,
+    roughness: 0.82, side: THREE.DoubleSide, cacheKey: "tree-wind-palm-v1",
+  });
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -348,7 +424,7 @@ function PalmCanopy({ spots }: { spots: TreeSpot[] }) {
   return (
     <instancedMesh ref={ref} key={`palm-${spots.length}`} args={[undefined, undefined, spots.length * per]} castShadow frustumCulled={false}>
       <sphereGeometry args={[1, 6, 4]} />
-      <meshStandardMaterial color="#ffffff" roughness={0.82} side={THREE.DoubleSide} />
+      <primitive object={material} attach="material" />
     </instancedMesh>
   );
 }

@@ -409,7 +409,8 @@ function Grid({
       <Sidewalks placed={placed} claimed={claimed} />
       <StreetFurniture placed={placed} claimed={claimed} />
       <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />
-      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} lush={klActive(gridSize) && gridSize < 22} />
+      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed}
+        lush={klActive(gridSize) && gridSize < 22} weather={weather} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
           key={zone.id}

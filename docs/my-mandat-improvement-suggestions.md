@@ -6,12 +6,12 @@ Status key:
 - IN PROGRESS = currently being implemented
 - TODO = not implemented yet
 
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 
 ## Latest game-flow improvement checklist
 
 Implementation baseline: current `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and the first eighteen follow-up
+for the current rules. The five core game-flow stages and the first nineteen follow-up
 improvements are complete; broader features and player validation remain open.
 
 ### Current implementation sequence
@@ -34,6 +34,7 @@ improvements are complete; broader features and player validation remain open.
 - [x] Varied metro skyline with five high-rise profiles, restrained material variation and deterministic height rhythm.
 - [x] Tropical daylight art direction with a blue-cyan horizon, neutral terrain bounce and clearer material separation.
 - [x] Collision-safe Malaysian traffic with left-lane junction paths, predictive braking, body-aware queue spacing and correct turn orientation.
+- [x] Weather-responsive city canopy with phased broadleaf, conifer and palm movement that strengthens naturally in rain.
 - [ ] **NEXT:** Authenticated full-journey browser usability and balance validation.
 
 ### 1. Connect the full political career — DONE
