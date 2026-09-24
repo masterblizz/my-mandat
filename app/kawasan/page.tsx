@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
+import CityDestinations from "./CityDestinations";
 import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -2680,7 +2681,17 @@ export default function KawasanDevelopmentPage() {
 
   const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
   const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
-  const cityActivity = selectedZone?.kind === "community"
+  const cityActivity = ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
+    ? { icon: journey.chapter === "results" ? "📊" : journey.chapter === "formation" ? "🤝" : "🧭", title: journey.chapter === "results" ? t(lang, "Pusat keputusan", "Results centre") : journey.chapter === "formation" ? t(lang, "Dewan rundingan", "Negotiation hall") : t(lang, "Pusat gerakan", "Movement centre"), detail: t(lang, "Bab politik seterusnya menanti di pusat bandar.", "Your next political chapter awaits in the city centre."), label: t(lang, "Sambung perjalanan", "Continue journey"), run: () => router.push(`${resumeRoute(useGameStore.getState())}?from=city`), enabled: true }
+    : journey.chapter === "government" && selectedZone?.kind === "commercial"
+    ? { icon: "🏛️", title: t(lang, "Bangunan kabinet", "Cabinet building"), detail: t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk kabinet", "Enter cabinet"), run: () => router.push("/cabinet?from=city&place=cabinet"), enabled: true }
+    : journey.chapter === "government" && selectedZone?.kind === "industry"
+    ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Laksana dasar dan majukan penggal pentadbiran.", "Deliver policies and advance the administration term."), label: t(lang, "Urus pentadbiran", "Manage administration"), run: () => router.push("/government?from=city&place=administration"), enabled: true }
+    : journey.chapter === "government" && selectedZone?.kind === "river"
+    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country."), label: t(lang, "Buka analisis", "Open analysis"), run: () => router.push("/sandbox?from=city&place=national"), enabled: true }
+    : journey.chapter === "government"
+    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Buka pejabat", "Open office"), run: () => router.push("/career?from=city&place=office"), enabled: true }
+    : selectedZone?.kind === "community"
     ? { icon: "🤝", title: t(lang, "Pusat khidmat komuniti", "Community service centre"), detail: t(lang, "Bertemu penduduk dan dengar isu setempat.", "Meet residents and hear local issues."), label: t(lang, "Mulakan lawatan", "Start visit"), run: () => journeyAction({ type: "campaign", action: "visit" }), enabled: canRunCityActivity && resources.funds >= 25_000 }
     : selectedZone?.kind === "market"
     ? { icon: "🏪", title: t(lang, "Pasar dan rangkaian peniaga", "Market and trader network"), detail: t(lang, "Bina dana kecil dan hubungan perniagaan setempat.", "Build grassroots funds and local business ties."), label: t(lang, "Kutip dana", "Fundraise"), run: () => journeyAction({ type: "campaign", action: "fundraise" }), enabled: canRunCityActivity }
@@ -2688,6 +2699,12 @@ export default function KawasanDevelopmentPage() {
     ? { icon: "📋", title: t(lang, "Pusat latihan jentera", "Organisation training centre"), detail: t(lang, "Latih sukarelawan untuk menggerakkan kempen.", "Train volunteers to power the campaign."), label: t(lang, "Latih jentera", "Train organisers"), run: () => journeyAction({ type: "campaign", action: "organise" }), enabled: canRunCityActivity && resources.funds >= 40_000 }
     : selectedZone?.kind === "commercial"
     ? { icon: "🏛️", title: t(lang, "Pusat parti", "Party headquarters"), detail: t(lang, "Semak calon, manifesto dan operasi kempen.", "Review candidates, manifesto and campaign operations."), label: t(lang, "Masuk pusat parti", "Enter party HQ"), run: () => router.push("/campaign"), enabled: true }
+    : selectedZone?.kind === "industry"
+    ? { icon: "🛰️", title: t(lang, "Pusat operasi", "Operations centre"), detail: t(lang, "Susun operasi, medan negeri dan hari kempen.", "Plan operations, state battlefield and campaign days."), label: t(lang, "Masuk War Room", "Enter War Room"), run: () => router.push("/warroom?from=city&place=operations"), enabled: true }
+    : selectedZone?.kind === "housing" || selectedZone?.kind === "village"
+    ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Susun mesej dan respons kepada penduduk.", "Plan messages and responses for residents."), label: t(lang, "Urus mesej", "Manage messages"), run: () => router.push("/messaging?from=city&place=media"), enabled: true }
+    : selectedZone?.kind === "river"
+    ? { icon: "📈", title: t(lang, "Pusat tinjauan", "Polling centre"), detail: t(lang, "Semak momentum dan perubahan sokongan.", "Review momentum and shifts in support."), label: t(lang, "Semak tinjauan", "Review polling"), run: () => router.push("/polling?from=city&place=commission"), enabled: true }
     : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Buka taklimat kerjaya", "Open career briefing"), run: () => router.push("/career"), enabled: true };
 
   function runProject(project: Project, targetZoneId = selectedZone?.id) {
@@ -2798,6 +2815,7 @@ export default function KawasanDevelopmentPage() {
 
       <main className="kw-page-content pt-[56px] pb-[58px] px-6 w-full">
         <JourneyPanel local />
+        <CityDestinations />
         {journey.construction.length > 0 && <div className="mb-3 text-sm text-gold">{journey.construction.map(w => `${t(lang, `kawasan_page.projectTitle_${w.project}`)}: ${w.remaining} ${t(lang, "suku tahun", "quarters")}`).join(" · ")}</div>}
         <div className="kw-page-heading mb-4 flex items-start justify-between gap-4">
           <div>

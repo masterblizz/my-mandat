@@ -8,7 +8,7 @@ import { useGameStore } from "../../store/gameStore";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 import LangThemeToggle from "./LangThemeToggle";
 
-const WAR_ROOM_FLOW_ROUTES = [
+const CITY_HUB_ROUTES = [
   "/calendar",
   "/campaign",
   "/messaging",
@@ -29,8 +29,8 @@ const GENERIC_BACK_ROUTES = ["/advisor", "/stats", "/settings", "/setup"];
 // The city is the main hub, so it does not need a back-to-menu control.
 const MENU_BACK_ROUTES: string[] = [];
 
-function isWarRoomFlowRoute(pathname: string): boolean {
-  return WAR_ROOM_FLOW_ROUTES.includes(pathname) || pathname.startsWith("/state/");
+function isCityHubRoute(pathname: string): boolean {
+  return CITY_HUB_ROUTES.includes(pathname) || pathname.startsWith("/state/");
 }
 
 function isGoverningRoute(pathname: string): boolean {
@@ -46,7 +46,7 @@ export default function Header() {
   const { hasPremium } = usePremiumStatus();
 
   const isHome = pathname === "/warroom";
-  const showWarRoomHome = isWarRoomFlowRoute(pathname);
+  const showCityHub = isCityHubRoute(pathname) || isGoverningRoute(pathname);
   const governingRoute = isGoverningRoute(pathname);
   const showGenericBack = GENERIC_BACK_ROUTES.includes(pathname);
   const showMenuBack = MENU_BACK_ROUTES.includes(pathname);
@@ -122,23 +122,14 @@ export default function Header() {
           </Link>
         )}
 
-        {showWarRoomHome && (
+        {showCityHub && (
           <Link
-            href="/warroom"
+            href="/kawasan"
             className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] text-gold transition-all hover:bg-gold/15"
             style={{ border: "1px solid rgb(var(--gold-rgb) / 0.45)" }}
           >
-            {t(lang, "components_layout_Header.warRoomHome")}
+            {t(lang, "BANDAR 3D", "3D CITY")}
           </Link>
-        )}
-
-        {governingRoute && (
-          <span
-            className="px-2 py-1 text-[12px] font-bold tracking-[0.18em]"
-            style={{ color: "var(--warn-orange)", border: "1px solid rgb(255 176 0 / 0.38)", background: "rgb(255 176 0 / 0.06)" }}
-          >
-            {t(lang, "components_layout_Header.warRoomLocked")}
-          </span>
         )}
 
         {isHome && (
