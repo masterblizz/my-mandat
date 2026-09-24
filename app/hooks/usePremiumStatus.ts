@@ -22,45 +22,50 @@ export function usePremiumStatus(): PremiumStatus {
 
   useEffect(() => {
     let cancelled = false;
+    // Do not strand premium controls in a permanent "checking" state when
+    // the auth service is unavailable. A late successful response may still
+    // update the entitlement after this safe fallback is shown.
+    const loadingTimeout = window.setTimeout(() => {
+      if (!cancelled) setIsLoading(false);
+    }, 8000);
 
     async function load() {
-      let supabase;
       try {
-        supabase = createClient();
-      } catch {
-        // Supabase isn't configured for this deployment — same
-        // local-fallback posture as the rest of the auth system; treat as
-        // "no premium" rather than crashing the caller.
-        if (!cancelled) setIsLoading(false);
-        return;
-      }
+        // Some Supabase client versions defer invalid-config failures until
+        // the first request, so guard the local/offline deployment explicitly.
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
+        const supabase = createClient();
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from("profiles")
+          .select("premium_tier, premium_expires_at")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setTier(data?.premium_tier ?? null);
+          setExpiresAt(data?.premium_expires_at ?? null);
+        }
+      } catch {
+        // Network/auth failures mean no verified entitlement. Fail closed
+        // without crashing or leaving the surrounding screen unusable.
         if (!cancelled) {
           setTier(null);
           setExpiresAt(null);
-          setIsLoading(false);
         }
-        return;
-      }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("premium_tier, premium_expires_at")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!cancelled) {
-        setTier(data?.premium_tier ?? null);
-        setExpiresAt(data?.premium_expires_at ?? null);
-        setIsLoading(false);
+      } finally {
+        window.clearTimeout(loadingTimeout);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     load();
     return () => {
       cancelled = true;
+      window.clearTimeout(loadingTimeout);
     };
   }, []);
 

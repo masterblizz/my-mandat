@@ -11,7 +11,7 @@ Last updated: 2026-09-19
 ## Latest game-flow improvement checklist
 
 Implementation baseline: current `main`. See [CAREER_LOOP.md](CAREER_LOOP.md)
-for the current rules. The five core game-flow stages and twenty-three items in
+for the current rules. The five core game-flow stages and twenty-four items in
 the current implementation sequence are complete. Outstanding work is grouped
 separately below so implementation tasks and validation tasks are easy to track.
 
@@ -40,10 +40,11 @@ separately below so implementation tasks and validation tasks are easy to track.
 - [x] Rain-aware street life with individually coloured umbrellas that remain attached to moving pedestrians.
 - [x] Coherent storm atmosphere with wind-angled rain, animated ground splashes and overcast wet-surface reflections.
 - [x] Readable junction intent with amber vehicle indicators that begin before each protected left turn.
+- [x] Resilient Premium entitlement check that exits loading safely during missing configuration, network failure or an unresponsive auth service.
 
 ### Not completed yet
 
-- [ ] **NEXT:** Complete an authenticated PRN browser journey plus an opposition/rebuilding return journey.
+- [ ] **NEXT:** Complete an authenticated Premium PRN browser journey plus an opposition/rebuilding return journey.
 - [ ] Authenticated feature pass for coalition deals, branching stories, cabinet profiles and representation, PRN issues, tactical-map layers, and debate/TV events.
 - [ ] Election-night controls and mobile-layout validation for both PRU and PRN, followed by a complete new-player mobile journey.
 - [ ] Human balance playtest covering difficulty, economy, dominant strategies, pacing and replayability.
@@ -110,6 +111,7 @@ separately below so implementation tasks and validation tasks are easy to track.
 - [x] Browser: clinic funding, reload recovery, delivery celebration and constituency project.
 - [x] Browser: full governing term, second campaign and fresh election result.
 - [x] Browser: local-fallback PRU scenario start, manifesto effects, BM/EN War Room briefing, all six tactical-map layers, calendar detail, debate tone selection and result reveal.
+- [x] Browser: Premium entitlement failure exits “checking” after a bounded wait, shows PRN locks correctly and leaves the setup screen interactive without console errors.
 - [x] PRN scope/majority and opposition progression covered by regression tests.
 - [x] Scripted full PRN defeat → opposition → second election and PRU collapse → rebuilding → second election journeys.
 - [ ] Complete a full PRN browser playthrough and an opposition/rebuilding browser run.

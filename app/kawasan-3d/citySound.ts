@@ -162,17 +162,47 @@ export class CitySound {
     const ctx = this.ctx;
     const master = this.master;
     if (!ctx || !master) return;
+
+    // Most passenger-car horns are two trumpets sounding together rather
+    // than one clean note. The old single sawtooth oscillator read more like
+    // an alert/UI beep. This pair uses the typical low/high horn interval,
+    // a slightly uneven start and a horn-shaped resonant filter.
     const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(360 + Math.random() * 60, t);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.05, t + 0.03);
-    g.gain.linearRampToValueAtTime(0, t + 0.3);
-    osc.connect(g).connect(master);
-    osc.start(t);
-    osc.stop(t + 0.32);
+    const duration = 0.34 + Math.random() * 0.16;
+    const detune = (Math.random() - 0.5) * 16;
+    const hornBus = ctx.createGain();
+    const hornTone = ctx.createBiquadFilter();
+    const hornBody = ctx.createBiquadFilter();
+
+    hornTone.type = "bandpass";
+    hornTone.frequency.value = 780;
+    hornTone.Q.value = 0.85;
+    hornBody.type = "lowpass";
+    hornBody.frequency.value = 2100;
+    hornBody.Q.value = 0.45;
+    hornBus.gain.setValueAtTime(0, t);
+    hornBus.gain.linearRampToValueAtTime(0.055, t + 0.018);
+    hornBus.gain.setValueAtTime(0.046, t + duration * 0.72);
+    hornBus.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    hornBus.connect(hornTone).connect(hornBody).connect(master);
+
+    // The high trumpet begins a few milliseconds later. That small offset
+    // makes the honk feel mechanical instead of perfectly phase-locked.
+    [
+      { frequency: 410 + detune, start: 0, level: 0.92 },
+      { frequency: 505 + detune * 0.7, start: 0.012, level: 0.76 },
+    ].forEach(({ frequency, start, level }) => {
+      const osc = ctx.createOscillator();
+      const voice = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(frequency, t + start);
+      // A tiny settling dip mimics the diaphragm finding its pitch.
+      osc.frequency.linearRampToValueAtTime(frequency * 0.992, t + start + 0.07);
+      voice.gain.value = level;
+      osc.connect(voice).connect(hornBus);
+      osc.start(t + start);
+      osc.stop(t + duration + 0.025);
+    });
   }
 
   private scheduleHorn() {
