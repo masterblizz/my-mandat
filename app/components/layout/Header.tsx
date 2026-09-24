@@ -45,7 +45,6 @@ export default function Header() {
   const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
   const { hasPremium } = usePremiumStatus();
 
-  const isHome = pathname === "/warroom";
   const showCityHub = isCityHubRoute(pathname) || isGoverningRoute(pathname);
   const governingRoute = isGoverningRoute(pathname);
   const showGenericBack = GENERIC_BACK_ROUTES.includes(pathname);
@@ -132,18 +131,6 @@ export default function Header() {
           </Link>
         )}
 
-        {isHome && (
-          <Link
-            href="/menu"
-            className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] transition-all"
-            style={{
-              color: "var(--text-muted)",
-              border: "1px solid rgb(var(--cyan-rgb) / 0.25)",
-            }}
-          >
-            {t(lang, "components_layout_Header.mainMenu")}
-          </Link>
-        )}
       </div>
 
       <div className="hidden text-xs uppercase tracking-widest text-text-muted md:block">

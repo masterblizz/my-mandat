@@ -34,9 +34,11 @@ export default function CityDestinations() {
   const lang = useLang();
   const state = useGameStore();
   const chapter = state.journey.chapter;
-  const destinations = chapter === "government"
+  const destinations: Destination[] = chapter === "campaign"
+    ? campaignDestinations
+    : chapter === "government"
     ? [...governmentDestinations, ...(state.careerProgress.month >= 60 ? [{ id: "report", icon: "📜", route: "/report-card", ms: { name: "Arkib Rekod Penggal", detail: "Nilai legasi dan laporan penggal anda." }, en: { name: "Term Record Archive", detail: "Review your legacy and term report." } }] : [])]
-    : campaignDestinations;
+    : [];
   const chapterDestination = chapter === "campaign" ? null : {
     id: "continue", icon: chapter === "results" ? "📊" : chapter === "formation" ? "🤝" : "🧭",
     route: resumeRoute(state),
