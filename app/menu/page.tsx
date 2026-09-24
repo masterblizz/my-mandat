@@ -10,7 +10,7 @@ import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
 import { advisors } from "../data/advisors";
-import { normalizeJourney, resumeRoute } from "../store/journey";
+import { newJourney, normalizeJourney, resumeRoute } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
 import { buildDailyChallenge } from "../utils/dailyChallenge";
@@ -164,6 +164,20 @@ export default function MainMenuPage() {
   );
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
+    if (item.id === "01") {
+      // A new career starts in the 3D city, where the avatar guide assigns
+      // the first office, grassroots issue and leadership approach before
+      // opening candidate setup.
+      resetGame();
+      // resetGame intentionally preserves an established character when a
+      // player starts another election. "New Game" is different: it starts
+      // a completely new member journey, so the city avatar tutorial must
+      // appear again.
+      useGameStore.setState({ journey: newJourney() });
+      setActiveSaveSlot(null);
+      router.push("/kawasan");
+      return;
+    }
     if (item.id === "07") {
       const supabase = createClient();
       supabase.auth.signOut().finally(() => router.push("/login"));

@@ -2814,8 +2814,6 @@ export default function KawasanDevelopmentPage() {
       )}
 
       <main className="kw-page-content pt-[56px] pb-[58px] px-6 w-full">
-        <JourneyPanel local />
-        <CityDestinations />
         {journey.construction.length > 0 && <div className="mb-3 text-sm text-gold">{journey.construction.map(w => `${t(lang, `kawasan_page.projectTitle_${w.project}`)}: ${w.remaining} ${t(lang, "suku tahun", "quarters")}`).join(" · ")}</div>}
         <div className="kw-page-heading mb-4 flex items-start justify-between gap-4">
           <div>
@@ -2829,28 +2827,15 @@ export default function KawasanDevelopmentPage() {
             )}
           </div>
           <div className="kw-page-actions flex gap-2">
-            <button onClick={() => router.push("/warroom")} className="kw-action-button kw-action-primary px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.1)" }}>▶ {t(lang, "kawasan_page.enterWarRoom")}</button>
             {unlocked ? (
               <button onClick={quickDevelopPriority} className="kw-action-button kw-action-success px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
             ) : (
               <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
             )}
-            {hasWonElection ? (
-              <button onClick={() => router.push(resumeRoute(useGameStore.getState()))} className="kw-action-button kw-action-gold px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "kawasan_page.government")}</button>
-            ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-bold tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.government")}</button>
-            )}
           </div>
         </div>
 
-        <div className="kw-stat-grid mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{unlocked ? t(lang, "Bajet awam", "Public budget") : t(lang, "kawasan_page.funds")}</div><div className="text-2xl font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(unlocked ? journey.publicBudget : resources.funds)}</div></div>
-          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="text-2xl font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
-          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.projects")}</div><div className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{totalProjects}</div></div>
-          <div className="kw-stat-card border p-3" style={{ borderColor: "rgb(255 68 68 / 0.22)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[9px] text-text-muted tracking-widest">{t(lang, "kawasan_page.priorityZone")}</div><div className="truncate text-lg font-black" style={{ color: "var(--warn-orange)" }}>{priorityZone ? zoneName(lang, priorityZone) : "—"}</div></div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(260px,1fr)]">
           <TacticalPanel title={t(lang, "kawasan_page._3dCityMapYourConstituency")} noPadding>
             <div className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -2865,7 +2850,13 @@ export default function KawasanDevelopmentPage() {
             </div>
           </TacticalPanel>
 
-          <div className="space-y-4">
+          <aside className="space-y-4 lg:sticky lg:top-14 lg:max-h-[calc(100vh-76px)] lg:overflow-y-auto lg:pr-1">
+            <CityDestinations />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="border p-2" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[8px] text-text-muted tracking-widest">{unlocked ? t(lang, "Bajet", "Budget") : t(lang, "Dana", "Funds")}</div><div className="mt-1 text-sm font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(unlocked ? journey.publicBudget : resources.funds)}</div></div>
+              <div className="border p-2" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[8px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="mt-1 text-sm font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
+            </div>
+            <JourneyPanel local />
             {!unlocked && (
               <TacticalPanel title={t(lang, "kawasan_page.manifestoCampaign")}>
                 <div className="space-y-3">
@@ -3028,7 +3019,7 @@ export default function KawasanDevelopmentPage() {
               </div>
               )}
             </TacticalPanel>
-          </div>
+          </aside>
         </div>
       </main>
 

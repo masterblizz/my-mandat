@@ -53,10 +53,9 @@ export default function LoginPage() {
       return;
     }
 
-    // Back to "/" (not straight to /kawasan) so the normal opening-video /
-    // main-menu entry flow decides where the player lands, same as any
-    // other session start.
-    router.push("/");
+    // Login always lands on the main menu. A player enters the 3D city only
+    // after deliberately choosing New Game or continuing a saved campaign.
+    router.push("/menu");
     router.refresh();
   };
 
