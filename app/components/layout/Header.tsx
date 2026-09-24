@@ -7,6 +7,7 @@ import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 import LangThemeToggle from "./LangThemeToggle";
+import PersonalAssistant from "../assistant/PersonalAssistant";
 
 const CITY_HUB_ROUTES = [
   "/calendar",
@@ -68,6 +69,7 @@ export default function Header() {
   }, []);
 
   return (
+    <>
     <header
       className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-4"
       style={{
@@ -150,5 +152,7 @@ export default function Header() {
         <LangThemeToggle />
       </div>
     </header>
+    <PersonalAssistant />
+    </>
   );
 }
