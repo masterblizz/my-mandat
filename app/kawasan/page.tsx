@@ -2566,7 +2566,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, leader, resources, settings, hasWonElection, operations, addOperation, setLeader, journey, journeyAction, day, totalDays } = useGameStore();
+  const { states, leader, resources, settings, operations, addOperation, setLeader, journey, journeyAction, day, totalDays } = useGameStore();
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
