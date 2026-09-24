@@ -4,6 +4,7 @@ import { CSSProperties, MutableRefObject, memo, useCallback, useEffect, useMemo,
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
+import CityOnboarding from "./CityOnboarding";
 import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -2564,7 +2565,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, leader, resources, settings, hasWonElection, operations, addOperation, setLeader, journey } = useGameStore();
+  const { states, leader, resources, settings, hasWonElection, operations, addOperation, setLeader, journey, journeyAction, day, totalDays } = useGameStore();
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
@@ -2678,6 +2679,16 @@ export default function KawasanDevelopmentPage() {
   const priorityZone = zones.length ? [...zones].sort((a, b) => a.sentiment - b.sentiment)[0] : null;
 
   const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
+  const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
+  const cityActivity = selectedZone?.kind === "community"
+    ? { icon: "🤝", title: t(lang, "Pusat khidmat komuniti", "Community service centre"), detail: t(lang, "Bertemu penduduk dan dengar isu setempat.", "Meet residents and hear local issues."), label: t(lang, "Mulakan lawatan", "Start visit"), run: () => journeyAction({ type: "campaign", action: "visit" }), enabled: canRunCityActivity && resources.funds >= 25_000 }
+    : selectedZone?.kind === "market"
+    ? { icon: "🏪", title: t(lang, "Pasar dan rangkaian peniaga", "Market and trader network"), detail: t(lang, "Bina dana kecil dan hubungan perniagaan setempat.", "Build grassroots funds and local business ties."), label: t(lang, "Kutip dana", "Fundraise"), run: () => journeyAction({ type: "campaign", action: "fundraise" }), enabled: canRunCityActivity }
+    : selectedZone?.kind === "education"
+    ? { icon: "📋", title: t(lang, "Pusat latihan jentera", "Organisation training centre"), detail: t(lang, "Latih sukarelawan untuk menggerakkan kempen.", "Train volunteers to power the campaign."), label: t(lang, "Latih jentera", "Train organisers"), run: () => journeyAction({ type: "campaign", action: "organise" }), enabled: canRunCityActivity && resources.funds >= 40_000 }
+    : selectedZone?.kind === "commercial"
+    ? { icon: "🏛️", title: t(lang, "Pusat parti", "Party headquarters"), detail: t(lang, "Semak calon, manifesto dan operasi kempen.", "Review candidates, manifesto and campaign operations."), label: t(lang, "Masuk pusat parti", "Enter party HQ"), run: () => router.push("/campaign"), enabled: true }
+    : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Buka taklimat kerjaya", "Open career briefing"), run: () => router.push("/career"), enabled: true };
 
   function runProject(project: Project, targetZoneId = selectedZone?.id) {
     const targetZone = zones.find((zone) => zone.id === targetZoneId);
@@ -2778,6 +2789,7 @@ export default function KawasanDevelopmentPage() {
   return (
     <div className="kw-page-shell min-h-screen">
       <Header />
+      <CityOnboarding />
       {notice && (
         <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.16), rgb(var(--bg-rgb) / 0.96))", color: "var(--gold)", fontFamily: "Space Mono, monospace" }}>
           {notice}
@@ -2921,6 +2933,15 @@ export default function KawasanDevelopmentPage() {
               }
               noPadding
             >
+              {selectedZone && (
+                <div className="border-b p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.28)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.09), rgb(var(--bg-rgb) / 0.68))" }}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl" aria-hidden="true">{cityActivity.icon}</span>
+                    <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-widest" style={{ color: "var(--gold)" }}>{cityActivity.title}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div>
+                  </div>
+                  <button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.45)", background: "rgb(var(--cyan-rgb) / 0.08)", color: "var(--cyan)" }}>{cityActivity.label} →</button>
+                </div>
+              )}
               {selectedZone && (
                 <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb)/0.07), rgb(var(--bg-rgb) / 0.72))" }}>
                   <div className="flex items-center justify-between gap-3">

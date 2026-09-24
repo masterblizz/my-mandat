@@ -34,6 +34,12 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const manifestoStates = s.settings.electionScope === "prn" ? s.states.filter(state => state.id === s.settings.prnStateId) : s.states;
   const manifestoRanked = selectedManifesto ? manifestoStates.map(state => ({ state, impact: manifestoStateImpact(selectedManifesto.id, state) })).sort((a, b) => b.impact - a.impact) : [];
   const scenarioPack = j.scenarioPackTerm === s.careerProgress.term ? getScenarioPack(j.scenarioPackId) : undefined;
+  const characterStages = ["member", "organiser", "candidate", "representative", "partyLeader", "nationalLeader", "legacy"] as const;
+  const characterStageIndex = Math.max(0, characterStages.indexOf(j.characterStage));
+  const characterStageLabel = t(lang,
+    ({ member: "Ahli biasa", organiser: "Penggerak cawangan", candidate: "Calon akar umbi", representative: "Wakil rakyat", partyLeader: "Pemimpin parti", nationalLeader: "Pemimpin negara", legacy: "Legasi" } as const)[j.characterStage],
+    ({ member: "Party member", organiser: "Branch organiser", candidate: "Grassroots candidate", representative: "Elected representative", partyLeader: "Party leader", nationalLeader: "National leader", legacy: "Legacy" } as const)[j.characterStage],
+  );
   return <section aria-label={t(lang, "Taklimat kerjaya", "Career briefing")} className="mb-5 border border-cyan/30 bg-black/20 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><Image src={`/avatars/leader-${String(s.leader.avatarIndex + 1).padStart(2, "0")}.png`} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
@@ -48,6 +54,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
     <p className="mt-2 text-text-muted">{campaign
       ? t(lang, `${j.decisions}/3 keputusan utama berbaki. Operasi jentera berterusan; lawan bertindak apabila hari dimajukan.`, `${j.decisions}/3 major decisions remaining. Staff operations continue; opponents respond when you advance the day.`)
       : t(lang, `Kepercayaan ${j.trust}/100 · Kestabilan ${Math.round(j.stability)}/100 · Jentera ${j.organisation}/100`, `Trust ${j.trust}/100 · Stability ${Math.round(j.stability)}/100 · Organisation ${j.organisation}/100`)}</p>
+    <div className="mt-3 border-t border-cyan/15 pt-3"><div className="flex items-center justify-between gap-3 text-[10px] font-black tracking-widest"><span style={{ color: "var(--gold)" }}>{t(lang, "PERJALANAN KARAKTER", "CHARACTER JOURNEY")}</span><span className="text-cyan">{characterStageLabel}</span></div><div className="mt-2 grid grid-cols-7 gap-1" aria-label={t(lang, "Kemajuan perjalanan karakter", "Character journey progress")}>{characterStages.map((stage, index) => <span key={stage} className="h-1.5" style={{ background: index <= characterStageIndex ? "var(--gold)" : "rgb(var(--cyan-rgb) / .15)", boxShadow: index === characterStageIndex ? "0 0 8px rgb(var(--gold-rgb) / .72)" : "none" }} />)}</div></div>
     {campaign && !j.onboarded && <div className="mt-3 border border-gold/40 bg-gold/5 p-3">
       <strong className="text-gold">{t(lang, "Langkah pertama: dengar masalah penduduk", "First step: hear your residents")}</strong>
       <p className="mt-1 text-text-muted">{ISSUE_DATA[j.scenario].detail[lang]} {t(lang, "Pilih janji di bawah, lawati komuniti, kemudian majukan hari di Bilik Gerakan. Projek dibina selepas anda membentuk kerajaan.", "Choose a commitment below, visit the community, then advance the day in the War Room. Build public projects after forming government.")}</p>

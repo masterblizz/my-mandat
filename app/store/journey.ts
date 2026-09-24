@@ -15,6 +15,9 @@ export type Chapter = "campaign" | "results" | "formation" | "government" | "opp
 export type Issue = "flood" | "clinic" | "jobs";
 export type Bilingual = { ms: string; en: string };
 export type CoalitionDeal = "development" | "portfolio" | "confidence";
+export type PersonalOfficeId = "community" | "city" | "digital";
+export type LeadershipApproach = "service" | "bridge" | "digital";
+export type CharacterStage = "member" | "organiser" | "candidate" | "representative" | "partyLeader" | "nationalLeader" | "legacy";
 export interface Pledge { id: Issue; status: "promised" | "funded" | "delivered"; remaining: number; term: number }
 export interface JournalEntry extends Bilingual { id: string }
 export interface CityZone {
@@ -58,6 +61,10 @@ export interface Journey {
   scenarioPackId: ScenarioPackId | null;
   scenarioPackTerm: number | null;
   onboarded: boolean;
+  personalOffice: PersonalOfficeId | null;
+  originIssue: Issue | null;
+  leadershipApproach: LeadershipApproach | null;
+  characterStage: CharacterStage;
   resultRecorded: boolean;
   cityZones: Record<string, CityZone[]>;
   construction: { seat: string; zone: string; project: string; target: "infra" | "welfare" | "economy"; boost: number; remaining: number }[];
@@ -73,7 +80,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, resultRecorded: false, cityZones: {}, construction: [] };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [] };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };
@@ -116,7 +123,8 @@ export function finishElection(s: GameState): Partial<GameState> {
   const outcome = computeElectionOutcome(s.states, s.settings);
   const home = s.states.find(x => x.id === s.leader.homeState);
   const seat = home && generateConstituencies(home, s.settings.electionScope === "prn" ? "dun" : "parliament").find(x => x.id === s.leader.homeConstituencyId);
-  return { hasWonElection: !!seat && seat.mandat >= Math.max(seat.lawan, seat.others), journey: { ...s.journey, chapter: "results", outcome, journal: journal(s.journey, `Keputusan: ${outcome.seatsWon}/${outcome.totalSeats} kerusi. Rekod kempen dibawa ke penggal baharu.`, `Result: ${outcome.seatsWon}/${outcome.totalSeats} seats. Your campaign commitments carry into the new term.`) } };
+  const wonOwnSeat = !!seat && seat.mandat >= Math.max(seat.lawan, seat.others);
+  return { hasWonElection: wonOwnSeat, journey: { ...s.journey, chapter: "results", characterStage: wonOwnSeat ? "representative" : "organiser", outcome, journal: journal(s.journey, wonOwnSeat ? "Anda dipilih sebagai wakil rakyat. Rekod khidmat kini menentukan pengaruh anda." : "Kekalahan tidak menamatkan perjalanan. Bina semula jentera dan kepercayaan di akar umbi.", wonOwnSeat ? "You are elected as a representative. Your service record now determines your influence." : "Defeat does not end the journey. Rebuild organisation and trust from the grassroots.") } };
 }
 export function shiftSupport(s: GameState, delta: number, homeOnly = false) {
   return s.states.map(x => {
@@ -310,7 +318,7 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const delivered = j.pledges.filter(p => p.status === "delivered" && p.term === s.careerProgress.term).length;
     const broken = j.pledges.filter(p => p.status !== "delivered").length;
     const record = Math.max(-10, Math.min(10, (j.trust - 50) / 10 + (j.organisation - 40) / 15 + delivered * 1.5 - broken * (j.chapter === "government" ? 2 : .5)));
-    return { phase: "playing", day: 1, hasWonElection: false, dailyChallengeDate: null, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: shiftSupport(s, record), resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.`, { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0 }) };
+  return { phase: "playing", day: 1, hasWonElection: false, dailyChallengeDate: null, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: shiftSupport(s, record), resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.`, { chapter: "campaign", characterStage: s.careerProgress.term >= 2 ? "legacy" : "candidate", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0 }) };
   }
   return {};
 }

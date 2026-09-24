@@ -1,5 +1,5 @@
 "use client";
-import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, type Journey, type JourneyAction, type Chapter, type CoalitionDeal } from "./journey";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -149,6 +149,8 @@ export interface GameState {
 
   // Actions
   setHasWonElection: (won: boolean) => void;
+  setPersonalOffice: (office: PersonalOfficeId) => void;
+  completeCharacterPrologue: (issue: Issue, approach: LeadershipApproach) => void;
   setDailyChallengeDate: (dateKey: string | null) => void;
   setCareerProgress: (patch: Partial<CareerProgress>) => void;
   setGovernmentProgress: (patch: Partial<GovernmentProgress>) => void;
@@ -308,9 +310,39 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (chapter === "government" && (!state.journey.coalitionConfirmed || !Object.values(state.journey.appointments).some(Boolean) || governingSeats(state) < outcomeOf(state).majorityTarget)) return {};
     const partners = coalitionPool(state).filter(p => state.journey.partners.includes(p.id));
     const stability = partners.length ? Math.max(25, Math.min(85, Math.round(partners.reduce((sum, p) => sum + p.stability + coalitionDealEffect(p, state.journey.coalitionTerms[p.id] ?? "development").stability, 0) / partners.length))) : 72;
-    return { journey: { ...state.journey, chapter, publicBudget: chapter === "government" ? 900000 - coalitionOpeningCost(state) : 0, stability: chapter === "government" ? stability : state.journey.stability, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
+    return { journey: { ...state.journey, chapter, characterStage: chapter === "government" ? "nationalLeader" : "partyLeader", publicBudget: chapter === "government" ? 900000 - coalitionOpeningCost(state) : 0, stability: chapter === "government" ? stability : state.journey.stability, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
   }),
   setHasWonElection: (won) => set({ hasWonElection: won }),
+  setPersonalOffice: (office) => set((state) => {
+    const trustBonus = office === "community" ? 5 : office === "city" ? 1 : 0;
+    const organisationBonus = office === "digital" ? 5 : office === "city" ? 3 : 0;
+    return {
+      journey: {
+        ...state.journey,
+        personalOffice: office,
+        trust: Math.min(100, state.journey.trust + trustBonus),
+        organisation: Math.min(100, state.journey.organisation + organisationBonus),
+        journal: journal(state.journey, "Pejabat peribadi dipilih. Di sinilah kerjaya politik anda bermula.", "Personal office selected. Your political career starts here."),
+      },
+    };
+  }),
+  completeCharacterPrologue: (issue, approach) => set((state) => {
+    if (!state.journey.personalOffice || state.journey.originIssue) return {};
+    const trustBonus = approach === "service" ? 4 : approach === "bridge" ? 2 : 1;
+    const organisationBonus = approach === "digital" ? 5 : approach === "bridge" ? 3 : 1;
+    return {
+      journey: {
+        ...state.journey,
+        scenario: issue,
+        originIssue: issue,
+        leadershipApproach: approach,
+        characterStage: "candidate",
+        trust: Math.min(100, state.journey.trust + trustBonus),
+        organisation: Math.min(100, state.journey.organisation + organisationBonus),
+        journal: journal(state.journey, `Langkah akar umbi bermula dengan isu ${issue}. Gaya kepimpinan anda kini membentuk reputasi awal.`, `Your grassroots journey begins with the ${issue} issue. Your leadership approach now shapes your early reputation.`),
+      },
+    };
+  }),
   setDailyChallengeDate: (dateKey) => set({ dailyChallengeDate: dateKey }),
   setCareerProgress: (patch) => set((state) => ({ careerProgress: { ...state.careerProgress, ...patch } })),
   setGovernmentProgress: (patch) => set((state) => ({ governmentProgress: { ...state.governmentProgress, ...patch } })),
@@ -441,8 +473,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem(POLITICAL_REACTIONS_KEY);
       localStorage.removeItem(AI_NEWS_KEY);
     }
+    const prologue = get().journey;
+    const freshJourney = newJourney();
+    const retainedJourney = prologue.personalOffice && prologue.originIssue && prologue.leadershipApproach
+      ? {
+          ...freshJourney,
+          personalOffice: prologue.personalOffice,
+          originIssue: prologue.originIssue,
+          leadershipApproach: prologue.leadershipApproach,
+          characterStage: "candidate" as const,
+          scenario: prologue.originIssue,
+          trust: prologue.trust,
+          organisation: prologue.organisation,
+          journal: journal(freshJourney, "Asas kerjaya anda dibawa ke kempen baharu.", "Your career foundation carries into the new campaign."),
+        }
+      : freshJourney;
     return set({
-      journey: newJourney(),
+      journey: retainedJourney,
       phase: "menu",
       dataset: "dummy",
       nominations: {},

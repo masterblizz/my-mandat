@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     const hasSeenOpening = window.sessionStorage.getItem(OPENING_SEEN_KEY) === "1";
     if (hasSeenOpening) {
-      router.replace("/menu");
+      router.replace("/kawasan");
       return;
     }
     setShowOpening(true);
@@ -21,7 +21,7 @@ export default function Home() {
 
   const enterLanding = () => {
     window.sessionStorage.setItem(OPENING_SEEN_KEY, "1");
-    router.replace("/menu");
+    router.replace("/kawasan");
   };
 
   if (!showOpening) {

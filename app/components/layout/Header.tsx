@@ -26,9 +26,8 @@ const GOVERNING_ROUTES = ["/swearing-in", "/government", "/career", "/report-car
 // previous stage" button) — these get a plain browser-back button instead.
 const GENERIC_BACK_ROUTES = ["/advisor", "/stats", "/settings", "/setup"];
 
-// Routes that should jump straight to /menu rather than browser-back —
-// kawasan is a top-level hub reached from the menu, not a step in a flow.
-const MENU_BACK_ROUTES = ["/kawasan"];
+// The city is the main hub, so it does not need a back-to-menu control.
+const MENU_BACK_ROUTES: string[] = [];
 
 function isWarRoomFlowRoute(pathname: string): boolean {
   return WAR_ROOM_FLOW_ROUTES.includes(pathname) || pathname.startsWith("/state/");
@@ -112,7 +111,7 @@ export default function Header() {
 
         {showMenuBack && (
           <Link
-            href="/menu"
+            href="/kawasan"
             className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] transition-all"
             style={{
               color: "var(--text-muted)",
