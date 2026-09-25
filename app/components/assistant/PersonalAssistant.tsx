@@ -26,6 +26,17 @@ export default function PersonalAssistant({ embedded = false, prominent = false 
       ? { title: t(lang, "Mandat sedang berjalan", "Your mandate is underway"), message: t(lang, "Gunakan bangunan Kabinet dan Pusat Pentadbiran di bandar untuk mengurus penggal anda.", "Use the Cabinet Building and Administration Centre in the city to manage your term."), action: t(lang, "Buka bandar", "Open city"), route: "/kawasan" }
     : { title: t(lang, "Langkah seterusnya", "Next step"), message: t(lang, "Saya telah menanda lokasi untuk bab politik semasa anda.", "I have marked the location for your current political chapter."), action: t(lang, "Teruskan", "Continue"), route: resumeRoute(state) };
 
+  if (embedded) {
+    return <div className="absolute bottom-8 left-[25%] z-30 h-[min(58vh,560px)] w-[min(29vw,340px)] min-w-[235px]" style={{ fontFamily: "'Space Mono', monospace" }}>
+      {open && <section className="absolute bottom-[18%] left-[88%] z-10 w-[min(340px,calc(100vw-48px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PERSONAL ASSISTANT", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-xs font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="text-xs text-text-muted" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
+        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{guidance.message}</p>
+        <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
+      </section>}
+      <button type="button" onClick={() => setOpen((value) => !value)} className="relative h-full w-full overflow-visible text-left transition-transform hover:scale-[1.015] focus:outline-none" aria-label={t(lang, "Buka Personal Assistant", "Open Personal Assistant")}><Image src="/personal-assistant-standing.png" alt={t(lang, "Personal Assistant", "Personal Assistant")} fill sizes="(max-width: 768px) 235px, 340px" className="origin-bottom scale-[1.13] object-contain object-bottom drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]" /><span className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .65)", background: "rgb(var(--bg-rgb) / .94)" }}>✦ PERSONAL ASSISTANT · {t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}</span></button>
+    </div>;
+  }
+
   return (
     <div className={`${embedded ? "absolute bottom-4 left-4 z-30" : "fixed bottom-12 left-4 z-[65]"} flex items-end gap-2`} style={{ fontFamily: "'Space Mono', monospace" }}>
       {open && <section className={`${prominent ? "w-[min(390px,calc(100vw-156px))]" : "w-[min(330px,calc(100vw-88px))]"} border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }}>
