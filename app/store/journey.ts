@@ -31,6 +31,8 @@ export interface Journey {
   chapter: Chapter;
   decisions: number;
   actionsToday: string[];
+  locationObjectives: string[];
+  readOfficeMail: number[];
   partners: string[];
   coalitionTerms: Record<string, CoalitionDeal>;
   coalitionConfirmed: boolean;
@@ -80,7 +82,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [] };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [] };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };

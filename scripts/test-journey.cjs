@@ -57,6 +57,16 @@ test('location activities spend real resources, write a journal entry and cannot
   store.getState().runLocationActivity('media', 'commit');
   assert.equal(store.getState().journey.decisions, 2);
 });
+test('location objective rewards are one-time and office mail state persists in the journey', () => {
+  store.setState(s => ({ states: s.states.map(state => state.id === s.leader.homeState ? { ...state, mandatSupport: 59.5, lawanSupport: 32.5, othersSupport: 8 } : state) }));
+  const funds = store.getState().resources.funds;
+  store.getState().runLocationActivity('office', 'commit');
+  assert.ok(store.getState().journey.locationObjectives.includes('campaign:home-support-60'));
+  assert.equal(store.getState().resources.funds, funds - 25000 + 75000);
+  store.getState().markOfficeMailRead(1);
+  store.getState().markOfficeMailRead(1);
+  assert.deepEqual(store.getState().journey.readOfficeMail, [1]);
+});
 test('mini-games cannot grant free support with no resources', () => {
   store.setState(s => ({ resources: { ...s.resources, funds: 0 } }));
   const before = store.getState().states[0].mandatSupport;

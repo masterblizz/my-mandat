@@ -44,8 +44,8 @@ export type City3DMapGLProps = {
   /** Lets the city own the whole game viewport instead of behaving like a widget. */
   height?: CSSProperties["height"];
   /** Named buildings that can be entered directly from a floating 3D tag. */
-  destinationTags?: Record<string, { label: string; destinationId: string }>;
-  onEnterDestination?: (destinationId: string) => void;
+  destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 };
 
 

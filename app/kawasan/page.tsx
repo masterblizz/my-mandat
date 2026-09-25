@@ -2690,7 +2690,7 @@ export default function KawasanDevelopmentPage() {
     const chosen: { col: number; row: number }[] = [];
     const used = new Set<number>();
     const gapFrom = (i: number) => chosen.reduce((min, c) => Math.min(min, Math.max(Math.abs(cells[i].col - c.col), Math.abs(cells[i].row - c.row))), Infinity);
-    const tags: Record<string, { label: string; destinationId: string }> = {};
+    const tags: Record<string, { label: string; destinationId: string; originLabel: string }> = {};
     (journey.chapter === "government" ? government : campaign).forEach(([kind, destinationId, label]) => {
       const free = zones.map((_, i) => i).filter((i) => cells[i] && !used.has(i));
       if (!free.length) return;
@@ -2700,7 +2700,7 @@ export default function KawasanDevelopmentPage() {
         ?? free.reduce((best, i) => (gapFrom(i) > gapFrom(best) ? i : best), free[0]);
       used.add(pick);
       chosen.push(cells[pick]);
-      tags[zones[pick].id] = { label, destinationId };
+      tags[zones[pick].id] = { label, destinationId, originLabel: label };
     });
     return tags;
   }, [zones, gridSize, journey.chapter, lang]);
@@ -2807,12 +2807,12 @@ export default function KawasanDevelopmentPage() {
     enterDestination(focusedDestination);
   }
 
-  function enterDestination(destinationId: string | null | undefined) {
+  function enterDestination(destinationId: string | null | undefined, originLabel?: string) {
     if (destinationId === "office") {
       router.push("/office");
       return;
     }
-    if (destinationId) router.push(`/location/${destinationId}`);
+    if (destinationId) router.push(`/location/${destinationId}${originLabel ? `?origin=${encodeURIComponent(originLabel)}` : ""}`);
   }
 
   function launchQuickOperation(type: OpType) {

@@ -84,6 +84,7 @@ export interface GameState {
   journey: Journey;
   journeyAction: (action: JourneyAction) => void;
   runLocationActivity: (location: string, action: "prepare" | "commit") => void;
+  markOfficeMailRead: (index: number) => void;
   finishElection: () => void;
   confirmCoalition: (partners: string[], terms?: Record<string, CoalitionDeal>) => void;
   enterTerm: (chapter: Chapter) => void;
@@ -318,19 +319,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (campaign) {
       if (state.journey.decisions < 1 || state.resources.funds < effect.funds || state.resources.manpower + effect.manpower < 0) return {};
       const verb = action === "prepare" ? "Persediaan" : "Tindakan";
+      const nextStates = effect.support ? shiftSupport(state, effect.support, true) : state.states;
+      const homeSupport = nextStates.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0;
+      const objectiveId = "campaign:home-support-60";
+      const earnedObjective = homeSupport >= 60 && state.day <= Math.min(10, state.totalDays) && !state.journey.locationObjectives.includes(objectiveId);
+      const reward = earnedObjective ? 75000 : 0;
       return {
-        states: effect.support ? shiftSupport(state, effect.support, true) : state.states,
-        resources: { ...state.resources, funds: state.resources.funds - effect.funds, manpower: state.resources.manpower + effect.manpower },
+        states: nextStates,
+        resources: { ...state.resources, funds: state.resources.funds - effect.funds + reward, manpower: state.resources.manpower + effect.manpower },
         mediaSentiment: effect.media ?? state.mediaSentiment,
         journey: {
           ...state.journey,
           decisions: state.journey.decisions - 1,
           actionsToday: [...state.journey.actionsToday, key],
-          organisation: Math.max(0, Math.min(100, state.journey.organisation + effect.organisation)),
-          trust: Math.max(0, Math.min(100, state.journey.trust + effect.trust)),
+          organisation: Math.max(0, Math.min(100, state.journey.organisation + effect.organisation + (earnedObjective ? 3 : 0))),
+          trust: Math.max(0, Math.min(100, state.journey.trust + effect.trust + (earnedObjective ? 2 : 0))),
+          locationObjectives: earnedObjective ? [...state.journey.locationObjectives, objectiveId] : state.journey.locationObjectives,
           journal: journal(state.journey,
-            `${verb} di ${location} selesai: dana -RM${effect.funds.toLocaleString()}, sokongan ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.`,
-            `${verb} at ${location} completed: funds -RM${effect.funds.toLocaleString()}, support ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.`),
+            `${verb} di ${location} selesai: dana -RM${effect.funds.toLocaleString()}, sokongan ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Objektif kawasan dicapai: ganjaran RM75,000, organisasi +3 dan kepercayaan +2." : ""}`,
+            `${verb} at ${location} completed: funds -RM${effect.funds.toLocaleString()}, support ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Constituency objective completed: RM75,000 reward, organisation +3 and trust +2." : ""}`),
         },
       };
     }
@@ -351,6 +358,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
     };
   }),
+  markOfficeMailRead: (index) => set((state) => state.journey.readOfficeMail.includes(index) ? {} : ({ journey: { ...state.journey, readOfficeMail: [...state.journey.readOfficeMail, index] } })),
   finishElection: () => set((state) => finishElection(state)),
   confirmCoalition: (partners, terms = {}) => set((state) => {
     if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};

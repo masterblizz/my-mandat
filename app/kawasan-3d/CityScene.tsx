@@ -361,8 +361,8 @@ function Grid({
   notchByCell: Map<string, RoundaboutCorner>;
   weather?: Weather;
   nationalLighting?: boolean;
-  destinationTags?: Record<string, { label: string; destinationId: string }>;
-  onEnterDestination?: (destinationId: string) => void;
+  destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -459,7 +459,7 @@ function Grid({
             <button
               type="button"
               aria-label={`Masuk ${tag.label}`}
-              onClick={(event) => { event.stopPropagation(); onEnterDestination?.(tag.destinationId); }}
+              onClick={(event) => { event.stopPropagation(); onEnterDestination?.(tag.destinationId, tag.originLabel); }}
               onPointerOver={() => { document.body.style.cursor = "pointer"; }}
               onPointerOut={() => { document.body.style.cursor = "auto"; }}
               style={{
@@ -517,8 +517,8 @@ export function CityScene({
   soundEnabled?: boolean;
   festivals?: Festival[];
   lang?: Lang;
-  destinationTags?: Record<string, { label: string; destinationId: string }>;
-  onEnterDestination?: (destinationId: string) => void;
+  destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
