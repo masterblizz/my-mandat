@@ -182,6 +182,19 @@ html, body {
 
 ::selection { background: rgb(var(--gold-rgb) / 0.4); }
 
+@keyframes location-news-scroll {
+  from { transform: translateY(0); }
+  to { transform: translateY(-52%); }
+}
+
+.location-news-scroll {
+  animation: location-news-scroll 24s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .location-news-scroll { animation: none; }
+}
+
 /* Tactile buttons everywhere: brighten on hover, sink on press.
    .kw-zone excluded — its transform carries 3D state. */
 button:not(:disabled):not(.kw-zone) { transition: filter 0.15s, transform 0.1s; }
