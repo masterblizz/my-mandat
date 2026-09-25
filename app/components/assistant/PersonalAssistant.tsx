@@ -27,8 +27,8 @@ export default function PersonalAssistant({ embedded = false, prominent = false 
     : { title: t(lang, "Langkah seterusnya", "Next step"), message: t(lang, "Saya telah menanda lokasi untuk bab politik semasa anda.", "I have marked the location for your current political chapter."), action: t(lang, "Teruskan", "Continue"), route: resumeRoute(state) };
 
   if (embedded) {
-    return <div className="absolute bottom-8 left-[25%] z-30 h-[min(58vh,560px)] w-[min(29vw,340px)] min-w-[235px]" style={{ fontFamily: "'Space Mono', monospace" }}>
-      {open && <section className="absolute bottom-[18%] left-[88%] z-10 w-[min(340px,calc(100vw-48px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
+    return <div className="absolute bottom-8 right-[14%] z-30 h-[min(58vh,560px)] w-[min(29vw,340px)] min-w-[235px]" style={{ fontFamily: "'Space Mono', monospace" }}>
+      {open && <section className="absolute bottom-[18%] right-[88%] z-10 w-[min(340px,calc(100vw-48px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PERSONAL ASSISTANT", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-xs font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="text-xs text-text-muted" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
         <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{guidance.message}</p>
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
