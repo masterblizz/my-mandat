@@ -9,7 +9,7 @@ import { useLang, t } from "../../i18n/useLang";
 
 type Guidance = { title: string; message: string; action: string; route: string };
 
-export default function PersonalAssistant({ embedded = false }: { embedded?: boolean }) {
+export default function PersonalAssistant({ embedded = false, prominent = false }: { embedded?: boolean; prominent?: boolean }) {
   const router = useRouter();
   const lang = useLang();
   const state = useGameStore();
@@ -28,14 +28,15 @@ export default function PersonalAssistant({ embedded = false }: { embedded?: boo
 
   return (
     <div className={`${embedded ? "absolute bottom-4 left-4 z-30" : "fixed bottom-12 left-4 z-[65]"} flex items-end gap-2`} style={{ fontFamily: "'Space Mono', monospace" }}>
-      {open && <section className="w-[min(330px,calc(100vw-88px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }}>
+      {open && <section className={`${prominent ? "w-[min(390px,calc(100vw-156px))]" : "w-[min(330px,calc(100vw-88px))]"} border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PERSONAL ASSISTANT", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-xs font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="text-xs text-text-muted" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
         <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{guidance.message}</p>
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
       </section>}
-      <button type="button" onClick={() => setOpen((value) => !value)} className="relative h-14 w-14 overflow-hidden rounded-full border shadow-lg transition hover:scale-105" style={{ borderColor: "rgb(var(--gold-rgb) / .72)", background: "var(--bg)", boxShadow: "0 0 20px rgb(var(--cyan-rgb) / .24)" }} aria-label={t(lang, "Buka Personal Assistant", "Open Personal Assistant")}>
-        <Image src="/personal-assistant.png" alt={t(lang, "Personal Assistant", "Personal Assistant")} fill sizes="56px" className="object-cover" />
-        <span className="absolute bottom-0 left-0 right-0 bg-black/75 py-0.5 text-[7px] font-black tracking-widest text-cyan">PA</span>
+      <button type="button" onClick={() => setOpen((value) => !value)} className={`relative overflow-hidden rounded-full border shadow-lg transition hover:scale-105 ${prominent ? "h-28 w-28 ring-2 ring-cyan/35" : "h-14 w-14"}`} style={{ borderColor: "rgb(var(--gold-rgb) / .72)", background: "var(--bg)", boxShadow: prominent ? "0 0 28px rgb(var(--cyan-rgb) / .46)" : "0 0 20px rgb(var(--cyan-rgb) / .24)" }} aria-label={t(lang, "Buka Personal Assistant", "Open Personal Assistant")}>
+        <Image src="/personal-assistant.png" alt={t(lang, "Personal Assistant", "Personal Assistant")} fill sizes={prominent ? "112px" : "56px"} className="object-cover" />
+        {prominent && <span className="absolute inset-1 rounded-full border border-cyan/50 animate-pulse" />}
+        <span className={`absolute bottom-0 left-0 right-0 bg-black/75 font-black tracking-widest text-cyan ${prominent ? "py-1 text-[9px]" : "py-0.5 text-[7px]"}`}>{prominent ? "PERSONAL ASSISTANT" : "PA"}</span>
       </button>
     </div>
   );
