@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Header from "../../components/layout/Header";
 import StatusBar from "../../components/layout/StatusBar";
@@ -22,6 +22,7 @@ const SCENES: Record<string, Scene> = {
 
 export default function LocationPage() {
   const { kind } = useParams<{ kind: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter(); const lang = useLang();
   const { journey, states, leader, day, totalDays, advanceDay, runLocationActivity } = useGameStore();
   const [activityOpen, setActivityOpen] = useState(false);
@@ -31,7 +32,10 @@ export default function LocationPage() {
   const scene = SCENES[kind] ?? SCENES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
   const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
-  const detail = lang === "ms" ? scene.detailMs : scene.detailEn;
+  const originLabel = searchParams.get("origin");
+  const detail = originLabel
+    ? `${t(lang, `Dari marker Bandar 3D: ${originLabel}`, `From 3D City marker: ${originLabel}`)} · ${lang === "ms" ? scene.detailMs : scene.detailEn}`
+    : (lang === "ms" ? scene.detailMs : scene.detailEn);
   const action = lang === "ms" ? scene.actionMs : scene.actionEn;
   const homeSupport = states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
   const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
@@ -60,6 +64,7 @@ export default function LocationPage() {
       <section className="absolute bottom-12 left-36 z-20 hidden border p-3 md:block" style={{ borderColor: "rgb(var(--gold-rgb) / .45)", background: "rgba(6,14,24,.94)" }}><div className="text-[9px] font-black tracking-widest text-gold">TENAGA HARI INI</div><div className="mt-2 flex items-center gap-1">{[0, 1, 2].map((i) => <i key={i} className="h-2 w-6" style={{ background: i < journey.decisions ? scene.accent : "rgba(255,255,255,.12)" }} />)}<b className="ml-2 text-sm text-white">{journey.decisions}/3</b></div><button type="button" onClick={advanceDay} className="mt-3 border px-3 py-2 text-[9px] font-black text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>{t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →</button></section>
       {assistantOpen && <section className="absolute bottom-12 left-4 z-20 flex w-[min(460px,calc(100%-32px))] items-end gap-3"><button type="button" onClick={() => setAssistantOpen(false)} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: scene.accent }}><Image src="/personal-assistant.png" alt="Personal Assistant" fill sizes="96px" className="object-cover" /></button><div className="flex-1 border p-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.94)" }}><div className="flex items-center justify-between"><b className="text-[9px] tracking-[.18em]" style={{ color: scene.accent }}>PERSONAL ASSISTANT</b><button type="button" onClick={() => setAssistantOpen(false)} className="text-text-muted">×</button></div><p className="mt-2 text-[10px] text-text-muted">{objectiveDone ? t(lang, "Objektif kawasan sudah dicapai. Gunakan lokasi ini untuk memperkukuh momentum.", "Constituency objective complete. Use this location to strengthen momentum.") : t(lang, "Objektif aktif: naikkan sokongan kawasan ke 60% sebelum hari ke-10.", "Active objective: raise constituency support to 60% before day 10.")}</p><div className="mt-2 border px-2 py-1.5 text-[9px]" style={{ borderColor: `${scene.accent}66`, background: `${scene.accent}12` }}><b style={{ color: scene.accent }}>{homeSupport.toFixed(1)}% / 60%</b><span className="ml-2 text-text-muted">{t(lang, `Hari ${day}/${objectiveDay} · RM75,000`, `Day ${day}/${objectiveDay} · RM75,000`)}</span></div><button type="button" onClick={() => setActivityOpen(true)} className="mt-2 border px-3 py-1.5 text-[9px] font-black" style={{ color: scene.accent, borderColor: `${scene.accent}88` }}>{t(lang, "LIHAT TUGAS", "VIEW TASK")}</button></div></section>}
       {!assistantOpen && <button type="button" onClick={() => setAssistantOpen(true)} className="absolute bottom-12 left-4 z-20 relative h-16 w-16 overflow-hidden rounded-full border-2" style={{ borderColor: scene.accent }}><Image src="/personal-assistant.png" alt="Personal Assistant" fill sizes="64px" className="object-cover" /></button>}
+      <div className="absolute bottom-9 left-4 right-4 z-20 flex gap-2 md:hidden"><button type="button" onClick={() => router.push("/kawasan")} className="border px-3 py-2 text-[9px] font-black" style={{ borderColor: `${scene.accent}88`, color: scene.accent, background: "rgba(6,14,24,.94)" }}>← {t(lang, "BANDAR", "CITY")}</button><button type="button" onClick={advanceDay} className="flex-1 border px-3 py-2 text-[9px] font-black text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .6)", background: "rgba(6,14,24,.94)" }}>{t(lang, "TAMAT HARI", "END DAY")} · {journey.decisions}/3</button></div>
       <footer className="absolute bottom-0 left-0 right-0 z-20 flex h-8 items-center overflow-hidden border-t bg-[#07111c]" style={{ borderColor: `${scene.accent}66` }}><b className="h-full px-3 pt-2 text-[9px] tracking-widest text-[#07111c]" style={{ background: scene.accent }}>● LIVE</b><span className="whitespace-nowrap px-5 text-[10px] text-text-muted">{t(lang, "Lokasi aktif: semua keputusan akan memberi kesan kepada perjalanan politik anda.", "Active location: every decision affects your political journey.")}</span></footer>
     </main>
     <StatusBar leftText={`${scene.icon} ${label.toUpperCase()}`} rightText={t(lang, "Klik hotspot untuk mula berinteraksi", "Click the hotspot to begin interacting")} />
