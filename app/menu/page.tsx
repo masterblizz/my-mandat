@@ -110,11 +110,12 @@ export default function MainMenuPage() {
   const [hasSave, setHasSave] = useState(false);
 
   const {
-    leader, day, totalDays, getTotalProjectedSeats, getNationalSupport, mediaSentiment, settings,
+    leader, day, totalDays, states: liveStates, getTotalProjectedSeats, getNationalSupport, mediaSentiment, settings,
     resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate,
   } = useGameStore();
   const isPrn = settings.electionScope === "prn";
-  const prnState = isPrn ? initialStates.find((state) => state.id === settings.prnStateId) ?? initialStates[0] : null;
+  // Live campaign state (restored from the active save), not the static starting data.
+  const prnState = isPrn ? liveStates.find((state) => state.id === settings.prnStateId) ?? liveStates[0] : null;
   const seatTotal = isPrn ? (prnState?.dunSeats ?? 0) : 222;
   const majorityTarget = isPrn ? Math.floor(seatTotal / 2) + 1 : 112;
   const projectedSeats = isPrn ? (prnState?.projectedSeats ?? 0) : getTotalProjectedSeats();
@@ -420,7 +421,7 @@ export default function MainMenuPage() {
                 <div className="text-[10px] tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.seats")}</div>
               </div>
               <div>
-                <div className="text-[21px] font-black text-white">{nationalSupport.mandat}%</div>
+                <div className="text-[21px] font-black text-white">{mounted ? `${nationalSupport.mandat}%` : "—"}</div>
                 <div className="text-[10px] tracking-[0.25em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.support")}</div>
               </div>
               <div>

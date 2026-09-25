@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import JourneyPanel from "../components/career/JourneyPanel";
+import { useHasMounted } from "../hooks/useHasMounted";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -431,11 +432,16 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
   );
 }
 
+// /api/news allows 10 requests a minute per client. Fast day-skipping would
+// burn that and log 429s; stay under it and honour Retry-After — the static
+// news pools cover any day that gets no AI headline.
+const AI_NEWS_MIN_INTERVAL_MS = 6500;
+let aiNewsNextAllowedAt = 0;
+
 export default function WarroomPage() {
   const router = useRouter();
   const { isPending: isViewingResults, navigate: navigateToResults } = usePendingNav();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHasMounted();
   const lang = useLang();
   const reducedMotion = useReducedMotion();
   const [advancing, setAdvancing] = useState(false);
@@ -535,6 +541,8 @@ export default function WarroomPage() {
   // Never blocks or throws into the day-advance flow — a failed/offline
   // response just means the static news pools cover today instead.
   function requestAiNewsForToday() {
+    if (Date.now() < aiNewsNextAllowedAt) return;
+    aiNewsNextAllowedAt = Date.now() + AI_NEWS_MIN_INTERVAL_MS;
     const fresh = useGameStore.getState();
     const completedDay = fresh.day - 1;
     const todaysActions = fresh.opponentLog.filter((a) => a.day === completedDay);
@@ -566,8 +574,16 @@ export default function WarroomPage() {
         },
       }),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 429) {
+          const retryAfter = Number(res.headers.get("Retry-After"));
+          aiNewsNextAllowedAt = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 60_000);
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         // Re-stamp with whatever day is current when the response actually
         // arrives (not the closed-over `fresh.day`) so the headline lands in
         // "today's news" — reporting on the day that just concluded, dated
@@ -699,9 +715,6 @@ export default function WarroomPage() {
     },
   ];
 
-  // The save is restored by StoreHydrator after the layout hydrates, but this
-  // page's Suspense boundary hydrates later — render store-driven UI only once
-  // mounted so the first client render matches the server's default-state HTML.
   if (!mounted) return <div className="min-h-screen" style={{ background: "var(--bg)" }} />;
 
   return (

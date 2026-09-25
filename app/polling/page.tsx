@@ -1,4 +1,5 @@
 "use client";
+import { useHasMounted } from "../hooks/useHasMounted";
 import { useState, useMemo } from "react";
 import {
   PieChart,
@@ -61,6 +62,7 @@ const KEY_FACTORS: string[] = [
 
 
 export default function PollingPage() {
+  const mounted = useHasMounted();
   const lang = useLang();
   const [activeTab, setActiveTab] = useState<Tab>("POLLING");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -115,6 +117,7 @@ export default function PollingPage() {
     );
   }, [sortDir, scopedStates]);
 
+  if (!mounted) return <div className="min-h-screen" style={{ background: "var(--bg)" }} />; // saved game restores after hydration
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />

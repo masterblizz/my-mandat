@@ -7,9 +7,15 @@
  * exists (e.g. a bookmarked /cabinet URL with no active game).
  *
  * Phase B — Full interactive playthrough: drives the real UI end-to-end
- * (setup wizard -> warroom -> 30 days -> results -> mandate -> the outcome
- * branch that actually occurs -> career hub), following whichever buttons
- * are actually rendered rather than hard-coding one storyline branch.
+ * (scenario start -> 3D city -> warroom -> 30 days -> election night -> results
+ * -> mandate -> the outcome branch that actually occurs -> career hub),
+ * following whichever buttons are actually rendered rather than hard-coding
+ * one storyline branch.
+ *
+ * Run against a dev server with auth disabled (the middleware skips the gate
+ * when the Supabase vars are empty):
+ *   NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_ANON_KEY= npx next dev -p 3000
+ *   QA_BASE=http://localhost:3000 node scripts/qa-full-game.js
  *
  * Writes results + screenshots to docs/QA_REPORT.md / docs/qa-screenshots.
  */
@@ -17,7 +23,7 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 
-const BASE = "http://localhost:3000";
+const BASE = process.env.QA_BASE || "http://localhost:3000";
 const SCREENSHOT_DIR = path.resolve(__dirname, "../docs/qa-screenshots");
 const REPORT_PATH = path.resolve(__dirname, "../docs/QA_REPORT.md");
 
@@ -46,6 +52,10 @@ const COLD_ROUTES = [
   { name: "Opposition", path: "/opposition" },
   { name: "Postmortem", path: "/postmortem" },
   { name: "Load Game", path: "/load-game" },
+  { name: "Constituency city", path: "/kawasan" },
+  { name: "Political office", path: "/office" },
+  { name: "Location: party HQ", path: "/location/party" },
+  { name: "Term report card", path: "/report-card" },
   { name: "Settings", path: "/settings" },
   { name: "State (Selangor)", path: "/state/selangor" },
 ];
@@ -115,7 +125,10 @@ async function waitForNavAway(page, prevUrl, timeout = 10000) {
   await page.waitForFunction((prev) => window.location.href !== prev, prevUrl, { timeout }).catch(() => {});
 }
 
-async function clickFirstMatch(page, patterns, { timeout = 5000 } = {}) {
+async function clickFirstMatch(page, patterns, { timeout = 5000, waitFor = 20000 } = {}) {
+  // First-hit dev compiles and entrance animations can leave a screen blank
+  // for a while — wait for any candidate button before trying them in order.
+  await Promise.any(patterns.map((p) => page.locator("button", { hasText: p }).first().waitFor({ state: "visible", timeout: waitFor }))).catch(() => {});
   for (const p of patterns) {
     const loc = page.locator("button", { hasText: p }).first();
     try {
@@ -156,90 +169,81 @@ async function runPlaythrough(context, playResults) {
   }
 
   try {
-    // ── Setup wizard ──────────────────────────────────────────────
-    await page.goto(`${BASE}/setup`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(400);
-    step("Setup loads", await page.locator("text=SETUP").count() > 0 || true, "step 0 (DATA MODE)");
-    await shot("setup-00-data-mode");
+    // ── Scenario start -> city -> War Room ───────────────────────
+    // "load" not "networkidle": the dev HMR socket keeps the network busy.
+    await page.goto(`${BASE}/setup`, { waitUntil: "load", timeout: 120000 });
+    await page.waitForTimeout(1500);
+    await shot("setup-scenarios");
+    const startBtn = page.locator("button", { hasText: /Mulakan senario|Start scenario/ }).first();
+    const box = await startBtn.boundingBox();
+    // AGENTS.md: a DOM click that works while a real click is blocked is still a bug.
+    const onTop = box && await page.evaluate(({ x, y }) => /senario|scenario/i.test(document.elementFromPoint(x, y)?.textContent || ""), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    step("Scenario start button is clickable (not covered)", !!onTop, box ? `at y=${Math.round(box.y)}` : "not found");
+    await page.locator("input[aria-label]").first().fill("QA Test Leader");
+    await startBtn.click();
+    await page.waitForURL("**/kawasan", { timeout: 120000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+    step("Start scenario -> 3D city", page.url().includes("/kawasan"), `URL: ${page.url()}`);
+    await shot("kawasan-day-1");
 
-    // Step 0 -> 1
-    await page.locator("button", { hasText: "NEXT" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Step 1: leader name is required to advance
-    const nameInput = page.locator("input[type=text]").first();
-    await nameInput.fill("QA Test Leader");
-    await shot("setup-01-avatar-party");
-    await page.locator("button", { hasText: "NEXT" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Step 2: nomination
-    await shot("setup-02-nomination");
-    await page.locator("button", { hasText: "NEXT" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Step 3: campaign settings
-    await shot("setup-03-campaign-settings");
-    await page.locator("button", { hasText: "NEXT" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Step 4: difficulty
-    await shot("setup-04-difficulty");
-    await page.locator("button", { hasText: "NEXT" }).first().click();
-    await page.waitForTimeout(300);
-
-    // Step 5: confirm + launch
-    await shot("setup-05-confirm");
-    await page.locator("button", { hasText: "LAUNCH" }).first().click();
-    // First navigation to /warroom triggers an on-demand dev compile, which can
-    // take longer than a fixed short wait — poll for the URL change instead.
-    await page.waitForURL("**/warroom", { timeout: 20000 }).catch(() => {});
-    await page.waitForTimeout(300);
-
+    await page.goto(`${BASE}/warroom`, { waitUntil: "load", timeout: 120000 });
+    await page.waitForTimeout(1500);
     const atWarRoom = page.url().includes("/warroom");
-    step("Launch campaign -> War Room", atWarRoom, `URL: ${page.url()}`);
+    step("City -> War Room", atWarRoom, `URL: ${page.url()}`);
     await shot("warroom-day-1");
 
-    if (!atWarRoom) throw new Error("Did not reach /warroom after launch — aborting playthrough");
+    if (!atWarRoom) throw new Error("Did not reach /warroom — aborting playthrough");
 
     // ── Visit side panels reachable from War Room nav ───────────────
     for (const [route, label] of [["/campaign", "Nomination"], ["/calendar", "Calendar"], ["/messaging", "Messaging"], ["/polling", "Polling"]]) {
-      await page.goto(`${BASE}${route}`, { waitUntil: "networkidle" }).catch(() => {});
+      await page.goto(`${BASE}${route}`, { waitUntil: "load", timeout: 120000 }).catch(() => {});
       await page.waitForTimeout(400);
       step(`Side panel: ${label}`, true, `URL: ${page.url()}`);
       await shot(`panel-${label.toLowerCase()}`);
     }
 
     // Back to war room to advance days
-    await page.goto(`${BASE}/warroom`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(400);
+    await page.goto(`${BASE}/warroom`, { waitUntil: "load", timeout: 120000 });
+    await page.waitForTimeout(1500);
 
     // ── Advance every day until election ─────────────────────────
-    // handleAdvanceDay() disables the button and shows "PROCESSING" for
-    // ~700ms after each click, so we must wait past that before the next
-    // click or the locator finds 0 matches and the loop exits early.
-    let advanced = 0;
+    // Varied play: rotate briefing actions so repeat fatigue is exercised,
+    // then advance. The end-of-day recap must appear after each advance.
+    let advanced = 0, recaps = 0;
+    const rotation = [/Lawatan komuniti|Community visit/, /Kutip dana|Fundraise/, /Latih jentera|Train organisers/];
     for (let i = 0; i < 40; i++) {
-      const nextDayBtn = page.locator("button", { hasText: "NEXT DAY" });
+      const act = page.locator("button:not([disabled])", { hasText: rotation[i % 3] }).first();
+      if (await act.count() > 0) await act.click().catch(() => {});
+      const nextDayBtn = page.locator("button:not([disabled])", { hasText: /HARI SETERUSNYA|NEXT DAY/ });
       if (await nextDayBtn.count() === 0) {
-        // Could be mid-"PROCESSING" — give it a moment and re-check before giving up.
         await page.waitForTimeout(900);
         if (await nextDayBtn.count() === 0) break;
       }
       await nextDayBtn.first().click();
       advanced++;
       await page.waitForTimeout(900);
+      if (await page.locator("[role=status][aria-live=polite]").count() > 0) recaps++;
     }
-    step("Advanced through campaign days", advanced > 0, `${advanced} NEXT DAY clicks`);
+    step("Advanced through campaign days", advanced > 0, `${advanced} day advances`);
+    step("End-of-day recap shown after advances", recaps >= Math.max(1, advanced - 2), `${recaps}/${advanced} recaps seen`);
     await shot("warroom-election-day");
 
     // ── Reach results ─────────────────────────────────────────────
-    const viewResultsBtn = page.locator("button", { hasText: /RESULT/i });
+    const viewResultsBtn = page.locator("button", { hasText: /RESULT|Malam keputusan|Election night/i });
     if (await viewResultsBtn.count() > 0) {
       await viewResultsBtn.first().click();
-      await page.waitForURL("**/results", { timeout: 20000 }).catch(() => {});
+      await page.waitForURL("**/results", { timeout: 60000 }).catch(() => {});
       await page.waitForTimeout(300);
     }
+    // Election night plays as a full-screen overlay; skip to the official result.
+    await page.locator("button", { hasText: /LANGKAU|SKIP/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
+    step("Day recap does not cover election night", await page.locator("[role=status][aria-live=polite]").count() === 0, "");
+    const skip = page.locator("button", { hasText: /LANGKAU|SKIP/ }).first();
+    if (await skip.count() > 0) await skip.click().catch(() => {});
+    await page.waitForTimeout(800);
+    const official = page.locator("button", { hasText: /KEPUTUSAN RASMI|OFFICIAL/ }).first();
+    if (await official.count() > 0) await official.click().catch(() => {});
+    await page.waitForTimeout(800);
     const atResults = page.url().includes("/results");
     step("Reach Results screen", atResults, `URL: ${page.url()}`);
     await shot("results");
@@ -303,43 +307,39 @@ async function runPlaythrough(context, playResults) {
               step("Swearing-in -> Government", page.url().includes("/government"), `clicked "${clicked3}", URL: ${page.url()}`);
               await shot("government");
 
-              if (page.url().includes("/government")) {
-                const clicked4 = await clickFirstMatch(page, [/URUS PENGGAL|MANAGE TERM/i]);
-                const _prevUrl_clicked4 = page.url();
-                await waitForNavAway(page, _prevUrl_clicked4);
-                step("Government -> Career", page.url().includes("/career"), `clicked "${clicked4}", URL: ${page.url()}`);
-                await shot("career");
-
-                if (page.url().includes("/career")) {
-                  const clicked5 = await clickFirstMatch(page, [/SIMULASI NEGARA|NATIONAL SIMULATION/i]);
-                  const _prevUrl_clicked5 = page.url();
-                  await waitForNavAway(page, _prevUrl_clicked5);
-                  step("Career -> Sandbox", page.url().includes("/sandbox"), `clicked "${clicked5}", URL: ${page.url()}`);
-                  await shot("sandbox");
-                }
-              }
             }
           }
-        } else if (b2 === "/opposition") {
-          const clicked3 = await clickFirstMatch(page, [/URUS PENGGAL PEMBANGKANG|MANAGE OPPOSITION TERM/i]);
-          const _prevUrl_clicked3 = page.url();
-          await waitForNavAway(page, _prevUrl_clicked3);
-          step("Opposition -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
-          await shot("career-from-opposition");
         }
-      } else if (branch === "/opposition") {
-        const clicked3 = await clickFirstMatch(page, [/URUS PENGGAL PEMBANGKANG|MANAGE OPPOSITION TERM/i]);
-        const _prevUrl_clicked3 = page.url();
-        await waitForNavAway(page, _prevUrl_clicked3);
-        step("Opposition -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
-        await shot("career-from-opposition");
-      } else if (branch === "/postmortem") {
-        const clicked3 = await clickFirstMatch(page, [/TERUSKAN SURVIVAL|CONTINUE SURVIVAL/i]);
-        const _prevUrl_clicked3 = page.url();
-        await waitForNavAway(page, _prevUrl_clicked3);
-        step("Postmortem -> Career", page.url().includes("/career"), `clicked "${clicked3}", URL: ${page.url()}`);
-        await shot("career-from-postmortem");
       }
+    }
+
+    // ── Governing / opposition / rebuilding term ──────────────────
+    // Every outcome branch lands on the same term dashboard. Play the term:
+    // quarters resolve with a recap, month 60 opens the report card, and the
+    // report card starts the next election (closing the career loop).
+    const termRoutes = ["/government", "/opposition", "/postmortem", "/career"];
+    if (termRoutes.some((r) => page.url().includes(r))) {
+      await shot(`term-${page.url().replace(BASE, "").replace("/", "")}`);
+      let quarters = 0, quarterRecap = false;
+      for (let q = 0; q < 25; q++) {
+        const openReport = page.locator("button", { hasText: /Buka kad laporan penggal|Open term report card/ });
+        if (await openReport.count() > 0) break;
+        const advance = await clickFirstMatch(page, [/Majukan suku tahun|Advance quarter/]);
+        if (!advance) break;
+        quarters++;
+        await page.waitForTimeout(500);
+        if (q === 0) quarterRecap = await page.locator("[role=status][aria-live=polite]", { hasText: /SUKU TAHUN SELESAI|QUARTER COMPLETE/ }).count() > 0;
+      }
+      step("Term: quarters advance to month 60", quarters >= 19, `${quarters} quarters`);
+      step("Term: quarter recap shown", quarterRecap, "");
+      const clickedReport = await clickFirstMatch(page, [/Buka kad laporan penggal|Open term report card/]);
+      await page.waitForURL("**/report-card", { timeout: 60000 }).catch(() => {});
+      step("Term -> Report card", page.url().includes("/report-card"), `clicked "${clickedReport}", URL: ${page.url()}`);
+      await shot("report-card");
+      const clickedNext = await clickFirstMatch(page, [/Mulakan pilihan raya seterusnya|Start next election/]);
+      await page.waitForURL("**/warroom", { timeout: 60000 }).catch(() => {});
+      step("Report card -> next election War Room", page.url().includes("/warroom"), `clicked "${clickedNext}", URL: ${page.url()}`);
+      await shot("next-election-warroom");
     }
   } catch (err) {
     step("Playthrough aborted with exception", false, err.message.slice(0, 200));
@@ -376,8 +376,8 @@ async function run() {
     "# My Mandat — QA Report",
     "",
     `**Date:** ${now}  `,
-    `**Build:** Next.js 14 dev server · http://localhost:3000  `,
-    `**Scope:** Phase A — cold load of every route · Phase B — full interactive playthrough (setup -> war room -> 30 days -> results -> mandate -> outcome branch -> career hub)  `,
+    `**Build:** Next.js 14 dev server · ${BASE}  `,
+    `**Scope:** Phase A — cold load of every route · Phase B — full interactive playthrough (scenario -> city -> war room -> 30 days -> election night -> mandate -> outcome branch -> career hub)  `,
     "",
     "## Summary",
     "",

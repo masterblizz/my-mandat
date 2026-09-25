@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useGameStore, type GameState } from "../../store/gameStore";
 import { useLang, t } from "../../i18n/useLang";
 import { CAMPAIGN_EVENTS, campaignEventUnlockDay } from "../../data/campaignEvents";
@@ -10,6 +10,8 @@ type Snapshot = {
   day: number; term: number; month: number; chapter: string;
   home: number; seats: number; funds: number; decisionsLeft: number; actionsToday: string[];
   trust: number; stability: number;
+  lawan: Record<string, number>;
+  stateSeats: Record<string, number>;
 };
 
 type Recap = {
@@ -37,6 +39,8 @@ function snapshot(s: GameState): Snapshot {
     seats: scoped.reduce((n, state) => n + state.projectedSeats, 0),
     funds: s.resources.funds, decisionsLeft: s.journey.decisions, actionsToday: s.journey.actionsToday,
     trust: s.journey.trust, stability: s.journey.stability,
+    lawan: Object.fromEntries(scoped.map(state => [state.id, state.lawanSupport])),
+    stateSeats: Object.fromEntries(scoped.map(state => [state.id, state.projectedSeats])),
   };
 }
 
@@ -50,6 +54,7 @@ const money = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}RM${Math.abs(
 export default function DayRecap() {
   const lang = useLang();
   const router = useRouter();
+  const pathname = usePathname();
   const [recap, setRecap] = useState<Recap | null>(null);
   const prev = useRef<Snapshot | null>(null);
   const mountedAt = useRef(0);
@@ -77,6 +82,9 @@ export default function DayRecap() {
         if (before.decisionsLeft > 0) notes.push(t(lang, `${before.decisionsLeft} keputusan tidak digunakan semalam — tenaga itu hilang.`, `${before.decisionsLeft} decision${before.decisionsLeft > 1 ? "s" : ""} went unused — that energy is gone.`));
         const tired = Object.entries(state.journey.streaks ?? {}).filter(([key, streak]) => ["visit", "fundraise", "organise"].includes(key) && streak >= 2).map(([key]) => key);
         if (tired.length) notes.push(t(lang, `Pengundi mula jemu: ${tired.map(k => ({ visit: "lawatan", fundraise: "kutipan dana", organise: "latihan" } as Record<string, string>)[k]).join(", ")} berulang. Tukar rentak.`, `Voters are tiring of repeated ${tired.join(", ")}. Change the rhythm.`));
+        // Opponent pushes into swing states are the main cause of late seat slides — name where seats fell.
+        const loss = state.states.filter(item => item.id in after.stateSeats && item.id in before.stateSeats).map(item => ({ item, lost: before.stateSeats[item.id] - after.stateSeats[item.id], gain: after.lawan[item.id] - before.lawan[item.id] })).sort((a, b) => b.lost - a.lost)[0];
+        if (loss && loss.lost > 0) notes.push(t(lang, `Lawan merampas ${loss.lost} kerusi unjuran di ${loss.item.name} (sokongan mereka ${loss.gain >= 0 ? "+" : ""}${loss.gain.toFixed(1)}). Pertahankan negeri ini.`, `Opposition took ${loss.lost} projected seat${loss.lost > 1 ? "s" : ""} in ${loss.item.name} (their support ${loss.gain >= 0 ? "+" : ""}${loss.gain.toFixed(1)}). Defend it.`));
         if (after.seats >= majority && before.seats < majority) notes.push(t(lang, "Unjuran kini melepasi majoriti! Pertahankannya.", "Projection just crossed the majority line! Hold it."));
         if (after.seats < majority && before.seats >= majority) notes.push(t(lang, "Unjuran jatuh di bawah majoriti. Lawan sedang mengejar.", "Projection slipped below majority. The opposition is closing in."));
         if (after.chapter === "results" || daysLeft <= 0) {
@@ -111,6 +119,9 @@ export default function DayRecap() {
       }
     });
   }, [lang]);
+
+  // A recap belongs to the screen where the turn ended; never let it cover the next one (e.g. election night).
+  useEffect(() => setRecap(null), [pathname]);
 
   useEffect(() => {
     if (!recap || recap.cta) return;

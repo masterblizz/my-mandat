@@ -1,5 +1,6 @@
 "use client";
 
+import { useHasMounted } from "../hooks/useHasMounted";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -17,6 +18,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string; source?: "ai" 
 const QUICK_PROMPT_KEYS = ["situation", "focusStates", "funds", "finalDays"] as const;
 
 export default function AdvisorPage() {
+  const mounted = useHasMounted();
   const lang = useLang();
   const { leader, day, totalDays, resources, states, mediaSentiment, settings, getTotalProjectedSeats, getNationalSupport, opponentLog } = useGameStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -183,6 +185,7 @@ export default function AdvisorPage() {
   const modeColor = effectiveMode === "ai" ? "var(--neon-green)" : effectiveMode === "offline" ? "var(--warn-orange)" : "var(--cyan)";
   const freeTextDisabled = busy || aiAvailable === false;
 
+  if (!mounted) return <div className="min-h-screen" style={{ background: "var(--bg)" }} />; // saved game restores after hydration
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 15% 0%, rgb(var(--cyan-rgb)/0.10), transparent 32%), var(--bg)" }}>
       <Header />
