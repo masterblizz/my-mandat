@@ -35,7 +35,7 @@ import type { Festival } from "./festivals";
 import type { Lang } from "../i18n/useLang";
 import { Motorcyclists, Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
-import { Html } from "@react-three/drei";
+import { Html, Line } from "@react-three/drei";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -50,6 +50,21 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
+
+// Spread the screen-space labels around the city core when the player is
+// zoomed out. The beacon remains on the real destination building and the
+// connector makes the association clear without labels colliding.
+const DESTINATION_LABEL_LAYOUT: Record<string, [number, number, number]> = {
+  office: [42, 154, -34],
+  party: [-126, 92, 38],
+  operations: [126, 66, 28],
+  calendar: [-148, 168, -16],
+  media: [132, 138, -42],
+  commission: [-70, 216, 42],
+  cabinet: [-104, 112, 28],
+  administration: [112, 112, -28],
+  national: [18, 198, 52],
+};
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
@@ -433,12 +448,14 @@ function Grid({
       {placed.map(({ zone, cx, cz }) => {
         const tag = destinationTags?.[zone.id];
         if (!tag) return null;
+        const labelOffset = DESTINATION_LABEL_LAYOUT[tag.destinationId] ?? [0, 120, 0];
         return <group key={`destination-${zone.id}`} position={[cx, 286, cz]}>
           <mesh position={[0, -142, 0]} renderOrder={10}>
             <cylinderGeometry args={[1.8, 1.8, 282, 8]} />
             <meshBasicMaterial color="#22d3ee" transparent opacity={0.62} toneMapped={false} depthTest={false} depthWrite={false} />
           </mesh>
-          <Html center zIndexRange={[100, 0]} style={{ pointerEvents: "auto" }}>
+          <Line points={[[0, 0, 0], labelOffset]} color="#22d3ee" lineWidth={1.2} transparent opacity={0.82} depthTest={false} />
+          <Html position={labelOffset} center zIndexRange={[100, 0]} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label={`Masuk ${tag.label}`}
