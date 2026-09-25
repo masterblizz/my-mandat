@@ -1,0 +1,47 @@
+"use client";
+
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
+import Header from "../../components/layout/Header";
+import PersonalAssistant from "../../components/assistant/PersonalAssistant";
+import StatusBar from "../../components/layout/StatusBar";
+import { useGameStore } from "../../store/gameStore";
+import { useLang, t } from "../../i18n/useLang";
+
+type Scene = { icon: string; ms: string; en: string; asset: string; route: string; actionMs: string; actionEn: string; accent: string; hotspotMs: string; hotspotEn: string; detailMs: string; detailEn: string };
+const SCENES: Record<string, Scene> = {
+  party: { icon: "🏛️", ms: "Ibu Pejabat Parti", en: "Party Headquarters", asset: "/party-hq-realistic.png", route: "/campaign", actionMs: "Buka strategi parti", actionEn: "Open party strategy", accent: "#f2b53a", hotspotMs: "Dinding manifesto", hotspotEn: "Manifesto wall", detailMs: "Susun calon, manifesto dan rangkaian parti.", detailEn: "Organise candidates, manifesto and party network." },
+  operations: { icon: "🛰️", ms: "Pusat Operasi", en: "Operations Centre", asset: "/operations-room-realistic.png", route: "/warroom", actionMs: "Buka war room", actionEn: "Open war room", accent: "#ff6b5c", hotspotMs: "Meja medan", hotspotEn: "Battle table", detailMs: "Tentukan operasi, sasaran dan medan negeri.", detailEn: "Deploy operations, targets and state battlefield." },
+  calendar: { icon: "📅", ms: "Bilik Jadual Kempen", en: "Campaign Calendar Room", asset: "/party-hq-realistic.png", route: "/calendar", actionMs: "Buka jadual", actionEn: "Open calendar", accent: "#a78bfa", hotspotMs: "Papan jadual", hotspotEn: "Schedule board", detailMs: "Atur lawatan, ceramah dan masa pasukan.", detailEn: "Schedule visits, rallies and team time." },
+  media: { icon: "📡", ms: "Pusat Media", en: "Media Centre", asset: "/media-centre-realistic.png", route: "/messaging", actionMs: "Buka konsol media", actionEn: "Open media console", accent: "#4fd6ec", hotspotMs: "Konsol siaran", hotspotEn: "Broadcast console", detailMs: "Bentuk mesej dan respons awam secara langsung.", detailEn: "Shape live messaging and public response." },
+  commission: { icon: "🗳️", ms: "Pusat Tinjauan", en: "Polling Centre", asset: "/operations-room-realistic.png", route: "/polling", actionMs: "Buka data tinjauan", actionEn: "Open polling data", accent: "#5be39a", hotspotMs: "Terminal tinjauan", hotspotEn: "Polling terminal", detailMs: "Pantau momentum, swing dan sokongan kawasan.", detailEn: "Monitor momentum, swing and constituency support." },
+  cabinet: { icon: "🏛️", ms: "Bangunan Kabinet", en: "Cabinet Building", asset: "/cabinet-room-realistic.png", route: "/cabinet", actionMs: "Masuk bilik kabinet", actionEn: "Enter cabinet room", accent: "#f2b53a", hotspotMs: "Meja kabinet", hotspotEn: "Cabinet table", detailMs: "Lantik pasukan menteri dan urus portfolio.", detailEn: "Appoint ministers and manage portfolios." },
+  administration: { icon: "⚖️", ms: "Pusat Pentadbiran", en: "Administration Centre", asset: "/cabinet-room-realistic.png", route: "/government", actionMs: "Urus pentadbiran", actionEn: "Manage administration", accent: "#4fd6ec", hotspotMs: "Meja dasar", hotspotEn: "Policy desk", detailMs: "Laksana dasar dan majukan penggal kerajaan.", detailEn: "Deliver policies and advance the government term." },
+  national: { icon: "🗺️", ms: "Pusat Analisis Negara", en: "National Analysis Centre", asset: "/operations-room-realistic.png", route: "/sandbox", actionMs: "Buka analisis negara", actionEn: "Open national analysis", accent: "#a78bfa", hotspotMs: "Peta nasional", hotspotEn: "National map", detailMs: "Bandingkan kesan keputusan di seluruh negara.", detailEn: "Compare decision impact across the country." },
+};
+
+export default function LocationPage() {
+  const { kind } = useParams<{ kind: string }>();
+  const router = useRouter(); const lang = useLang();
+  const { journey, day, totalDays, advanceDay } = useGameStore();
+  const scene = SCENES[kind] ?? SCENES.party;
+  const label = lang === "ms" ? scene.ms : scene.en;
+  const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
+  const detail = lang === "ms" ? scene.detailMs : scene.detailEn;
+  const action = lang === "ms" ? scene.actionMs : scene.actionEn;
+  return <div className="min-h-screen overflow-hidden bg-[#050b13]" style={{ fontFamily: "'Space Mono', monospace" }}>
+    <Header />
+    <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
+      <Image src={scene.asset} alt={label} fill priority sizes="100vw" className="object-cover" />
+      <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 62% 58% at 50% 46%, transparent 0%, rgba(5,11,19,.28) 60%, rgba(5,11,19,.82) 100%)` }} />
+      <div className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.9)" }}><div className="text-[9px] font-black tracking-[.2em]" style={{ color: scene.accent }}>LOKASI BANDAR · AKTIF</div><h1 className="mt-1 text-lg font-black text-white">{scene.icon} {label}</h1><p className="mt-1 text-[9px] text-text-muted">{detail}</p></div>
+      <button type="button" onClick={() => router.push("/kawasan")} className="absolute right-4 top-14 z-10 border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99`, background: "rgba(6,14,24,.9)" }}>← {t(lang, "BANDAR 3D", "3D CITY")}</button>
+      <div className="absolute left-[42%] top-[42%] z-10 flex items-center gap-2"><span className="relative flex h-3 w-3"><i className="absolute inset-0 animate-ping rounded-full" style={{ background: scene.accent }} /><i className="relative m-auto h-2 w-2 rounded-full" style={{ background: scene.accent }} /></span><button type="button" onClick={() => router.push(scene.route)} className="border px-3 py-2 text-[10px] font-black text-white shadow-xl" style={{ borderColor: `${scene.accent}aa`, background: "rgba(6,14,24,.9)" }}>{scene.icon} {hotspot}</button></div>
+      <section className="absolute bottom-12 right-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.94)" }}><div className="text-[9px] font-black tracking-[.18em]" style={{ color: scene.accent }}>TUGAS LOKASI</div><h2 className="mt-1 text-xs font-black text-white">{detail}</h2><button type="button" onClick={() => router.push(scene.route)} className="mt-3 w-full border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99` }}>{action} →</button></section>
+      <section className="absolute bottom-12 left-36 z-20 hidden border p-3 md:block" style={{ borderColor: "rgb(var(--gold-rgb) / .45)", background: "rgba(6,14,24,.94)" }}><div className="text-[9px] font-black tracking-widest text-gold">TENAGA HARI INI</div><div className="mt-2 flex items-center gap-1">{[0, 1, 2].map((i) => <i key={i} className="h-2 w-6" style={{ background: i < journey.decisions ? scene.accent : "rgba(255,255,255,.12)" }} />)}<b className="ml-2 text-sm text-white">{journey.decisions}/3</b></div><button type="button" onClick={advanceDay} className="mt-3 border px-3 py-2 text-[9px] font-black text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>{t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →</button></section>
+      <PersonalAssistant embedded prominent />
+      <footer className="absolute bottom-0 left-0 right-0 z-20 flex h-8 items-center overflow-hidden border-t bg-[#07111c]" style={{ borderColor: `${scene.accent}66` }}><b className="h-full px-3 pt-2 text-[9px] tracking-widest text-[#07111c]" style={{ background: scene.accent }}>● LIVE</b><span className="whitespace-nowrap px-5 text-[10px] text-text-muted">{t(lang, "Lokasi aktif: semua keputusan akan memberi kesan kepada perjalanan politik anda.", "Active location: every decision affects your political journey.")}</span></footer>
+    </main>
+    <StatusBar leftText={`${scene.icon} ${label.toUpperCase()}`} rightText={t(lang, "Klik hotspot untuk mula berinteraksi", "Click the hotspot to begin interacting")} />
+  </div>;
+}
