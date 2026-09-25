@@ -43,6 +43,20 @@ test('daily actions are scarce, repeat-safe and reset on the next day', () => {
   store.getState().advanceDay();
   assert.equal(store.getState().journey.decisions, 3);
 });
+test('location activities spend real resources, write a journal entry and cannot be farmed', () => {
+  const funds = store.getState().resources.funds;
+  const organisation = store.getState().journey.organisation;
+  store.getState().runLocationActivity('office', 'prepare');
+  assert.equal(store.getState().resources.funds, funds - 10000);
+  assert.equal(store.getState().journey.decisions, 2);
+  assert.equal(store.getState().journey.organisation, organisation + 2);
+  assert.match(store.getState().journey.journal[0].ms, /Persediaan di office selesai/);
+  store.getState().runLocationActivity('office', 'prepare');
+  assert.equal(store.getState().journey.decisions, 2);
+  store.setState(s => ({ resources: { ...s.resources, funds: 0 } }));
+  store.getState().runLocationActivity('media', 'commit');
+  assert.equal(store.getState().journey.decisions, 2);
+});
 test('mini-games cannot grant free support with no resources', () => {
   store.setState(s => ({ resources: { ...s.resources, funds: 0 } }));
   const before = store.getState().states[0].mandatSupport;

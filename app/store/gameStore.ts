@@ -1,5 +1,5 @@
 "use client";
-import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, shiftSupport, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -83,6 +83,7 @@ export interface SandboxProgress {
 export interface GameState {
   journey: Journey;
   journeyAction: (action: JourneyAction) => void;
+  runLocationActivity: (location: string, action: "prepare" | "commit") => void;
   finishElection: () => void;
   confirmCoalition: (partners: string[], terms?: Record<string, CoalitionDeal>) => void;
   enterTerm: (chapter: Chapter) => void;
@@ -296,6 +297,60 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   journeyAction: (action) => set((state) => reduceJourney(state, action)),
+  runLocationActivity: (location, action) => set((state) => {
+    const campaign = state.journey.chapter === "campaign" && state.day < state.totalDays;
+    const term = ["government", "opposition", "rebuilding"].includes(state.journey.chapter);
+    const key = `location:${location}:${action}`;
+    if ((!campaign && !term) || state.journey.actionsToday.includes(key) || state.journey.termActions.includes(key)) return {};
+
+    const campaignEffects: Record<string, { prepare: { funds: number; manpower: number; organisation: number; trust: number; support: number; media?: "positive" | "neutral" | "negative" }; commit: { funds: number; manpower: number; organisation: number; trust: number; support: number; media?: "positive" | "neutral" | "negative" } }> = {
+      office: { prepare: { funds: 10000, manpower: 0, organisation: 2, trust: 1, support: 0 }, commit: { funds: 25000, manpower: -5, organisation: 0, trust: 1, support: .8 } },
+      party: { prepare: { funds: 20000, manpower: 0, organisation: 4, trust: 0, support: 0 }, commit: { funds: 15000, manpower: 0, organisation: 1, trust: 2, support: .6 } },
+      operations: { prepare: { funds: 30000, manpower: -20, organisation: 2, trust: 0, support: 0 }, commit: { funds: 35000, manpower: -40, organisation: 1, trust: 0, support: 1 } },
+      calendar: { prepare: { funds: 10000, manpower: 0, organisation: 2, trust: 0, support: 0 }, commit: { funds: 25000, manpower: -10, organisation: 0, trust: 1, support: 1.2 } },
+      media: { prepare: { funds: 15000, manpower: 0, organisation: 0, trust: 1, support: 0, media: "positive" }, commit: { funds: 20000, manpower: -5, organisation: 0, trust: 1, support: .8, media: "positive" } },
+      commission: { prepare: { funds: 5000, manpower: 0, organisation: 0, trust: 1, support: 0 }, commit: { funds: 12000, manpower: 0, organisation: 1, trust: 1, support: .5 } },
+      cabinet: { prepare: { funds: 15000, manpower: 0, organisation: 1, trust: 2, support: 0 }, commit: { funds: 30000, manpower: -10, organisation: 0, trust: 3, support: .4 } },
+      administration: { prepare: { funds: 10000, manpower: 0, organisation: 1, trust: 2, support: 0 }, commit: { funds: 25000, manpower: -10, organisation: 0, trust: 3, support: .5 } },
+      national: { prepare: { funds: 10000, manpower: 0, organisation: 2, trust: 1, support: 0 }, commit: { funds: 18000, manpower: -5, organisation: 1, trust: 1, support: .6 } },
+    };
+    const effect = campaignEffects[location]?.[action] ?? campaignEffects.party[action];
+    if (campaign) {
+      if (state.journey.decisions < 1 || state.resources.funds < effect.funds || state.resources.manpower + effect.manpower < 0) return {};
+      const verb = action === "prepare" ? "Persediaan" : "Tindakan";
+      return {
+        states: effect.support ? shiftSupport(state, effect.support, true) : state.states,
+        resources: { ...state.resources, funds: state.resources.funds - effect.funds, manpower: state.resources.manpower + effect.manpower },
+        mediaSentiment: effect.media ?? state.mediaSentiment,
+        journey: {
+          ...state.journey,
+          decisions: state.journey.decisions - 1,
+          actionsToday: [...state.journey.actionsToday, key],
+          organisation: Math.max(0, Math.min(100, state.journey.organisation + effect.organisation)),
+          trust: Math.max(0, Math.min(100, state.journey.trust + effect.trust)),
+          journal: journal(state.journey,
+            `${verb} di ${location} selesai: dana -RM${effect.funds.toLocaleString()}, sokongan ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.`,
+            `${verb} at ${location} completed: funds -RM${effect.funds.toLocaleString()}, support ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.`),
+        },
+      };
+    }
+
+    if (state.journey.termActions.length >= 2) return {};
+    const publicCost = action === "commit" ? 50000 : 20000;
+    if (state.journey.chapter === "government" && state.journey.publicBudget < publicCost) return {};
+    return {
+      journey: {
+        ...state.journey,
+        publicBudget: state.journey.chapter === "government" ? state.journey.publicBudget - publicCost : state.journey.publicBudget,
+        termActions: [...state.journey.termActions, key],
+        trust: Math.min(100, state.journey.trust + (action === "commit" ? 3 : 1)),
+        stability: Math.min(100, state.journey.stability + (action === "commit" ? 2 : 1)),
+        journal: journal(state.journey,
+          `${action === "prepare" ? "Semakan" : "Keputusan"} ${location} direkodkan untuk penggal ini.`,
+          `${action === "prepare" ? "Review" : "Decision"} at ${location} has been recorded for this term.`),
+      },
+    };
+  }),
   finishElection: () => set((state) => finishElection(state)),
   confirmCoalition: (partners, terms = {}) => set((state) => {
     if (state.day < state.totalDays || !["results", "formation"].includes(state.journey.chapter)) return {};
