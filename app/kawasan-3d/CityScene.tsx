@@ -35,6 +35,7 @@ import type { Festival } from "./festivals";
 import type { Lang } from "../i18n/useLang";
 import { Motorcyclists, Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
+import { Text } from "@react-three/drei";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -334,7 +335,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false,
+  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, destinationTags, onEnterDestination,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -345,6 +346,8 @@ function Grid({
   notchByCell: Map<string, RoundaboutCorner>;
   weather?: Weather;
   nationalLighting?: boolean;
+  destinationTags?: Record<string, { label: string; destinationId: string }>;
+  onEnterDestination?: (destinationId: string) => void;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
   const centre = worldCentre(gridSize);
@@ -424,6 +427,33 @@ function Grid({
       ))}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
+      {/* City destinations are physical, named buildings — not a detached
+          menu. The label always faces the camera and opens that building's
+          interior directly when clicked. */}
+      {placed.map(({ zone, cx, cz }) => {
+        const tag = destinationTags?.[zone.id];
+        if (!tag) return null;
+        return <group key={`destination-${zone.id}`} position={[cx, 215, cz]}>
+          <mesh position={[0, -96, 0]}>
+            <cylinderGeometry args={[1.2, 1.2, 190, 8]} />
+            <meshBasicMaterial color="#22d3ee" transparent opacity={0.38} toneMapped={false} />
+          </mesh>
+          <Text
+            fontSize={15}
+            maxWidth={175}
+            anchorX="center"
+            anchorY="middle"
+            color="#e0f2fe"
+            outlineWidth={1.1}
+            outlineColor="#06121f"
+            onClick={(event) => { event.stopPropagation(); onEnterDestination?.(tag.destinationId); }}
+            onPointerOver={() => { document.body.style.cursor = "pointer"; }}
+            onPointerOut={() => { document.body.style.cursor = "auto"; }}
+          >
+            {`◆ ${tag.label}`}
+          </Text>
+        </group>;
+      })}
       {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
@@ -435,7 +465,7 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
-  soundEnabled = false, festivals = [], lang = "ms",
+  soundEnabled = false, festivals = [], lang = "ms", destinationTags, onEnterDestination,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -464,6 +494,8 @@ export function CityScene({
   soundEnabled?: boolean;
   festivals?: Festival[];
   lang?: Lang;
+  destinationTags?: Record<string, { label: string; destinationId: string }>;
+  onEnterDestination?: (destinationId: string) => void;
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
@@ -536,6 +568,8 @@ export function CityScene({
         notchByCell={notchByCell}
         weather={weather}
         nationalLighting={tod === "night" && festivals.some(f => f.id === "malaysia" || f.id === "merdeka")}
+        destinationTags={destinationTags}
+        onEnterDestination={onEnterDestination}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />

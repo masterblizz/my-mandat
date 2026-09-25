@@ -43,6 +43,9 @@ export type City3DMapGLProps = {
   onEnterFocusedZone?: (id: string) => void;
   /** Lets the city own the whole game viewport instead of behaving like a widget. */
   height?: CSSProperties["height"];
+  /** Named buildings that can be entered directly from a floating 3D tag. */
+  destinationTags?: Record<string, { label: string; destinationId: string }>;
+  onEnterDestination?: (destinationId: string) => void;
 };
 
 
@@ -63,7 +66,7 @@ function scoreTint(value: number): string {
 
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
-  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height,
+  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, onEnterDestination,
 }: City3DMapGLProps) {
   const hudRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
@@ -270,6 +273,8 @@ export default function City3DMapGL({
           soundEnabled={soundEnabled}
           festivals={festivals}
           lang={lang}
+          destinationTags={destinationTags}
+          onEnterDestination={onEnterDestination}
         />
         <PostFX tod={tod} quality={quality} />
       </Canvas>

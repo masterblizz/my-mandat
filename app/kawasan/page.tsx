@@ -2668,6 +2668,28 @@ export default function KawasanDevelopmentPage() {
   }, [celebration]);
 
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
+  const cityDestinationTags = useMemo(() => {
+    const campaign = [
+      ["urban", "office", t(lang, "PEJABAT ANDA", "YOUR OFFICE")],
+      ["commercial", "party", t(lang, "IBU PEJABAT PARTI", "PARTY HQ")],
+      ["industry", "operations", t(lang, "PUSAT OPERASI", "OPERATIONS CENTRE")],
+      ["education", "calendar", t(lang, "BILIK JADUAL", "CAMPAIGN CALENDAR")],
+      ["housing", "media", t(lang, "PUSAT MEDIA", "MEDIA CENTRE")],
+      ["river", "commission", t(lang, "PUSAT TINJAUAN", "POLLING CENTRE")],
+    ] as const;
+    const government = [
+      ["urban", "office", t(lang, "PEJABAT WAKIL RAKYAT", "REPRESENTATIVE OFFICE")],
+      ["commercial", "cabinet", t(lang, "BANGUNAN KABINET", "CABINET BUILDING")],
+      ["industry", "administration", t(lang, "PUSAT PENTADBIRAN", "ADMINISTRATION CENTRE")],
+      ["river", "national", t(lang, "ANALISIS NEGARA", "NATIONAL ANALYSIS")],
+    ] as const;
+    const tags: Record<string, { label: string; destinationId: string }> = {};
+    (journey.chapter === "government" ? government : campaign).forEach(([kind, destinationId, label]) => {
+      const zone = zones.find((item) => item.kind === kind);
+      if (zone) tags[zone.id] = { label, destinationId };
+    });
+    return tags;
+  }, [zones, journey.chapter, lang]);
   // WebGL city map is on by default (USE_GL_MAP); ?glmap=0 forces the old
   // CSS-3D map for this session without a redeploy.
   const useGlMap = useMemo(() => {
@@ -2693,7 +2715,7 @@ export default function KawasanDevelopmentPage() {
     : journey.chapter === "government" && selectedZone?.kind === "river"
     ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("national"), enabled: true }
     : journey.chapter === "government"
-    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => setActiveInterior("office"), enabled: true }
+    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true }
     : focusedDestination === "calendar" && selectedZone?.kind === "education"
     ? { icon: "📅", title: t(lang, "Bilik jadual kempen", "Campaign calendar room"), detail: t(lang, "Masuk untuk menyusun masa, lawatan dan gerakan harian.", "Enter to plan time, visits and daily movement."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("calendar"), enabled: true }
     : selectedZone?.kind === "community"
@@ -2710,7 +2732,7 @@ export default function KawasanDevelopmentPage() {
     ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Susun mesej dan respons kepada penduduk.", "Plan messages and responses for residents."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("media"), enabled: true }
     : selectedZone?.kind === "river"
     ? { icon: "📈", title: t(lang, "Pusat tinjauan", "Polling centre"), detail: t(lang, "Semak momentum dan perubahan sokongan.", "Review momentum and shifts in support."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("commission"), enabled: true }
-    : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => setActiveInterior("office"), enabled: true };
+    : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true };
 
   function runProject(project: Project, targetZoneId = selectedZone?.id) {
     const targetZone = zones.find((zone) => zone.id === targetZoneId);
@@ -2768,8 +2790,16 @@ export default function KawasanDevelopmentPage() {
   }
 
   function enterFocusedBuilding() {
+    enterDestination(focusedDestination);
+  }
+
+  function enterDestination(destinationId: string | null | undefined) {
+    if (destinationId === "office") {
+      router.push("/office");
+      return;
+    }
     const interiors: Record<string, OfficeInteriorKind> = { office: "office", party: "party", operations: "operations", calendar: "calendar", media: "media", commission: "commission", cabinet: "cabinet", administration: "administration", national: "national" };
-    const interior = focusedDestination ? interiors[focusedDestination] : null;
+    const interior = destinationId ? interiors[destinationId] : null;
     if (interior) setActiveInterior(interior);
   }
 
@@ -2834,7 +2864,7 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} height="calc(100vh - 94px)" />
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} onEnterDestination={enterDestination} height="calc(100vh - 94px)" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
