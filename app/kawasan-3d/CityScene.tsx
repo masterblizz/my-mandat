@@ -185,24 +185,53 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
   );
 }
 
-// Low- and mid-density seats read as neighbourhoods, not a spreadsheet of
-// isolated lots. These continuous ground slabs sit just beneath zone tiles:
-// they cover selected internal road gaps while leaving arterial roads around
-// each superblock visible. A rural 6×6 therefore becomes two 3×6 kampung /
-// pekan blocks, rather than 36 identical cells ringed by asphalt.
+// Every seat reads as neighbourhoods, not a spreadsheet of isolated lots.
+// These continuous ground slabs sit just beneath zone tiles: they cover
+// selected internal road gaps while leaving arterial roads around each
+// superblock visible. A rural 6×6 therefore becomes two 3×6 kampung/pekan
+// blocks, while a dense metro map becomes varied city superblocks.
 function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density: number }) {
-  if (density >= 0.62) return null;
   const centre = worldCentre(gridSize);
-  const colSpan = density < 0.3 ? 3 : Math.max(2, Math.floor(gridSize / 2));
-  const rowSpan = density < 0.3 ? gridSize : Math.max(2, Math.floor(gridSize / 2));
-  const blocks: { col: number; row: number; cols: number; rows: number; tone: string }[] = [];
-  for (let row = 0; row < gridSize; row += rowSpan) {
-    for (let col = 0; col < gridSize; col += colSpan) {
-      const cols = Math.min(colSpan, gridSize - col);
-      const rows = Math.min(rowSpan, gridSize - row);
-      blocks.push({ col, row, cols, rows, tone: (col / colSpan + row / rowSpan) % 2 ? "#29422d" : "#33412b" });
+  // Vary both directions: the city should have recognisable superblocks,
+  // not a repeating chessboard. Rural keeps its two 3×6 town blocks while
+  // metro/dense maps get irregular 3–6 cell neighbourhoods.
+  const partition = (length: number, pattern: number[]) => {
+    const spans: number[] = [];
+    let used = 0;
+    let index = 0;
+    while (used < length) {
+      const size = Math.min(pattern[index % pattern.length], length - used);
+      spans.push(size);
+      used += size;
+      index += 1;
     }
-  }
+    return spans;
+  };
+  const colSpans = density < 0.3
+    ? [3, 3]
+    : density < 0.62
+    ? partition(gridSize, [3, 5])
+    : density < 0.85
+    ? partition(gridSize, [4, 3, 5, 4])
+    : partition(gridSize, [4, 5, 3, 6]);
+  const rowSpans = density < 0.3
+    ? [gridSize]
+    : density < 0.62
+    ? partition(gridSize, [3, 5])
+    : density < 0.85
+    ? partition(gridSize, [3, 5, 4, 4])
+    : partition(gridSize, [5, 3, 4, 6]);
+  const blocks: { col: number; row: number; cols: number; rows: number; tone: string }[] = [];
+  let row = 0;
+  rowSpans.forEach((rows, rowIndex) => {
+    let col = 0;
+    colSpans.forEach((cols, colIndex) => {
+      const tone = (rowIndex + colIndex) % 3 === 0 ? "#29422d" : (rowIndex + colIndex) % 3 === 1 ? "#263d31" : "#33412b";
+      blocks.push({ col, row, cols, rows, tone });
+      col += cols;
+    });
+    row += rows;
+  });
   return <group>{blocks.map((block, index) => {
     const width = block.cols * PLOT + Math.max(0, block.cols - 1) * ROAD_W;
     const depth = block.rows * PLOT + Math.max(0, block.rows - 1) * ROAD_W;
