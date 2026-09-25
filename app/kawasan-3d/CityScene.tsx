@@ -166,14 +166,22 @@ function ZoneTile({
 
 // Undeveloped cell: drier scrub grass instead of the old flat navy plane,
 // same one-shared-texture-cloned-per-tile treatment as the grass ZoneTiles.
-function EmptyCell({ cx, cz, seed }: { cx: number; cz: number; seed: number }) {
+function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; seed: number; rural?: boolean }) {
   const tex = useMemo(() => grassTextureFor(seed), [seed]);
   useEffect(() => () => tex.dispose(), [tex]);
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.4, cz]} receiveShadow>
-      <planeGeometry args={[PLOT - 16, PLOT - 16]} />
-      <meshStandardMaterial color={undevelopedGrassColor(seed)} map={tex} roughness={1} />
-    </mesh>
+    <group position={[cx, 0, cz]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.4, 0]} receiveShadow>
+        <planeGeometry args={[PLOT - 16, PLOT - 16]} />
+        <meshStandardMaterial color={undevelopedGrassColor(seed)} map={tex} roughness={1} />
+      </mesh>
+      {rural && Array.from({ length: 6 }, (_, index) => (
+        <mesh key={index} position={[0, 0.72, -PLOT / 2 + 26 + index * 20]} receiveShadow>
+          <boxGeometry args={[PLOT - 26, 0.55, 3.4]} />
+          <meshStandardMaterial color={index % 2 ? "#2d5d31" : "#476f2b"} roughness={1} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -390,7 +398,7 @@ function Grid({
           has hundreds and they are just flat planes, so drop them there
           and let the perimeter ground sheet show through. */}
       {gridSize < 22 && empties.map(({ col, row, cx, cz }) => (
-        <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} />
+        <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} rural={density < 0.3} />
       ))}
       {vRoads.map((x, i) => i === riverRoadIndex ? null : (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
@@ -448,10 +456,18 @@ function Grid({
       {placed.map(({ zone, cx, cz }) => {
         const tag = destinationTags?.[zone.id];
         if (!tag) return null;
-        const labelOffset = DESTINATION_LABEL_LAYOUT[tag.destinationId] ?? [0, 120, 0];
-        return <group key={`destination-${zone.id}`} position={[cx, 286, cz]}>
-          <mesh position={[0, -142, 0]} renderOrder={10}>
-            <cylinderGeometry args={[1.8, 1.8, 282, 8]} />
+        const baseOffset = DESTINATION_LABEL_LAYOUT[tag.destinationId] ?? [0, 120, 0];
+        const rural = density < 0.3;
+        // Small towns should read as a compact town centre: labels sit close
+        // to their real buildings, with short beacons rather than metro-scale
+        // guide wires cutting across the entire map.
+        const labelOffset: [number, number, number] = rural
+          ? [baseOffset[0] * 0.45, Math.max(54, baseOffset[1] * 0.38), baseOffset[2] * 0.45]
+          : baseOffset;
+        const beaconHeight = rural ? 132 : 286;
+        return <group key={`destination-${zone.id}`} position={[cx, beaconHeight, cz]}>
+          <mesh position={[0, -beaconHeight / 2, 0]} renderOrder={10}>
+            <cylinderGeometry args={[rural ? 1.35 : 1.8, rural ? 1.35 : 1.8, beaconHeight, 8]} />
             <meshBasicMaterial color="#22d3ee" transparent opacity={0.62} toneMapped={false} depthTest={false} depthWrite={false} />
           </mesh>
           <Line points={[[0, 0, 0], labelOffset]} color="#22d3ee" lineWidth={1.2} transparent opacity={0.82} depthTest={false} />
@@ -463,16 +479,16 @@ function Grid({
               onPointerOver={() => { document.body.style.cursor = "pointer"; }}
               onPointerOut={() => { document.body.style.cursor = "auto"; }}
               style={{
-                display: "flex", alignItems: "center", gap: 7, minWidth: 156, padding: "8px 10px",
+                display: "flex", alignItems: "center", gap: 7, minWidth: rural ? 136 : 156, padding: rural ? "6px 8px" : "8px 10px",
                 border: "1px solid #22d3ee", borderRadius: 3, color: "#f0f9ff", background: "rgba(2, 12, 24, .94)",
                 boxShadow: "0 0 0 2px rgba(2,7,15,.78), 0 0 20px rgba(34,211,238,.58)",
-                fontFamily: "'Space Mono', monospace", fontSize: 10, fontWeight: 900, letterSpacing: ".06em",
+                fontFamily: "'Space Mono', monospace", fontSize: rural ? 8 : 10, fontWeight: 900, letterSpacing: ".06em",
                 cursor: "pointer", whiteSpace: "nowrap", textShadow: "0 1px 2px #000",
               }}
             >
-              <span style={{ color: "#f0a500", fontSize: 15, lineHeight: 1 }}>◆</span>
+              <span style={{ color: "#f0a500", fontSize: rural ? 12 : 15, lineHeight: 1 }}>◆</span>
               <span style={{ flex: 1, textAlign: "left" }}>{tag.label}</span>
-              <span style={{ color: "#22d3ee", fontSize: 9 }}>MASUK ›</span>
+              <span style={{ color: "#22d3ee", fontSize: rural ? 8 : 9 }}>MASUK ›</span>
             </button>
           </Html>
         </group>;

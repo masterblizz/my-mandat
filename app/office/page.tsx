@@ -7,19 +7,26 @@ import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
+import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
 
 type Hotspot = { icon: string; title: string; detail: string; className: string };
 
 export default function PoliticalOfficePage() {
   const router = useRouter();
   const lang = useLang();
-  const { leader, journey, states, resources, day, totalDays, advanceDay, runLocationActivity, markOfficeMailRead } = useGameStore();
+  const { leader, journey, states, settings, resources, day, totalDays, advanceDay, runLocationActivity, markOfficeMailRead } = useGameStore();
   const [active, setActive] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(true);
   const [openedMail, setOpenedMail] = useState<number | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [officeFeedback, setOfficeFeedback] = useState<string | null>(null);
+  const [isNight, setIsNight] = useState(false);
+  const localProfile = homeSeatProfile(states, leader, settings);
+  const isRural = localProfile.isRural;
+  const officeVisual = isRural
+    ? (isNight ? "/political-office-rural-night.png" : "/political-office-rural.png")
+    : "/political-office-realistic.png";
   const homeSupport = states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
   const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
   const objectiveDay = Math.min(10, totalDays);
@@ -60,11 +67,18 @@ export default function PoliticalOfficePage() {
     if (completed) setActive(null);
   };
   useEffect(() => { if (!active) setOfficeFeedback(null); }, [active]);
+  useEffect(() => {
+    const updateTime = () => setIsNight(currentLocalTimeIsNight());
+    updateTime();
+    const timer = window.setInterval(updateTime, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return <div className="min-h-screen overflow-hidden" style={{ background: "#020814" }}>
     <Header />
     <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]" style={{ fontFamily: "'Space Mono', monospace" }}>
-      <Image src="/political-office-realistic.png" alt={officeTitle} fill priority sizes="100vw" className="object-cover" />
+      <Image src={officeVisual} alt={officeTitle} fill priority sizes="100vw" className="object-cover" />
+      {isNight && !isRural && <div className="pointer-events-none absolute inset-0 z-[1] bg-[#030818]/35 mix-blend-multiply" />}
       <button type="button" onClick={() => setAssistantOpen(true)} aria-label={t(lang, "Buka panduan Personal Assistant", "Open Personal Assistant guidance")} className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] overflow-visible text-left transition-transform hover:scale-[1.015] focus:outline-none" title={t(lang, "Personal Assistant · klik untuk berbincang", "Personal Assistant · click to talk")}><Image src="/personal-assistant-standing.png" alt="Personal Assistant standing beside the desk" fill sizes="(max-width: 768px) 275px, 470px" className="origin-bottom scale-[1.18] object-contain object-bottom drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]" /><span className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .65)", background: "rgb(2 8 20 / .9)" }}>✦ PERSONAL ASSISTANT · {t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}</span></button>
       {active && officeFeedback && <div role="status" className="absolute left-1/2 top-24 z-[70] w-[min(720px,calc(100%-32px))] -translate-x-1/2 border px-4 py-3 text-center text-[10px] font-black shadow-2xl" style={{ borderColor: officeFeedback.startsWith("Keputusan direkodkan") || officeFeedback.startsWith("Decision recorded") ? "var(--cyan)" : "var(--neon-red)", color: officeFeedback.startsWith("Keputusan direkodkan") || officeFeedback.startsWith("Decision recorded") ? "var(--cyan)" : "var(--neon-red)", background: "rgb(2 8 20 / .98)" }}>{officeFeedback}</div>}
       {active && (active === hotspots[1].title || active === hotspots[3].title) && (() => { const schedule = active === hotspots[1].title; const spot = hotspots.find((item) => item.title === active)!; const visual = schedule ? "/office-political-schedule.png" : "/office-constituency-files.png"; const title = schedule ? t(lang, "Jadual lapangan minggu ini", "This week's field schedule") : t(lang, "Fail isu kawasan Pandan", "Pandan constituency case files"); return <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-sm"><section className="w-[min(1080px,100%)] overflow-hidden border shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .7)", background: "rgb(2 8 20 / .98)" }}><div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: "rgb(var(--cyan-rgb) / .25)" }}><div><div className="text-[9px] font-black tracking-[.22em] text-cyan">● {schedule ? t(lang, "JADUAL POLITIK", "POLITICAL SCHEDULE") : t(lang, "FAIL KAWASAN", "CONSTITUENCY FILES")}</div><h2 className="mt-1 text-lg font-black text-white">{spot.icon} {title}</h2></div><button type="button" onClick={() => setActive(null)} className="border px-3 py-2 text-[10px] font-black text-text-muted" style={{ borderColor: "rgb(var(--cyan-rgb) / .32)" }}>× {t(lang, "TUTUP", "CLOSE")}</button></div><div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]"><div className="relative min-h-[300px] border-b lg:border-b-0 lg:border-r" style={{ borderColor: "rgb(var(--cyan-rgb) / .22)" }}><Image src={visual} alt={title} fill sizes="(max-width: 1024px) 100vw, 65vw" className="object-cover" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#020814] via-[#020814]/75 to-transparent p-5 pt-20"><h3 className="text-xl font-black text-white">{title}</h3><p className="mt-2 text-[10px] text-cyan">{schedule ? t(lang, "3 slot lapangan tersedia untuk hari ini", "3 field slots available today") : t(lang, "Tiga isu penduduk memerlukan keputusan", "Three resident issues need a decision")}</p></div></div><aside className="p-5"><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "KEPUTUSAN PEJABAT", "OFFICE DECISION")}</div><p className="mt-3 text-[11px] leading-relaxed text-text-muted">{spot.detail}</p><div className="mt-5 grid grid-cols-2 gap-2"><div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .3)" }}><span className="text-[8px] text-text-muted">{t(lang, "TENAGA", "ENERGY")}</span><b className="mt-1 block text-lg text-gold">{journey.decisions}/3</b></div><div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .3)" }}><span className="text-[8px] text-text-muted">{t(lang, "SOKONGAN", "SUPPORT")}</span><b className="mt-1 block text-lg text-cyan">{journey.trust}%</b></div></div><div className="mt-5 grid gap-2"><button type="button" onClick={() => runOfficeActivity("prepare", spot.title)} className="border px-4 py-3 text-[10px] font-black tracking-widest text-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .6)" }}>{schedule ? t(lang, "SUSUN JADUAL", "BUILD SCHEDULE") : t(lang, "SEMAK FAIL", "REVIEW FILES")}</button><button type="button" onClick={() => runOfficeActivity("commit", spot.title)} className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]" style={{ background: "var(--gold)" }}>{schedule ? t(lang, "SAHKAN LAWATAN", "CONFIRM VISIT") : t(lang, "LULUSKAN TINDAKAN", "AUTHORIZE ACTION")}</button></div></aside></div></section></div>; })()}
@@ -72,7 +86,7 @@ export default function PoliticalOfficePage() {
       <div className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(2 8 20 / .86)", backdropFilter: "blur(12px)" }}>
         <div className="text-[9px] font-black tracking-[.22em] text-cyan">🏢 {t(lang, "LOKASI BANDAR · INTERIOR", "CITY LOCATION · INTERIOR")}</div>
         <h1 className="mt-1 text-lg font-black tracking-wider text-white">{officeTitle}</h1>
-        <p className="mt-1 text-[9px] text-text-muted">{leader.partyAbbr || leader.party} · {t(lang, "Ruang kerja aktif", "Active workspace")}</p>
+        <p className="mt-1 text-[9px] text-text-muted">{leader.partyAbbr || leader.party} · {isRural ? t(lang, `Pejabat khidmat ${localProfile.seatName} · luar bandar`, `${localProfile.seatName} service office · rural`) : t(lang, "Ruang kerja aktif", "Active workspace")}</p>
       </div>
       <div className="absolute right-40 top-14 z-10 hidden items-center gap-5 border px-4 py-2.5 text-[9px] font-black tracking-widest xl:flex" style={{ borderColor: "rgb(var(--cyan-rgb) / .28)", background: "rgb(2 8 20 / .84)", backdropFilter: "blur(12px)" }}><div><span className="block text-text-muted">{t(lang, "SOKONGAN", "SUPPORT")}</span><b className="mt-1 block text-sm text-cyan">{journey.trust}%</b></div><div className="h-8 w-px bg-cyan/20" /><div><span className="block text-text-muted">{t(lang, "TENAGA", "ENERGY")}</span><b className="mt-1 block text-sm text-gold">{journey.decisions}/3</b></div></div>
       <button type="button" onClick={() => router.push("/kawasan")} className="absolute right-4 top-14 z-10 border px-3 py-2 text-[9px] font-black tracking-widest text-cyan shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(2 8 20 / .86)" }}>← {t(lang, "KEMBALI KE BANDAR", "RETURN TO CITY")}</button>
