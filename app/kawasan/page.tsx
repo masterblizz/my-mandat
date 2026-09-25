@@ -3070,7 +3070,9 @@ export default function KawasanDevelopmentPage() {
         </div>
       </main>
 
-      <StatusBar leftText={`${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, "kawasan_page.localCityBuilder")}`} rightText={t(lang, "kawasan_page.rmSentimentProjects", { formatNumberResourcesFunds: formatNumber(resources.funds), overall: overall, totalProjects: totalProjects })} />
+      <StatusBar leftText={journey.chapter === "campaign" && day < totalDays
+        ? `${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, `HARI ${day}/${totalDays} · TENAGA ${journey.decisions}/3`, `DAY ${day}/${totalDays} · ENERGY ${journey.decisions}/3`)}`
+        : `${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, "kawasan_page.localCityBuilder")}`} rightText={t(lang, "kawasan_page.rmSentimentProjects", { formatNumberResourcesFunds: formatNumber(resources.funds), overall: overall, totalProjects: totalProjects })} />
     </div>
   );
 }

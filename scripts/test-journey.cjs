@@ -522,4 +522,49 @@ test('daily PRU and PRN projections agree with election-night seat counting', ()
     if (scope === 'prn') assert.equal(JSON.stringify(store.getState().states.filter(s => s.id !== 'selangor')), outside);
   }
 });
+test('repeating the same campaign action on consecutive days loses force until rotated', () => {
+  const funds = () => store.getState().resources.funds;
+  let before = funds();
+  act({ type: 'campaign', action: 'fundraise' });
+  assert.equal(funds() - before, 90000);
+  store.getState().advanceDay();
+  before = funds();
+  act({ type: 'campaign', action: 'fundraise' });
+  const second = funds() - before;
+  assert.ok(second < 90000, `second-day fundraise should be weaker, got ${second}`);
+  store.getState().advanceDay();
+  store.getState().advanceDay(); // a rest day resets the streak
+  before = funds();
+  act({ type: 'campaign', action: 'fundraise' });
+  assert.equal(funds() - before, 90000);
+  assert.match(store.getState().journey.journal[0].en, /Fundraising: campaign funds \+RM90,000/);
+});
+test('spamming visits cannot run away with the home seat', () => {
+  const home = () => store.getState().states.find(s => s.id === store.getState().leader.homeState).mandatSupport;
+  const start = home();
+  let gain = 0;
+  for (let day = 0; day < 10; day++) {
+    const before = home();
+    act({ type: 'campaign', action: 'visit' });
+    gain += home() - before;
+    store.getState().advanceDay();
+  }
+  assert.ok(gain < 12 * 0.6, `ten straight visits should gain well under 12 points, got ${gain.toFixed(2)}`);
+  assert.ok(home() > start);
+});
+test('repeated scrutiny and very high trust no longer pin government trust at 100', () => {
+  win();
+  const trust = () => store.getState().journey.trust;
+  let before = trust();
+  act({ type: 'term', action: 'scrutiny' });
+  assert.equal(trust() - before, 3);
+  act({ type: 'quarter' });
+  before = trust();
+  act({ type: 'term', action: 'scrutiny' });
+  assert.ok(trust() - before < 3, 'back-to-back scrutiny should be weaker');
+  patchJourney({ trust: 95, termActions: [] });
+  act({ type: 'quarter' });
+  assert.ok(trust() < 95, `trust should erode under rising expectations, got ${trust()}`);
+  assert.match(store.getState().journey.journal[0].en, /Public expectations rise/);
+});
 console.log(`${passed} journey regression tests passed.`);

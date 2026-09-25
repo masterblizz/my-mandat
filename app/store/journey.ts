@@ -70,6 +70,8 @@ export interface Journey {
   resultRecorded: boolean;
   cityZones: Record<string, CityZone[]>;
   construction: { seat: string; zone: string; project: string; target: "infra" | "welfare" | "economy"; boost: number; remaining: number }[];
+  /** Consecutive days (campaign) or quarters (term) each repeatable action was used. Rotating actions resets it. */
+  streaks: Record<string, number>;
 }
 export const ISSUE_DATA: Record<Issue, Bilingual & { cost: number; detail: Bilingual }> = {
   flood: { ms: "Tebatan banjir", en: "Flood protection", cost: 300000, detail: { ms: "Penduduk mahu saliran disiapkan sebelum musim hujan.", en: "Residents want drainage completed before the rainy season." } },
@@ -82,7 +84,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [] };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [], streaks: {} };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };
@@ -90,6 +92,23 @@ export function normalizeJourney(value?: Partial<Journey>): Journey {
 export function journal(j: Journey, ms: string, en: string): JournalEntry[] {
   return [{ id: `${Date.now()}-${j.journal.length}-${j.decisions}`, ms, en }, ...j.journal].slice(0, 12);
 }
+// Repeating the same move on back-to-back days (or quarters) loses force, so the
+// best play rotates between visits, fundraising, organising, stories and events.
+export const CAMPAIGN_REPEATABLES = ["visit", "fundraise", "organise"] as const;
+export const TERM_REPEATABLES = ["scrutiny", "branches", "recruit"] as const;
+export function fatigueFactor(streak = 0) { return Math.max(0.35, 1 - streak * 0.2); }
+export function rollStreaks(streaks: Record<string, number>, used: string[], keys: readonly string[]) {
+  const next = { ...streaks };
+  for (const key of keys) next[key] = used.includes(key) ? (streaks[key] ?? 0) + 1 : 0;
+  return next;
+}
+export function campaignActionYield(j: Pick<Journey, "streaks">, action: typeof CAMPAIGN_REPEATABLES[number]) {
+  const factor = fatigueFactor(j.streaks?.[action]);
+  return { factor, support: Math.round(1.2 * factor * 100) / 100, funds: Math.round(90 * factor) * 1000, volunteers: Math.round(40 * factor), organisation: factor >= 0.8 ? 2 : 1 };
+}
+export function scrutinyTrust(j: Pick<Journey, "streaks">) { return Math.max(1, Math.round(3 * fatigueFactor(j.streaks?.scrutiny))); }
+/** Voters expect more from a popular government: very high trust erodes unless it is re-earned. */
+export function expectationDrag(j: Pick<Journey, "chapter" | "trust">) { return j.chapter !== "government" ? 0 : j.trust >= 85 ? 3 : j.trust >= 75 ? 1 : 0; }
 export function outcomeOf(s: GameState) { return s.journey.outcome ?? computeElectionOutcome(s.states, s.settings); }
 export function coalitionPool(s: GameState) {
   const available = outcomeOf(s).othersSeats;
@@ -229,9 +248,11 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     if (!campaign || j.decisions < 1 || j.actionsToday.includes(key)) return {};
     const costs = { visit: 25000, fundraise: 0, organise: 40000 };
     if (s.resources.funds < costs[action.action]) return {};
-    return { states: action.action === "visit" ? shiftSupport(s, 1.2, true) : s.states,
-      resources: { ...s.resources, funds: s.resources.funds - costs[action.action] + (action.action === "fundraise" ? 90000 : 0), manpower: s.resources.manpower + (action.action === "organise" ? 40 : 0) },
-      journey: log(action.action === "visit" ? "Lawatan komuniti: sokongan tempatan +1.2." : action.action === "fundraise" ? "Kutipan dana: dana kempen +RM90,000." : "Latihan jentera: 40 sukarelawan baharu.", action.action === "visit" ? "Community visit: local support +1.2." : action.action === "fundraise" ? "Fundraising: campaign funds +RM90,000." : "Organiser training: 40 new volunteers.", { decisions: j.decisions - 1, actionsToday: [...j.actionsToday, key], organisation: Math.min(100, j.organisation + (action.action === "organise" ? 2 : 0)) }) };
+    const y = campaignActionYield(j, action.action);
+    const tired = y.factor < 1 ? { ms: ` Kesan berulang ${Math.round(y.factor * 100)}% — tukar strategi esok.`, en: ` Repeat effect ${Math.round(y.factor * 100)}% — rotate tomorrow.` } : { ms: "", en: "" };
+    return { states: action.action === "visit" ? shiftSupport(s, y.support, true) : s.states,
+      resources: { ...s.resources, funds: s.resources.funds - costs[action.action] + (action.action === "fundraise" ? y.funds : 0), manpower: s.resources.manpower + (action.action === "organise" ? y.volunteers : 0) },
+      journey: log((action.action === "visit" ? `Lawatan komuniti: sokongan tempatan +${y.support}.` : action.action === "fundraise" ? `Kutipan dana: dana kempen +RM${y.funds.toLocaleString()}.` : `Latihan jentera: ${y.volunteers} sukarelawan baharu.`) + tired.ms, (action.action === "visit" ? `Community visit: local support +${y.support}.` : action.action === "fundraise" ? `Fundraising: campaign funds +RM${y.funds.toLocaleString()}.` : `Organiser training: ${y.volunteers} new volunteers.`) + tired.en, { decisions: j.decisions - 1, actionsToday: [...j.actionsToday, key], organisation: Math.min(100, j.organisation + (action.action === "organise" ? y.organisation : 0)) }) };
   }
   if (action.type === "fund") {
     const pledge = j.pledges.find(p => p.id === action.issue && p.status === "promised");
@@ -248,7 +269,7 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     if (!term || j.termActions.length >= 2 || j.termActions.includes(key)) return {};
     const cost = action.action === "scrutiny" ? 0 : 40000;
     if (s.resources.funds < cost) return {};
-    return { resources: { ...s.resources, funds: s.resources.funds - cost }, journey: log("Usaha penggal direkodkan: kesannya dibawa ke pilihan raya seterusnya.", "Term work recorded: its effects carry into the next election.", { termActions: [...j.termActions, key], organisation: Math.min(100, j.organisation + (action.action === "branches" ? 6 : action.action === "recruit" ? 4 : 0)), trust: Math.min(100, j.trust + (action.action === "scrutiny" ? 3 : 1)) }) };
+    return { resources: { ...s.resources, funds: s.resources.funds - cost }, journey: log("Usaha penggal direkodkan: kesannya dibawa ke pilihan raya seterusnya.", "Term work recorded: its effects carry into the next election.", { termActions: [...j.termActions, key], organisation: Math.min(100, j.organisation + (action.action === "branches" ? 6 : action.action === "recruit" ? 4 : 0)), trust: Math.min(100, j.trust + (action.action === "scrutiny" ? scrutinyTrust(j) : 1)) }) };
   }
   if (action.type === "story") {
     const story = CAREER_STORIES.find(item => item.id === action.storyId);
@@ -310,17 +331,18 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const relationshipPressure = Object.values(j.relationships).some(n => n < 35) ? 3 : 0;
     const representationTrust = j.chapter === "government" ? cabinetBalance.trustDelta : 0;
     const loyaltyStability = j.chapter === "government" ? cabinetBalance.stabilityDelta : 0;
-    const trust = Math.max(0, Math.min(100, j.trust + delivered * 6 + completedWorks.length * 2 + policies.reduce((n, p) => n + p.trust, 0) + appointedBonus + representationTrust - instability - relationshipPressure - defectionPenalty));
+    const expectations = expectationDrag(j);
+    const trust = Math.max(0, Math.min(100, j.trust - expectations + delivered * 6 + completedWorks.length * 2 + policies.reduce((n, p) => n + p.trust, 0) + appointedBonus + representationTrust - instability - relationshipPressure - defectionPenalty));
     const defectorNames = defectors.map(id => PARTY_MEMBERS.find(member => member.id === id)?.name ?? id);
     return { careerProgress: { ...s.careerProgress, month, completed: Array.from(new Set([...s.careerProgress.completed, ...(delivered ? ["shadow-or-govern"] : []), ...(j.organisation >= 65 ? ["prk-machine"] : [])])) },
-      journey: log(`Suku tahun selesai: ${delivered + completedWorks.length} projek siap. Kepercayaan ${j.trust} → ${trust}.${defectorNames.length ? ` ${defectorNames.join(", ")} meninggalkan pentadbiran.` : ""}`, `Quarter complete: ${delivered + completedWorks.length} projects delivered. Trust ${j.trust} → ${trust}.${defectorNames.length ? ` ${defectorNames.join(", ")} left the administration.` : ""}`, { trust, cityZones, appointments, ministerLoyalty, ministerIncidents: [...j.ministerIncidents, ...defectorNames.map(name => `defection:${s.careerProgress.term}:${month}:${name}`)], construction: j.construction.filter(w => w.remaining > 1).map(w => ({ ...w, remaining: w.remaining - 1 })), publicBudget: j.publicBudget + (j.chapter === "government" ? 100000 : 0), stability: Math.max(0, Math.min(100, j.stability + policies.reduce((n, p) => n + p.stability, 0) + loyaltyStability - relationshipPressure - defectors.length * 5)), termActions: [], pledges: j.pledges.map(p => p.status === "funded" ? { ...p, remaining: p.remaining - 1, status: p.remaining <= 1 ? "delivered" : "funded" } : p) }) };
+      journey: log(`Suku tahun selesai: ${delivered + completedWorks.length} projek siap. Kepercayaan ${j.trust} → ${trust}.${expectations ? ` Jangkaan rakyat meningkat (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} meninggalkan pentadbiran.` : ""}`, `Quarter complete: ${delivered + completedWorks.length} projects delivered. Trust ${j.trust} → ${trust}.${expectations ? ` Public expectations rise (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} left the administration.` : ""}`, { trust, cityZones, appointments, ministerLoyalty, ministerIncidents: [...j.ministerIncidents, ...defectorNames.map(name => `defection:${s.careerProgress.term}:${month}:${name}`)], construction: j.construction.filter(w => w.remaining > 1).map(w => ({ ...w, remaining: w.remaining - 1 })), publicBudget: j.publicBudget + (j.chapter === "government" ? 100000 : 0), streaks: rollStreaks(j.streaks, j.termActions, TERM_REPEATABLES), stability: Math.max(0, Math.min(100, j.stability + policies.reduce((n, p) => n + p.stability, 0) + loyaltyStability - relationshipPressure - defectors.length * 5)), termActions: [], pledges: j.pledges.map(p => p.status === "funded" ? { ...p, remaining: p.remaining - 1, status: p.remaining <= 1 ? "delivered" : "funded" } : p) }) };
   }
   if (action.type === "next-election") {
     if (!term || s.careerProgress.month < 60) return {};
     const delivered = j.pledges.filter(p => p.status === "delivered" && p.term === s.careerProgress.term).length;
     const broken = j.pledges.filter(p => p.status !== "delivered").length;
     const record = Math.max(-10, Math.min(10, (j.trust - 50) / 10 + (j.organisation - 40) / 15 + delivered * 1.5 - broken * (j.chapter === "government" ? 2 : .5)));
-  return { phase: "playing", day: 1, hasWonElection: false, dailyChallengeDate: null, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: shiftSupport(s, record), resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.`, { chapter: "campaign", characterStage: s.careerProgress.term >= 2 ? "legacy" : "candidate", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0 }) };
+  return { phase: "playing", day: 1, hasWonElection: false, dailyChallengeDate: null, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: shiftSupport(s, record), resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.`, { chapter: "campaign", characterStage: s.careerProgress.term >= 2 ? "legacy" : "candidate", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0, streaks: {} }) };
   }
   return {};
 }

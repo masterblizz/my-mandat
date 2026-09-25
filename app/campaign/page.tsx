@@ -1212,6 +1212,11 @@ function NominationTab() {
 export default function CampaignPage() {
   const lang = useLang();
   const [activeTab, setActiveTab] = useState<Tab>("NOMINATION");
+  // Deep link from the briefing's "major event live" callout (?tab=MINI-GAMES).
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested === "MINI-GAMES" || requested === "OPERATIONS" || requested === "SCHEDULE" || requested === "MESSAGING") setActiveTab(requested);
+  }, []);
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays, careerProgress } = useGameStore();

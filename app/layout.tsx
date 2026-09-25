@@ -5,6 +5,7 @@ import StoreHydrator from "./components/layout/StoreHydrator";
 import JourneyGuard from "./components/layout/JourneyGuard";
 import AutoSave from "./components/layout/AutoSave";
 import AmbientMusic from "./components/layout/AmbientMusic";
+import DayRecap from "./components/layout/DayRecap";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
         <JourneyGuard />
         <AmbientMusic />
         {children}
+        <DayRecap />
         <Analytics />
         <SpeedInsights />
       </body>

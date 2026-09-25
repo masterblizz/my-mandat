@@ -1,5 +1,5 @@
 "use client";
-import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, shiftSupport, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, shiftSupport, rollStreaks, CAMPAIGN_REPEATABLES, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -506,7 +506,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       return {
         day: gameState.day + 1,
-        journey: { ...gameState.journey, decisions: 3, actionsToday: [], journal: journal(gameState.journey, `Hari ${gameState.day + 1}: perubahan sokongan ${delta.toFixed(1)} mata selepas operasi, peristiwa dan tindak balas lawan.`, `Day ${gameState.day + 1}: support changed ${delta.toFixed(1)} points after operations, events and opponent responses.`) },
+        journey: { ...gameState.journey, decisions: 3, actionsToday: [], streaks: rollStreaks(gameState.journey.streaks, gameState.journey.actionsToday, CAMPAIGN_REPEATABLES), journal: journal(gameState.journey, `Hari ${gameState.day + 1}: perubahan sokongan ${delta.toFixed(1)} mata selepas operasi, peristiwa dan tindak balas lawan.`, `Day ${gameState.day + 1}: support changed ${delta.toFixed(1)} points after operations, events and opponent responses.`) },
         states: updatedStates,
         resources: { ...gameState.resources, ...result.resourceUpdates },
         alerts: combinedAlerts,

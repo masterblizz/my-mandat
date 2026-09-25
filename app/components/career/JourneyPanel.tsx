@@ -5,7 +5,8 @@ import Image from "next/image";
 import { getDatasetById } from "../../data/datasets";
 import Link from "next/link";
 import { useGameStore } from "../../store/gameStore";
-import { ISSUE_DATA, POLICY_DATA, resumeRoute, type Issue } from "../../store/journey";
+import { ISSUE_DATA, POLICY_DATA, campaignActionYield, resumeRoute, scrutinyTrust, type Issue } from "../../store/journey";
+import { CAMPAIGN_EVENTS, campaignEventUnlockDay, isCampaignEventUnlocked } from "../../data/campaignEvents";
 import { PARTY_MEMBERS } from "../../data/members";
 import { useLang, t } from "../../i18n/useLang";
 import { getPrnIssues, prnIssueActionKey } from "../../data/prnIssues";
@@ -33,6 +34,11 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const selectedManifesto = getManifestoPackage(j.manifestoPackageId);
   const manifestoStates = s.settings.electionScope === "prn" ? s.states.filter(state => state.id === s.settings.prnStateId) : s.states;
   const manifestoRanked = selectedManifesto ? manifestoStates.map(state => ({ state, impact: manifestoStateImpact(selectedManifesto.id, state) })).sort((a, b) => b.impact - a.impact) : [];
+  const openEvents = activeCampaign ? CAMPAIGN_EVENTS.filter(event => isCampaignEventUnlocked(event, s.day, s.totalDays) && !j.campaignEvents.some(result => result.term === s.careerProgress.term && result.eventId === event.id)) : [];
+  const nextEvent = activeCampaign ? CAMPAIGN_EVENTS.filter(event => !isCampaignEventUnlocked(event, s.day, s.totalDays)).sort((a, b) => campaignEventUnlockDay(a, s.totalDays) - campaignEventUnlockDay(b, s.totalDays))[0] : undefined;
+  const eventTitle = (event: typeof CAMPAIGN_EVENTS[number]) => (s.settings.electionScope === "prn" && event.prnTitle ? event.prnTitle : event.title)[lang];
+  const visitYield = campaignActionYield(j, "visit"), fundYield = campaignActionYield(j, "fundraise"), organiseYield = campaignActionYield(j, "organise");
+  const fatigueTag = (factor: number) => factor < 1 ? ` · ${t(lang, "berulang", "repeat")} ${Math.round(factor * 100)}%` : "";
   const scenarioPack = j.scenarioPackTerm === s.careerProgress.term ? getScenarioPack(j.scenarioPackId) : undefined;
   const characterStages = ["member", "organiser", "candidate", "representative", "partyLeader", "nationalLeader", "legacy"] as const;
   const characterStageIndex = Math.max(0, characterStages.indexOf(j.characterStage));
@@ -107,8 +113,13 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
         })}
       </div>
     </div>}
+    {openEvents.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-gold/60 bg-gold/10 p-3">
+      <div><strong className="text-gold">⚡ {t(lang, "Acara besar dibuka", "Major event live")} · {openEvents.map(eventTitle).join(" · ")}</strong><p className="mt-1 text-xs text-text-muted">{t(lang, "Sekali sahaja setiap pilihan raya. Nada yang sepadan dengan audiens boleh mengubah beberapa negeri sekaligus — atau memakan diri.", "Once per election. A tone that fits the audience can swing several states at once — or backfire.")}</p></div>
+      <Link className={`${button} border-gold/60 text-gold`} href="/campaign?tab=MINI-GAMES">{t(lang, "Ambil pentas →", "Take the stage →")}</Link>
+    </div>}
+    {openEvents.length === 0 && nextEvent && <p className="mt-3 text-xs text-text-muted">⏳ {t(lang, `Acara besar seterusnya: ${eventTitle(nextEvent)} pada hari ${campaignEventUnlockDay(nextEvent, s.totalDays)}.`, `Next major event: ${eventTitle(nextEvent)} on day ${campaignEventUnlockDay(nextEvent, s.totalDays)}.`)}</p>}
     {activeCampaign && <div className="mt-3 flex flex-wrap gap-2">
-      {([ ["visit", "Lawatan komuniti · RM25,000 · sokongan +1.2", "Community visit · RM25,000 · support +1.2", 25000], ["fundraise", "Kutip dana · +RM90,000", "Fundraise · +RM90,000", 0], ["organise", "Latih jentera · RM40,000 · +40 petugas", "Train organisers · RM40,000 · +40 volunteers", 40000] ] as const).map(([action, ms, en, cost]) => <button key={action} className={button} disabled={!available || j.actionsToday.includes(action) || s.resources.funds < cost} onClick={() => s.journeyAction({ type: "campaign", action })}>{t(lang, ms, en)}</button>)}
+      {([ ["visit", `Lawatan komuniti · RM25,000 · sokongan +${visitYield.support}${fatigueTag(visitYield.factor)}`, `Community visit · RM25,000 · support +${visitYield.support}${fatigueTag(visitYield.factor)}`, 25000], ["fundraise", `Kutip dana · +RM${fundYield.funds.toLocaleString()}${fatigueTag(fundYield.factor)}`, `Fundraise · +RM${fundYield.funds.toLocaleString()}${fatigueTag(fundYield.factor)}`, 0], ["organise", `Latih jentera · RM40,000 · +${organiseYield.volunteers} petugas${fatigueTag(organiseYield.factor)}`, `Train organisers · RM40,000 · +${organiseYield.volunteers} volunteers${fatigueTag(organiseYield.factor)}`, 40000] ] as const).map(([action, ms, en, cost]) => <button key={action} className={button} disabled={!available || j.actionsToday.includes(action) || s.resources.funds < cost} onClick={() => s.journeyAction({ type: "campaign", action })}>{t(lang, ms, en)}</button>)}
       <button className={button} onClick={s.advanceDay}>{t(lang, "Tamat hari →", "End day →")}</button>
     </div>}
     {(j.chapter === "results" || (campaign && s.day >= s.totalDays)) && <Link className={`${button} mt-3 inline-block`} onClick={s.finishElection} href="/results">{t(lang, "Malam keputusan →", "Election night →")}</Link>}
@@ -127,7 +138,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
       <p className="mb-2 text-gold">{t(lang, `Bajet awam RM${j.publicBudget.toLocaleString()} · ${2 - j.termActions.length}/2 usaha suku tahun berbaki`, `Public budget RM${j.publicBudget.toLocaleString()} · ${Math.max(0, 2 - j.termActions.length)}/2 quarterly actions remaining`)}</p>
       <div className="flex flex-wrap gap-2">
         {j.chapter === "government" && POLICY_DATA.map(p => <button key={p.id} className={button} disabled={!available || j.policies.includes(p.id) || j.publicBudget < p.cost} onClick={() => s.journeyAction({ type: "policy", id: p.id })}>{p[lang]} · RM{p.cost.toLocaleString()} · {t(lang, "kepercayaan", "trust")} +{p.trust} / {t(lang, "kestabilan", "stability")} {p.stability > 0 ? "+" : ""}{p.stability}{j.policies.includes(p.id) ? " ✓" : ""}</button>)}
-        {([ ["branches", "Bina cawangan · RM40,000", "Build branches · RM40,000"], ["scrutiny", "Semak dasar · kepercayaan +3", "Scrutinise policy · trust +3"], ["recruit", "Latih calon · RM40,000", "Train candidates · RM40,000"] ] as const).map(([action, ms, en]) => <button className={button} key={action} disabled={!available || j.termActions.includes(action) || (action !== "scrutiny" && s.resources.funds < 40000)} onClick={() => s.journeyAction({ type: "term", action })}>{t(lang, ms, en)}</button>)}
+        {([ ["branches", "Bina cawangan · RM40,000", "Build branches · RM40,000"], ["scrutiny", `Semak dasar · kepercayaan +${scrutinyTrust(j)}`, `Scrutinise policy · trust +${scrutinyTrust(j)}`], ["recruit", "Latih calon · RM40,000", "Train candidates · RM40,000"] ] as const).map(([action, ms, en]) => <button className={button} key={action} disabled={!available || j.termActions.includes(action) || (action !== "scrutiny" && s.resources.funds < 40000)} onClick={() => s.journeyAction({ type: "term", action })}>{t(lang, ms, en)}</button>)}
       </div>
     </div>}
     {storyAvailable && story && <div className="mt-4 border border-gold/30 p-3">

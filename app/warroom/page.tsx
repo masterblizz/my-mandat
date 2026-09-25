@@ -434,6 +434,8 @@ function OppositionIntelPanel({ log, lang, day }: { log: OpponentAction[]; lang:
 export default function WarroomPage() {
   const router = useRouter();
   const { isPending: isViewingResults, navigate: navigateToResults } = usePendingNav();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const lang = useLang();
   const reducedMotion = useReducedMotion();
   const [advancing, setAdvancing] = useState(false);
@@ -696,6 +698,11 @@ export default function WarroomPage() {
       label: t(lang, "warroom_page.aiAdvisor"), path: "/advisor",
     },
   ];
+
+  // The save is restored by StoreHydrator after the layout hydrates, but this
+  // page's Suspense boundary hydrates later — render store-driven UI only once
+  // mounted so the first client render matches the server's default-state HTML.
+  if (!mounted) return <div className="min-h-screen" style={{ background: "var(--bg)" }} />;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>

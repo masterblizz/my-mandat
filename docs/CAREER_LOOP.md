@@ -70,6 +70,13 @@ in the earlier route audit, `GAME_FLOW.md`.
   can defect when loyalty collapses. PRN EXCO balance uses the selected state.
 - Promised clinic, flood, and market projects become visible in the constituency
   after delivery. Other constituency construction also uses public funds and time.
+- Repeating the same visit, fundraise or organise action on consecutive days loses
+  20% effect per day (floor 35%); a day off resets it. Term scrutiny fades the same
+  way per quarter, and government trust of 75+/85+ erodes by 1/3 per quarter
+  ("rising expectations"). Button labels show the current effective yield.
+- A global end-of-day/quarter recap shows seat, projection and funds deltas, flags
+  unused decisions and repetition, and teases the next major event. Unlocked major
+  events are called out in the briefing and deep-link to `/campaign?tab=MINI-GAMES`.
 - BM/EN briefings show remaining actions, next steps, costs, and a cause/effect journal.
   Delivery celebrations respect reduced-motion preferences.
 

@@ -274,6 +274,13 @@ export default function SetupPage() {
       )}
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
         {step === 0 && <ScenarioStart />}
+        {step === 0 && (
+          <div className="mt-2 flex w-full max-w-[1100px] items-center gap-3 text-[10px] font-black tracking-[0.28em] text-text-muted">
+            <span className="h-px flex-1 bg-white/10" />
+            {t(lang, "ATAU BINA KEMPEN TERSUAI", "OR BUILD A CUSTOM CAMPAIGN")}
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+        )}
         <div className="w-full max-w-[1100px] mt-6">
           {/* Step Indicator */}
           <div className="flex gap-0 mb-8">
