@@ -2887,6 +2887,7 @@ export default function KawasanDevelopmentPage() {
                 </div>
               </div>
               <CityDestinations onFocus={focusDestination} variant="overlay" />
+              <button type="button" onClick={() => router.push("/menu")} className="absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded />
               {selectedZone && <div className="absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div></div>
