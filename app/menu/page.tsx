@@ -166,17 +166,13 @@ export default function MainMenuPage() {
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
     if (item.id === "01") {
-      // A new career starts in the 3D city, where the avatar guide assigns
-      // the first office, grassroots issue and leadership approach before
-      // opening candidate setup.
+      // A new career must always begin with the character creator. The 3D
+      // city is the campaign hub only after the player confirms a candidate,
+      // party and home constituency in /setup.
       resetGame();
-      // resetGame intentionally preserves an established character when a
-      // player starts another election. "New Game" is different: it starts
-      // a completely new member journey, so the city avatar tutorial must
-      // appear again.
       useGameStore.setState({ journey: newJourney() });
       setActiveSaveSlot(null);
-      router.push("/kawasan");
+      router.push("/setup");
       return;
     }
     if (item.id === "07") {

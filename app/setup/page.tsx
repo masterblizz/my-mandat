@@ -44,11 +44,11 @@ const MEDIA_OPTIONS = [
 ] as const;
 const TOTAL_POINTS = 450;
 const AVATARS = [
-  { src: "/avatars/leader-01.png" },
-  { src: "/avatars/leader-02.png" },
-  { src: "/avatars/leader-03.png" },
-  { src: "/avatars/leader-04.png" },
-  { src: "/avatars/leader-05.png" },
+  { src: "/avatars/player-standing-01.png" },
+  { src: "/avatars/player-standing-02.png" },
+  { src: "/avatars/player-standing-03.png" },
+  { src: "/avatars/player-standing-04.png" },
+  { src: "/avatars/player-standing-05.png" },
 ];
 
 const STEPS = [
@@ -386,37 +386,26 @@ export default function SetupPage() {
           {step === 1 && (
             <div className="flex gap-4">
               {/* Left: Avatar Selector */}
-              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-[220px] shrink-0">
+              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-[260px] shrink-0">
                 <div className="flex flex-col items-center gap-3 mt-1">
                   <div
-                    className="relative flex items-center justify-center rounded-full"
+                    className="relative flex items-center justify-center overflow-hidden"
                     style={{
-                      width: "154px",
-                      height: "154px",
-                      background: "radial-gradient(circle at 50% 38%, rgb(var(--cyan-rgb) / 0.32), rgba(8,12,20,0.1) 54%, rgb(var(--gold-rgb) / 0.2) 78%, rgb(var(--cyan-rgb) / 0.35))",
+                      width: "210px",
+                      height: "310px",
+                      border: "1px solid rgb(var(--cyan-rgb) / .7)",
+                      background: "radial-gradient(ellipse at 50% 34%, rgb(var(--cyan-rgb) / 0.22), rgba(8,12,20,.6) 54%, rgb(var(--gold-rgb) / .12) 100%)",
                       boxShadow: "0 0 28px rgb(var(--cyan-rgb) / 0.24), inset 0 0 22px rgb(var(--gold-rgb) / 0.12)",
                     }}
                   >
-                    <div
-                      className="relative overflow-hidden rounded-full"
-                      style={{
-                        width: "136px",
-                        height: "136px",
-                        border: "2px solid var(--cyan)",
-                        outline: "1px solid rgb(var(--gold-rgb) / 0.65)",
-                        outlineOffset: "5px",
-                        background: "var(--bg)",
-                        boxShadow: "0 0 18px rgb(var(--cyan-rgb) / 0.45)",
-                      }}
-                    >
-                      <Image
-                        src={AVATARS[avatarIndex].src}
-                        alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })}
-                        fill
-                        sizes="136px"
-                        style={{ objectFit: "cover", transform: "scale(1.06)" }}
-                      />
-                    </div>
+                    <Image
+                      src={AVATARS[avatarIndex].src}
+                      alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })}
+                      fill
+                      sizes="210px"
+                      style={{ objectFit: "contain", objectPosition: "center bottom" }}
+                    />
+                    <span className="absolute bottom-2 left-2 border px-2 py-1 text-[8px] font-black tracking-widest text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(2 8 20 / .86)" }}>AVATAR PENUH</span>
                   </div>
 
                   <div className="text-center">
@@ -445,11 +434,11 @@ export default function SetupPage() {
                           onClick={() => setAvatarIndex(i)}
                           aria-label={t(lang, "setup_page.select", { avatarName: t(lang, `setup_page.avatar_${i}`) })}
                           aria-pressed={selected}
-                          className="group relative flex items-center justify-center overflow-hidden rounded-full transition-all hover:scale-105"
+                          className="group relative flex items-center justify-center overflow-hidden transition-all hover:scale-105"
                           style={{
-                            width: "52px",
-                            height: "52px",
-                            border: `2px solid ${selected ? "var(--gold)" : "#12445f"}`,
+                            width: "38px",
+                            height: "58px",
+                            border: `1px solid ${selected ? "var(--gold)" : "#12445f"}`,
                             boxShadow: selected ? "0 0 18px rgb(var(--gold-rgb) / 0.55), 0 0 10px rgb(var(--cyan-rgb) / 0.25)" : "0 0 10px rgb(var(--cyan-rgb) / 0.14)",
                             background: "var(--bg)",
                             opacity: selected ? 1 : 0.78,
@@ -460,11 +449,11 @@ export default function SetupPage() {
                             alt=""
                             aria-hidden="true"
                             fill
-                            sizes="52px"
-                            style={{ objectFit: "cover", transform: "scale(1.08)" }}
+                            sizes="38px"
+                            style={{ objectFit: "contain", objectPosition: "center bottom" }}
                           />
                           <span
-                            className="absolute inset-0 rounded-full"
+                            className="absolute inset-0"
                             style={{ boxShadow: selected ? "inset 0 0 0 2px rgba(255,255,255,0.18)" : "inset 0 0 18px rgba(0,0,0,0.2)" }}
                           />
                         </button>
