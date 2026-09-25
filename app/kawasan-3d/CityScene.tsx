@@ -35,7 +35,7 @@ import type { Festival } from "./festivals";
 import type { Lang } from "../i18n/useLang";
 import { Motorcyclists, Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
-import { Text } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
@@ -427,31 +427,37 @@ function Grid({
       ))}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
-      {/* City destinations are physical, named buildings — not a detached
-          menu. The label always faces the camera and opens that building's
-          interior directly when clicked. */}
+      {/* Destination labels are HUD markers anchored to real buildings. Using
+          Html keeps them readable above dense towers instead of letting 3D
+          geometry hide the label behind a facade. */}
       {placed.map(({ zone, cx, cz }) => {
         const tag = destinationTags?.[zone.id];
         if (!tag) return null;
-        return <group key={`destination-${zone.id}`} position={[cx, 215, cz]}>
-          <mesh position={[0, -96, 0]}>
-            <cylinderGeometry args={[1.2, 1.2, 190, 8]} />
-            <meshBasicMaterial color="#22d3ee" transparent opacity={0.38} toneMapped={false} />
+        return <group key={`destination-${zone.id}`} position={[cx, 286, cz]}>
+          <mesh position={[0, -142, 0]} renderOrder={10}>
+            <cylinderGeometry args={[1.8, 1.8, 282, 8]} />
+            <meshBasicMaterial color="#22d3ee" transparent opacity={0.62} toneMapped={false} depthTest={false} depthWrite={false} />
           </mesh>
-          <Text
-            fontSize={15}
-            maxWidth={175}
-            anchorX="center"
-            anchorY="middle"
-            color="#e0f2fe"
-            outlineWidth={1.1}
-            outlineColor="#06121f"
-            onClick={(event) => { event.stopPropagation(); onEnterDestination?.(tag.destinationId); }}
-            onPointerOver={() => { document.body.style.cursor = "pointer"; }}
-            onPointerOut={() => { document.body.style.cursor = "auto"; }}
-          >
-            {`◆ ${tag.label}`}
-          </Text>
+          <Html center zIndexRange={[100, 0]} style={{ pointerEvents: "auto" }}>
+            <button
+              type="button"
+              aria-label={`Masuk ${tag.label}`}
+              onClick={(event) => { event.stopPropagation(); onEnterDestination?.(tag.destinationId); }}
+              onPointerOver={() => { document.body.style.cursor = "pointer"; }}
+              onPointerOut={() => { document.body.style.cursor = "auto"; }}
+              style={{
+                display: "flex", alignItems: "center", gap: 7, minWidth: 156, padding: "8px 10px",
+                border: "1px solid #22d3ee", borderRadius: 3, color: "#f0f9ff", background: "rgba(2, 12, 24, .94)",
+                boxShadow: "0 0 0 2px rgba(2,7,15,.78), 0 0 20px rgba(34,211,238,.58)",
+                fontFamily: "'Space Mono', monospace", fontSize: 10, fontWeight: 900, letterSpacing: ".06em",
+                cursor: "pointer", whiteSpace: "nowrap", textShadow: "0 1px 2px #000",
+              }}
+            >
+              <span style={{ color: "#f0a500", fontSize: 15, lineHeight: 1 }}>◆</span>
+              <span style={{ flex: 1, textAlign: "left" }}>{tag.label}</span>
+              <span style={{ color: "#22d3ee", fontSize: 9 }}>MASUK ›</span>
+            </button>
+          </Html>
         </group>;
       })}
       {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} nationalLighting={nationalLighting} />}
