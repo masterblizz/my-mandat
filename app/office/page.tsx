@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import { useGameStore } from "../store/gameStore";
@@ -19,6 +19,7 @@ export default function PoliticalOfficePage() {
   const [openedMail, setOpenedMail] = useState<number | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [officeFeedback, setOfficeFeedback] = useState<string | null>(null);
   const homeSupport = states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
   const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
   const objectiveDay = Math.min(10, totalDays);
@@ -46,16 +47,21 @@ export default function PoliticalOfficePage() {
     const before = useGameStore.getState().journey.journal[0]?.id;
     runLocationActivity("office", action);
     const completed = useGameStore.getState().journey.journal[0]?.id !== before;
+    setOfficeFeedback(completed
+      ? t(lang, "Keputusan direkodkan. Meter kempen dan jurnal telah dikemas kini.", "Decision recorded. Campaign meters and journal have been updated.")
+      : t(lang, "Tindakan belum tersedia: tenaga, dana atau had aktiviti hari ini tidak mencukupi. Tamatkan hari untuk pulihkan tenaga.", "Action unavailable: check energy, funds or today's activity limit. End the day to restore energy."));
     setNotice(completed
       ? `${title}: ${t(lang, action === "prepare" ? "persediaan memberi kesan kepada kempen anda" : "tindakan direkod dengan kesan sebenar", action === "prepare" ? "preparation now affects your campaign" : "action recorded with real consequences")}`
       : t(lang, "Tindakan tidak tersedia — semak tenaga, dana atau had aktiviti hari ini.", "Action unavailable — check energy, funds or today’s activity limit."));
     if (completed) setActive(null);
   };
+  useEffect(() => { if (!active) setOfficeFeedback(null); }, [active]);
 
   return <div className="min-h-screen overflow-hidden" style={{ background: "#020814" }}>
     <Header />
     <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]" style={{ fontFamily: "'Space Mono', monospace" }}>
       <Image src="/political-office-realistic.png" alt={officeTitle} fill priority sizes="100vw" className="object-cover" />
+      {active && officeFeedback && <div role="status" className="absolute left-1/2 top-24 z-[70] w-[min(720px,calc(100%-32px))] -translate-x-1/2 border px-4 py-3 text-center text-[10px] font-black shadow-2xl" style={{ borderColor: officeFeedback.startsWith("Keputusan direkodkan") || officeFeedback.startsWith("Decision recorded") ? "var(--cyan)" : "var(--neon-red)", color: officeFeedback.startsWith("Keputusan direkodkan") || officeFeedback.startsWith("Decision recorded") ? "var(--cyan)" : "var(--neon-red)", background: "rgb(2 8 20 / .98)" }}>{officeFeedback}</div>}
       {active && (active === hotspots[1].title || active === hotspots[3].title) && (() => { const schedule = active === hotspots[1].title; const spot = hotspots.find((item) => item.title === active)!; const visual = schedule ? "/office-political-schedule.png" : "/office-constituency-files.png"; const title = schedule ? t(lang, "Jadual lapangan minggu ini", "This week's field schedule") : t(lang, "Fail isu kawasan Pandan", "Pandan constituency case files"); return <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-sm"><section className="w-[min(1080px,100%)] overflow-hidden border shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .7)", background: "rgb(2 8 20 / .98)" }}><div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: "rgb(var(--cyan-rgb) / .25)" }}><div><div className="text-[9px] font-black tracking-[.22em] text-cyan">● {schedule ? t(lang, "JADUAL POLITIK", "POLITICAL SCHEDULE") : t(lang, "FAIL KAWASAN", "CONSTITUENCY FILES")}</div><h2 className="mt-1 text-lg font-black text-white">{spot.icon} {title}</h2></div><button type="button" onClick={() => setActive(null)} className="border px-3 py-2 text-[10px] font-black text-text-muted" style={{ borderColor: "rgb(var(--cyan-rgb) / .32)" }}>× {t(lang, "TUTUP", "CLOSE")}</button></div><div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]"><div className="relative min-h-[300px] border-b lg:border-b-0 lg:border-r" style={{ borderColor: "rgb(var(--cyan-rgb) / .22)" }}><Image src={visual} alt={title} fill sizes="(max-width: 1024px) 100vw, 65vw" className="object-cover" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#020814] via-[#020814]/75 to-transparent p-5 pt-20"><h3 className="text-xl font-black text-white">{title}</h3><p className="mt-2 text-[10px] text-cyan">{schedule ? t(lang, "3 slot lapangan tersedia untuk hari ini", "3 field slots available today") : t(lang, "Tiga isu penduduk memerlukan keputusan", "Three resident issues need a decision")}</p></div></div><aside className="p-5"><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "KEPUTUSAN PEJABAT", "OFFICE DECISION")}</div><p className="mt-3 text-[11px] leading-relaxed text-text-muted">{spot.detail}</p><div className="mt-5 grid grid-cols-2 gap-2"><div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .3)" }}><span className="text-[8px] text-text-muted">{t(lang, "TENAGA", "ENERGY")}</span><b className="mt-1 block text-lg text-gold">{journey.decisions}/3</b></div><div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .3)" }}><span className="text-[8px] text-text-muted">{t(lang, "SOKONGAN", "SUPPORT")}</span><b className="mt-1 block text-lg text-cyan">{journey.trust}%</b></div></div><div className="mt-5 grid gap-2"><button type="button" onClick={() => runOfficeActivity("prepare", spot.title)} className="border px-4 py-3 text-[10px] font-black tracking-widest text-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .6)" }}>{schedule ? t(lang, "SUSUN JADUAL", "BUILD SCHEDULE") : t(lang, "SEMAK FAIL", "REVIEW FILES")}</button><button type="button" onClick={() => runOfficeActivity("commit", spot.title)} className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]" style={{ background: "var(--gold)" }}>{schedule ? t(lang, "SAHKAN LAWATAN", "CONFIRM VISIT") : t(lang, "LULUSKAN TINDAKAN", "AUTHORIZE ACTION")}</button></div></aside></div></section></div>; })()}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,20,.68),transparent_36%,transparent_68%,rgba(2,8,20,.46))]" />
       <div className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(2 8 20 / .86)", backdropFilter: "blur(12px)" }}>
