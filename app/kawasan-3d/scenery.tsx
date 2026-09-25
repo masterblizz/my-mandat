@@ -676,12 +676,14 @@ export function roundaboutLoop(cx: number, cz: number, r: number): Loop {
 }
 
 export function Traffic({
-  gridSize, trafficLevel = 0.5, riverRoadIndex = null,
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices,
 }: {
   gridSize: number;
   trafficLevel?: number;
   /** Vertical road replaced by the urban river; adjacent block loops cannot use it. */
   riverRoadIndex?: number | null;
+  /** Road indexes that stay visible after internal lanes become superblocks. */
+  roadIndices?: { vertical: number[]; horizontal: number[] };
 }) {
   const centre = worldCentre(gridSize);
 
@@ -692,8 +694,10 @@ export function Traffic({
   const { loops, cars, roundaboutLoopIdx } = useMemo(() => {
     let seed = gridSize * 911 + 7;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
-    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
+    const xs = (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
+    const zs = (roadIndices?.horizontal ?? roadsH(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
     const laneOff = ROAD_W * 0.2;
     // The lane and arc meet at the plot corner (20 u from the road centre),
     // keeping the whole turn on asphalt instead of cutting into the plot.
@@ -736,7 +740,9 @@ export function Traffic({
     order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
     for (const [a, b] of order) {
       if (loops.length >= maxLoops) break;
-      if (riverRoadIndex !== null && (a === riverRoadIndex || a + 1 === riverRoadIndex)) continue;
+      const leftRoad = roadIndices?.vertical?.[a] ?? a;
+      const rightRoad = roadIndices?.vertical?.[a + 1] ?? a + 1;
+      if (riverRoadIndex !== null && (leftRoad === riverRoadIndex || rightRoad === riverRoadIndex)) continue;
       if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
       // These four blocks meet at the centre junction. Their normal
       // quarter-turn sits inside the raised roundabout island, so keeping
@@ -764,7 +770,7 @@ export function Traffic({
       addCarsTo(loops.length - 1, 20, "car");
     }
     return { loops, cars, roundaboutLoopIdx };
-  }, [gridSize, centre, riverRoadIndex]);
+  }, [gridSize, centre, riverRoadIndex, roadIndices]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);

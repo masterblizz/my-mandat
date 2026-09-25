@@ -70,11 +70,13 @@ const MC_BRAKE_LOOKAHEAD = 100;
 type Rider = { loop: number; s: number; speed: number; lean: number; spin: number; color: THREE.Color; helmet: THREE.Color };
 
 export function Motorcyclists({
-  gridSize, trafficLevel = 0.5, riverRoadIndex = null,
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices,
 }: {
   gridSize: number;
   trafficLevel?: number;
   riverRoadIndex?: number | null;
+  /** Road indexes that remain asphalt after internal lanes become superblocks. */
+  roadIndices?: { vertical: number[]; horizontal: number[] };
 }) {
   const centre = worldCentre(gridSize);
   const levelRef = useRef(trafficLevel);
@@ -83,8 +85,10 @@ export function Motorcyclists({
   const { loops, riders } = useMemo(() => {
     let seed = gridSize * 733 + 19;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
-    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
+    const xs = (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
+    const zs = (roadIndices?.horizontal ?? roadsH(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
     // Motorcycles filter on the kerb-side strip of Malaysia's left lane.
     // The arc consumes the remaining asphalt up to the plot corner, keeping
     // riders clear of both the car lane and the centre of the junction.
@@ -116,7 +120,9 @@ export function Motorcyclists({
     order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
     for (const [a, b] of order) {
       if (loops.length >= maxLoops) break;
-      if (riverRoadIndex !== null && (a === riverRoadIndex || a + 1 === riverRoadIndex)) continue;
+      const leftRoad = roadIndices?.vertical?.[a] ?? a;
+      const rightRoad = roadIndices?.vertical?.[a + 1] ?? a + 1;
+      if (riverRoadIndex !== null && (leftRoad === riverRoadIndex || rightRoad === riverRoadIndex)) continue;
       // a different coverage roll from <Traffic>'s cars, same central-
       // junction exclusion (those quarter-turns sit inside the roundabout
       // island).
@@ -132,7 +138,7 @@ export function Motorcyclists({
       addTo(loops.length - 1, 6);
     }
     return { loops, riders };
-  }, [gridSize, centre, riverRoadIndex]);
+  }, [gridSize, centre, riverRoadIndex, roadIndices]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);

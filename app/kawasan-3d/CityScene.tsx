@@ -185,13 +185,7 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
   );
 }
 
-// Every seat reads as neighbourhoods, not a spreadsheet of isolated lots.
-// These continuous ground slabs sit just beneath zone tiles: they cover
-// selected internal road gaps while leaving arterial roads around each
-// superblock visible. A rural 6×6 therefore becomes two 3×6 kampung/pekan
-// blocks, while a dense metro map becomes varied city superblocks.
-function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density: number }) {
-  const centre = worldCentre(gridSize);
+function neighbourhoodSpans(gridSize: number, density: number) {
   // Vary both directions: the city should have recognisable superblocks,
   // not a repeating chessboard. Rural keeps its two 3×6 town blocks while
   // metro/dense maps get irregular 3–6 cell neighbourhoods.
@@ -221,6 +215,32 @@ function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density:
     : density < 0.85
     ? partition(gridSize, [3, 5, 4, 4])
     : partition(gridSize, [5, 3, 4, 6]);
+  return { colSpans, rowSpans };
+}
+
+// Traffic uses the same major-road boundaries that remain visible around the
+// superblocks. Internal grid gaps are now continuous neighbourhood ground,
+// so routing vehicles through them would make cars appear to drive on grass.
+function superblockTrafficRoads(gridSize: number, density: number) {
+  const { colSpans, rowSpans } = neighbourhoodSpans(gridSize, density);
+  const starts = (spans: number[]) => spans.reduce<number[]>((items, span) => {
+    items.push(items[items.length - 1] + span);
+    return items;
+  }, [0]);
+  return {
+    vertical: starts(colSpans).filter((index) => index < gridSize),
+    horizontal: starts(rowSpans),
+  };
+}
+
+// Every seat reads as neighbourhoods, not a spreadsheet of isolated lots.
+// These continuous ground slabs sit just beneath zone tiles: they cover
+// selected internal road gaps while leaving arterial roads around each
+// superblock visible. A rural 6×6 therefore becomes two 3×6 kampung/pekan
+// blocks, while a dense metro map becomes varied city superblocks.
+function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density: number }) {
+  const centre = worldCentre(gridSize);
+  const { colSpans, rowSpans } = neighbourhoodSpans(gridSize, density);
   const blocks: { col: number; row: number; cols: number; rows: number; tone: string }[] = [];
   let row = 0;
   rowSpans.forEach((rows, rowIndex) => {
@@ -606,6 +626,7 @@ export function CityScene({
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
   const riverRoadIndex = urbanRiverRoadIndex(gridSize);
+  const trafficRoads = useMemo(() => superblockTrafficRoads(gridSize, density), [gridSize, density]);
   const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
   const developedCells = useMemo(
     () => new Set(placed.map((p) => `${p.col},${p.row}`)),
@@ -680,8 +701,8 @@ export function CityScene({
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
       <UtilityLines gridSize={gridSize} />
-      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
-      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} />
+      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
+      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
       {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
