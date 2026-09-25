@@ -185,6 +185,43 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
   );
 }
 
+// Low- and mid-density seats read as neighbourhoods, not a spreadsheet of
+// isolated lots. These continuous ground slabs sit just beneath zone tiles:
+// they cover selected internal road gaps while leaving arterial roads around
+// each superblock visible. A rural 6×6 therefore becomes two 3×6 kampung /
+// pekan blocks, rather than 36 identical cells ringed by asphalt.
+function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density: number }) {
+  if (density >= 0.62) return null;
+  const centre = worldCentre(gridSize);
+  const colSpan = density < 0.3 ? 3 : Math.max(2, Math.floor(gridSize / 2));
+  const rowSpan = density < 0.3 ? gridSize : Math.max(2, Math.floor(gridSize / 2));
+  const blocks: { col: number; row: number; cols: number; rows: number; tone: string }[] = [];
+  for (let row = 0; row < gridSize; row += rowSpan) {
+    for (let col = 0; col < gridSize; col += colSpan) {
+      const cols = Math.min(colSpan, gridSize - col);
+      const rows = Math.min(rowSpan, gridSize - row);
+      blocks.push({ col, row, cols, rows, tone: (col / colSpan + row / rowSpan) % 2 ? "#29422d" : "#33412b" });
+    }
+  }
+  return <group>{blocks.map((block, index) => {
+    const width = block.cols * PLOT + Math.max(0, block.cols - 1) * ROAD_W;
+    const depth = block.rows * PLOT + Math.max(0, block.rows - 1) * ROAD_W;
+    const x = 40 + PLOT / 2 + block.col * ROAD_GAP - centre + (block.cols - 1) * ROAD_GAP / 2;
+    const z = 40 + PLOT / 2 + block.row * ROAD_GAP - centre + (block.rows - 1) * ROAD_GAP / 2;
+    return <group key={`${block.col}-${block.row}`} position={[x, 0, z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TILE_H - 0.02, 0]} receiveShadow>
+        <planeGeometry args={[width, depth]} />
+        <meshStandardMaterial color={block.tone} roughness={1} />
+      </mesh>
+      {/* A small communal green gives every superblock a recognisable centre. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TILE_H + 0.02, 0]} receiveShadow>
+        <planeGeometry args={[Math.min(92, width * 0.18), Math.min(92, depth * 0.18)]} />
+        <meshStandardMaterial color={index % 2 ? "#3e703d" : "#557b35"} roughness={1} />
+      </mesh>
+    </group>;
+  })}</group>;
+}
+
 function Buildings({
   placed, gridSize, density, traits, winLit, tod, foliageDensity, buildingBudget, claimed, notchByCell,
 }: {
@@ -394,6 +431,7 @@ function Grid({
 
   return (
     <group>
+      <NeighbourhoodBlocks gridSize={gridSize} density={density} />
       {/* One <mesh> per undeveloped cell is fine at ≤16×16; a 30×30 grid
           has hundreds and they are just flat planes, so drop them there
           and let the perimeter ground sheet show through. */}
