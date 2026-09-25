@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
-import CityDestinations from "./CityDestinations";
+import CityDestinations, { type CityDestination } from "./CityDestinations";
+import OfficeInterior, { type OfficeInteriorKind } from "./OfficeInterior";
 import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -2579,6 +2580,9 @@ export default function KawasanDevelopmentPage() {
   // floats up off its button, instead of both actions being silent.
   const [justSaved, setJustSaved] = useState(false);
   const [launchedType, setLaunchedType] = useState<OpType | null>(null);
+  const [focusZoneId, setFocusZoneId] = useState<string | null>(null);
+  const [focusedDestination, setFocusedDestination] = useState<string | null>(null);
+  const [activeInterior, setActiveInterior] = useState<OfficeInteriorKind | null>(null);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
@@ -2684,13 +2688,15 @@ export default function KawasanDevelopmentPage() {
   const cityActivity = ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
     ? { icon: journey.chapter === "results" ? "📊" : journey.chapter === "formation" ? "🤝" : "🧭", title: journey.chapter === "results" ? t(lang, "Pusat keputusan", "Results centre") : journey.chapter === "formation" ? t(lang, "Dewan rundingan", "Negotiation hall") : t(lang, "Pusat gerakan", "Movement centre"), detail: t(lang, "Bab politik seterusnya menanti di pusat bandar.", "Your next political chapter awaits in the city centre."), label: t(lang, "Sambung perjalanan", "Continue journey"), run: () => router.push(`${resumeRoute(useGameStore.getState())}?from=city`), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "commercial"
-    ? { icon: "🏛️", title: t(lang, "Bangunan kabinet", "Cabinet building"), detail: t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk kabinet", "Enter cabinet"), run: () => router.push("/cabinet?from=city&place=cabinet"), enabled: true }
+    ? { icon: "🏛️", title: t(lang, "Bangunan kabinet", "Cabinet building"), detail: t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("cabinet"), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "industry"
-    ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Laksana dasar dan majukan penggal pentadbiran.", "Deliver policies and advance the administration term."), label: t(lang, "Urus pentadbiran", "Manage administration"), run: () => router.push("/government?from=city&place=administration"), enabled: true }
+    ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Laksana dasar dan majukan penggal pentadbiran.", "Deliver policies and advance the administration term."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("administration"), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "river"
-    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country."), label: t(lang, "Buka analisis", "Open analysis"), run: () => router.push("/sandbox?from=city&place=national"), enabled: true }
+    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("national"), enabled: true }
     : journey.chapter === "government"
-    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Buka pejabat", "Open office"), run: () => router.push("/career?from=city&place=office"), enabled: true }
+    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => setActiveInterior("office"), enabled: true }
+    : focusedDestination === "calendar" && selectedZone?.kind === "education"
+    ? { icon: "📅", title: t(lang, "Bilik jadual kempen", "Campaign calendar room"), detail: t(lang, "Masuk untuk menyusun masa, lawatan dan gerakan harian.", "Enter to plan time, visits and daily movement."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("calendar"), enabled: true }
     : selectedZone?.kind === "community"
     ? { icon: "🤝", title: t(lang, "Pusat khidmat komuniti", "Community service centre"), detail: t(lang, "Bertemu penduduk dan dengar isu setempat.", "Meet residents and hear local issues."), label: t(lang, "Mulakan lawatan", "Start visit"), run: () => journeyAction({ type: "campaign", action: "visit" }), enabled: canRunCityActivity && resources.funds >= 25_000 }
     : selectedZone?.kind === "market"
@@ -2698,14 +2704,14 @@ export default function KawasanDevelopmentPage() {
     : selectedZone?.kind === "education"
     ? { icon: "📋", title: t(lang, "Pusat latihan jentera", "Organisation training centre"), detail: t(lang, "Latih sukarelawan untuk menggerakkan kempen.", "Train volunteers to power the campaign."), label: t(lang, "Latih jentera", "Train organisers"), run: () => journeyAction({ type: "campaign", action: "organise" }), enabled: canRunCityActivity && resources.funds >= 40_000 }
     : selectedZone?.kind === "commercial"
-    ? { icon: "🏛️", title: t(lang, "Pusat parti", "Party headquarters"), detail: t(lang, "Semak calon, manifesto dan operasi kempen.", "Review candidates, manifesto and campaign operations."), label: t(lang, "Masuk pusat parti", "Enter party HQ"), run: () => router.push("/campaign"), enabled: true }
+    ? { icon: "🏛️", title: t(lang, "Pusat parti", "Party headquarters"), detail: t(lang, "Semak calon, manifesto dan operasi kempen.", "Review candidates, manifesto and campaign operations."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("party"), enabled: true }
     : selectedZone?.kind === "industry"
-    ? { icon: "🛰️", title: t(lang, "Pusat operasi", "Operations centre"), detail: t(lang, "Susun operasi, medan negeri dan hari kempen.", "Plan operations, state battlefield and campaign days."), label: t(lang, "Masuk War Room", "Enter War Room"), run: () => router.push("/warroom?from=city&place=operations"), enabled: true }
+    ? { icon: "🛰️", title: t(lang, "Pusat operasi", "Operations centre"), detail: t(lang, "Susun operasi, medan negeri dan hari kempen.", "Plan operations, state battlefield and campaign days."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("operations"), enabled: true }
     : selectedZone?.kind === "housing" || selectedZone?.kind === "village"
-    ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Susun mesej dan respons kepada penduduk.", "Plan messages and responses for residents."), label: t(lang, "Urus mesej", "Manage messages"), run: () => router.push("/messaging?from=city&place=media"), enabled: true }
+    ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Susun mesej dan respons kepada penduduk.", "Plan messages and responses for residents."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("media"), enabled: true }
     : selectedZone?.kind === "river"
-    ? { icon: "📈", title: t(lang, "Pusat tinjauan", "Polling centre"), detail: t(lang, "Semak momentum dan perubahan sokongan.", "Review momentum and shifts in support."), label: t(lang, "Semak tinjauan", "Review polling"), run: () => router.push("/polling?from=city&place=commission"), enabled: true }
-    : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Buka taklimat kerjaya", "Open career briefing"), run: () => router.push("/career"), enabled: true };
+    ? { icon: "📈", title: t(lang, "Pusat tinjauan", "Polling centre"), detail: t(lang, "Semak momentum dan perubahan sokongan.", "Review momentum and shifts in support."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => setActiveInterior("commission"), enabled: true }
+    : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => setActiveInterior("office"), enabled: true };
 
   function runProject(project: Project, targetZoneId = selectedZone?.id) {
     const targetZone = zones.find((zone) => zone.id === targetZoneId);
@@ -2746,7 +2752,24 @@ export default function KawasanDevelopmentPage() {
 
   function handleZoneSelect(zoneId: string) {
     setSelectedZoneId(zoneId);
+    setFocusedDestination(null);
     if (pendingProject) runProject(pendingProject, zoneId);
+  }
+
+  function focusDestination(destination: CityDestination) {
+    const preferredKind: Record<string, ZoneKind> = { office: "urban", party: "commercial", operations: "industry", calendar: "education", media: "housing", commission: "river", cabinet: "commercial", administration: "industry", national: "river" };
+    const target = zones.find((zone) => zone.kind === preferredKind[destination.id]) ?? zones[0];
+    if (!target) return;
+    setSelectedZoneId(target.id);
+    setFocusZoneId(target.id);
+    setFocusedDestination(destination.id);
+    setNotice(t(lang, `PA: ${destination[lang].name} telah ditanda pada peta. Klik bangunan yang ditanda untuk masuk.`, `PA: ${destination[lang].name} is marked on the map. Click the marked building to go inside.`));
+  }
+
+  function enterFocusedBuilding() {
+    const interiors: Record<string, OfficeInteriorKind> = { office: "office", party: "party", operations: "operations", calendar: "calendar", media: "media", commission: "commission", cabinet: "cabinet", administration: "administration", national: "national" };
+    const interior = focusedDestination ? interiors[focusedDestination] : null;
+    if (interior) setActiveInterior(interior);
   }
 
   function quickDevelopPriority() {
@@ -2843,7 +2866,7 @@ export default function KawasanDevelopmentPage() {
                 <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "kawasan_page.spent")}</div>
               </div>
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
@@ -2851,7 +2874,7 @@ export default function KawasanDevelopmentPage() {
           </TacticalPanel>
 
           <aside className="space-y-4 lg:sticky lg:top-14 lg:max-h-[calc(100vh-76px)] lg:overflow-y-auto lg:pr-1">
-            <CityDestinations />
+            <CityDestinations onFocus={focusDestination} />
             <div className="grid grid-cols-2 gap-2">
               <div className="border p-2" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[8px] text-text-muted tracking-widest">{unlocked ? t(lang, "Bajet", "Budget") : t(lang, "Dana", "Funds")}</div><div className="mt-1 text-sm font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(unlocked ? journey.publicBudget : resources.funds)}</div></div>
               <div className="border p-2" style={{ borderColor: "rgb(var(--cyan-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[8px] text-text-muted tracking-widest">{t(lang, "kawasan_page.sentiment")}</div><div className="mt-1 text-sm font-black" style={{ color: metricColor(overall) }}>{overall}%</div></div>
@@ -3023,6 +3046,7 @@ export default function KawasanDevelopmentPage() {
         </div>
       </main>
 
+      {activeInterior && <OfficeInterior kind={activeInterior} onClose={() => setActiveInterior(null)} />}
       <StatusBar leftText={`${seatKindMS} ${ownSeat.code} · ${ownSeat.name} · ${t(lang, "kawasan_page.localCityBuilder")}`} rightText={t(lang, "kawasan_page.rmSentimentProjects", { formatNumberResourcesFunds: formatNumber(resources.funds), overall: overall, totalProjects: totalProjects })} />
     </div>
   );

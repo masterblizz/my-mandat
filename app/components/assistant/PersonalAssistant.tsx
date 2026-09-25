@@ -34,7 +34,7 @@ export default function PersonalAssistant() {
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
       </section>}
       <button type="button" onClick={() => setOpen((value) => !value)} className="relative h-14 w-14 overflow-hidden rounded-full border shadow-lg transition hover:scale-105" style={{ borderColor: "rgb(var(--gold-rgb) / .72)", background: "var(--bg)", boxShadow: "0 0 20px rgb(var(--cyan-rgb) / .24)" }} aria-label={t(lang, "Buka Personal Assistant", "Open Personal Assistant")}>
-        <Image src="/mymandat-avatar.png" alt={t(lang, "Personal Assistant", "Personal Assistant")} fill sizes="56px" className="object-cover" />
+        <Image src="/personal-assistant.png" alt={t(lang, "Personal Assistant", "Personal Assistant")} fill sizes="56px" className="object-cover" />
         <span className="absolute bottom-0 left-0 right-0 bg-black/75 py-0.5 text-[7px] font-black tracking-widest text-cyan">PA</span>
       </button>
     </div>

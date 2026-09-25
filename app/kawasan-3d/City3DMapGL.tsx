@@ -39,6 +39,8 @@ export type City3DMapGLProps = {
   traits: SeatTraits;
   celebration: { zoneId: string; at: number } | null;
   overall: number;
+  focusZoneId?: string | null;
+  onEnterFocusedZone?: (id: string) => void;
 };
 
 
@@ -59,7 +61,7 @@ function scoreTint(value: number): string {
 
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
-  gridSize, density, densityLabel, traits, celebration, overall,
+  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone,
 }: City3DMapGLProps) {
   const hudRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
@@ -185,12 +187,27 @@ export default function City3DMapGL({
   const onSelect = useCallback(
     (id: string) => {
       if (movedRef.current) return;
+      if (id === focusZoneId && onEnterFocusedZone) {
+        onEnterFocusedZone(id);
+        return;
+      }
       setSelectedZoneId(id);
       const cell = cellByZoneId.get(id);
       if (cell) panToCell(cell.col, cell.row);
     },
-    [setSelectedZoneId, cellByZoneId, panToCell],
+    [setSelectedZoneId, cellByZoneId, panToCell, focusZoneId, onEnterFocusedZone],
   );
+
+  // City destination cards request a cinematic focus before the player
+  // enters a building. This keeps the route grounded in a physical place.
+  useEffect(() => {
+    if (!focusZoneId) return;
+    const cell = cellByZoneId.get(focusZoneId);
+    if (!cell) return;
+    panToCell(cell.col, cell.row);
+    camRef.current.zoom = Math.max(camRef.current.zoom, 2.15);
+    clampCam(camRef.current);
+  }, [focusZoneId, cellByZoneId, panToCell]);
 
   // zone-0 is always the Pusat Bandar flagship in makeZones() — mark it
   // with a steady landmark beacon (mirrors the CSS isPrimary beacon).
