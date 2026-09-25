@@ -2681,13 +2681,29 @@ export default function KawasanDevelopmentPage() {
       ["industry", "administration", t(lang, "PUSAT PENTADBIRAN", "ADMINISTRATION CENTRE")],
       ["river", "national", t(lang, "ANALISIS NEGARA", "NATIONAL ANALYSIS")],
     ] as const;
+    // Keep activity locations at least MIN_DESTINATION_GAP blocks apart
+    // (Chebyshev distance on the zone grid) so their beacons/labels don't
+    // bunch up in the city core. Prefer a zone of the destination's kind;
+    // fall back to any free zone, then to the farthest available one.
+    const MIN_DESTINATION_GAP = 3;
+    const cells = assignZonePositions(gridSize, zones.length);
+    const chosen: { col: number; row: number }[] = [];
+    const used = new Set<number>();
+    const gapFrom = (i: number) => chosen.reduce((min, c) => Math.min(min, Math.max(Math.abs(cells[i].col - c.col), Math.abs(cells[i].row - c.row))), Infinity);
     const tags: Record<string, { label: string; destinationId: string }> = {};
     (journey.chapter === "government" ? government : campaign).forEach(([kind, destinationId, label]) => {
-      const zone = zones.find((item) => item.kind === kind);
-      if (zone) tags[zone.id] = { label, destinationId };
+      const free = zones.map((_, i) => i).filter((i) => cells[i] && !used.has(i));
+      if (!free.length) return;
+      const spaced = free.filter((i) => gapFrom(i) >= MIN_DESTINATION_GAP);
+      const pick = spaced.find((i) => zones[i].kind === kind)
+        ?? spaced[0]
+        ?? free.reduce((best, i) => (gapFrom(i) > gapFrom(best) ? i : best), free[0]);
+      used.add(pick);
+      chosen.push(cells[pick]);
+      tags[zones[pick].id] = { label, destinationId };
     });
     return tags;
-  }, [zones, journey.chapter, lang]);
+  }, [zones, gridSize, journey.chapter, lang]);
   // WebGL city map is on by default (USE_GL_MAP); ?glmap=0 forces the old
   // CSS-3D map for this session without a redeploy.
   const useGlMap = useMemo(() => {
