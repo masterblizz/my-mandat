@@ -9,7 +9,7 @@ import { useLang, t } from "../../i18n/useLang";
 
 type Guidance = { title: string; message: string; action: string; route: string };
 
-export default function PersonalAssistant() {
+export default function PersonalAssistant({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const lang = useLang();
   const state = useGameStore();
@@ -27,7 +27,7 @@ export default function PersonalAssistant() {
     : { title: t(lang, "Langkah seterusnya", "Next step"), message: t(lang, "Saya telah menanda lokasi untuk bab politik semasa anda.", "I have marked the location for your current political chapter."), action: t(lang, "Teruskan", "Continue"), route: resumeRoute(state) };
 
   return (
-    <div className="fixed bottom-12 left-4 z-[65] flex items-end gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
+    <div className={`${embedded ? "absolute bottom-4 left-4 z-30" : "fixed bottom-12 left-4 z-[65]"} flex items-end gap-2`} style={{ fontFamily: "'Space Mono', monospace" }}>
       {open && <section className="w-[min(330px,calc(100vw-88px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PERSONAL ASSISTANT", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-xs font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="text-xs text-text-muted" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
         <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{guidance.message}</p>

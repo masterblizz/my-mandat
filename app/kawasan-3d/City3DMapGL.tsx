@@ -41,6 +41,8 @@ export type City3DMapGLProps = {
   overall: number;
   focusZoneId?: string | null;
   onEnterFocusedZone?: (id: string) => void;
+  /** Lets the city own the whole game viewport instead of behaving like a widget. */
+  height?: CSSProperties["height"];
 };
 
 
@@ -61,7 +63,7 @@ function scoreTint(value: number): string {
 
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
-  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone,
+  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height,
 }: City3DMapGLProps) {
   const hudRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
@@ -219,7 +221,7 @@ export default function City3DMapGL({
       ref={hudRef}
       style={{
         position: "relative",
-        height: "clamp(520px, 74vh, 760px)",
+        height: height ?? "clamp(520px, 74vh, 760px)",
         overflow: "hidden",
         borderRadius: 12,
         border: "1px solid rgb(186 230 253 / 0.28)",

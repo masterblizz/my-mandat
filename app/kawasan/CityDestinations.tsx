@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { resumeRoute } from "../store/journey";
 import { useLang, t } from "../i18n/useLang";
@@ -29,10 +29,10 @@ const governmentDestinations: CityDestination[] = [
   { id: "national", icon: "🗺️", route: "/sandbox", ms: { name: "Pusat Analisis Negara", detail: "Lihat kesan keputusan di seluruh negara." }, en: { name: "National Analysis Centre", detail: "See how decisions affect the whole country." } },
 ];
 
-export default function CityDestinations({ onFocus }: { onFocus?: (destination: CityDestination) => void }) {
-  const router = useRouter();
+export default function CityDestinations({ onFocus, variant = "panel" }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay" }) {
   const lang = useLang();
   const state = useGameStore();
+  const [open, setOpen] = useState(false);
   const chapter = state.journey.chapter;
   const destinations: CityDestination[] = chapter === "campaign"
     ? campaignDestinations
@@ -47,13 +47,27 @@ export default function CityDestinations({ onFocus }: { onFocus?: (destination: 
   };
   const visible = chapterDestination ? [chapterDestination, ...destinations] : destinations;
 
+  if (variant === "overlay") return (
+    <div className="absolute left-1/2 top-3 z-20 w-[min(720px,calc(100%-104px))] -translate-x-1/2" style={{ fontFamily: "'Space Mono', monospace" }}>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="mx-auto flex items-center gap-2 border px-3 py-2 text-[9px] font-black tracking-[.18em] text-cyan shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .88)", backdropFilter: "blur(12px)" }}>
+        🏙️ {t(lang, "LOKASI AKTIVITI", "ACTIVITY LOCATIONS")} <span className="text-gold">{open ? "×" : "↓"}</span>
+      </button>
+      {open && <section aria-label={t(lang, "Destinasi bandar", "City destinations")} className="mt-2 border p-2 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .93)", backdropFilter: "blur(14px)" }}>
+        <p className="px-1 pb-2 text-center text-[9px] text-text-muted">{t(lang, "Pilih lokasi, kemudian klik bangunan yang ditanda pada bandar.", "Choose a location, then click its highlighted building in the city.")}</p>
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-6">
+          {visible.map((destination) => { const copy = destination[lang]; return <button key={destination.id} type="button" onClick={() => { onFocus?.(destination); setOpen(false); }} className="border p-2 text-center transition hover:border-gold/70 hover:bg-gold/10" style={{ borderColor: "rgb(var(--cyan-rgb) / .24)", background: "rgb(var(--bg-rgb) / .58)" }}><span className="text-lg">{destination.icon}</span><b className="mt-1 block text-[8px] leading-tight text-white">{copy.name}</b></button>; })}
+        </div>
+      </section>}
+    </div>
+  );
+
   return (
     <section aria-label={t(lang, "Destinasi bandar", "City destinations")} className="mb-4 border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .30)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / .08), rgb(var(--bg-rgb) / .72))" }}>
       <div className="flex items-baseline justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.2em] text-gold">{t(lang, "DESTINASI BANDAR", "CITY DESTINATIONS")}</div><p className="mt-1 text-[10px] text-text-muted">{t(lang, "Pilih bangunan di bandar untuk memulakan aktiviti politik anda.", "Choose a building in the city to begin a political activity.")}</p></div><span className="text-[9px] font-bold tracking-widest text-cyan">{t(lang, "HUB AKTIF", "ACTIVE HUB")}</span></div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {visible.map((destination) => {
           const copy = destination[lang];
-          return <button key={destination.id} onClick={() => onFocus ? onFocus(destination) : router.push(`${destination.route}?from=city&place=${destination.id}`)} className="border p-3 text-left transition hover:-translate-y-0.5 hover:border-gold/60" style={{ borderColor: "rgb(var(--cyan-rgb) / .22)", background: "rgb(var(--bg-rgb) / .58)" }}>
+          return <button key={destination.id} onClick={() => onFocus?.(destination)} className="border p-3 text-left transition hover:-translate-y-0.5 hover:border-gold/60" style={{ borderColor: "rgb(var(--cyan-rgb) / .22)", background: "rgb(var(--bg-rgb) / .58)" }}>
             <span className="text-xl" aria-hidden="true">{destination.icon}</span><b className="mt-2 block text-[11px] text-white">{copy.name}</b><span className="mt-1 block text-[10px] leading-relaxed text-text-muted">{copy.detail}</span><span className="mt-2 block text-[9px] font-black tracking-widest text-cyan">{onFocus ? t(lang, "CARI DI PETA", "LOCATE ON MAP") : t(lang, "MASUK", "ENTER")} →</span>
           </button>;
         })}

@@ -7,6 +7,7 @@ import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
 import OfficeInterior, { type OfficeInteriorKind } from "./OfficeInterior";
+import PersonalAssistant from "../components/assistant/PersonalAssistant";
 import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -2583,13 +2584,13 @@ export default function KawasanDevelopmentPage() {
   const [focusZoneId, setFocusZoneId] = useState<string | null>(null);
   const [focusedDestination, setFocusedDestination] = useState<string | null>(null);
   const [activeInterior, setActiveInterior] = useState<OfficeInteriorKind | null>(null);
+  const [buildMenuOpen, setBuildMenuOpen] = useState(false);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
   const constituencies = useMemo(() => homeState ? generateConstituencies(homeState, seatMode) : [], [homeState, seatMode]);
   const ownSeat = constituencies.find((seat) => seat.id === leader.homeConstituencyId) ?? constituencies[0];
   const seatKindMS = settings.electionScope === "prn" ? "DUN" : "PARLIMEN";
-  const officeMS = settings.electionScope === "prn" ? "ADUN" : "AHLI PARLIMEN";
 
   // City density scales with population per km² (people actually living
   // there, packed into the seat's modeled area) — not raw voter turnout,
@@ -2679,9 +2680,7 @@ export default function KawasanDevelopmentPage() {
   // the separate government route below.
   const unlocked = journey.chapter === "government";
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
-  const spent = zones.reduce((sum, zone) => sum + zone.projects.reduce((projectSum, projectId) => projectSum + (PROJECTS.find((project) => project.id === projectId)?.cost ?? 0), 0), 0);
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
-  const priorityZone = zones.length ? [...zones].sort((a, b) => a.sentiment - b.sentiment)[0] : null;
 
   const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
   const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
@@ -2753,6 +2752,8 @@ export default function KawasanDevelopmentPage() {
   function handleZoneSelect(zoneId: string) {
     setSelectedZoneId(zoneId);
     setFocusedDestination(null);
+    setFocusZoneId(null);
+    setBuildMenuOpen(false);
     if (pendingProject) runProject(pendingProject, zoneId);
   }
 
@@ -2770,14 +2771,6 @@ export default function KawasanDevelopmentPage() {
     const interiors: Record<string, OfficeInteriorKind> = { office: "office", party: "party", operations: "operations", calendar: "calendar", media: "media", commission: "commission", cabinet: "cabinet", administration: "administration", national: "national" };
     const interior = focusedDestination ? interiors[focusedDestination] : null;
     if (interior) setActiveInterior(interior);
-  }
-
-  function quickDevelopPriority() {
-    if (!priorityZone) return;
-    setSelectedZoneId(priorityZone.id);
-    const open = PROJECTS.filter((project) => !priorityZone.projects.includes(project.id) && !lockReason(project, priorityZone, lang));
-    const best = open.find((project) => project.target === weakestStat(priorityZone)) ?? open[0];
-    if (best) setTimeout(() => runProject(best, priorityZone.id), 0);
   }
 
   function launchQuickOperation(type: OpType) {
@@ -2836,44 +2829,32 @@ export default function KawasanDevelopmentPage() {
         </div>
       )}
 
-      <main className="kw-page-content pt-[56px] pb-[58px] px-6 w-full">
-        {journey.construction.length > 0 && <div className="mb-3 text-sm text-gold">{journey.construction.map(w => `${t(lang, `kawasan_page.projectTitle_${w.project}`)}: ${w.remaining} ${t(lang, "suku tahun", "quarters")}`).join(" · ")}</div>}
-        <div className="kw-page-heading mb-4 flex items-start justify-between gap-4">
-          <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {seatKindMS} · {officeMS} · {t(lang, "kawasan_page.constituencyBuilderSim")}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{ownSeat.name}</h1>
-            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{ownSeat.code} · {homeState.name} · {leader.partyAbbr || leader.party} · {formatNumber(ownSeat.population)} {t(lang, "kawasan_page.population")} · {formatNumber(ownSeat.voters)} {t(lang, "kawasan_page.voters")} · {densityLabel}</div>
-            {!unlocked && (
-              <div className="mt-2 inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: "rgba(148,163,184,0.35)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.72)" }}>
-                🔒 {t(lang, "kawasan_page.developmentLockedWinYourElectionTo")}
-              </div>
-            )}
-          </div>
-          <div className="kw-page-actions flex gap-2">
-            {unlocked ? (
-              <button onClick={quickDevelopPriority} className="kw-action-button kw-action-success px-4 py-2 text-[11px] font-black tracking-widest" style={{ border: "1px solid rgb(0 255 136 / 0.38)", color: "var(--neon-green)", background: "rgba(0,255,136,0.07)" }}>+ {t(lang, "kawasan_page.developPriorityZone")}</button>
-            ) : (
-              <button disabled title={t(lang, "kawasan_page.winYourElectionFirst")} className="kw-action-button cursor-not-allowed px-4 py-2 text-[11px] font-black tracking-widest opacity-45" style={{ border: "1px solid rgba(148,163,184,0.3)", color: "var(--text-muted)", background: "rgb(var(--bg-rgb) / 0.5)" }}>🔒 {t(lang, "kawasan_page.developPriorityZone")}</button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(260px,1fr)]">
-          <TacticalPanel title={t(lang, "kawasan_page._3dCityMapYourConstituency")} noPadding>
-            <div className="p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-[11px] leading-relaxed text-text-muted">{t(lang, "kawasan_page.dragToRotateTheCityScroll")}</div>
-                <div className="shrink-0 whitespace-nowrap text-[10px] font-black tracking-widest" style={{ color: "var(--cyan)" }}>RM {formatNumber(spent)} {t(lang, "kawasan_page.spent")}</div>
-              </div>
+      <main className="kw-page-content px-3 pb-[40px] pt-[48px] w-full">
+        <div className="relative h-[calc(100vh-92px)] min-h-[560px]">
+          <TacticalPanel noPadding className="h-full overflow-hidden">
+            <div className="relative h-full">
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} />
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} height="calc(100vh - 94px)" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
+              <div className="pointer-events-none absolute left-4 top-3 z-20 max-w-[min(360px,calc(100%-112px))]" style={{ fontFamily: "'Space Mono', monospace" }}>
+                <div className="inline-block border px-3 py-2 shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .4)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(12px)" }}>
+                  <div className="text-[8px] font-black tracking-[.2em] text-cyan">{seatKindMS} {ownSeat.code} · {t(lang, "BANDAR 3D AKTIF", "3D CITY ACTIVE")}</div>
+                  <div className="mt-1 text-sm font-black tracking-wider text-white">{ownSeat.name} <span className="text-gold">· {overall}%</span></div>
+                </div>
+              </div>
+              <CityDestinations onFocus={focusDestination} variant="overlay" />
+              <PersonalAssistant embedded />
+              {selectedZone && <div className="absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
+                <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div></div>
+                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setBuildMenuOpen((open) => !open)} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>BINA</button>}</div>
+              </div>}
+              {buildMenuOpen && selectedZone && <div className="absolute bottom-20 left-4 z-30 w-[min(470px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}><div className="mb-2 flex items-center justify-between"><b className="text-[10px] tracking-widest text-gold">{t(lang, "PILIH PROJEK UNTUK ZON", "CHOOSE A PROJECT FOR ZONE")}</b><button type="button" onClick={() => setBuildMenuOpen(false)} className="text-text-muted">×</button></div><div className="grid grid-cols-3 gap-1 sm:grid-cols-4">{PROJECTS.filter((project) => !selectedZone.projects.includes(project.id)).slice(0, 12).map((project) => <button key={project.id} type="button" onClick={() => { setPendingProjectId(project.id); setBuildMenuOpen(false); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} className="border p-2 text-left" style={{ borderColor: "rgb(var(--cyan-rgb) / .2)", background: "rgb(var(--bg-rgb) / .7)" }}><span>{project.icon}</span><span className="mt-1 block text-[8px] font-black text-white">{t(lang, `kawasan_page.projectTitle_${project.id}`)}</span><span className="mt-1 block text-[8px] text-gold">RM {formatNumber(project.cost)}</span></button>)}</div></div>}
             </div>
           </TacticalPanel>
 
-          <aside className="space-y-4 lg:sticky lg:top-14 lg:max-h-[calc(100vh-76px)] lg:overflow-y-auto lg:pr-1">
+          <aside className="hidden space-y-4 lg:sticky lg:top-14 lg:max-h-[calc(100vh-76px)] lg:overflow-y-auto lg:pr-1">
             <CityDestinations onFocus={focusDestination} />
             <div className="grid grid-cols-2 gap-2">
               <div className="border p-2" style={{ borderColor: "rgb(var(--gold-rgb)/0.24)", background: "rgb(var(--bg-rgb) / 0.64)" }}><div className="text-[8px] text-text-muted tracking-widest">{unlocked ? t(lang, "Bajet", "Budget") : t(lang, "Dana", "Funds")}</div><div className="mt-1 text-sm font-black" style={{ color: "var(--gold)" }}>RM {formatNumber(unlocked ? journey.publicBudget : resources.funds)}</div></div>

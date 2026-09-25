@@ -152,7 +152,9 @@ export default function Header() {
         <LangThemeToggle />
       </div>
     </header>
-    <PersonalAssistant />
+    {/* Kawasan embeds the assistant in the 3D city HUD so the player never
+        has to look away from the map while playing. */}
+    {pathname !== "/kawasan" && <PersonalAssistant />}
     </>
   );
 }
