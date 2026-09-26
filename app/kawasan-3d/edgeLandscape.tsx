@@ -430,99 +430,86 @@ function HillRange({ tod, span }: { tod: Tod; span: number }) {
 
 function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
   const edge = span / 2; // grid's +X edge — the one edge Coast/Paddy/Lake leave free
-  const mx = edge + 430;
+  // It belongs on the horizon behind Kota Kinabalu, not immediately beside
+  // the last city block. Keeping it distant also preserves the skyline.
+  const mx = edge + 1050;
   const mz = 0;
-  // Keep the landmark impressive but comfortably behind even a dense city;
-  // the former height was tall enough to read as a toy ice-cream cone.
-  const s = Math.min(1.08, Math.max(0.68, span / 7200));
+  const s = Math.min(0.9, Math.max(0.56, span / 8500));
 
   const rnd = useMemo(() => {
     let seed = 20260913;
     return () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   }, []);
   const foothills = useMemo(
-    () => Array.from({ length: 7 }, () => ({
-      x: (rnd() - 0.5) * 720 * s,
-      z: (rnd() - 0.5) * 620 * s + 120 * s,
-      r: (120 + rnd() * 85) * s,
-      h: (70 + rnd() * 90) * s,
-      rot: rnd() * Math.PI,
+    () => Array.from({ length: 6 }, () => ({
+      x: (rnd() - 0.5) * 740 * s,
+      z: (rnd() - 0.5) * 680 * s + 130 * s,
+      r: (115 + rnd() * 70) * s,
+      h: (70 + rnd() * 65) * s,
     })),
     [rnd, s],
   );
   const spires = useMemo(
-    () => Array.from({ length: 9 }, (_, i) => {
-      const a = (i / 9) * Math.PI * 2 + rnd() * 0.5;
-      const r = (35 + rnd() * 95) * s;
+    () => Array.from({ length: 5 }, (_, i) => {
+      const a = (i / 5) * Math.PI * 2 + rnd() * 0.35;
+      const r = (42 + rnd() * 70) * s;
       return {
         x: Math.cos(a) * r, z: Math.sin(a) * r,
-        rad: (18 + rnd() * 25) * s, h: (68 + rnd() * 110) * s,
-        tiltX: (rnd() - 0.5) * 0.4, tiltZ: (rnd() - 0.5) * 0.4,
+        rad: (18 + rnd() * 16) * s, h: (55 + rnd() * 72) * s,
+        tiltX: (rnd() - 0.5) * 0.18, tiltZ: (rnd() - 0.5) * 0.18,
       };
     }),
     [rnd, s],
   );
 
-  const FOREST_H = 330 * s;
-  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.68;
-  const ROCK_H = 380 * s;
-  const summitY = ROCK_BASE_Y + ROCK_H * 0.78;
+  const FOREST_H = 235 * s;
+  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.72;
+  const ROCK_H = 285 * s;
+  const summitY = ROCK_BASE_Y + ROCK_H * 0.88;
   const peakColor = PEAK_TINT[tod];
   const cloudColor = CLOUD_TINT[tod];
 
   return (
     <group position={[mx, 0, mz]}>
-      {/* Uneven, low-poly foothills make the mountain meet the town through
-          real terrain rather than a single perfect cone. */}
+      {/* A distant chain of forested foothills, low enough to sit on the
+          horizon rather than becoming a giant object inside the city. */}
       {foothills.map((f, i) => (
-        <mesh key={i} position={[f.x, TILE_H + f.h * 0.44, f.z]} rotation={[0, f.rot, 0]} scale={[f.r, f.h, f.r * 0.76]} castShadow>
-          <dodecahedronGeometry args={[1, 1]} />
-          <meshStandardMaterial color={i % 2 ? "#284c35" : "#315940"} roughness={1} flatShading />
+        <mesh key={i} position={[f.x, TILE_H + f.h / 2, f.z]} rotation={[0, (i % 3) * 0.36, 0]} castShadow>
+          <coneGeometry args={[f.r, f.h, 12]} />
+          <meshStandardMaterial color={i % 2 ? "#294b38" : "#355a42"} roughness={1} flatShading />
         </mesh>
       ))}
-      {/* broad forest apron and a darker shoulder under the exposed granite */}
-      <mesh position={[0, TILE_H + FOREST_H * 0.46, 0]} rotation={[0, 0.32, 0]} scale={[410 * s, FOREST_H, 340 * s]} castShadow>
-        <dodecahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#31583e" roughness={1} flatShading />
+      {/* broad lower slopes and two offset granite shoulders form a proper
+          range silhouette instead of a single symmetrical spike. */}
+      <mesh position={[0, TILE_H + FOREST_H / 2, 0]} rotation={[0, 0.22, 0]} castShadow>
+        <coneGeometry args={[360 * s, FOREST_H, 14]} />
+        <meshStandardMaterial color="#31563d" roughness={1} flatShading />
       </mesh>
-      <mesh position={[-55 * s, TILE_H + FOREST_H * 0.72, 25 * s]} rotation={[0, -0.24, 0]} scale={[275 * s, FOREST_H * 0.66, 235 * s]} castShadow>
-        <dodecahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#254631" roughness={1} flatShading />
+      <mesh position={[-104 * s, ROCK_BASE_Y + ROCK_H * 0.34, 24 * s]} rotation={[0.04, -0.35, -0.08]} castShadow>
+        <coneGeometry args={[160 * s, ROCK_H * 0.7, 9]} />
+        <meshStandardMaterial color="#59645f" roughness={1} flatShading />
       </mesh>
-      {/* Weathered granite massif: faceted and asymmetrical, not snow-white. */}
-      <mesh position={[0, ROCK_BASE_Y + ROCK_H * 0.42, 0]} rotation={[0, -0.16, 0]} scale={[220 * s, ROCK_H, 175 * s]} castShadow>
-        <dodecahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color={peakColor} roughness={0.96} flatShading />
+      <mesh position={[42 * s, ROCK_BASE_Y + ROCK_H * 0.48, -22 * s]} rotation={[-0.03, 0.25, 0.1]} castShadow>
+        <coneGeometry args={[182 * s, ROCK_H, 9]} />
+        <meshStandardMaterial color={peakColor} roughness={1} flatShading />
       </mesh>
-      {/* jagged summit spires break the ridge line into a Kinabalu-like crown */}
+      {/* a restrained rocky crown, visible as a silhouette at the horizon */}
       {spires.map((sp, i) => (
         <mesh
           key={i}
-          position={[sp.x, summitY + sp.h * 0.35, sp.z]}
+          position={[sp.x + 40 * s, summitY + sp.h / 2 - 10 * s, sp.z - 22 * s]}
           rotation={[sp.tiltX, 0, sp.tiltZ]}
-          scale={[sp.rad, sp.h, sp.rad * 0.72]}
           castShadow
         >
-          <dodecahedronGeometry args={[1, 1]} />
+          <coneGeometry args={[sp.rad, sp.h, 6]} />
           <meshStandardMaterial color={i % 2 ? "#5f6965" : peakColor} roughness={0.98} flatShading />
         </mesh>
       ))}
-      {/* sparse mist sits against the slope instead of forming cartoon rings */}
-      {[0, 1, 2].map((i) => {
-        const a = 0.5 + (i / 3) * Math.PI * 1.2;
-        const r = 165 * s;
-        return (
-          <mesh
-            key={i}
-            position={[Math.cos(a) * r, ROCK_BASE_Y + ROCK_H * 0.38 + i * 18 * s, Math.sin(a) * r]}
-            scale={[2.5 * s, 0.34 * s, 0.9 * s]}
-            renderOrder={1}
-          >
-            <sphereGeometry args={[60, 10, 8]} />
-            <meshBasicMaterial color={cloudColor} transparent opacity={0.2} depthWrite={false} fog={false} />
-          </mesh>
-        );
-      })}
+      {/* muted atmospheric veil; no obvious cloud blobs or rings */}
+      {tod !== "night" && <mesh position={[185 * s, ROCK_BASE_Y + ROCK_H * 0.36, 10 * s]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[320 * s, 110 * s]} />
+        <meshBasicMaterial color={cloudColor} transparent opacity={0.1} depthWrite={false} />
+      </mesh>}
     </group>
   );
 }
