@@ -56,6 +56,53 @@ const OP_TEMPLATES: Record<OpType, { manpowerCost: number; fundsCost: number; su
   rural:          { manpowerCost: 90,  fundsCost: 60000,  supportGain: 1.4 },
 };
 
+function CampaignWelcomeModal({ totalDays, isPrn, onClose }: { totalDays: number; isPrn: boolean; onClose: () => void }) {
+  const lang = useLang();
+  const steps = [
+    ["01", "campaign_page.welcomeStepOneTitle", "campaign_page.welcomeStepOneBody"],
+    ["02", "campaign_page.welcomeStepTwoTitle", "campaign_page.welcomeStepTwoBody"],
+    ["03", "campaign_page.welcomeStepThreeTitle", "campaign_page.welcomeStepThreeBody"],
+    ["04", "campaign_page.welcomeStepFourTitle", "campaign_page.welcomeStepFourBody"],
+  ] as const;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <section
+        className="w-full max-w-2xl overflow-hidden border"
+        style={{ borderColor: "rgb(var(--gold-rgb) / 0.65)", background: "linear-gradient(135deg, rgb(var(--bg-rgb) / 0.98), rgb(var(--cyan-rgb) / 0.08))", boxShadow: "0 0 50px rgb(var(--gold-rgb) / 0.18)" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="border-b px-6 py-5" style={{ borderColor: "rgb(var(--gold-rgb) / 0.28)" }}>
+          <div className="text-[10px] font-bold tracking-[0.3em]" style={{ color: "var(--cyan)" }}>{t(lang, "campaign_page.welcomeKicker")}</div>
+          <h2 className="mt-2 text-2xl font-black tracking-wide text-white">{t(lang, "campaign_page.welcomeTitle")}</h2>
+          <p className="mt-3 max-w-xl text-sm leading-6" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "campaign_page.welcomeBody", { totalDays, scope: isPrn ? t(lang, "campaign_page.welcomeStateScope") : t(lang, "campaign_page.welcomeNationalScope") })}
+          </p>
+        </header>
+
+        <div className="grid gap-px bg-cyan/10 sm:grid-cols-2">
+          {steps.map(([number, title, body]) => (
+            <div key={number} className="flex gap-4 bg-[rgb(var(--bg-rgb)/0.88)] px-5 py-4">
+              <span className="pt-0.5 text-lg font-black" style={{ color: "var(--gold)" }}>{number}</span>
+              <div>
+                <h3 className="text-xs font-black tracking-wider text-white">{t(lang, title)}</h3>
+                <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t(lang, body)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <footer className="flex items-center justify-between gap-4 px-6 py-4">
+          <p className="text-[10px] leading-4" style={{ color: "var(--text-muted)" }}>{t(lang, "campaign_page.welcomeTip")}</p>
+          <button onClick={onClose} className="shrink-0 px-5 py-2.5 text-xs font-black tracking-widest" style={{ background: "var(--gold)", color: "#05080e" }}>
+            {t(lang, "campaign_page.welcomeStart")} →
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function formatRM(amount: number): string {
   if (amount >= 1000000) return `RM ${(amount / 1000000).toFixed(1)}M`;
   if (amount >= 1000) return `RM ${(amount / 1000).toFixed(0)}K`;
@@ -1219,7 +1266,8 @@ export default function CampaignPage() {
   }, []);
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
-  const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays, careerProgress } = useGameStore();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const { operations, resources, states: gameStates, removeOperation, settings, journey, day, totalDays, careerProgress, leader } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const campaignStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [selectedMiniGameState, setSelectedMiniGameState] = useState(() => (isPrn ? settings.prnStateId : "selangor"));
@@ -1228,6 +1276,14 @@ export default function CampaignPage() {
   const [activeScene, setActiveScene] = useState<{ stateId: string; gameType: MiniGameType; tactic: MiniGameTactic } | null>(null);
   const [activeCampaignEvent, setActiveCampaignEvent] = useState<CampaignEventId | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const key = `mymandat-campaign-welcome:${leader.homeConstituencyId}:${leader.partyAbbr}:${totalDays}`;
+    if (!sessionStorage.getItem(key)) {
+      setShowWelcome(true);
+      sessionStorage.setItem(key, "1");
+    }
+  }, [leader.homeConstituencyId, leader.partyAbbr, totalDays]);
 
   const activeOpsCount = operations.filter((o) => o.status === "active" || o.status === "ongoing").length;
   const plannedOpsCount = operations.filter((o) => o.status === "planned").length;
@@ -1239,6 +1295,7 @@ export default function CampaignPage() {
       <StatusBar leftText={t(lang, "campaign_page.campaignHqOperationsCommand")} rightText={t(lang, "campaign_page.tabSwitchPanelSelect")} />
 
       {showDeployModal && <DeployModal onClose={() => setShowDeployModal(false)} />}
+      {showWelcome && <CampaignWelcomeModal totalDays={totalDays} isPrn={isPrn} onClose={() => setShowWelcome(false)} />}
       {activeScene && (
         <CeramahSceneModal
           stateId={activeScene.stateId}
