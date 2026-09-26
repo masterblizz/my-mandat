@@ -223,7 +223,7 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
     return (
       <div
         className="flex items-center justify-center"
-        style={{ height: compact ? 380 : 280 }}
+        style={{ height: compact ? 220 : 280 }}
       >
         <LoadingSpinner label="// LOADING MAP..." />
       </div>
@@ -241,7 +241,7 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
         width="100%"
         style={{
           display: "block",
-          maxHeight: compact ? "420px" : undefined,
+          maxHeight: compact ? "220px" : undefined,
           filter: "drop-shadow(0 0 6px rgb(var(--cyan-rgb) / 0.12))",
         }}
       >
