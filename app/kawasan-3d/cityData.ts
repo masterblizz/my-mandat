@@ -724,15 +724,15 @@ export type TodEnv = {
   stars: number;
 };
 export const TOD_ENV: Record<Tod, TodEnv> = {
-  // Humid tropical midday: blue-cyan haze instead of a white horizon, with
-  // neutral green bounce. This separates the skyline from the terrain without
-  // the previous yellow-olive wash across every shaded surface.
+  // Humid tropical midday. Keep the horizon blue rather than near-white so
+  // the city reads with a deliberate foreground / middle-distance / skyline
+  // stack instead of dissolving into a grey wash at a wide orbit.
   day: {
-    skyTop: "#4d82ad", skyBottom: "#c6dce2",
-    sun: [0.35, 0.92, 0.2], sunColor: "#fff0d4", sunIntensity: 2.35,
-    ambientColor: "#afc5d0", ambientIntensity: 0.44,
-    hemiSky: "#cde0e7", hemiGround: "#4f5b56", hemiIntensity: 0.8,
-    fog: "#c8d9dd", ground: "#3f4b43", lamp: 0, winLit: 0, stars: 0,
+    skyTop: "#286b9c", skyBottom: "#9bc4d0",
+    sun: [0.35, 0.92, 0.2], sunColor: "#fff3da", sunIntensity: 1.9,
+    ambientColor: "#93b7c5", ambientIntensity: 0.34,
+    hemiSky: "#b8d8e0", hemiGround: "#3f5148", hemiIntensity: 0.66,
+    fog: "#a8c5cb", ground: "#31443c", lamp: 0, winLit: 0, stars: 0,
   },
   // Blue-violet shadows against a restrained amber horizon. The previous
   // orange fog + brown ground + orange sun stack made the whole city sepia.
