@@ -2,6 +2,7 @@
 const components_layout_Header = {
   tacticalOps: { ms: "- OPS TAKTIKAL", en: "- TACTICAL OPS" },
   premium: { ms: "PREMIUM", en: "PREMIUM" },
+  ultimate: { ms: "ULTIMATE", en: "ULTIMATE" },
   back: { ms: "KEMBALI", en: "BACK" },
   mainMenu: { ms: "MENU UTAMA", en: "MAIN MENU" },
   warRoomHome: { ms: "LAMAN WAR ROOM", en: "WAR ROOM HOME" },

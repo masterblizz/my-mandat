@@ -7,6 +7,7 @@ export interface PremiumStatus {
   tier: string | null;
   isLoading: boolean;
   hasPremium: boolean;
+  hasUltimate: boolean;
 }
 
 // Reads profiles.premium_tier/premium_expires_at for the signed-in user.
@@ -71,6 +72,7 @@ export function usePremiumStatus(): PremiumStatus {
 
   const notExpired = expiresAt === null || new Date(expiresAt).getTime() > Date.now();
   const hasPremium = tier !== null && notExpired;
+  const hasUltimate = tier === "ultimate" && notExpired;
 
-  return { tier: hasPremium ? tier : null, isLoading, hasPremium };
+  return { tier: hasPremium ? tier : null, isLoading, hasPremium, hasUltimate };
 }

@@ -44,7 +44,7 @@ export default function Header() {
   const router = useRouter();
   const lang = useLang();
   const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
-  const { hasPremium } = usePremiumStatus();
+  const { hasPremium, hasUltimate } = usePremiumStatus();
 
   const showCityHub = isCityHubRoute(pathname) || isGoverningRoute(pathname);
   const governingRoute = isGoverningRoute(pathname);
@@ -92,7 +92,7 @@ export default function Header() {
             className="px-2 py-0.5 text-[11px] font-bold tracking-[0.16em]"
             style={{ color: "var(--gold)", border: "1px solid rgb(var(--gold-rgb) / 0.45)", background: "rgb(var(--gold-rgb) / 0.08)" }}
           >
-            ⭐ {t(lang, "components_layout_Header.premium")}
+            {hasUltimate ? "✦ " + t(lang, "components_layout_Header.ultimate") : "⭐ " + t(lang, "components_layout_Header.premium")}
           </span>
         )}
 

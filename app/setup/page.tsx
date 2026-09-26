@@ -60,11 +60,27 @@ const STEPS = [
   { num: "05" },
 ];
 
+function UltimatePlanCard({ hasUltimate, isLoading }: { hasUltimate: boolean; isLoading: boolean }) {
+  const lang = useLang();
+  if (hasUltimate || isLoading) return null;
+
+  return (
+    <section className="mb-5 flex w-full max-w-[1100px] flex-wrap items-center justify-between gap-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgb(var(--bg-rgb) / 0.9))" }}>
+      <div>
+        <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>✦ {t(lang, "setup_page.ultimatePlan")}</div>
+        <h2 className="mt-1 text-lg font-black text-white">{t(lang, "setup_page.ultimateTitle")}</h2>
+        <p className="mt-1 max-w-2xl text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t(lang, "setup_page.ultimateDescription")}</p>
+      </div>
+      <UpgradeButton priceId={PREMIUM_PRICE_IDS.ultimateMonthly} mode="subscription" label={t(lang, "setup_page.getUltimate")} className="border border-gold bg-gold px-5 py-3 text-xs font-black tracking-wider text-black disabled:opacity-50" />
+    </section>
+  );
+}
+
 export default function SetupPage() {
   const lang = useLang();
   const { isPending: isLaunching, navigate } = usePendingNav();
   const { setLeader, setNomination, setPhase, updateSettings, setDataset, setSelectedState, resetGame, settings } = useGameStore();
-  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
+  const { hasPremium, hasUltimate, isLoading: premiumLoading } = usePremiumStatus();
   const [notice, setNotice] = useState<string | null>(null);
 
   // /api/checkout's cancel_url sends the user back here with ?purchase=
@@ -273,10 +289,11 @@ export default function SetupPage() {
         </div>
       )}
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
-        {/* Scenario archive is a premium feature: free users go straight to
-            the custom campaign builder (hidden while premium status loads). */}
-        {step === 0 && hasPremium && !premiumLoading && <ScenarioStart />}
-        {step === 0 && hasPremium && !premiumLoading && (
+        {step === 0 && <UltimatePlanCard hasUltimate={hasUltimate} isLoading={premiumLoading} />}
+        {/* Scenario Archive is deliberately invisible unless Ultimate access
+            is verified; standard Premium users continue to the custom builder. */}
+        {step === 0 && hasUltimate && !premiumLoading && <ScenarioStart />}
+        {step === 0 && hasUltimate && !premiumLoading && (
           <div className="mt-2 flex w-full max-w-[1100px] items-center gap-3 text-[10px] font-black tracking-[0.28em] text-text-muted">
             <span className="h-px flex-1 bg-white/10" />
             {t(lang, "ATAU BINA KEMPEN TERSUAI", "OR BUILD A CUSTOM CAMPAIGN")}

@@ -20,6 +20,7 @@ type SupabaseServiceClient = ReturnType<typeof createServiceClient>;
 const PRICE_TIER_MAP: Record<string, string> = {
   [PREMIUM_PRICE_IDS.prnMode]: "prn",
   [PREMIUM_PRICE_IDS.premiumMonthly]: "premium",
+  [PREMIUM_PRICE_IDS.ultimateMonthly]: "ultimate",
 };
 
 function tierForPrice(priceId: string | null | undefined): string {
