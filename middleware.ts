@@ -12,8 +12,17 @@ const PUBLIC_AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-pa
 const AUTH_BYPASS_PATHS = ['/auth/callback']
 
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname
+
   if (AUTH_BYPASS_PATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
     return NextResponse.next()
+  }
+
+  // The Operations Command Console now owns the complete War Room flow.
+  // Preserve any old deep links, but never pull the player out of the
+  // physical Operations Centre just to view campaign intelligence.
+  if (path === '/warroom') {
+    return NextResponse.redirect(new URL('/location/operations?console=1', request.url))
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -48,7 +57,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const path = request.nextUrl.pathname
   const isAuthPage = PUBLIC_AUTH_PATHS.some((p) => path === p || path.startsWith(`${p}/`))
 
   // Already has a session: skip straight past login/register into the
