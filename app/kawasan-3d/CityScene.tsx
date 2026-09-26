@@ -520,9 +520,12 @@ function Grid({
         </mesh>
       ))}
       <UrbanRiver gridSize={gridSize} tod={tod} weather={weather} />
-      <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />
-      <Sidewalks placed={placed} claimed={claimed} />
-      <StreetFurniture placed={placed} claimed={claimed} />
+      {/* Rural roads are local kampung roads, not a miniature city grid:
+          crossings, continuous pavements and municipal furniture belong in
+          established town centres only. */}
+      {density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
+      {density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
+      {density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
       <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
@@ -627,6 +630,10 @@ export function CityScene({
 }) {
   const qs = QUALITY_SETTINGS[quality];
   const span = worldSize(gridSize);
+  // A small, low-density grid is an outside-town / kampung road network.
+  // It should retain utilities, occasional lamps and local traffic, but not
+  // city signals, dense pavement furniture or commuter-scale movement.
+  const ruralRoadNetwork = density < 0.32 && gridSize <= 8;
   const riverRoadIndex = urbanRiverRoadIndex(gridSize);
   const trafficRoads = useMemo(() => superblockTrafficRoads(gridSize, density), [gridSize, density]);
   const placed = useMemo(() => placeZones(zones, gridSize, traits), [zones, gridSize, traits]);
@@ -701,13 +708,13 @@ export function CityScene({
         destinationTags={destinationTags}
         onEnterDestination={onEnterDestination}
       />
-      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
-      <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />
+      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
+      {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
       <UtilityLines gridSize={gridSize} />
-      <Traffic gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
-      <Motorcyclists gridSize={gridSize} trafficLevel={trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
+      <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
+      <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
-      {gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
+      {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
