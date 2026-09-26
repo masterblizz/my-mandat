@@ -16,6 +16,7 @@ const load_game_page = {
   day: { ms: "{slotStateLeader} · HARI {slotStateDay}/{slotStateTotalDays}", en: "{slotStateLeader} · DAY {slotStateDay}/{slotStateTotalDays}" },
   emptySlot: { ms: "SLOT KOSONG", en: "EMPTY SLOT" },
   saved: { ms: "DISIMPAN {formatSavedAtSlotSavedAt}", en: "SAVED {formatSavedAtSlotSavedAt}" },
+  constituency: { ms: "KAWASAN · {homeConstituencyName}", en: "CONSTITUENCY · {homeConstituencyName}" },
   availableForManualSaveOrNew: { ms: "Tersedia untuk simpan manual atau kempen baharu", en: "Available for manual save or new campaign" },
   projected: { ms: "UNJURAN", en: "PROJECTED" },
   negeri: { ms: "NEGERI", en: "NEGERI" },

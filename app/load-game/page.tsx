@@ -188,6 +188,11 @@ export default function LoadGamePage() {
                         <div className="mt-1 text-[10px] tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>
                           {slot ? t(lang, "load_game_page.saved", { formatSavedAtSlotSavedAt: formatSavedAt(slot.savedAt, lang) }) : t(lang, "load_game_page.availableForManualSaveOrNew")}
                         </div>
+                        {slot && (
+                          <div className="mt-2 truncate text-[10px] font-bold tracking-[0.14em]" style={{ color: "var(--cyan)" }}>
+                            {t(lang, "load_game_page.constituency", { homeConstituencyName: slot.state.leader.homeConstituencyName || "—" })}
+                          </div>
+                        )}
                       </div>
                       <span className="h-3 w-3 rounded-full" style={{ background: active ? "var(--gold)" : slot ? "var(--cyan)" : "#34465a", boxShadow: active ? "0 0 14px var(--gold)" : slot ? "0 0 10px var(--cyan)" : "none" }} />
                     </div>
@@ -221,6 +226,7 @@ export default function LoadGamePage() {
                 <div className="text-[9px] font-black tracking-[0.24em]" style={{ color: "var(--gold)" }}>{t(lang, "load_game_page.slot")} {selectedSlotNumber.toString().padStart(2, "0")}</div>
                 <div className="mt-2 text-[22px] font-black text-white">{selectedSlot ? selectedSlot.state.leader.partyAbbr : t(lang, "load_game_page.empty")}</div>
                 <div className="text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>{selectedSlot ? selectedSlot.state.leader.party : t(lang, "load_game_page.emptySlotCanBePickedFor")}</div>
+                {selectedSlot && <div className="mt-2 text-[10px] font-bold tracking-[0.14em]" style={{ color: "var(--cyan)" }}>{t(lang, "load_game_page.constituency", { homeConstituencyName: selectedSlot.state.leader.homeConstituencyName || "—" })}</div>}
               </div>
               <div className="mt-4 space-y-2 text-[10px] leading-5" style={{ color: "var(--text-muted)" }}>
                 <p>{t(lang, "load_game_page.maximumSaveSlotsAllEmptySlots", { mAX_SAVE_SLOTS: MAX_SAVE_SLOTS })}</p>

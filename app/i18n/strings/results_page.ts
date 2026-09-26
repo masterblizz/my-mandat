@@ -6,7 +6,6 @@ const results_page = {
   governmentFormed: { ms: "KERAJAAN DIBENTUK", en: "GOVERNMENT FORMED" },
   hungStateAssembly: { ms: "DEWAN NEGERI TERGANTUNG", en: "HUNG STATE ASSEMBLY" },
   hungParliament: { ms: "PARLIMEN TERGANTUNG", en: "HUNG PARLIAMENT" },
-  dailyChallenge: { ms: "CABARAN HARIAN · {dailyChallengeDate}", en: "DAILY CHALLENGE · {dailyChallengeDate}" },
   ge16National: { ms: "PRU16 NASIONAL", en: "GE16 NATIONAL" },
   prnStateResultDunDetails: { ms: "KEPUTUSAN NEGERI PRN · BUTIRAN DUN", en: "PRN STATE RESULT · DUN DETAILS" },
   stateResultsClickStateForSeat: { ms: "KEPUTUSAN NEGERI · KLIK NEGERI UNTUK BUTIRAN KERUSI", en: "STATE RESULTS · CLICK STATE FOR SEAT DETAILS" },

@@ -118,13 +118,6 @@ export interface GameState {
   // resetGame(), and is per-save (see saveGame.ts SavedGameSnapshot), not
   // a global one-time unlock — a new campaign starts locked again.
   hasWonElection: boolean;
-  // Set only when the run was launched via /menu's "Daily Challenge" —
-  // the dateKey (YYYY-MM-DD, player's local calendar day) it was seeded
-  // from. Lets /results brand the run distinctly and label the share
-  // card so players compare "today's" run specifically, without needing
-  // a real backend leaderboard (see GAME_DESIGN_DOCUMENT.md section 10 —
-  // sharing is the informal comparison mechanism here).
-  dailyChallengeDate: string | null;
   // Career/Government/Sandbox meta-game progress — previously page-local
   // useState with no connection to the store at all, so it reset on every
   // navigate-away-and-back and was absent from SavedGameSnapshot entirely
@@ -153,7 +146,6 @@ export interface GameState {
   setHasWonElection: (won: boolean) => void;
   setPersonalOffice: (office: PersonalOfficeId) => void;
   completeCharacterPrologue: (issue: Issue, approach: LeadershipApproach) => void;
-  setDailyChallengeDate: (dateKey: string | null) => void;
   setCareerProgress: (patch: Partial<CareerProgress>) => void;
   setGovernmentProgress: (patch: Partial<GovernmentProgress>) => void;
   setSandboxProgress: (patch: Partial<SandboxProgress>) => void;
@@ -280,7 +272,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   politicalReactions: [],
   aiNews: [],
   hasWonElection: false,
-  dailyChallengeDate: null,
   careerProgress: { completed: [], term: 1, month: 1 },
   governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
   sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
@@ -406,7 +397,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
     };
   }),
-  setDailyChallengeDate: (dateKey) => set({ dailyChallengeDate: dateKey }),
   setCareerProgress: (patch) => set((state) => ({ careerProgress: { ...state.careerProgress, ...patch } })),
   setGovernmentProgress: (patch) => set((state) => ({ governmentProgress: { ...state.governmentProgress, ...patch } })),
   setSandboxProgress: (patch) => set((state) => ({ sandboxProgress: { ...state.sandboxProgress, ...patch } })),
@@ -572,7 +562,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       politicalReactions: [],
       aiNews: [],
       hasWonElection: false,
-      dailyChallengeDate: null,
       careerProgress: { completed: [], term: 1, month: 1 },
       governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
       sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },

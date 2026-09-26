@@ -131,7 +131,7 @@ function resultLabel(lang: Lang, result: SeatDetail["result"]) {
 export default function ResultsPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
-  const { states, resources, day, totalDays, leader, operations, difficulty, settings, resetGame, dailyChallengeDate, journey } = useGameStore();
+  const { states, resources, day, totalDays, leader, operations, difficulty, settings, resetGame, journey } = useGameStore();
   const addRecord = useHistoryStore((state) => state.addRecord);
   const recordedResultRef = useRef(false);
   const animPlayedRef = useRef(false);
@@ -180,9 +180,7 @@ export default function ResultsPage() {
   const chamberLabel = isPrn ? "DUN" : t(lang, "results_page.parliament");
   const governmentLabel = isPrn ? t(lang, "results_page.stateGovernmentFormed") : t(lang, "results_page.governmentFormed");
   const hungLabel = isPrn ? t(lang, "results_page.hungStateAssembly") : t(lang, "results_page.hungParliament");
-  const resultScopeLabel = dailyChallengeDate
-    ? t(lang, "results_page.dailyChallenge", { dailyChallengeDate: dailyChallengeDate })
-    : isPrn ? `PRN ${resultStates[0]?.name ?? "NEGERI"}` : t(lang, "results_page.ge16National");
+  const resultScopeLabel = isPrn ? `PRN ${resultStates[0]?.name ?? "NEGERI"}` : t(lang, "results_page.ge16National");
   const stateResultsTitle = isPrn ? t(lang, "results_page.prnStateResultDunDetails") : t(lang, "results_page.stateResultsClickStateForSeat");
   const detailTitle = isPrn ? "DETAIL KAWASAN DUN" : "DETAIL KAWASAN PARLIMEN";
   const supportLabel = isPrn ? t(lang, "results_page.stateSupport") : t(lang, "results_page.nationalSupport");

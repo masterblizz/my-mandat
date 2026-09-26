@@ -29,7 +29,6 @@ export type SavedGameSnapshot = Pick<
   | "mediaSentiment"
   | "settings"
   | "hasWonElection"
-  | "dailyChallengeDate"
   | "careerProgress"
   | "governmentProgress"
   | "sandboxProgress"
@@ -71,7 +70,6 @@ export function createSaveSnapshot(state: GameState): SavedGameSnapshot {
     mediaSentiment: state.mediaSentiment,
     settings: state.settings,
     hasWonElection: state.hasWonElection,
-    dailyChallengeDate: state.dailyChallengeDate,
     careerProgress: state.careerProgress,
     governmentProgress: state.governmentProgress,
     sandboxProgress: state.sandboxProgress,

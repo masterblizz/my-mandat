@@ -50,8 +50,6 @@ const menu_page = {
 
   item_01_label: { ms: "MULA KEMPEN", en: "START CAMPAIGN" },
   item_01_sub: { ms: "Mulakan kempen baharu", en: "Begin new mandate run" },
-  item_01b_label: { ms: "CABARAN HARIAN", en: "DAILY CHALLENGE" },
-  item_01b_sub: { ms: "Senario sama untuk semua pemain hari ini", en: "Same scenario for every player today" },
   item_02_label: { ms: "SAMBUNG KEMPEN", en: "CONTINUE RUN" },
   item_02_sub: { ms: "Kembali ke kempen aktif", en: "Return to active campaign" },
   item_03_label: { ms: "MUAT PERMAINAN", en: "LOAD GAME" },

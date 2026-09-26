@@ -13,7 +13,6 @@ import { advisors } from "../data/advisors";
 import { newJourney, normalizeJourney, resumeRoute } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
-import { buildDailyChallenge } from "../utils/dailyChallenge";
 import { useLang, t } from "../i18n/useLang";
 import { createClient } from "../utils/supabase/client";
 
@@ -27,7 +26,6 @@ type MenuItem = MenuItemConfig & { label: string; sub: string; disabled?: boolea
 
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "01", href: "/setup" },
-  { id: "01b", href: null },
   { id: "02", href: "/warroom" },
   { id: "03", href: "/load-game" },
   { id: "04", href: "/settings" },
@@ -111,7 +109,7 @@ export default function MainMenuPage() {
 
   const {
     leader, day, totalDays, states: liveStates, getTotalProjectedSeats, getNationalSupport, mediaSentiment, settings,
-    resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate,
+    resetGame,
   } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   // Live campaign state (restored from the active save), not the static starting data.
@@ -184,36 +182,6 @@ export default function MainMenuPage() {
       setShowCredits(true);
       return;
     }
-    if (item.id === "01b") {
-      // Skips the setup wizard entirely — dataset/home state/difficulty/
-      // media bias are all seeded from today's date (see
-      // buildDailyChallenge), so every player who plays today starts from
-      // the identical scenario. Day-to-day event/opponent RNG afterward is
-      // unseeded, same as any other campaign — see dailyChallenge.ts's own
-      // comment for why that's an intentional scope cut, not an oversight.
-      const config = buildDailyChallenge();
-      const homeState = initialStates.find((state) => state.id === config.homeStateId) ?? initialStates[0];
-      const homeConstituency = generateConstituencies(homeState)[0];
-      resetGame();
-      setActiveSaveSlot(null);
-      setDataset(config.dataset);
-      setLeader({
-        homeState: homeState.id,
-        homeConstituencyId: homeConstituency?.id ?? "",
-        homeConstituencyName: homeConstituency?.name ?? "",
-      });
-      if (homeConstituency) setNomination(homeConstituency.id, { type: "leader" });
-      updateSettings({
-        electionScope: "pru",
-        difficulty: config.difficulty,
-        mediaBias: config.mediaBias,
-        oppositionStrength: config.oppositionStrength,
-      });
-      setDailyChallengeDate(config.dateKey);
-      startCampaign();
-      router.push("/kawasan");
-      return;
-    }
     if (item.id === "02") {
       const slots = getSavedGames();
       // No save slot at all: this item renders disabled (see menuItems
@@ -236,7 +204,7 @@ export default function MainMenuPage() {
     }
     if (!item.href) return;
     router.push(item.href);
-  }, [router, resetGame, setDataset, setLeader, setNomination, updateSettings, startCampaign, setDailyChallengeDate]);
+  }, [router, resetGame]);
 
   useEffect(() => {
     setMounted(true);

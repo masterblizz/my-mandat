@@ -50,8 +50,6 @@ all centralized here.
 
 /menu  (hub — stats display, election status, primary menu list)
   "New Campaign"      ──> /setup
-  "Daily Challenge"   ──> seeds a deterministic run (resetGame + setDataset/
-                          setLeader/setNomination/settings/startCampaign) ──> /kawasan
   "Continue"          ──> loads latest/active save ──> /kawasan
                           ⚠ disabled unless a save exists; its configured href
                           says /warroom but the click handler actually targets
@@ -214,7 +212,7 @@ long-term loop as currently wired.
 
 | Store | Role |
 |---|---|
-| `gameStore.ts` | Single source of truth for almost everything: `states`/seats, `resources`, `day`/`totalDays`, `leader`, `operations`, `settings`, `difficulty`, `hasWonElection`, `governmentProgress`, `careerProgress`, `dailyChallengeDate`, `phase`. `advanceDay()` lives only here, called only from `/warroom`. |
+| `gameStore.ts` | Single source of truth for almost everything: `states`/seats, `resources`, `day`/`totalDays`, `leader`, `operations`, `settings`, `difficulty`, `hasWonElection`, `governmentProgress`, `careerProgress`, `phase`. `advanceDay()` lives only here, called only from `/warroom`. |
 | `uiStore.ts` | Cross-cutting UI prefs: `theme`, `language`, `musicEnabled`/`musicVolume`. Each setter also writes straight to `localStorage` (no zustand persist middleware). |
 | `historyStore.ts` | Past-playthrough records (`/stats`). Independent of `gameStore`; wiped alongside it on `/register` signup, and read (not written) implicitly wherever `resetGame()`/`clearHistory()` are called together. |
 | `saveGame.ts` | Save-slot CRUD (`/menu` Continue, `/load-game`). |
@@ -238,7 +236,7 @@ long-term loop as currently wired.
                                                                           │
         ┌───────────────┬───────────────┬───────────────┬───────────────┼─────────────┐
         ▼               ▼               ▼               ▼               ▼             ▼
-     /setup       Daily Challenge    /load-game       /settings        /stats      /login (Quit)
+     /setup                          /load-game       /settings        /stats      /login (Quit)
         │            (seeds run)         │
         └───────────────┴─────────────────┘
                         │  launch / load / continue
