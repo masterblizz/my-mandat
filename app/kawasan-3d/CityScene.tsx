@@ -634,6 +634,10 @@ export function CityScene({
   // It should retain utilities, occasional lamps and local traffic, but not
   // city signals, dense pavement furniture or commuter-scale movement.
   const ruralRoadNetwork = density < 0.32 && gridSize <= 8;
+  // The elevated LRT is a Klang-Valley-style metro feature. Kota Kinabalu
+  // (and the rest of the Kinabalu seats) has no urban rail in reality, so
+  // those cities keep road traffic only.
+  const hasLrt = gridSize >= 10 && !traits.kinabalu;
   const riverRoadIndex = urbanRiverRoadIndex(gridSize);
   const trafficRoads = useMemo(() => superblockTrafficRoads(gridSize, density), [gridSize, density]);
   const placed = useMemo(() => placeZones(zones, gridSize, traits), [zones, gridSize, traits]);
@@ -721,7 +725,7 @@ export function CityScene({
       <UtilityLines gridSize={gridSize} />
       <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
       <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
-      <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
+      {hasLrt && <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />}
       {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
@@ -751,7 +755,7 @@ export function CityScene({
         camRef={camRef}
         distance={distance}
         trafficLevel={trafficLevel}
-        hasLrt={gridSize >= 10}
+        hasLrt={hasLrt}
       />
       {onPerf && <PerfProbe onSample={onPerf} />}
     </>

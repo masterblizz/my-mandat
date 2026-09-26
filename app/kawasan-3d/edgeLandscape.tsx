@@ -19,7 +19,7 @@
 //                     generic `hilly` bucket.
 // All cheap: a handful of planes/boxes/cones + one animated water shader.
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { TOD_ENV, type Tod, type SeatTraits, type CellPlacement } from "./cityData";
@@ -404,11 +404,7 @@ function Lake({ tod, span }: { tod: Tod; span: number }) {
   );
 }
 
-// Mount Kinabalu's real silhouette: a broad forested shoulder rising to a
-// bare granite massif, topped by a jagged crown of summit spires (Low's
-// Peak, St John's, South Peak, the "Ugly Sisters"...) around the summit
-// plateau's rim, usually half-wrapped in cloud by mid-morning.
-const PEAK_TINT: Record<Tod, string> = { day: "#727b76", dusk: "#927262", night: "#343b46" };
+// Cloud tint for the Kinabalu cloud band, per time of day.
 const CLOUD_TINT: Record<Tod, string> = { day: "#d7e3df", dusk: "#d8a889", night: "#59636e" };
 
 // Interior and highland seats need terrain too, not just the named Kinabalu
@@ -462,88 +458,217 @@ function HillRange({ tod, span }: { tod: Tod; span: number }) {
   </group>;
 }
 
+// ── Mount Kinabalu ──────────────────────────────────────────────────
+// Built as one sculpted heightfield rather than stacked cones, so it reads
+// like the real massif seen from Kota Kinabalu: long forested shoulders
+// cut by ravines, a sheer granite block above the tree line, and a wide,
+// ragged summit plateau crowned by named spires. Heights are authored in
+// normalised units (a along the ridge, b across it; b < 0 faces the city)
+// and scaled by `s` at build time.
+
+// Deterministic value noise + fbm (no dependency, runs once per build).
+function hash2(x: number, y: number) {
+  const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
+function vnoise(x: number, y: number) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) * 2 - 1;
+}
+function fbm(x: number, y: number, oct = 5) {
+  let sum = 0, amp = 0.5, f = 1;
+  for (let i = 0; i < oct; i++) { sum += amp * vnoise(x * f, y * f); f *= 2.03; amp *= 0.5; }
+  return sum;
+}
+// Ridged fbm: sharp creases — ravines on the forest, buttresses on granite.
+function ridged(x: number, y: number, oct = 4) {
+  let sum = 0, amp = 0.5, f = 1;
+  for (let i = 0; i < oct; i++) { const n = 1 - Math.abs(vnoise(x * f, y * f)); sum += amp * n * n; f *= 2.1; amp *= 0.5; }
+  return sum;
+}
+const smooth = (e0: number, e1: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+
+// Summit crown: [a, b, height, radius] in normalised units. Roughly the
+// real skyline from the west: South Peak's needle, the Donkey's Ears,
+// Low's Peak as the high point, St John's, the Ugly Sisters, then Victoria
+// / Alexandra / King Edward trailing east, Tunku Abdul Rahman to the west.
+const CROWN: [number, number, number, number][] = [
+  [-0.3, 0.02, 0.1, 0.06],    // Tunku Abdul Rahman
+  [-0.2, -0.1, 0.13, 0.05],
+  [-0.11, -0.2, 0.2, 0.035],  // South Peak
+  [-0.03, -0.14, 0.15, 0.03],
+  [0.02, -0.17, 0.17, 0.025], // Donkey's Ears
+  [0.05, -0.16, 0.17, 0.025],
+  [0.1, -0.04, 0.26, 0.06],   // Low's Peak
+  [0.17, -0.1, 0.2, 0.045],   // St John's
+  [0.23, -0.05, 0.16, 0.035], // Ugly Sisters
+  [0.27, -0.02, 0.15, 0.03],
+  [0.34, 0.06, 0.17, 0.05],   // Victoria
+  [0.38, 0.14, 0.13, 0.05],   // Alexandra
+  [0.43, 0.08, 0.12, 0.045],  // King Edward
+];
+
+const K_W = 3200; // along the ridge (world Z)
+const K_D = 1700; // across it (world X)
+const K_FOREST = 520;
+const K_GRANITE = 250;
+
+// Concave "volcano skirt" profile: long gentle foot, steepening upward.
+const skirt = (e: number, k: number) => Math.max(0, (Math.exp(-k * e) - Math.exp(-k)) / (1 - Math.exp(-k)));
+
+function kinabaluHeight(a: number, b: number): { h: number; rock: number } {
+  // Broad massif + a western and eastern foothill spur for a long skyline.
+  const warpA = a + fbm(a * 2.5 + 3, b * 2.5, 3) * 0.08;
+  const warpB = b + fbm(a * 2.5 - 9, b * 2.5 + 4, 3) * 0.08;
+  const e = warpA * warpA + (warpB * 1.15) ** 2;
+  let body = skirt(e, 2.6);
+  const spurW = 0.42 * skirt(((a + 0.6) / 0.4) ** 2 + ((b + 0.15) / 0.6) ** 2, 2.2);
+  const spurE = 0.36 * skirt(((a - 0.64) / 0.36) ** 2 + ((b - 0.05) / 0.6) ** 2, 2.2);
+  body = Math.max(body, spurW, spurE) + Math.min(body, spurW, spurE) * 0.3;
+  let h = K_FOREST * body;
+  // ravines and spurs running down the forested slopes
+  const rav = ridged(a * 6 + 3, b * 4.5 - 1);
+  h -= K_FOREST * 0.13 * rav * smooth(0.02, 0.3, body) * (1 - smooth(0.7, 0.95, body));
+  h += K_FOREST * 0.035 * fbm(a * 16, b * 16, 4) * smooth(0, 0.2, body);
+
+  // Granite massif: tapered walls from a ragged outline, cut by buttresses.
+  const wob = fbm(a * 5 - 4, b * 5 + 2, 4) * 0.35;
+  const eg = (a / 0.56) ** 2 + ((b + 0.03) / 0.28) ** 2 + wob;
+  const blk = smooth(1.15, 0.35, eg);
+  const butt = ridged(a * 11 + 5, b * 8, 4);
+  // the summit plateau tilts down to the east, like the real one
+  let g = K_GRANITE * Math.pow(blk, 1.25) * (0.75 + 0.5 * butt) * (1 - a * 0.25);
+  // jagged skyline: a ridged crest plus the named spires
+  g += K_GRANITE * 0.4 * Math.pow(ridged(a * 9 + 1, b * 7 - 3, 3), 2) * smooth(0.55, 0.95, blk);
+  let crown = 0;
+  for (const [pa, pb, ph, pr] of CROWN) {
+    const d = Math.hypot((a - pa) * 1.2, b - pb) / (pr * 1.5);
+    if (d < 1) crown = Math.max(crown, ph * Math.pow(1 - d, 1.8));
+  }
+  g += K_GRANITE * crown * 2.2 * smooth(0.4, 0.85, blk);
+  h += g;
+  if (body <= 0.002 && g < 1) h = -14; // sink the unused rim below the ground sheet
+  return { h, rock: blk };
+}
+
+function buildKinabalu(s: number) {
+  const segW = 240, segD = 130;
+  const geo = new THREE.PlaneGeometry(K_D * s, K_W * s, segD, segW);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const rock = new Float32Array(pos.count);
+  const hMax = (K_FOREST + K_GRANITE * 1.9) * s;
+  for (let i = 0; i < pos.count; i++) {
+    const b = pos.getX(i) / (K_D * s / 2);
+    const a = pos.getZ(i) / (K_W * s / 2);
+    const r = kinabaluHeight(a, b);
+    pos.setY(i, r.h * s);
+    rock[i] = r.rock;
+  }
+  geo.computeVertexNormals();
+  const nrm = geo.attributes.normal as THREE.BufferAttribute;
+  const colors = new Float32Array(pos.count * 3);
+  const forestDark = new THREE.Color("#1f4128"), forest = new THREE.Color("#2f5f35"), forestLight = new THREE.Color("#4a7a3f");
+  const scrub = new THREE.Color("#6b7350"), granite = new THREE.Color("#9a9d9f"), graniteDark = new THREE.Color("#6c7074");
+  const graniteLight = new THREE.Color("#b4b6b4");
+  const c = new THREE.Color(), tmp = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const t = y / hMax + fbm(x * 0.012 / s, z * 0.012 / s, 3) * 0.07; // ragged tree line
+    const up = nrm.getY(i);
+    const n = fbm(x * 0.007 / s, z * 0.007 / s, 3);
+    // forest: darker in ravines and lower down, lighter on sunlit crests
+    c.copy(forestDark).lerp(forest, 0.35 + smooth(-0.4, 0.5, n) * 0.4 + 0.25 * smooth(0, 0.35, t));
+    c.lerp(forestLight, smooth(0, 0.6, n) * 0.25 * up * up);
+    // montane scrub band just under the rock
+    c.lerp(scrub, smooth(0.4, 0.52, t) * 0.75);
+    // granite where the block rises, or wherever high ground is steep
+    const rockAmt = Math.max(smooth(0.3, 0.6, rock[i]) * smooth(0.42, 0.58, t), smooth(0.7, 0.4, up) * smooth(0.42, 0.55, t));
+    tmp.copy(graniteDark).lerp(granite, smooth(-0.4, 0.5, n));
+    // vertical streaks down the cliffs + pale bare slabs on the plateau
+    tmp.lerp(graniteDark, 0.35 * smooth(0.2, 0.8, Math.abs(Math.sin(z * 0.09 / s + n * 4))) * (1 - up));
+    tmp.lerp(graniteLight, smooth(0.7, 0.95, up) * smooth(0.6, 0.85, t) * 0.7);
+    c.lerp(tmp, Math.min(1, rockAmt));
+    colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  return { geo, hMax };
+}
+
+// Soft cumulus puff, drawn once.
+let cloudTex: THREE.CanvasTexture | null = null;
+function getCloudTexture() {
+  if (cloudTex) return cloudTex;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 128;
+  const ctx = cv.getContext("2d")!;
+  for (let k = 0; k < 7; k++) {
+    const x = 40 + k * 8, y = 66 + ((k * 37) % 13) - 6, r = 20 + ((k * 13) % 8); // stays inside the canvas: no hard edges
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, "rgba(255,255,255,0.55)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+  }
+  cloudTex = new THREE.CanvasTexture(cv);
+  cloudTex.colorSpace = THREE.SRGBColorSpace;
+  return cloudTex;
+}
+
 function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
   const edge = span / 2; // grid's +X edge — the one edge Coast/Paddy/Lake leave free
   // It belongs on the horizon behind Kota Kinabalu, not immediately beside
   // the last city block. Keeping it distant also preserves the skyline.
-  const mx = edge + 1050;
-  const mz = 0;
-  const s = Math.min(0.9, Math.max(0.56, span / 8500));
+  const s = Math.min(0.95, Math.max(0.6, span / 8000));
+  const mx = edge + (K_D / 2 + 380) * s;
 
-  const rnd = useMemo(() => {
-    let seed = 20260913;
-    return () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-  }, []);
-  const foothills = useMemo(
-    () => Array.from({ length: 6 }, () => ({
-      x: (rnd() - 0.5) * 740 * s,
-      z: (rnd() - 0.5) * 680 * s + 130 * s,
-      r: (115 + rnd() * 70) * s,
-      h: (70 + rnd() * 65) * s,
-    })),
-    [rnd, s],
-  );
-  const spires = useMemo(
-    () => Array.from({ length: 5 }, (_, i) => {
-      const a = (i / 5) * Math.PI * 2 + rnd() * 0.35;
-      const r = (42 + rnd() * 70) * s;
+  const { geo, hMax } = useMemo(() => buildKinabalu(s), [s]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  const clouds = useMemo(() => {
+    let seed = 20260926;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    return Array.from({ length: 16 }, (_, i) => {
+      const a = -0.75 + (i / 15) * 1.5 + (rnd() - 0.5) * 0.08;
       return {
-        x: Math.cos(a) * r, z: Math.sin(a) * r,
-        rad: (18 + rnd() * 16) * s, h: (55 + rnd() * 72) * s,
-        tiltX: (rnd() - 0.5) * 0.18, tiltZ: (rnd() - 0.5) * 0.18,
+        z: a * K_W * s / 2,
+        x: (-0.55 + rnd() * 0.5) * K_D * s / 2,
+        y: hMax * (0.4 + rnd() * 0.14) * (1 - Math.abs(a) * 0.5),
+        w: (520 + rnd() * 420) * s,
+        h: (210 + rnd() * 120) * s,
+        drift: 0.6 + rnd() * 0.8,
+        phase: rnd() * Math.PI * 2,
       };
-    }),
-    [rnd, s],
-  );
-
-  const FOREST_H = 235 * s;
-  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.72;
-  const ROCK_H = 285 * s;
-  const summitY = ROCK_BASE_Y + ROCK_H * 0.88;
-  const peakColor = PEAK_TINT[tod];
+    });
+  }, [s, hMax]);
+  const cloudRefs = useRef<(THREE.Sprite | null)[]>([]);
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    clouds.forEach((cl, i) => {
+      const sp = cloudRefs.current[i];
+      if (sp) sp.position.z = cl.z + Math.sin(t * 0.03 * cl.drift + cl.phase) * 60 * s;
+    });
+  });
   const cloudColor = CLOUD_TINT[tod];
+  const cloudOpacity = tod === "night" ? 0.3 : tod === "dusk" ? 0.55 : 0.65;
 
   return (
-    <group position={[mx, 0, mz]}>
-      {/* A distant chain of forested foothills, low enough to sit on the
-          horizon rather than becoming a giant object inside the city. */}
-      {foothills.map((f, i) => (
-        <mesh key={i} position={[f.x, TILE_H + f.h / 2, f.z]} rotation={[0, (i % 3) * 0.36, 0]} castShadow>
-          <coneGeometry args={[f.r, f.h, 12]} />
-          <meshStandardMaterial color={i % 2 ? "#294b38" : "#355a42"} roughness={1} flatShading />
-        </mesh>
+    <group position={[mx, TILE_H - 2, 0]}>
+      <mesh geometry={geo}>
+        <meshStandardMaterial vertexColors roughness={0.96} metalness={0} />
+      </mesh>
+      {/* the famous mid-morning cloud band wrapping the upper slopes */}
+      {clouds.map((cl, i) => (
+        <sprite key={i} ref={(el) => { cloudRefs.current[i] = el; }} position={[cl.x, cl.y, cl.z]} scale={[cl.w, cl.h, 1]}>
+          <spriteMaterial map={getCloudTexture()} color={cloudColor} transparent opacity={cloudOpacity} depthWrite={false} />
+        </sprite>
       ))}
-      {/* broad lower slopes and two offset granite shoulders form a proper
-          range silhouette instead of a single symmetrical spike. */}
-      <mesh position={[0, TILE_H + FOREST_H / 2, 0]} rotation={[0, 0.22, 0]} castShadow>
-        <coneGeometry args={[360 * s, FOREST_H, 14]} />
-        <meshStandardMaterial color="#31563d" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[-104 * s, ROCK_BASE_Y + ROCK_H * 0.34, 24 * s]} rotation={[0.04, -0.35, -0.08]} castShadow>
-        <coneGeometry args={[160 * s, ROCK_H * 0.7, 9]} />
-        <meshStandardMaterial color="#59645f" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[42 * s, ROCK_BASE_Y + ROCK_H * 0.48, -22 * s]} rotation={[-0.03, 0.25, 0.1]} castShadow>
-        <coneGeometry args={[182 * s, ROCK_H, 9]} />
-        <meshStandardMaterial color={peakColor} roughness={1} flatShading />
-      </mesh>
-      {/* a restrained rocky crown, visible as a silhouette at the horizon */}
-      {spires.map((sp, i) => (
-        <mesh
-          key={i}
-          position={[sp.x + 40 * s, summitY + sp.h / 2 - 10 * s, sp.z - 22 * s]}
-          rotation={[sp.tiltX, 0, sp.tiltZ]}
-          castShadow
-        >
-          <coneGeometry args={[sp.rad, sp.h, 6]} />
-          <meshStandardMaterial color={i % 2 ? "#5f6965" : peakColor} roughness={0.98} flatShading />
-        </mesh>
-      ))}
-      {/* muted atmospheric veil; no obvious cloud blobs or rings */}
-      {tod !== "night" && <mesh position={[185 * s, ROCK_BASE_Y + ROCK_H * 0.36, 10 * s]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[320 * s, 110 * s]} />
-        <meshBasicMaterial color={cloudColor} transparent opacity={0.1} depthWrite={false} />
-      </mesh>}
     </group>
   );
 }
