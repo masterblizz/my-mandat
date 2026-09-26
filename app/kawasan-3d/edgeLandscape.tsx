@@ -377,6 +377,57 @@ function Lake({ tod, span }: { tod: Tod; span: number }) {
 const PEAK_TINT: Record<Tod, string> = { day: "#c7c3ba", dusk: "#e8a672", night: "#5b6270" };
 const CLOUD_TINT: Record<Tod, string> = { day: "#f5f5f2", dusk: "#f0b98a", night: "#3d4552" };
 
+// Interior and highland seats need terrain too, not just the named Kinabalu
+// scene below. These layered, irregular slopes form a believable foothill
+// range: distant blue-green ridges, forested mid-slopes, then a few trees at
+// the base to make the transition into the town read naturally.
+function HillRange({ tod, span }: { tod: Tod; span: number }) {
+  const s = Math.min(1.25, Math.max(0.72, span / 5200));
+  const edge = span / 2;
+  const hills = useMemo(() => {
+    let seed = 20260926;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    return Array.from({ length: 9 }, (_, index) => ({
+      x: 80 + rnd() * 260,
+      z: (-0.5 + index / 8) * span * 1.1 + (rnd() - 0.5) * 150,
+      radius: (125 + rnd() * 115) * s,
+      height: (105 + rnd() * 150) * s,
+      back: index % 3 === 0,
+      rotation: rnd() * Math.PI,
+    }));
+  }, [s, span]);
+  const treeColor = tod === "night" ? "#183126" : "#28543a";
+  return <group position={[edge, 0, 0]}>
+    {hills.map((hill, index) => {
+      const y = TILE_H + hill.height * 0.46;
+      return <group key={index} position={[hill.x, y, hill.z]} rotation={[0, hill.rotation, 0]}>
+        {/* faceted ground gives the slope contour instead of a smooth toy dome */}
+        <mesh scale={[hill.radius, hill.height, hill.radius * 0.72]} castShadow>
+          <dodecahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={hill.back ? "#274750" : "#356143"} roughness={0.98} flatShading />
+        </mesh>
+        {!hill.back && <>
+          <mesh position={[-hill.radius * 0.18, hill.height * 0.12, hill.radius * 0.16]} scale={[hill.radius * 0.73, hill.height * 0.7, hill.radius * 0.49]}>
+            <dodecahedronGeometry args={[1, 1]} />
+            <meshStandardMaterial color="#3d7046" roughness={1} flatShading />
+          </mesh>
+          {[-0.38, -0.14, 0.12, 0.37].map((offset) => (
+            <mesh key={offset} position={[offset * hill.radius, -hill.height * 0.2, hill.radius * 0.42]}>
+              <coneGeometry args={[7 * s, 23 * s, 6]} />
+              <meshStandardMaterial color={treeColor} roughness={0.95} />
+            </mesh>
+          ))}
+        </>}
+      </group>;
+    })}
+    {/* a thin atmospheric haze softens the distant ridge line in daytime */}
+    {tod !== "night" && <mesh position={[250 * s, TILE_H + 105 * s, 0]} rotation={[0, Math.PI / 2, 0]}>
+      <planeGeometry args={[span * 1.25, 125 * s]} />
+      <meshBasicMaterial color={tod === "dusk" ? "#d8a477" : "#c8e1de"} transparent opacity={0.12} depthWrite={false} />
+    </mesh>}
+  </group>;
+}
+
 function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
   const edge = span / 2; // grid's +X edge — the one edge Coast/Paddy/Lake leave free
   const mx = edge + 300;
@@ -478,13 +529,14 @@ export function EdgeLandscape({
   span: number;
   coastalVillage?: CellPlacement;
 }) {
-  if (!traits.coastal && !traits.paddy && !traits.lake && !traits.kinabalu) return null;
+  if (!traits.coastal && !traits.paddy && !traits.lake && !traits.hilly && !traits.kinabalu) return null;
   return (
     <group>
       {traits.coastal && <Coast tod={tod} span={span} />}
       {traits.coastal && coastalVillage && <FishingVillageHarbour village={coastalVillage} />}
       {traits.paddy && <Paddy span={span} />}
       {traits.lake && <Lake tod={tod} span={span} />}
+      {traits.hilly && !traits.kinabalu && <HillRange tod={tod} span={span} />}
       {traits.kinabalu && <Kinabalu tod={tod} span={span} />}
     </group>
   );
