@@ -27,9 +27,12 @@ export default function CampaignBriefing() {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
+  const homeSupport = useGameStore((state) => state.states.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0);
   const campaign = journey.chapter === "campaign" && day < totalDays;
   if (!campaign) return null;
   const fresh = day === 1 && journey.decisions === 3 && journey.actionsToday.length === 0;
+  const objectiveDay = Math.min(10, totalDays);
+  const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
   const open = reopened || (ready && showOnStart && fresh && !dismissed);
   const close = () => { setDismissed(true); setReopened(false); };
 
@@ -57,7 +60,9 @@ export default function CampaignBriefing() {
       <button type="button" onClick={() => setReopened(true)}
         className="absolute right-[172px] top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-cyan shadow-xl"
         style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>
-        ? {t(lang, "PANDUAN", "GUIDE")}
+        ? {t(lang, "PANDUAN", "GUIDE")} · {objectiveDone
+          ? t(lang, "OBJEKTIF ✓", "OBJECTIVE ✓")
+          : t(lang, `${homeSupport.toFixed(0)}%/60% H${day}/${objectiveDay}`, `${homeSupport.toFixed(0)}%/60% D${day}/${objectiveDay}`)}
       </button>
       {open && (
         // z above the 3D map's <Html> location labels (zIndexRange up to 100 in CityScene)

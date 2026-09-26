@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:journey": "node scripts/test-journey.cjs",
+    "test:qa": "node qa-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

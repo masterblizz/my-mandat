@@ -119,7 +119,10 @@ export default function AmbientMusic() {
   // Hidden on /kawasan — the city's own soundscape (horns/LRT/traffic)
   // is the audio there; the toggle/track-switcher would otherwise sit on
   // screen controlling a track that's deliberately silent.
-  if (suppressed) return null;
+  // A missing optional audio asset is not useful player-facing information.
+  // Hide the widget rather than exposing the technical "NO FILE" state.
+  // It will retry cleanly on the next route load.
+  if (suppressed || error) return null;
 
   return (
     <div

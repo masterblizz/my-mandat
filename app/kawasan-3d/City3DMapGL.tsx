@@ -237,9 +237,11 @@ export default function City3DMapGL({
         ["--kw3d-rz" as string]: "45deg",
       }}
     >
+      {/* Phone-size canvases use a lower pixel density and no shadows to
+          keep pan/zoom responsive on mid-range devices. */}
       <Canvas
-        shadows
-        dpr={[1, 2]}
+        shadows={!compact}
+        dpr={compact ? [1, 1.25] : [1, 2]}
         gl={{ antialias: true, toneMappingExposure: 1.08, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0 }}
         camera={{ position: [distance, distance, distance], fov: 35, near: 0.5, far: farPlaneFor(span) }}

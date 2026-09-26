@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:3333';
+// Override QA_BASE_URL in CI; local Next development uses port 3000.
+const BASE = process.env.QA_BASE_URL || 'http://localhost:3000';
 const issues = [];
 const log = (msg) => console.log('[QA]', msg);
 
@@ -85,7 +86,7 @@ await check('Setup: navigate to step 2', async () => {
 });
 await shot('03-setup-step2');
 
-// ─── 5. Navigate through setup to warroom ────────────────────────────────────
+// ─── 5. Navigate through setup into the city ─────────────────────────────────
 log('Completing setup flow...');
 await check('Setup: complete all steps', async () => {
   // Step through remaining steps
@@ -97,15 +98,31 @@ await check('Setup: complete all steps', async () => {
   const launch = await page.getByText(/LAUNCH CAMPAIGN|LAUNCH →/i).first();
   if (!launch) throw new Error('LAUNCH button not found on confirm step');
   await launch.click();
-  // Intro video may play, wait up to 8s for either /warroom or intro
+  // Intro video may play before the city hub is shown.
   await page.waitForTimeout(500);
   // Skip intro if it shows
   const skipBtn = await page.$('button:has-text("SKIP"), [data-testid="skip"]');
   if (skipBtn) await skipBtn.click();
 });
 
-// ─── 6. Warroom ───────────────────────────────────────────────────────────────
-log('Navigating to warroom directly...');
+// ─── 6. First-day briefing → Operations Centre → War Room ───────────────────
+log('Testing first-day location flow...');
+await page.goto(`${BASE}/kawasan`, { waitUntil: 'networkidle' });
+await check('Briefing: Operations Centre opens its location first', async () => {
+  const operations = page.getByRole('button', { name: /BUKA PUSAT OPERASI|OPEN OPERATIONS CENTRE/i });
+  if (await operations.count() === 0) throw new Error('Operations Centre button missing from campaign briefing');
+  await operations.click();
+  await page.waitForURL('**/location/operations**', { timeout: 5000 });
+});
+await check('Operations Centre: War Room opens from the location', async () => {
+  const warRoom = page.getByRole('button', { name: /BUKA WAR ROOM|OPEN WAR ROOM/i });
+  if (await warRoom.count() === 0) throw new Error('War Room action missing from Operations Centre');
+  await warRoom.click();
+  await page.waitForURL('**/warroom**', { timeout: 5000 });
+});
+
+// ─── 7. Warroom ───────────────────────────────────────────────────────────────
+log('Checking warroom...');
 await page.goto(`${BASE}/warroom`, { waitUntil: 'networkidle' });
 await shot('04-warroom');
 await check('Warroom: NEXT DAY button present', async () => {
