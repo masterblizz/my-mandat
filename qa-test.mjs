@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import os from 'node:os';
+import path from 'node:path';
 
 // Override QA_BASE_URL in CI; local Next development uses port 3000.
 const BASE = process.env.QA_BASE_URL || 'http://localhost:3000';
@@ -16,18 +18,30 @@ const page = await ctx.newPage();
 const screenshots = [];
 
 async function shot(name) {
-  const p = `/tmp/qa-${name}.png`;
+  const p = path.join(os.tmpdir(), `qa-${name}.png`);
   await page.screenshot({ path: p, fullPage: false });
   screenshots.push({ name, p });
 }
 
-// ─── 1. Root redirects to /menu ──────────────────────────────────────────────
+// ─── 1. Entry route and auth gate ────────────────────────────────────────────
 log('Testing root redirect...');
-await check('Root → /menu redirect', async () => {
+await check('Root opens menu or the authentication gate', async () => {
   await page.goto(BASE, { waitUntil: 'networkidle' });
-  if (!page.url().includes('/menu')) throw new Error(`Landed on ${page.url()}`);
+  if (!page.url().includes('/menu') && !page.url().includes('/login')) throw new Error(`Landed on ${page.url()}`);
 });
 await shot('01-menu');
+
+// The full simulation suite needs a seeded, authenticated game. Do not make
+// visual QA depend on a personal account; CI can opt in after supplying one.
+if (page.url().includes('/login') && process.env.QA_AUTHENTICATED !== '1') {
+  log('Authentication gate detected; public visual QA completed. Set QA_AUTHENTICATED=1 with a seeded session to run the campaign screens.');
+  await browser.close();
+  console.log('\n========== QA RESULTS ==========');
+  if (issues.length === 0) console.log('✅ PUBLIC VISUAL CHECKS PASSED');
+  else issues.forEach(i => console.log(i));
+  console.log('=================================\n');
+  process.exit(issues.length ? 1 : 0);
+}
 
 // ─── 2. Menu page language consistency ───────────────────────────────────────
 log('Checking menu language...');

@@ -28,9 +28,16 @@ export default function TrendLine({
   showGrid = true,
   showLegend = false,
 }: TrendLineProps) {
+  const hasData = data.length > 0 && lines.some((line) => data.some((point) => typeof point[line.key] === "number" && Number.isFinite(point[line.key] as number)));
+
+  if (!hasData) {
+    return <div className="grid w-full place-items-center border border-dashed text-center text-[10px] tracking-widest text-text-muted" style={{ height, borderColor: "rgb(var(--cyan-rgb) / .22)", background: "rgb(var(--cyan-rgb) / .025)" }}>TIADA DATA TREND</div>;
+  }
+
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 4 }}>
+    <div role="img" aria-label="Trend sokongan kempen" style={{ height }}>
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 10, left: 2, bottom: 4 }}>
         {showGrid && (
           <CartesianGrid strokeDasharray="2 4" stroke="var(--bar-empty)" vertical={false} />
         )}
@@ -76,5 +83,6 @@ export default function TrendLine({
         ))}
       </LineChart>
     </ResponsiveContainer>
+    </div>
   );
 }

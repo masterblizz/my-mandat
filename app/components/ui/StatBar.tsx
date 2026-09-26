@@ -22,7 +22,9 @@ export default function StatBar({
   size = "md",
 }: StatBarProps) {
   const [width, setWidth] = useState(0);
-  const pct = Math.min((value / max) * 100, 100);
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 1;
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const pct = Math.max(0, Math.min((safeValue / safeMax) * 100, 100));
 
   useEffect(() => {
     if (animate) {
@@ -55,7 +57,7 @@ export default function StatBar({
           className={`${textSize} font-bold shrink-0`}
           style={{ color, minWidth: "28px", textAlign: "right" }}
         >
-          {formatNumber(value)}
+          {formatNumber(safeValue)}
         </span>
       )}
     </div>
