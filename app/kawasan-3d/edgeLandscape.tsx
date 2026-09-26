@@ -116,9 +116,15 @@ function MovingSeaVessel({ vessel }: { vessel: SeaVessel }) {
     if (!group) return;
     const t = clock.getElapsedTime() * vessel.speed + vessel.phase;
     const travel = Math.sin(t) * vessel.range;
-    const direction = Math.cos(t) >= 0 ? 1 : -1;
-    group.position.set(vessel.x + travel, TILE_H + 0.8 + Math.sin(t * 2.4) * 0.7, vessel.z + Math.sin(t * 0.7) * 10);
-    group.rotation.set(0, direction > 0 ? Math.PI / 2 : -Math.PI / 2, Math.sin(t * 2.4) * 0.025);
+    const waveZ = Math.sin(t * 0.7) * 10;
+    // The model's bow is local +X. Derive its yaw from the same path used
+    // for position, so every vessel genuinely travels bow-first, including
+    // the small Z drift that stops a route looking mechanically straight.
+    const velocityX = Math.cos(t) * vessel.range;
+    const velocityZ = Math.cos(t * 0.7) * 7;
+    const yaw = Math.atan2(-velocityZ, velocityX);
+    group.position.set(vessel.x + travel, TILE_H + 0.8 + Math.sin(t * 2.4) * 0.7, vessel.z + waveZ);
+    group.rotation.set(0, yaw, Math.sin(t * 2.4) * 0.025);
   });
 
   const isTrawler = vessel.kind === "trawler";
