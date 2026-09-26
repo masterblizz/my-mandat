@@ -374,8 +374,8 @@ function Lake({ tod, span }: { tod: Tod; span: number }) {
 // bare granite massif, topped by a jagged crown of summit spires (Low's
 // Peak, St John's, South Peak, the "Ugly Sisters"...) around the summit
 // plateau's rim, usually half-wrapped in cloud by mid-morning.
-const PEAK_TINT: Record<Tod, string> = { day: "#c7c3ba", dusk: "#e8a672", night: "#5b6270" };
-const CLOUD_TINT: Record<Tod, string> = { day: "#f5f5f2", dusk: "#f0b98a", night: "#3d4552" };
+const PEAK_TINT: Record<Tod, string> = { day: "#727b76", dusk: "#927262", night: "#343b46" };
+const CLOUD_TINT: Record<Tod, string> = { day: "#d7e3df", dusk: "#d8a889", night: "#59636e" };
 
 // Interior and highland seats need terrain too, not just the named Kinabalu
 // scene below. These layered, irregular slopes form a believable foothill
@@ -430,90 +430,96 @@ function HillRange({ tod, span }: { tod: Tod; span: number }) {
 
 function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
   const edge = span / 2; // grid's +X edge — the one edge Coast/Paddy/Lake leave free
-  const mx = edge + 300;
+  const mx = edge + 430;
   const mz = 0;
-  // Gentle size scaling across density presets, capped both ways so a
-  // rural 6x6 doesn't get a toy pebble and a dense-metro 30x30 doesn't
-  // get an absurd wall — real Kinabalu dwarfs any of these cities anyway.
-  const s = Math.min(1.5, Math.max(0.75, span / 6000));
+  // Keep the landmark impressive but comfortably behind even a dense city;
+  // the former height was tall enough to read as a toy ice-cream cone.
+  const s = Math.min(1.08, Math.max(0.68, span / 7200));
 
   const rnd = useMemo(() => {
     let seed = 20260913;
     return () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   }, []);
   const foothills = useMemo(
-    () => Array.from({ length: 4 }, () => ({
-      x: (rnd() - 0.5) * 620 * s,
-      z: (rnd() - 0.5) * 420 * s + 140 * s,
-      r: (130 + rnd() * 70) * s,
-      h: (80 + rnd() * 60) * s,
+    () => Array.from({ length: 7 }, () => ({
+      x: (rnd() - 0.5) * 720 * s,
+      z: (rnd() - 0.5) * 620 * s + 120 * s,
+      r: (120 + rnd() * 85) * s,
+      h: (70 + rnd() * 90) * s,
+      rot: rnd() * Math.PI,
     })),
     [rnd, s],
   );
   const spires = useMemo(
-    () => Array.from({ length: 6 }, (_, i) => {
-      const a = (i / 6) * Math.PI * 2 + rnd() * 0.4;
-      const r = (55 + rnd() * 35) * s;
+    () => Array.from({ length: 9 }, (_, i) => {
+      const a = (i / 9) * Math.PI * 2 + rnd() * 0.5;
+      const r = (35 + rnd() * 95) * s;
       return {
         x: Math.cos(a) * r, z: Math.sin(a) * r,
-        rad: (14 + rnd() * 12) * s, h: (70 + rnd() * 90) * s,
-        tiltX: (rnd() - 0.5) * 0.25, tiltZ: (rnd() - 0.5) * 0.25,
+        rad: (18 + rnd() * 25) * s, h: (68 + rnd() * 110) * s,
+        tiltX: (rnd() - 0.5) * 0.4, tiltZ: (rnd() - 0.5) * 0.4,
       };
     }),
     [rnd, s],
   );
 
-  const FOREST_H = 460 * s;
-  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.5;
-  const ROCK_H = 520 * s;
-  const summitY = ROCK_BASE_Y + ROCK_H;
+  const FOREST_H = 330 * s;
+  const ROCK_BASE_Y = TILE_H + FOREST_H * 0.68;
+  const ROCK_H = 380 * s;
+  const summitY = ROCK_BASE_Y + ROCK_H * 0.78;
   const peakColor = PEAK_TINT[tod];
   const cloudColor = CLOUD_TINT[tod];
 
   return (
     <group position={[mx, 0, mz]}>
-      {/* forested foothills leading up to the massif */}
+      {/* Uneven, low-poly foothills make the mountain meet the town through
+          real terrain rather than a single perfect cone. */}
       {foothills.map((f, i) => (
-        <mesh key={i} position={[f.x, TILE_H + f.h / 2, f.z]} castShadow>
-          <coneGeometry args={[f.r, f.h, 8]} />
-          <meshStandardMaterial color="#2f5a3a" roughness={0.95} />
+        <mesh key={i} position={[f.x, TILE_H + f.h * 0.44, f.z]} rotation={[0, f.rot, 0]} scale={[f.r, f.h, f.r * 0.76]} castShadow>
+          <dodecahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={i % 2 ? "#284c35" : "#315940"} roughness={1} flatShading />
         </mesh>
       ))}
-      {/* forested lower slopes */}
-      <mesh position={[0, TILE_H + FOREST_H / 2, 0]} castShadow>
-        <coneGeometry args={[360 * s, FOREST_H, 10]} />
-        <meshStandardMaterial color="#355f3f" roughness={0.95} />
+      {/* broad forest apron and a darker shoulder under the exposed granite */}
+      <mesh position={[0, TILE_H + FOREST_H * 0.46, 0]} rotation={[0, 0.32, 0]} scale={[410 * s, FOREST_H, 340 * s]} castShadow>
+        <dodecahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial color="#31583e" roughness={1} flatShading />
       </mesh>
-      {/* bare granite massif, rising out of the treeline */}
-      <mesh position={[0, ROCK_BASE_Y + ROCK_H / 2, 0]} castShadow>
-        <coneGeometry args={[210 * s, ROCK_H, 10]} />
-        <meshStandardMaterial color={peakColor} roughness={0.85} />
+      <mesh position={[-55 * s, TILE_H + FOREST_H * 0.72, 25 * s]} rotation={[0, -0.24, 0]} scale={[275 * s, FOREST_H * 0.66, 235 * s]} castShadow>
+        <dodecahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial color="#254631" roughness={1} flatShading />
       </mesh>
-      {/* jagged summit spires around the plateau rim */}
+      {/* Weathered granite massif: faceted and asymmetrical, not snow-white. */}
+      <mesh position={[0, ROCK_BASE_Y + ROCK_H * 0.42, 0]} rotation={[0, -0.16, 0]} scale={[220 * s, ROCK_H, 175 * s]} castShadow>
+        <dodecahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial color={peakColor} roughness={0.96} flatShading />
+      </mesh>
+      {/* jagged summit spires break the ridge line into a Kinabalu-like crown */}
       {spires.map((sp, i) => (
         <mesh
           key={i}
-          position={[sp.x, summitY + sp.h / 2 - 10 * s, sp.z]}
+          position={[sp.x, summitY + sp.h * 0.35, sp.z]}
           rotation={[sp.tiltX, 0, sp.tiltZ]}
+          scale={[sp.rad, sp.h, sp.rad * 0.72]}
           castShadow
         >
-          <coneGeometry args={[sp.rad, sp.h, 6]} />
-          <meshStandardMaterial color={peakColor} roughness={0.8} />
+          <dodecahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={i % 2 ? "#5f6965" : peakColor} roughness={0.98} flatShading />
         </mesh>
       ))}
-      {/* cloud band wrapping the upper slopes */}
-      {[0, 1, 2, 3].map((i) => {
-        const a = (i / 4) * Math.PI * 2;
-        const r = 200 * s;
+      {/* sparse mist sits against the slope instead of forming cartoon rings */}
+      {[0, 1, 2].map((i) => {
+        const a = 0.5 + (i / 3) * Math.PI * 1.2;
+        const r = 165 * s;
         return (
           <mesh
             key={i}
-            position={[Math.cos(a) * r, ROCK_BASE_Y + ROCK_H * 0.42, Math.sin(a) * r]}
-            scale={[3.2 * s, 0.55 * s, 1.3 * s]}
+            position={[Math.cos(a) * r, ROCK_BASE_Y + ROCK_H * 0.38 + i * 18 * s, Math.sin(a) * r]}
+            scale={[2.5 * s, 0.34 * s, 0.9 * s]}
             renderOrder={1}
           >
             <sphereGeometry args={[60, 10, 8]} />
-            <meshBasicMaterial color={cloudColor} transparent opacity={0.55} depthWrite={false} fog={false} />
+            <meshBasicMaterial color={cloudColor} transparent opacity={0.2} depthWrite={false} fog={false} />
           </mesh>
         );
       })}
