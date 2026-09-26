@@ -2,25 +2,35 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
+import { useUIStore } from "../store/uiStore";
 
 // Day-1 campaign briefing from the Personal Assistant. Opens by itself on a
-// fresh campaign (day 1, full energy, nothing done yet) and can be reopened
+// fresh campaign (day 1, full energy, nothing done yet) unless the player
+// opted out, and can be reopened
 // from the GUIDE button for the rest of the campaign. It closes for good
 // as soon as the player acts or ends the day, so no save flag is needed.
+// "Don't show again" is a per-device preference (uiStore, localStorage)
+// that only stops the automatic day-1 opening; GUIDE always works.
 export default function CampaignBriefing() {
   const lang = useLang();
   const router = useRouter();
   const { journey, day, totalDays, leader, settings } = useGameStore();
+  const showOnStart = useUIStore((s) => s.showCampaignBriefing);
+  const setShowOnStart = useUIStore((s) => s.setShowCampaignBriefing);
   const [dismissed, setDismissed] = useState(false);
   const [reopened, setReopened] = useState(false);
+  // Wait one commit so StoreHydrator has restored the saved preference —
+  // otherwise the default (show) would flash the dialog for opted-out players.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   const campaign = journey.chapter === "campaign" && day < totalDays;
   if (!campaign) return null;
   const fresh = day === 1 && journey.decisions === 3 && journey.actionsToday.length === 0;
-  const open = reopened || (fresh && !dismissed);
+  const open = reopened || (ready && showOnStart && fresh && !dismissed);
   const close = () => { setDismissed(true); setReopened(false); };
 
   const prn = settings.electionScope === "prn";
@@ -86,7 +96,12 @@ export default function CampaignBriefing() {
                 "Objektif awal: capai 60% sokongan di negeri asal sebelum hari 10 untuk ganjaran RM75,000.",
                 "Early objective: reach 60% support in your home state by day 10 for a RM75,000 reward.")}
             </p>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <label className="mr-auto flex cursor-pointer items-center gap-2 text-[10px] text-text-muted">
+                <input type="checkbox" checked={!showOnStart} onChange={(e) => setShowOnStart(!e.target.checked)}
+                  className="h-3.5 w-3.5 cursor-pointer" style={{ accentColor: "var(--gold)" }} />
+                {t(lang, "Jangan tunjuk lagi pada permulaan kempen", "Don't show again when a campaign starts")}
+              </label>
               <button type="button" onClick={() => { close(); router.push("/location/operations"); }}
                 className="border px-4 py-2 text-[10px] font-black tracking-widest text-cyan"
                 style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--cyan-rgb) / .06)" }}>

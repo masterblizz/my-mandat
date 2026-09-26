@@ -8,7 +8,7 @@ import { useGameStore, readPersistedPoliticalReactions } from "../../store/gameS
 // This is needed because the Zustand store initialises with defaults during SSR
 // (no window/localStorage available), and we restore the saved values on the client.
 export default function StoreHydrator() {
-  const { setLanguage, setTheme, setMusicEnabled, setMusicVolume } = useUIStore();
+  const { setLanguage, setTheme, setMusicEnabled, setMusicVolume, setShowCampaignBriefing } = useUIStore();
   const updateSettings = useGameStore((state) => state.updateSettings);
 
   useEffect(() => {
@@ -23,6 +23,9 @@ export default function StoreHydrator() {
 
     const vol = Number(localStorage.getItem("mandat-music-volume"));
     if (Number.isFinite(vol) && vol >= 0) setMusicVolume(vol);
+
+    const briefing = localStorage.getItem("mandat-campaign-briefing");
+    if (briefing !== null) setShowCampaignBriefing(briefing === "true");
 
     const savedGameSettings = localStorage.getItem("mymandat-game-settings");
     if (savedGameSettings) {

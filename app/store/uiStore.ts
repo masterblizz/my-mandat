@@ -7,10 +7,13 @@ interface UIState {
   language: Lang;
   musicEnabled: boolean;
   musicVolume: number;
+  /** Auto-open the day-1 campaign briefing on the city map. */
+  showCampaignBriefing: boolean;
   setTheme: (theme: "dark" | "light") => void;
   setLanguage: (language: Lang) => void;
   setMusicEnabled: (enabled: boolean) => void;
   setMusicVolume: (volume: number) => void;
+  setShowCampaignBriefing: (show: boolean) => void;
   toggleMusic: () => void;
 }
 
@@ -20,6 +23,7 @@ export const useUIStore = create<UIState>()((set) => ({
   language: "ms" as Lang,
   musicEnabled: true,
   musicVolume: 42,
+  showCampaignBriefing: true,
   setTheme: (theme) => {
     if (typeof window !== "undefined") localStorage.setItem("mandat-theme", theme);
     set({ theme });
@@ -36,6 +40,10 @@ export const useUIStore = create<UIState>()((set) => ({
     const next = Math.max(0, Math.min(100, volume));
     if (typeof window !== "undefined") localStorage.setItem("mandat-music-volume", String(next));
     set({ musicVolume: next });
+  },
+  setShowCampaignBriefing: (show) => {
+    if (typeof window !== "undefined") localStorage.setItem("mandat-campaign-briefing", String(show));
+    set({ showCampaignBriefing: show });
   },
   toggleMusic: () =>
     set((state) => {
