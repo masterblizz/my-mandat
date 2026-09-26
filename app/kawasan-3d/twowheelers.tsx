@@ -16,8 +16,7 @@ import * as THREE from "three";
 import {
   roadsV, roadsH, worldCentre, PLOT, ROAD_GAP, type CellPlacement, type ZoneKind,
 } from "./cityData";
-import { blockLoop, roundaboutLoop, posAt, signalStateFor, type Loop } from "./scenery";
-import { roundaboutCentre } from "./roundabout";
+import { blockLoop, posAt, signalStateFor, type Loop } from "./scenery";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const TILE_H = 4;
@@ -132,11 +131,9 @@ export function Motorcyclists({
       loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
       addTo(loops.length - 1, perLoop);
     }
-    if (gridSize >= 6) {
-      const [rcx, rcz] = roundaboutCentre(gridSize);
-      loops.push(roundaboutLoop(rcx, rcz, 100));
-      addTo(loops.length - 1, 6);
-    }
+    // A closed roundabout circuit has no exit choice, so riders would circle
+    // indefinitely. They stay on the arterial block loops until real turn
+    // routing is introduced.
     return { loops, riders };
   }, [gridSize, centre, riverRoadIndex, roadIndices]);
 

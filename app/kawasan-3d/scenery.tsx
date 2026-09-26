@@ -27,7 +27,6 @@ import {
   TOD_ENV, type Tod,
 } from "./cityData";
 import { junctionInsideLarge } from "./largeBuildings";
-import { roundaboutCentre } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const DECK_Y = 58; // matches TRACK_DECK_Z in app/kawasan/page.tsx
@@ -586,7 +585,6 @@ const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
 // tile tops) — without adding it back here, a car circling the roundabout
 // rendered at ordinary road height was sitting slightly *below* the
 // actual roundabout surface, reading as sunk into the kerb/deck.
-const ROUNDABOUT_Y_LIFT = 0.4;
 
 type Piece = {
   kind: "line" | "arc";
@@ -691,7 +689,7 @@ export function Traffic({
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
-  const { loops, cars, roundaboutLoopIdx } = useMemo(() => {
+  const { loops, cars } = useMemo(() => {
     let seed = gridSize * 911 + 7;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
     const xs = (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
@@ -747,29 +745,16 @@ export function Traffic({
       // These four blocks meet at the centre junction. Their normal
       // quarter-turn sits inside the raised roundabout island, so keeping
       // them would make cars visibly drive through the kerb / landscaping.
-      // The separate roundaboutLoop below is the only traffic route that
-      // occupies this junction.
+      // These turns sit inside the raised roundabout island, so arterial
+      // traffic skips them rather than cutting through its landscaping.
       const h = gridSize / 2;
       if ((a === h - 1 || a === h) && (b === h - 1 || b === h)) continue;
       loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
       addCarsTo(loops.length - 1, peakPerLoop);
     }
-    // Circular flow around the central roundabout. It runs at r=120,
-    // safely inside the ring's 84..156 road band and outside the island.
-    // Kept to compact "car" kind only — the van/lorry/bus body/cabin
-    // offsets (V_SPEC) are placed via a single heading sampled at the
-    // vehicle's centre, a fine approximation on a straight or a brief
-    // corner arc but visibly "bent" on a long vehicle riding a tight,
-    // *sustained* curve, which the roundabout — unlike the rest of the
-    // network — actually is.
-    let roundaboutLoopIdx = -1;
-    if (gridSize >= 6) {
-      const [rcx, rcz] = roundaboutCentre(gridSize);
-      roundaboutLoopIdx = loops.length;
-      loops.push(roundaboutLoop(rcx, rcz, 120));
-      addCarsTo(loops.length - 1, 20, "car");
-    }
-    return { loops, cars, roundaboutLoopIdx };
+    // Do not create a closed loop on the roundabout. Without exit routing
+    // a loop leaves vehicles circling forever, which is not believable.
+    return { loops, cars };
   }, [gridSize, centre, riverRoadIndex, roadIndices]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
@@ -846,7 +831,7 @@ export function Traffic({
     for (let li = 0; li < loops.length; li++) {
       const loop = loops[li];
       const ring = perLoop[li];
-      const yLift = li === roundaboutLoopIdx ? ROUNDABOUT_Y_LIFT : 0;
+      const yLift = 0;
       if (li >= activeLoops) {
         for (const ci of ring) parkOne(ci);
         continue;
@@ -1005,7 +990,7 @@ export function Traffic({
         // Every block route uses protected left turns. Signal intent before
         // reaching the arc and through the manoeuvre; roundabout circulation
         // stays unlit because these loops do not model an exit choice.
-        const indicatorOn = li !== roundaboutLoopIdx && turnDistance < 62 && Math.floor(now * 2.2) % 2 === 0;
+        const indicatorOn = turnDistance < 62 && Math.floor(now * 2.2) % 2 === 0;
         dummy.scale.set(indicatorOn ? 1 : 0, indicatorOn ? 1 : 0, indicatorOn ? 1 : 0);
         const indicatorSide = -3.45 * spec.bodyS[2];
         [lf, -lf].forEach((fwd, n) => {
