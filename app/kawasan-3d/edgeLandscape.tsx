@@ -96,6 +96,46 @@ function FishingVillageHarbour({ village }: { village: CellPlacement }) {
   </group>;
 }
 
+type SeaVessel = {
+  x: number;
+  z: number;
+  phase: number;
+  range: number;
+  speed: number;
+  kind: "boat" | "trawler";
+  color: string;
+};
+
+// A small number of independent vessels makes the coast feel lived-in. Their
+// movement is calculated from elapsed time (rather than React state), so it
+// costs one transform update per vessel and never triggers a UI re-render.
+function MovingSeaVessel({ vessel }: { vessel: SeaVessel }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const group = ref.current;
+    if (!group) return;
+    const t = clock.getElapsedTime() * vessel.speed + vessel.phase;
+    const travel = Math.sin(t) * vessel.range;
+    const direction = Math.cos(t) >= 0 ? 1 : -1;
+    group.position.set(vessel.x + travel, TILE_H + 0.8 + Math.sin(t * 2.4) * 0.7, vessel.z + Math.sin(t * 0.7) * 10);
+    group.rotation.set(0, direction > 0 ? Math.PI / 2 : -Math.PI / 2, Math.sin(t * 2.4) * 0.025);
+  });
+
+  const isTrawler = vessel.kind === "trawler";
+  const length = isTrawler ? 34 : 19;
+  return <group ref={ref}>
+    {/* wake stays directly behind the moving hull */}
+    <mesh position={[-length * 0.72, -1.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[isTrawler ? 26 : 15, isTrawler ? 7 : 4]} />
+      <meshBasicMaterial color="#d9f3f5" transparent opacity={0.3} depthWrite={false} />
+    </mesh>
+    <mesh castShadow><boxGeometry args={[length, isTrawler ? 5 : 3.2, isTrawler ? 9 : 6]} /><meshStandardMaterial color={vessel.color} roughness={0.62} /></mesh>
+    <mesh position={[isTrawler ? 3 : 1.8, isTrawler ? 4.4 : 3.1, 0]} castShadow><boxGeometry args={[isTrawler ? 11 : 6, isTrawler ? 5 : 3.2, isTrawler ? 7 : 4.2]} /><meshStandardMaterial color="#e8e4d6" roughness={0.72} /></mesh>
+    <mesh position={[isTrawler ? 8 : 4, isTrawler ? 9 : 7, 0]}><boxGeometry args={[0.8, isTrawler ? 12 : 9, 0.8]} /><meshStandardMaterial color="#6e5137" roughness={0.85} /></mesh>
+    {isTrawler && <mesh position={[-7, 4.5, 0]}><boxGeometry args={[12, 0.7, 12]} /><meshStandardMaterial color="#c88d47" roughness={0.82} /></mesh>}
+  </group>;
+}
+
 function Coast({ tod, span }: { tod: Tod; span: number }) {
   const edge = -span / 2; // grid's −Z edge (roughly)
   const rnd = useMemo(() => {
@@ -110,8 +150,16 @@ function Coast({ tod, span }: { tod: Tod; span: number }) {
     })),
     [span, edge, rnd],
   );
-  const boats = useMemo(
-    () => Array.from({ length: 3 }, () => ({ x: (rnd() - 0.5) * span * 0.9, z: edge - 120 - rnd() * 260 })),
+  const vessels = useMemo(
+    () => Array.from({ length: 5 }, (_, index): SeaVessel => ({
+      x: (rnd() - 0.5) * span * 0.72,
+      z: edge - 170 - rnd() * 330,
+      phase: rnd() * Math.PI * 2,
+      range: span * (0.12 + rnd() * 0.1),
+      speed: 0.07 + rnd() * 0.06,
+      kind: index === 0 ? "trawler" : "boat",
+      color: ["#c94c3c", "#3c6ec9", "#e6e2d6", "#e0a83b", "#3b8a78"][index],
+    })),
     [span, edge, rnd],
   );
   return (
@@ -141,18 +189,7 @@ function Coast({ tod, span }: { tod: Tod; span: number }) {
           ))}
         </group>
       ))}
-      {boats.map((b, i) => (
-        <group key={i} position={[b.x, TILE_H - 0.8, b.z]} rotation={[0, i * 1.3, 0]}>
-          <mesh castShadow>
-            <boxGeometry args={[6, 3, 18]} />
-            <meshStandardMaterial color={["#c94c3c", "#3c6ec9", "#e6e2d6"][i % 3]} roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 10, -1]}>
-            <boxGeometry args={[0.8, 16, 0.8]} />
-            <meshStandardMaterial color="#8a7a5a" />
-          </mesh>
-        </group>
-      ))}
+      {vessels.map((vessel, index) => <MovingSeaVessel key={index} vessel={vessel} />)}
     </group>
   );
 }
