@@ -97,23 +97,32 @@ export function assignZonePositions(
   cells.sort((a, b) => a.dist - b.dist || a.row - b.row || a.col - b.col);
   const positions = cells.slice(0, developedCount).map(({ col, row }) => ({ col, row }));
 
-  // A fishing village belongs on the waterfront, not among inland blocks.
-  // Swap only its allocated plot (never the zone data), so selection,
-  // minimap, camera focus and the rendered city keep one shared layout.
+  // Fishing villages must occupy the shore row itself, even when the
+  // centre-outward development pass has not reached the coast yet. This
+  // changes only plots (never zone data), keeping selection, minimap, camera
+  // focus and the rendered city on the same shared layout.
   if (traits?.coastal && zones) {
-    const fishingIndex = zones.findIndex((zone) => zone.archetype === "fishingVillage");
-    if (fishingIndex >= 0 && positions[fishingIndex]) {
-      const mid = (gridSize - 1) / 2;
-      let targetIndex = 0;
-      for (let index = 1; index < positions.length; index++) {
-        const candidate = positions[index];
-        const best = positions[targetIndex];
-        if (candidate.row < best.row || (candidate.row === best.row && Math.abs(candidate.col - mid) < Math.abs(best.col - mid))) {
-          targetIndex = index;
-        }
+    const shorelineColumns = Array.from({ length: gridSize }, (_, col) => col)
+      .sort((a, b) => Math.abs(a - (gridSize - 1) / 2) - Math.abs(b - (gridSize - 1) / 2));
+    const fishingIndices = zones
+      .map((zone, index) => zone.archetype === "fishingVillage" ? index : -1)
+      .filter((index) => index >= 0);
+
+    fishingIndices.forEach((fishingIndex, shorelineIndex) => {
+      if (!positions[fishingIndex]) return;
+      const shoreline = { col: shorelineColumns[shorelineIndex % shorelineColumns.length], row: 0 };
+      const occupyingIndex = positions.findIndex(
+        (position) => position.col === shoreline.col && position.row === shoreline.row,
+      );
+
+      if (occupyingIndex >= 0) {
+        [positions[fishingIndex], positions[occupyingIndex]] = [positions[occupyingIndex], positions[fishingIndex]];
+      } else {
+        // Allocate a vacant beachfront tile directly; the former inland tile
+        // naturally remains undeveloped, preserving the total plot count.
+        positions[fishingIndex] = shoreline;
       }
-      [positions[fishingIndex], positions[targetIndex]] = [positions[targetIndex], positions[fishingIndex]];
-    }
+    });
   }
   return positions;
 }
