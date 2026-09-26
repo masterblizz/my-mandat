@@ -273,8 +273,10 @@ export default function SetupPage() {
         </div>
       )}
       <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
-        {step === 0 && <ScenarioStart />}
-        {step === 0 && (
+        {/* Scenario archive is a premium feature: free users go straight to
+            the custom campaign builder (hidden while premium status loads). */}
+        {step === 0 && hasPremium && !premiumLoading && <ScenarioStart />}
+        {step === 0 && hasPremium && !premiumLoading && (
           <div className="mt-2 flex w-full max-w-[1100px] items-center gap-3 text-[10px] font-black tracking-[0.28em] text-text-muted">
             <span className="h-px flex-1 bg-white/10" />
             {t(lang, "ATAU BINA KEMPEN TERSUAI", "OR BUILD A CUSTOM CAMPAIGN")}
@@ -1014,7 +1016,7 @@ export default function SetupPage() {
                   <div className="space-y-2">
                     <div className="flex justify-center mb-3">
                       <div style={{ position: "relative", width: "80px", height: "80px", border: "2px solid var(--cyan)", overflow: "hidden", background: "var(--bg)" }}>
-                        <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} fill sizes="80px" style={{ objectFit: "cover" }} />
+                        <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} fill sizes="80px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
                       </div>
                     </div>
                     <SummaryRow label={t(lang, "setup_page.name")} value={leaderName} />
