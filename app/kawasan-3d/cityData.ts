@@ -244,6 +244,9 @@ export type BType =
 export type BSpec = {
   type: BType; slot: number; w: number; d: number; h: number;
   icon?: string; glow?: boolean; flag?: boolean;
+  /** The plot's defining building. Never culled by the quality budget and
+   * receives its recognition kit (school flag, clinic cross, factory stack…). */
+  anchor?: boolean;
   projectId?: string;
 };
 
@@ -356,6 +359,21 @@ const ZONE_BASE: Record<ZoneKind, { type: BType; slot: number }[]> = {
   community: [{ type: "hall", slot: 0 }, { type: "clinic", slot: 4 }, { type: "hospital", slot: 2 }, { type: "masjid", slot: 6 }, { type: "police", slot: 8 }],
 };
 
+// Every land-use type needs one unmistakable place-maker at its centre. It
+// remains present even in the packed metro presets, where filler buildings
+// would otherwise make a selected grid's stated purpose impossible to read.
+const ZONE_ANCHOR: Record<ZoneKind, { type: BType; slot: number }> = {
+  urban: { type: "tower", slot: 0 },
+  village: { type: "masjid", slot: 8 },
+  housing: { type: "terrace", slot: 4 },
+  commercial: { type: "shop", slot: 4 },
+  education: { type: "school", slot: 4 },
+  industry: { type: "factory", slot: 0 },
+  river: { type: "pond", slot: 0 },
+  market: { type: "stall", slot: 0 },
+  community: { type: "clinic", slot: 4 },
+};
+
 const PROJECT_BUILDING: Record<string, BType> = {
   road: "plaza", clinic: "clinic", internet: "antenna", flood: "pond", market: "stall",
   school: "school", park: "field", bus: "terminal", mall: "mall", stadium: "stadium",
@@ -438,8 +456,16 @@ export function zoneBuildings(
   // metro-core crowding (see skyscraperCount below) packs the rest of
   // the slots. Give it a real waterway-sized footprint instead.
   const base: BSpec[] = ZONE_BASE[zone.kind].map(({ type, slot }, index) => {
-    const extra: Partial<BSpec> = { flag: zone.kind === "urban" && index === 0 };
+    const isAnchor = type === ZONE_ANCHOR[zone.kind].type && slot === ZONE_ANCHOR[zone.kind].slot;
+    const extra: Partial<BSpec> = {
+      flag: zone.kind === "urban" && index === 0,
+      anchor: isAnchor,
+    };
     if (zone.kind === "river" && type === "pond") { extra.w = 112; extra.d = 86; }
+    // A school is a campus rather than a small generic civic box. It uses
+    // nearly the full centre lot, leaving enough room for the adjacent field
+    // and making its blue frontage + flag legible at the city camera height.
+    if (zone.kind === "education" && type === "school") { extra.w = 64; extra.d = 64; }
     return spec(type, slot, extra);
   });
   const used = new Set(base.map((b) => b.slot));
@@ -464,14 +490,9 @@ export function zoneBuildings(
       ? Math.min(6, 2 + Math.round(hi * 3 + (density - METRO_DENSITY) * 5))
       : zone.kind === "commercial" || zone.kind === "market"
         ? (hi > 0.4 ? 3 : 1)
-        : zone.kind === "industry"
-          ? (hi > 0.6 ? 1 : 0)
-          // river: never — a glass tower dropped on the same tile as the
-          // pond buries the one thing that makes this a "Riverside" zone,
-          // even at the Dense Metro core.
-          : zone.kind === "river"
-            ? 0
-            : Math.round(hi * 1.6); // housing / village / education / community
+        : zone.kind === "industry" || zone.kind === "education" || zone.kind === "community" || zone.kind === "village" || zone.kind === "river"
+          ? 0
+          : Math.round(hi * 0.8); // dense housing can still have a modest apartment edge
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.

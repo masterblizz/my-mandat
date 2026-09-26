@@ -28,6 +28,8 @@ export type BuildingInstance = {
   w: number;
   d: number;
   h: number;     // target height (world units)
+  /** Zone-defining building (for example the school in an education zone). */
+  anchor?: boolean;
   projectId?: string;
 };
 

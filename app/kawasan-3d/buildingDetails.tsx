@@ -371,6 +371,12 @@ export function FunctionalBuildingDetails({
 }) {
   return <group>{groups.flatMap(([type, items]) => {
     if (!FUNCTIONAL_LABEL[type]) return [];
-    return items.slice(0, 8).map((item) => <FunctionalBuilding key={`identity-${item.key}`} type={type} item={item} groundY={groundY} />);
+    // An anchor is the visual promise made by the zone name, so it cannot
+    // lose its school flag / clinic cross simply because earlier cells used
+    // the same building type. Keep a small supporting sample for texture in
+    // dense maps without creating labels on every ordinary filler building.
+    const anchors = items.filter((item) => item.anchor);
+    const supporting = items.filter((item) => !item.anchor).slice(0, Math.max(0, 8 - anchors.length));
+    return [...anchors, ...supporting].map((item) => <FunctionalBuilding key={`identity-${item.key}`} type={type} item={item} groundY={groundY} />);
   })}</group>;
 }

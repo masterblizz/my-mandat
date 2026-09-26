@@ -306,7 +306,7 @@ function Buildings({
       const notchSign = notch ? cornerSign(notch) : null;
       for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         const sp = slotPos(spec.slot);
-        if (!spec.flag && !spec.glow && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
+        if (!spec.flag && !spec.glow && !spec.anchor && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
         // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
         // of this tile's junction-facing corner, so none stands in the ring.
         if (notchSign) {
@@ -329,6 +329,7 @@ function Buildings({
           w: spec.w,
           d: spec.d,
           h: vertical ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize))) : h0,
+          anchor: spec.anchor,
           projectId: spec.projectId,
         };
         const arr = byType.get(spec.type);
