@@ -237,7 +237,7 @@ export type BType =
   | "warehouse" | "school" | "clinic" | "masjid" | "mall" | "stadium" | "terminal"
   | "sawah" | "pond" | "field" | "plaza" | "kampung" | "shophouse" | "terrace"
   // civic / special facilities
-  | "police" | "fire" | "hospital" | "library" | "museum" | "powerplant"
+  | "hall" | "police" | "fire" | "hospital" | "library" | "museum" | "powerplant"
   | "zoo" | "themepark" | "riverbend"
   | "hotel";
 
@@ -266,6 +266,7 @@ function footprint(type: BType) {
   if (type === "mall") return { w: 58, d: 48 };
   if (type === "stadium") return { w: 58, d: 52 };
   if (type === "terminal") return { w: 52, d: 34 };
+  if (type === "hall") return { w: 60, d: 46 };
   if (type === "stall") return { w: 40, d: 32 };
   if (type === "kampung") return { w: 42, d: 38 };
   if (type === "shophouse") return { w: 30, d: 50 };
@@ -321,6 +322,7 @@ export function buildingHeight(type: BType, zone: Zone) {
   if (type === "factory") return 30 + Math.round(zone.economy * 0.25);
   if (type === "warehouse") return 26;
   if (type === "school") return 34 + Math.round(zone.welfare * 0.22);
+  if (type === "hall") return 28 + Math.round(zone.welfare * 0.14);
   if (type === "masjid") return 24;
   if (type === "mall") return 34 + Math.round(zone.economy * 0.15);
   if (type === "stadium") return 16;
@@ -350,7 +352,8 @@ const ZONE_BASE: Record<ZoneKind, { type: BType; slot: number }[]> = {
   industry: [{ type: "factory", slot: 0 }, { type: "factory", slot: 4 }, { type: "warehouse", slot: 2 }, { type: "powerplant", slot: 6 }],
   river: [{ type: "pond", slot: 0 }, { type: "kampung", slot: 4 }, { type: "sawah", slot: 6 }],
   market: [{ type: "stall", slot: 0 }, { type: "stall", slot: 2 }, { type: "shophouse", slot: 4 }, { type: "stall", slot: 6 }],
-  community: [{ type: "clinic", slot: 4 }, { type: "kampung", slot: 0 }, { type: "hospital", slot: 2 }, { type: "masjid", slot: 6 }, { type: "police", slot: 8 }],
+  // Klinik / Dewan is a civic precinct, not a generic residential lot.
+  community: [{ type: "hall", slot: 0 }, { type: "clinic", slot: 4 }, { type: "hospital", slot: 2 }, { type: "masjid", slot: 6 }, { type: "police", slot: 8 }],
 };
 
 const PROJECT_BUILDING: Record<string, BType> = {
@@ -381,7 +384,7 @@ const ZONE_FILLER: Record<ZoneKind, BType[]> = {
   industry: ["warehouse", "factory", "powerplant"],
   river: ["kampung", "pond"],
   market: ["stall", "shophouse", "shop"],
-  community: ["kampung", "house", "clinic", "police", "hospital"],
+  community: ["hall", "clinic", "police", "hospital", "library"],
 };
 
 // Low-rise types a metro core rebuilds as high-rise. Civic / industrial /
@@ -577,7 +580,7 @@ export const BUILDING_COLOR: Record<BType, string> = {
   pond: "#5d7c84", field: "#78895a", plaza: "#a8a49a",
   kampung: "#b89a7c", shophouse: "#d8bfae", terrace: "#c9b79c",
   // civic / special — a bit more colour-coded so they read at a glance
-  police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
+  hall: "#d6c6a4", police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
   library: "#c3b48f", museum: "#cabfa4", powerplant: "#6b6f78",
   zoo: "#6f9440", themepark: "#9a5ba8", riverbend: "#4a7a6a", hotel: "#b98f6a",
 };

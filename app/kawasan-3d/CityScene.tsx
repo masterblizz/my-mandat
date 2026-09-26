@@ -11,7 +11,7 @@ import { CameraRig, type CamState } from "./CameraRig";
 import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
-import { ProjectLandmarks } from "./buildingDetails";
+import { FunctionalBuildingDetails, ProjectLandmarks } from "./buildingDetails";
 import { RoofDetails } from "./roofDetails";
 import { UtilityLines } from "./utilities";
 import {
@@ -390,6 +390,7 @@ function Buildings({
           </Suspense>
         ));
       })}
+      <FunctionalBuildingDetails groups={groups} groundY={GROUND_Y} />
       <ProjectLandmarks items={groups.flatMap(([, items]) => items.filter((item) => item.projectId))} groundY={GROUND_Y} />
       <RoofDetails
         items={groups.filter(([type]) => type === "house" || type === "terrace" || type === "kampung").flatMap(([, items]) => items)}

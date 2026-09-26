@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { Text } from "@react-three/drei";
 import { useHeightTween, type BuildingInstance } from "./models";
 import type { BType } from "./cityData";
 import { MallSign } from "./mallDetails";
@@ -298,4 +299,78 @@ function FacilityKit({ item, groundY }: { item: BuildingInstance; groundY: numbe
 export function ProjectLandmarks({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
   if (!items.length) return null;
   return <group>{items.map((item) => <FacilityKit key={`facility-${item.key}`} item={item} groundY={groundY} />)}</group>;
+}
+
+// Public buildings need to be recognisable before the player clicks them.
+// These are small, low-poly civic kits (plus a roof label) rather than a
+// generic coloured box: a clinic has a medical cross, a hall has a broad
+// entrance, a school has a flag, and emergency/cultural buildings carry
+// their own roofline cues.  We cap each type in dense cities so the readable
+// landmarks do not become a performance cost or label clutter.
+const FUNCTIONAL_LABEL: Partial<Record<BType, string>> = {
+  hall: "DEWAN", clinic: "KLINIK", hospital: "HOSPITAL", school: "SEKOLAH",
+  police: "POLIS", fire: "BOMBA", library: "PERPUSTAKAAN", museum: "MUZIUM",
+  terminal: "TERMINAL", mall: "MALL", masjid: "MASJID", factory: "KILANG",
+  warehouse: "GUDANG", stall: "PASAR", shop: "KEDAI", shophouse: "KEDAI",
+  hotel: "HOTEL", stadium: "STADIUM",
+};
+
+function FunctionalBuilding({ type, item, groundY }: { type: BType; item: BuildingInstance; groundY: number }) {
+  const label = FUNCTIONAL_LABEL[type];
+  if (!label) return null;
+  const roofY = groundY + Math.max(item.h, 6) + 0.65;
+  const frontZ = item.d * 0.54;
+  const signY = groundY + Math.min(Math.max(item.h * 0.5, 8), 19);
+  const accent = type === "clinic" || type === "hospital" || type === "fire" ? "#ef4444"
+    : type === "police" ? "#3b82f6"
+    : type === "school" ? "#2563eb"
+    : type === "masjid" ? "#34d399"
+    : type === "factory" || type === "warehouse" ? "#f59e0b"
+    : "#f0b429";
+
+  return <group position={[item.x, 0, item.z]}>
+    {/* Roof text stays readable from the isometric camera without becoming a HUD label. */}
+    <Text position={[0, roofY, 0]} rotation={[-Math.PI / 2, 0, 0]}
+      fontSize={Math.min(8, Math.max(4.5, item.w * 0.11))} color="#f8fafc"
+      outlineWidth={0.13} outlineColor="#07111c" anchorX="center" anchorY="middle">
+      {label}
+    </Text>
+    <mesh position={[0, signY, frontZ]} castShadow>
+      <boxGeometry args={[Math.min(item.w * 0.78, 42), 3.3, 1.1]} />
+      <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.18} roughness={0.38} />
+    </mesh>
+
+    {(type === "clinic" || type === "hospital") && <group position={[0, roofY + 3.3, 0]}>
+      <mesh><boxGeometry args={[3.4, 13, 1.35]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+      <mesh><boxGeometry args={[13, 3.4, 1.4]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+    </group>}
+    {type === "hall" && <group>
+      {/* A wide covered porch and stage-like gable distinguish a dewan from a clinic. */}
+      <mesh position={[0, groundY + 7, frontZ * 1.12]} castShadow><boxGeometry args={[item.w * 0.78, 1.5, item.d * 0.22]} /><meshStandardMaterial color="#8b6e4d" roughness={0.65} /></mesh>
+      {[-0.3, 0.3].map((x) => <mesh key={x} position={[item.w * x, groundY + 9, frontZ * 1.12]} castShadow><boxGeometry args={[2.2, 14, 2.2]} /><meshStandardMaterial color="#eee6d4" roughness={0.55} /></mesh>)}
+    </group>}
+    {type === "school" && <group>
+      <mesh position={[-item.w * 0.34, groundY + 16, frontZ * 0.72]} castShadow><cylinderGeometry args={[0.45, 0.6, 30, 8]} /><meshStandardMaterial color="#94a3b8" metalness={0.65} /></mesh>
+      <mesh position={[-item.w * 0.27, groundY + 24, frontZ * 0.72]}><boxGeometry args={[10, 5, 0.4]} /><meshBasicMaterial color="#2563eb" /></mesh>
+    </group>}
+    {type === "police" && <mesh position={[0, roofY + 2.2, 0]}><cylinderGeometry args={[2.4, 2.4, 1.4, 16]} /><meshBasicMaterial color="#2563eb" /></mesh>}
+    {type === "fire" && <group position={[item.w * 0.28, roofY + 8, 0]}><mesh castShadow><boxGeometry args={[6, 18, 6]} /><meshStandardMaterial color="#c9372c" roughness={0.5} /></mesh><mesh position={[0, 10, 0]}><boxGeometry args={[8, 2, 2]} /><meshBasicMaterial color="#f8fafc" /></mesh></group>}
+    {type === "library" && <group position={[0, roofY + 3, 0]}>{[-1, 0, 1].map((x, i) => <mesh key={x} position={[x * 5, 0, 0]}><boxGeometry args={[3.4, 7 + i * 2, 4.4]} /><meshStandardMaterial color={["#a16207", "#0f766e", "#7c2d12"][i]} /></mesh>)}</group>}
+    {type === "museum" && <group position={[0, roofY + 4, 0]}>{[-0.24, 0, 0.24].map((x) => <mesh key={x} position={[item.w * x, 0, 0]}><cylinderGeometry args={[1.3, 1.5, 9, 8]} /><meshStandardMaterial color="#ded2b5" roughness={0.6} /></mesh>)}<mesh position={[0, 7, 0]}><coneGeometry args={[item.w * 0.29, 10, 4]} /><meshStandardMaterial color="#c8b18a" /></mesh></group>}
+    {type === "terminal" && <group position={[0, groundY + 6, frontZ * 0.72]}><mesh castShadow><boxGeometry args={[item.w * 0.86, 1.3, item.d * 0.32]} /><meshStandardMaterial color="#f8fafc" metalness={0.25} /></mesh><mesh position={[0, -2.8, 0]}><boxGeometry args={[item.w * 0.5, 5, 6]} /><meshStandardMaterial color="#f6c51c" roughness={0.45} /></mesh></group>}
+    {type === "masjid" && <mesh position={[item.w * 0.32, roofY + 10, 0]} castShadow><cylinderGeometry args={[1.1, 1.7, 22, 8]} /><meshStandardMaterial color="#d8d0b7" roughness={0.5} /></mesh>}
+    {(type === "factory" || type === "warehouse") && <group position={[item.w * 0.28, roofY + 7, -item.d * 0.18]}><mesh castShadow><cylinderGeometry args={[2.7, 3.5, 18, 10]} /><meshStandardMaterial color="#737b82" roughness={0.72} /></mesh><mesh position={[0, 11, 0]}><cylinderGeometry args={[2.1, 2.7, 7, 10]} /><meshStandardMaterial color="#9a9fa5" roughness={0.7} /></mesh></group>}
+  </group>;
+}
+
+export function FunctionalBuildingDetails({
+  groups, groundY,
+}: {
+  groups: [BType, BuildingInstance[]][];
+  groundY: number;
+}) {
+  return <group>{groups.flatMap(([type, items]) => {
+    if (!FUNCTIONAL_LABEL[type]) return [];
+    return items.slice(0, 8).map((item) => <FunctionalBuilding key={`identity-${item.key}`} type={type} item={item} groundY={groundY} />);
+  })}</group>;
 }

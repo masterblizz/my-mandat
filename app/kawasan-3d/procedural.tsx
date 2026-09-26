@@ -66,7 +66,7 @@ const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse", "hotel
 // planes; `antenna` still routes through the box path for its footprint
 // but picks up the mast via BOXCAP.
 const BOXCAP_TYPES = new Set<BType>([
-  "shop", "stall", "factory", "warehouse", "school", "clinic",
+  "shop", "stall", "factory", "warehouse", "school", "clinic", "hall",
   "terminal", "mall", "stadium", "antenna",
   // civic facilities — flat-roof institutional shells, told apart by
   // BUILDING_COLOR + height. `fire` also gets a hose/siren mast.

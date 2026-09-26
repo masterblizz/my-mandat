@@ -50,17 +50,15 @@ const PIN_COLOR = "#ffd27a";        // floating PROJECT_ICON pin (emissive)
 const TALL_MIN: Partial<Record<BType, number>> = { mall: 118, stadium: 60, factory: 82 };
 
 // Anchor type + footprint (in cells) per candidate zone kind. Single-cell
-// since item 17 — see file header. `education` / `community` pick from a
-// small pool by zone-id hash so the leisure landmarks vary.
+// since item 17 — see file header. Education can vary its leisure landmark;
+// community stays a civic precinct so Klinik / Dewan never turns into a zoo.
 const LARGE_BY_KIND: Partial<Record<ZoneKind, { type: BType; cols: number; rows: number }>> = {
   commercial: { type: "mall", cols: 1, rows: 1 },
   education: { type: "stadium", cols: 1, rows: 1 },
   industry: { type: "factory", cols: 1, rows: 1 },
-  community: { type: "zoo", cols: 1, rows: 1 },
 };
 const LARGE_POOL: Partial<Record<ZoneKind, BType[]>> = {
   education: ["stadium", "themepark", "zoo"],
-  community: ["zoo", "themepark"],
 };
 
 export type LargePlacement = {
