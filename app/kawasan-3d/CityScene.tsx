@@ -460,7 +460,7 @@ function Grid({
   destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 }) {
-  const empties = useMemo(() => emptyCells(zones, gridSize), [zones, gridSize]);
+  const empties = useMemo(() => emptyCells(zones, gridSize, traits), [zones, gridSize, traits]);
   const centre = worldCentre(gridSize);
   const span = worldSize(gridSize);
   const vRoads = useMemo(() => roadsV(gridSize).map((x) => x - centre + ROAD_W / 2), [gridSize, centre]);
@@ -629,7 +629,7 @@ export function CityScene({
   const span = worldSize(gridSize);
   const riverRoadIndex = urbanRiverRoadIndex(gridSize);
   const trafficRoads = useMemo(() => superblockTrafficRoads(gridSize, density), [gridSize, density]);
-  const placed = useMemo(() => placeZones(zones, gridSize), [zones, gridSize]);
+  const placed = useMemo(() => placeZones(zones, gridSize, traits), [zones, gridSize, traits]);
   const developedCells = useMemo(
     () => new Set(placed.map((p) => `${p.col},${p.row}`)),
     [placed],
@@ -679,7 +679,8 @@ export function CityScene({
       <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
       <SceneEnvironment tod={tod} weather={weather} />
       {weather !== "rain" && <SkyLife tod={tod} span={span} />}
-      <EdgeLandscape traits={traits} tod={tod} span={span} />
+      <EdgeLandscape traits={traits} tod={tod} span={span}
+        coastalVillage={placed.find((placement) => placement.zone.archetype === "fishingVillage")} />
       <Grid
         placed={placed}
         zones={zones}

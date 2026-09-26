@@ -172,22 +172,22 @@ export default function City3DMapGL({
 
   const zoneByCell = useMemo(() => {
     const m = new Map<string, Zone>();
-    assignZonePositions(gridSize, zones.length).forEach((p, i) => {
+    assignZonePositions(gridSize, zones.length, zones, traits).forEach((p, i) => {
       if (zones[i]) m.set(`${p.col},${p.row}`, zones[i]);
     });
     return m;
-  }, [gridSize, zones]);
+  }, [gridSize, zones, traits]);
 
   // Reverse lookup (zone id -> grid cell) so clicking a building's plot in
   // the 3D scene itself recentres the camera on it, the same way a minimap
   // click already does — not just picking the zone for the side panel.
   const cellByZoneId = useMemo(() => {
     const m = new Map<string, { col: number; row: number }>();
-    assignZonePositions(gridSize, zones.length).forEach((p, i) => {
+    assignZonePositions(gridSize, zones.length, zones, traits).forEach((p, i) => {
       if (zones[i]) m.set(zones[i].id, p);
     });
     return m;
-  }, [gridSize, zones]);
+  }, [gridSize, zones, traits]);
 
   const onSelect = useCallback(
     (id: string) => {

@@ -84,6 +84,8 @@ export function kawasanDevelopedCount(density: number, gridSize: number): number
 export function assignZonePositions(
   gridSize: number,
   developedCount: number,
+  zones?: Zone[],
+  traits?: SeatTraits,
 ): { col: number; row: number }[] {
   const center = (gridSize - 1) / 2;
   const cells: { col: number; row: number; dist: number }[] = [];
@@ -93,7 +95,27 @@ export function assignZonePositions(
     }
   }
   cells.sort((a, b) => a.dist - b.dist || a.row - b.row || a.col - b.col);
-  return cells.slice(0, developedCount).map(({ col, row }) => ({ col, row }));
+  const positions = cells.slice(0, developedCount).map(({ col, row }) => ({ col, row }));
+
+  // A fishing village belongs on the waterfront, not among inland blocks.
+  // Swap only its allocated plot (never the zone data), so selection,
+  // minimap, camera focus and the rendered city keep one shared layout.
+  if (traits?.coastal && zones) {
+    const fishingIndex = zones.findIndex((zone) => zone.archetype === "fishingVillage");
+    if (fishingIndex >= 0 && positions[fishingIndex]) {
+      const mid = (gridSize - 1) / 2;
+      let targetIndex = 0;
+      for (let index = 1; index < positions.length; index++) {
+        const candidate = positions[index];
+        const best = positions[targetIndex];
+        if (candidate.row < best.row || (candidate.row === best.row && Math.abs(candidate.col - mid) < Math.abs(best.col - mid))) {
+          targetIndex = index;
+        }
+      }
+      [positions[fishingIndex], positions[targetIndex]] = [positions[targetIndex], positions[fishingIndex]];
+    }
+  }
+  return positions;
 }
 
 function clamp(value: number) {
@@ -195,8 +217,8 @@ export type CellPlacement = {
 
 // zones[] holds only the DEVELOPED cells; assignZonePositions maps each
 // back onto its (col,row), centre-outward — same as City3DMap.
-export function placeZones(zones: Zone[], gridSize: number): CellPlacement[] {
-  const positions = assignZonePositions(gridSize, zones.length);
+export function placeZones(zones: Zone[], gridSize: number, traits?: SeatTraits): CellPlacement[] {
+  const positions = assignZonePositions(gridSize, zones.length, zones, traits);
   const XY = plotXY(gridSize);
   const c = worldCentre(gridSize);
   return positions.map((pos, i) => ({
@@ -208,9 +230,9 @@ export function placeZones(zones: Zone[], gridSize: number): CellPlacement[] {
   }));
 }
 
-export function emptyCells(zones: Zone[], gridSize: number): { col: number; row: number; cx: number; cz: number }[] {
+export function emptyCells(zones: Zone[], gridSize: number, traits?: SeatTraits): { col: number; row: number; cx: number; cz: number }[] {
   const occupied = new Set(
-    assignZonePositions(gridSize, zones.length).map((p) => `${p.col},${p.row}`),
+    assignZonePositions(gridSize, zones.length, zones, traits).map((p) => `${p.col},${p.row}`),
   );
   const XY = plotXY(gridSize);
   const c = worldCentre(gridSize);

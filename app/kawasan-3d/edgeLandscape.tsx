@@ -22,26 +22,34 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { TOD_ENV, type Tod, type SeatTraits } from "./cityData";
+import { TOD_ENV, type Tod, type SeatTraits, type CellPlacement } from "./cityData";
 
 const TILE_H = 4;
 
 const SEA_VERT = /* glsl */ `
-  varying vec3 vW;
-  void main() { vW = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  varying vec2 vSea;
+  uniform float uTime;
+  void main() {
+    vSea = position.xy;
+    vec3 p = position;
+    p.z += sin(p.x * 0.032 + uTime * 0.75) * 1.15
+         + sin(p.y * 0.046 - uTime * 0.58) * 0.72
+         + sin((p.x + p.y) * 0.021 + uTime * 0.42) * 0.5;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
 `;
 const SEA_FRAG = /* glsl */ `
   precision mediump float;
   uniform float uTime; uniform vec3 uDeep; uniform vec3 uSky;
-  varying vec3 vW;
+  varying vec2 vSea;
   void main() {
-    float r = sin(vW.x * 0.012 + uTime * 0.9)
-            + sin(vW.y * 0.017 - uTime * 0.7)
-            + sin((vW.x + vW.y) * 0.008 + uTime * 0.4) * 0.8;
-    float n = r / 2.8 * 0.5 + 0.5;
-    vec3 col = mix(uDeep, uSky, 0.28 + 0.34 * n);
-    col += smoothstep(0.78, 0.97, n) * 0.28;
-    gl_FragColor = vec4(col, 0.95);
+    float swell = sin(vSea.x * 0.009 + uTime * 0.34) * 0.5
+                + sin(vSea.y * 0.013 - uTime * 0.28) * 0.5;
+    float ripples = sin((vSea.x - vSea.y) * 0.065 + uTime * 1.35) * 0.5 + 0.5;
+    float light = pow(max(0.0, sin((vSea.x + vSea.y) * 0.048 + uTime * 0.8)), 18.0);
+    vec3 col = mix(uDeep, uSky, 0.28 + swell * 0.12 + ripples * 0.045);
+    col += vec3(0.62, 0.83, 0.88) * light * 0.23;
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -51,18 +59,41 @@ function Sea({ tod, span }: { tod: Tod; span: number }) {
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uDeep: { value: new THREE.Color(env.skyBottom).multiplyScalar(0.35) },
-      uSky: { value: new THREE.Color(env.skyBottom) },
+      uDeep: { value: new THREE.Color(tod === "night" ? "#06213a" : "#07516c") },
+      uSky: { value: new THREE.Color(tod === "night" ? "#17476b" : "#3b9bb3") },
     }),
     [env.skyBottom],
   );
   useFrame((_, dt) => { if (matRef.current) (matRef.current.uniforms.uTime.value as number) += dt; });
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TILE_H - 1.2, -span * 0.98]}>
-      <planeGeometry args={[span * 3, span * 1.7, 1, 1]} />
-      <shaderMaterial ref={matRef} vertexShader={SEA_VERT} fragmentShader={SEA_FRAG} uniforms={uniforms} transparent />
+      <planeGeometry args={[span * 3, span * 1.7, 140, 80]} />
+      <shaderMaterial ref={matRef} vertexShader={SEA_VERT} fragmentShader={SEA_FRAG} uniforms={uniforms} side={THREE.DoubleSide} />
     </mesh>
   );
+}
+
+// The fishing-village zone itself is moved to the waterfront by
+// assignZonePositions(). This harbour kit reaches from that exact tile into
+// the sea, so the player can read a genuine kampung nelayan rather than a
+// generic inland river plot.
+function FishingVillageHarbour({ village }: { village: CellPlacement }) {
+  const shore = -120;
+  return <group position={[village.cx, TILE_H, village.cz]}>
+    <mesh position={[0, 1.1, shore / 2]} castShadow><boxGeometry args={[18, 2.2, 240]} /><meshStandardMaterial color="#8a6344" roughness={0.9} /></mesh>
+    {[-1, 1].flatMap((side) => [-76, -20, 38, 94].map((z) => (
+      <mesh key={`${side}-${z}`} position={[side * 7, -4.5, z]}><cylinderGeometry args={[1.1, 1.45, 13, 6]} /><meshStandardMaterial color="#5a402e" roughness={0.95} /></mesh>
+    )))}
+    {[-42, 34].map((x, index) => <group key={x} position={[x, 0, -44 - index * 30]}>
+      <mesh position={[0, 9, 0]} castShadow><boxGeometry args={[31, 18, 24]} /><meshStandardMaterial color={index ? "#b98b62" : "#9d7655"} roughness={0.78} /></mesh>
+      {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => <mesh key={`${sx}-${sz}`} position={[sx * 11, 3, sz * 8]}><cylinderGeometry args={[0.7, 0.9, 8, 6]} /><meshStandardMaterial color="#5a402e" roughness={0.9} /></mesh>))}
+      <mesh position={[0, 20, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[23, 10, 4]} /><meshStandardMaterial color="#b84335" roughness={0.8} /></mesh>
+    </group>)}
+    {[-72, 62].map((x, index) => <group key={x} position={[x, 0.8, -132 - index * 18]} rotation={[0, index ? -0.45 : 0.35, 0]}>
+      <mesh><boxGeometry args={[7, 3, 20]} /><meshStandardMaterial color={index ? "#2f7db4" : "#d05740"} roughness={0.65} /></mesh>
+      <mesh position={[0, 7, 0]}><boxGeometry args={[0.6, 13, 0.6]} /><meshStandardMaterial color="#8a6344" /></mesh>
+    </group>)}
+  </group>;
 }
 
 function Coast({ tod, span }: { tod: Tod; span: number }) {
@@ -403,16 +434,18 @@ function Kinabalu({ tod, span }: { tod: Tod; span: number }) {
 }
 
 export function EdgeLandscape({
-  traits, tod, span,
+  traits, tod, span, coastalVillage,
 }: {
   traits: SeatTraits;
   tod: Tod;
   span: number;
+  coastalVillage?: CellPlacement;
 }) {
   if (!traits.coastal && !traits.paddy && !traits.lake && !traits.kinabalu) return null;
   return (
     <group>
       {traits.coastal && <Coast tod={tod} span={span} />}
+      {traits.coastal && coastalVillage && <FishingVillageHarbour village={coastalVillage} />}
       {traits.paddy && <Paddy span={span} />}
       {traits.lake && <Lake tod={tod} span={span} />}
       {traits.kinabalu && <Kinabalu tod={tod} span={span} />}
