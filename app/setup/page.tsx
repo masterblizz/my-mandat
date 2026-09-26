@@ -521,6 +521,33 @@ export default function SetupPage() {
                     </select>
                   </div>
 
+                  {/* Set the character's actual hometown while building the
+                      profile. The same state is deliberately reused by the
+                      nomination step, so /kawasan opens the city the player
+                      explicitly chose rather than the first generated seat. */}
+                  <div className="rounded-sm border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", background: "rgb(var(--cyan-rgb) / 0.045)" }}>
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.characterConstituency")}</div>
+                      <span className="text-[9px] font-black tracking-widest text-cyan">{electionScope === "prn" ? "DUN" : "PARLIMEN"}</span>
+                    </div>
+                    <select
+                      value={contestConstituencyId}
+                      onChange={(e) => setContestConstituencyId(e.target.value)}
+                      className="w-full text-[13px]"
+                      aria-label={t(lang, "setup_page.characterConstituency")}
+                    >
+                      {homeConstituencies.map((constituency) => (
+                        <option key={constituency.id} value={constituency.id}>
+                          {constituency.code} · {constituency.name}
+                        </option>
+                      ))}
+                    </select>
+                    {contestConstituency && <div className="mt-2 flex items-center justify-between text-[10px]">
+                      <span className="text-text-muted">{t(lang, "setup_page.characterConstituencyHint")}</span>
+                      <span className="font-bold text-gold">{contestConstituency.mandat}% {t(lang, "setup_page.support")}</span>
+                    </div>}
+                  </div>
+
                   {/* Leader Attributes */}
                   <div>
                     <div className="flex items-center justify-between mb-2">

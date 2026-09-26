@@ -15,6 +15,8 @@ const setup_page = {
   position: { ms: "JAWATAN", en: "POSITION" },
   experience: { ms: "PENGALAMAN", en: "EXPERIENCE" },
   homeState: { ms: "NEGERI ASAL", en: "HOME STATE" },
+  characterConstituency: { ms: "KAWASAN KARAKTER", en: "CHARACTER CONSTITUENCY" },
+  characterConstituencyHint: { ms: "Bandar 3D dan pencalonan anda bermula di sini", en: "Your 3D city and nomination begin here" },
   leaderAttributes: { ms: "ATRIBUT PEMIMPIN", en: "LEADER ATTRIBUTES" },
   ptsRemaining: { ms: "{pointsRemaining} MATA BERBAKI", en: "{pointsRemaining} PTS REMAINING" },
   partyIdentity: { ms: "IDENTITI PARTI", en: "PARTY IDENTITY" },
