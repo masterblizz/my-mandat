@@ -16,7 +16,8 @@ import * as THREE from "three";
 import {
   roadsV, roadsH, worldCentre, PLOT, ROAD_GAP, type CellPlacement, type ZoneKind,
 } from "./cityData";
-import { blockLoop, posAt, signalStateFor, type Loop } from "./scenery";
+import { blockLoop, detourRoundabout, posAt, signalStateFor, type Loop } from "./scenery";
+import { R_IN as RB_R_IN, R_OUT as RB_R_OUT, roundaboutLift } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const TILE_H = 4;
@@ -69,15 +70,18 @@ const MC_BRAKE_LOOKAHEAD = 100;
 type Rider = { loop: number; s: number; speed: number; lean: number; spin: number; color: THREE.Color; helmet: THREE.Color };
 
 export function Motorcyclists({
-  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices,
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices, roundabout = null,
 }: {
   gridSize: number;
   trafficLevel?: number;
   riverRoadIndex?: number | null;
   /** Road indexes that remain asphalt after internal lanes become superblocks. */
   roadIndices?: { vertical: number[]; horizontal: number[] };
+  /** Central roundabout (world x, z); loops crossing it are routed around the ring. */
+  roundabout?: [number, number] | null;
 }) {
   const centre = worldCentre(gridSize);
+  const rbX = roundabout?.[0] ?? null, rbZ = roundabout?.[1] ?? null;
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
@@ -122,20 +126,17 @@ export function Motorcyclists({
       const leftRoad = roadIndices?.vertical?.[a] ?? a;
       const rightRoad = roadIndices?.vertical?.[a + 1] ?? a + 1;
       if (riverRoadIndex !== null && (leftRoad === riverRoadIndex || rightRoad === riverRoadIndex)) continue;
-      // a different coverage roll from <Traffic>'s cars, same central-
-      // junction exclusion (those quarter-turns sit inside the roundabout
-      // island).
+      // a different coverage roll from <Traffic>'s cars
       if (((a * 41 + b * 67 + gridSize) % 100) >= 60) continue;
-      const h = gridSize / 2;
-      if ((a === h - 1 || a === h) && (b === h - 1 || b === h)) continue;
-      loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
+      // Riders crossing the central junction go round the roundabout on
+      // the kerb-side (outer) part of the ring, like the cars.
+      let loop = blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR);
+      if (rbX !== null && rbZ !== null) loop = detourRoundabout(loop, rbX, rbZ, RB_R_IN + (RB_R_OUT - RB_R_IN) * 0.8);
+      loops.push(loop);
       addTo(loops.length - 1, perLoop);
     }
-    // A closed roundabout circuit has no exit choice, so riders would circle
-    // indefinitely. They stay on the arterial block loops until real turn
-    // routing is introduced.
     return { loops, riders };
-  }, [gridSize, centre, riverRoadIndex, roadIndices]);
+  }, [gridSize, centre, riverRoadIndex, roadIndices, rbX, rbZ]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);
@@ -263,7 +264,7 @@ export function Motorcyclists({
         const cos = Math.cos(heading), sin = Math.sin(heading);
         const local = (fwd: number, side: number) => [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
 
-        const roadY = loop.gates.length === 0 ? TILE_H + 0.4 : 0.8;
+        const roadY = rbX !== null && rbZ !== null ? roundaboutLift(x, z, rbX, rbZ, 0.8) : 0.8;
         const leanPosition = (height: number, fwd = 0) => {
           const side = Math.sin(c.lean) * (height - 1.6);
           dummy.position.set(x + cos * fwd - sin * side,

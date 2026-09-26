@@ -27,6 +27,7 @@ import {
   TOD_ENV, type Tod,
 } from "./cityData";
 import { junctionInsideLarge } from "./largeBuildings";
+import { R_IN as RB_R_IN, R_OUT as RB_R_OUT, roundaboutLift } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const DECK_Y = 58; // matches TRACK_DECK_Z in app/kawasan/page.tsx
@@ -527,9 +528,8 @@ export function TrafficLights({
 // ── traffic ─────────────────────────────────────────────────────────
 // Cars no longer slide along a single infinite lane. Each car is bound to
 // a closed LOOP made of straight segments joined by quarter-circle arcs,
-// so it actually corners at every junction. The four block loops that
-// would cut beneath the central roundabout are deliberately omitted;
-// cars at that junction use its dedicated circular loop instead. Every
+// so it actually corners at every junction. Loops that cross the central
+// roundabout are rerouted around its ring (detourRoundabout). Every
 // loop carries GATES at the
 // grid junctions it crosses — a car reads signalStateFor() for the
 // direction it is travelling and brakes to the stop line on red, crawls
@@ -579,12 +579,6 @@ const CAR_GAP_LIGHT = 18;     // clear-road bumper gap
 const CAR_GAP_PEAK = 7;       // compact but still visibly separated in a jam
 const STOP_MARGIN = 12;       // how far back from the junction to hold on red
 const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
-// The roundabout's own carriageway deck sits this far above the tile-top
-// ground level every other car position is calibrated against (see
-// roundabout.tsx's DECK_Y = TILE_H + 0.4, "clears z-fighting" against the
-// tile tops) — without adding it back here, a car circling the roundabout
-// rendered at ordinary road height was sitting slightly *below* the
-// actual roundabout surface, reading as sunk into the kerb/deck.
 
 type Piece = {
   kind: "line" | "arc";
@@ -667,14 +661,122 @@ export function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOf
   return finishLoop(pieces);
 }
 
-// A full circle around the central roundabout — no gates (roundabouts run
-// free), capped to the cornering speed.
-export function roundaboutLoop(cx: number, cz: number, r: number): Loop {
-  return finishLoop([arcP(cx, cz, r, 0, -Math.PI * 2)]); // clockwise
+// Pieces covering arc-length [sA, sB] of `loop` (0 ≤ sA < sB ≤ sA + L;
+// sB may run past L and wraps). A line keeps its signal gate only when
+// its real end — the junction — is still included.
+function slicePieces(loop: Loop, sA: number, sB: number): Piece[] {
+  const out: Piece[] = [];
+  for (let lap = 0; lap <= 1; lap++) {
+    const off = lap * loop.L;
+    for (const p of loop.pieces) {
+      const p0 = p.s0 + off, p1 = p.s0 + p.len + off;
+      const a = Math.max(sA, p0), b = Math.min(sB, p1);
+      if (b - a < 1e-6) continue;
+      const ta = (a - p0) / p.len, tb = (b - p0) / p.len;
+      if (p.kind === "line") {
+        const dx = p.bx! - p.ax!, dz = p.bz! - p.az!;
+        out.push(lineP(p.ax! + dx * ta, p.az! + dz * ta, p.ax! + dx * tb, p.az! + dz * tb,
+          b >= p1 - 1e-6 ? p.gateAxisIsX : undefined));
+      } else {
+        const da = p.a1! - p.a0!;
+        out.push(arcP(p.cx!, p.cz!, p.r!, p.a0! + da * ta, p.a0! + da * tb));
+      }
+    }
+  }
+  return out;
+}
+
+function headingAt(loop: Loop, s: number): [number, number] {
+  const [ax, az] = posAt(loop, s - 0.5), [bx, bz] = posAt(loop, s + 0.5);
+  const l = Math.hypot(bx - ax, bz - az) || 1;
+  return [(bx - ax) / l, (bz - az) / l];
+}
+
+// Cubic Hermite blend from (p0, t0) to (p1, t1) as short line pieces, so
+// the swing onto and off the ring has no heading snap.
+function blendPieces(p0: [number, number], t0: [number, number], p1: [number, number], t1: [number, number]): Piece[] {
+  const k = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 1.1;
+  const at = (t: number): [number, number] => {
+    const t2 = t * t, t3 = t2 * t;
+    const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+    return [
+      h00 * p0[0] + h10 * k * t0[0] + h01 * p1[0] + h11 * k * t1[0],
+      h00 * p0[1] + h10 * k * t0[1] + h01 * p1[1] + h11 * k * t1[1],
+    ];
+  };
+  const out: Piece[] = [];
+  let prev = p0;
+  for (let i = 1; i <= 10; i++) {
+    const q = at(i / 10);
+    out.push(lineP(prev[0], prev[1], q[0], q[1]));
+    prev = q;
+  }
+  return out;
+}
+
+// Reroute a loop through the roundabout at (cx, cz). Wherever its lane
+// would cross the ring (and so the landscaped island), the vehicle
+// instead blends onto a circulating lane of radius `laneR`, runs
+// clockwise on screen (Malaysian left-hand traffic: increasing
+// atan2(z, x) goes east → south) and blends back onto its own route on
+// the far side. Signal gates inside the cut section are dropped —
+// roundabouts run free.
+export function detourRoundabout(loop: Loop, cx: number, cz: number, laneR: number, blend = 28): Loop {
+  const dist = (s: number) => {
+    const [x, z] = posAt(loop, s);
+    return Math.hypot(x - cx, z - cz);
+  };
+  const inside = (s: number) => dist(s) < laneR;
+  const step = 2;
+  const n = Math.ceil(loop.L / step);
+  // Walk from the point farthest from the ring, so no crossing (and its
+  // entry/exit blend) straddles the lap seam.
+  let start = 0, far = -1;
+  for (let i = 0; i < n; i++) { const d = dist(i * step); if (d > far) { far = d; start = i * step; } }
+  if (far < laneR) return loop;
+  // Crossing intervals [in, out], relative to `start`, refined by bisection.
+  const refine = (lo: number, hi: number) => {
+    const from = inside(start + lo);
+    for (let k = 0; k < 20; k++) {
+      const m = (lo + hi) / 2;
+      if (inside(start + m) === from) lo = m; else hi = m;
+    }
+    return (lo + hi) / 2;
+  };
+  const spans: [number, number][] = [];
+  let enter = -1;
+  for (let i = 1; i <= n; i++) {
+    const u0 = (i - 1) * step, u1 = Math.min(i * step, loop.L);
+    const was = inside(start + u0), now = inside(start + u1);
+    if (!was && now) enter = refine(u0, u1);
+    else if (was && !now && enter >= 0) { spans.push([enter, refine(u0, u1)]); enter = -1; }
+  }
+  if (!spans.length) return loop;
+
+  const ringPt = (a: number): [number, number] => [cx + Math.cos(a) * laneR, cz + Math.sin(a) * laneR];
+  const ringTan = (a: number): [number, number] => [-Math.sin(a), Math.cos(a)];
+  const dAng = blend / laneR;
+  const pieces: Piece[] = [];
+  let cursor = 0;
+  for (const [uIn, uOut] of spans) {
+    const sIn = Math.max(cursor, uIn - blend), sOut = Math.min(loop.L, uOut + blend);
+    if (sIn > cursor) pieces.push(...slicePieces(loop, start + cursor, start + sIn));
+    const [ex, ez] = posAt(loop, start + uIn);
+    const [xx, xz] = posAt(loop, start + uOut);
+    const a0 = Math.atan2(ez - cz, ex - cx) + dAng;
+    let a1 = Math.atan2(xz - cz, xx - cx) - dAng;
+    while (a1 <= a0 + 0.2) a1 += Math.PI * 2;
+    pieces.push(...blendPieces(posAt(loop, start + sIn), headingAt(loop, start + sIn), ringPt(a0), ringTan(a0)));
+    pieces.push(arcP(cx, cz, laneR, a0, a1));
+    pieces.push(...blendPieces(ringPt(a1), ringTan(a1), posAt(loop, start + sOut), headingAt(loop, start + sOut)));
+    cursor = sOut;
+  }
+  if (cursor < loop.L) pieces.push(...slicePieces(loop, start + cursor, start + loop.L));
+  return finishLoop(pieces);
 }
 
 export function Traffic({
-  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices,
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices, roundabout = null,
 }: {
   gridSize: number;
   trafficLevel?: number;
@@ -682,8 +784,11 @@ export function Traffic({
   riverRoadIndex?: number | null;
   /** Road indexes that stay visible after internal lanes become superblocks. */
   roadIndices?: { vertical: number[]; horizontal: number[] };
+  /** Central roundabout (world x, z); loops crossing it are routed around the ring. */
+  roundabout?: [number, number] | null;
 }) {
   const centre = worldCentre(gridSize);
+  const rbX = roundabout?.[0] ?? null, rbZ = roundabout?.[1] ?? null;
 
   // read the live density in useFrame without re-rendering / rebuilding
   const levelRef = useRef(trafficLevel);
@@ -742,20 +847,16 @@ export function Traffic({
       const rightRoad = roadIndices?.vertical?.[a + 1] ?? a + 1;
       if (riverRoadIndex !== null && (leftRoad === riverRoadIndex || rightRoad === riverRoadIndex)) continue;
       if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
-      // These four blocks meet at the centre junction. Their normal
-      // quarter-turn sits inside the raised roundabout island, so keeping
-      // them would make cars visibly drive through the kerb / landscaping.
-      // These turns sit inside the raised roundabout island, so arterial
-      // traffic skips them rather than cutting through its landscaping.
-      const h = gridSize / 2;
-      if ((a === h - 1 || a === h) && (b === h - 1 || b === h)) continue;
-      loops.push(blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR));
+      // A loop whose lane crosses the central junction would cut straight
+      // through the roundabout island; route it around the ring instead
+      // (cars on the inner half of the circulating carriageway).
+      let loop = blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR);
+      if (rbX !== null && rbZ !== null) loop = detourRoundabout(loop, rbX, rbZ, RB_R_IN + (RB_R_OUT - RB_R_IN) * 0.42);
+      loops.push(loop);
       addCarsTo(loops.length - 1, peakPerLoop);
     }
-    // Do not create a closed loop on the roundabout. Without exit routing
-    // a loop leaves vehicles circling forever, which is not believable.
     return { loops, cars };
-  }, [gridSize, centre, riverRoadIndex, roadIndices]);
+  }, [gridSize, centre, riverRoadIndex, roadIndices, rbX, rbZ]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
@@ -831,7 +932,6 @@ export function Traffic({
     for (let li = 0; li < loops.length; li++) {
       const loop = loops[li];
       const ring = perLoop[li];
-      const yLift = 0;
       if (li >= activeLoops) {
         for (const ci of ring) parkOne(ci);
         continue;
@@ -929,6 +1029,7 @@ export function Traffic({
 
         // write transforms
         const [x, z] = posAt(loop, c.s);
+        const yLift = rbX !== null && rbZ !== null ? roundaboutLift(x, z, rbX, rbZ) : 0;
         const spec = V_SPEC[c.kind];
         // Use a rear-to-front chord scaled to the vehicle wheelbase. It
         // gives vans, lorries and buses a stable, gradual yaw through the

@@ -660,15 +660,23 @@ export function CityScene({
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
+  // Superblocks cover internal road gaps, so the centre is only a real
+  // 4-way junction when both centre roads survive as visible arterials
+  // (a rural 6×6 keeps just one N-S road there). Without that, a ring
+  // would sit on grass with nothing feeding it — skip it entirely.
   const { notchByCell, roundaboutAt } = useMemo(() => {
-    const developed = new Set(placed.map((p) => `${p.col},${p.row}`));
+    const h = gridSize / 2;
     const m = new Map<string, RoundaboutCorner>();
+    const junction = Number.isInteger(h) && h !== riverRoadIndex
+      && trafficRoads.vertical.includes(h) && trafficRoads.horizontal.includes(h);
+    if (!junction) return { notchByCell: m, roundaboutAt: null };
+    const developed = new Set(placed.map((p) => `${p.col},${p.row}`));
     for (const t of roundaboutTiles(gridSize)) {
       const key = `${t.col},${t.row}`;
       if (developed.has(key)) m.set(key, t.corner);
     }
     return { notchByCell: m, roundaboutAt: m.size > 0 ? roundaboutCentre(gridSize) : null };
-  }, [placed, gridSize]);
+  }, [placed, gridSize, trafficRoads, riverRoadIndex]);
   const byId = useMemo(() => {
     const m = new Map<string, CellPlacement>();
     placed.forEach((p) => m.set(p.zone.id, p));
@@ -711,8 +719,8 @@ export function CityScene({
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
       {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
       <UtilityLines gridSize={gridSize} />
-      <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
-      <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} />
+      <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
+      <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
       <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />
       {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
       {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}

@@ -20,9 +20,9 @@
 // so they are the radiating connectors; the opaque centre island hides
 // them where they'd otherwise run through the middle.
 //
-// Traffic: cars keep their straight lane paths (scenery.tsx) — not
-// path-followed around the ring. Noted as a follow-up in the migration
-// log, not solved in this visual pass.
+// Traffic: any vehicle loop whose lane crosses the junction is rerouted
+// onto the ring (scenery.tsx detourRoundabout) — enter, circulate
+// clockwise, exit on its own road — so nothing drives through the island.
 
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
@@ -32,14 +32,25 @@ import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 const ROAD_W = ROAD_GAP - PLOT;
 const TILE_H = 4;
 
-const R_IN = 84;
-const R_OUT = 156;
+export const R_IN = 84;
+export const R_OUT = 156;
 const ISLAND_R = 74;
 // A building whose footprint centre is within this Manhattan distance of a
 // roundabout tile's junction-facing corner is dropped (see Buildings()).
 export const CLEAR_R = 132;
 
 const DECK_Y = TILE_H + 0.4; // just above the tile tops, clears z-fighting
+
+// Height a vehicle at (x, z) should ride at so it sits on the raised ring
+// deck instead of sinking into it: road level on the approach, ramping up
+// to the deck over the last stretch before the outer edge.
+export function roundaboutLift(x: number, z: number, cx: number, cz: number, base = 0): number {
+  const d = Math.hypot(x - cx, z - cz);
+  const ramp = 22;
+  if (d >= R_OUT + ramp) return base;
+  if (d <= R_OUT) return DECK_Y;
+  return DECK_Y + (base - DECK_Y) * ((d - R_OUT) / ramp);
+}
 
 export type RoundaboutCorner = "NW" | "NE" | "SW" | "SE";
 
