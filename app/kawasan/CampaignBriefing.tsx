@@ -50,7 +50,8 @@ export default function CampaignBriefing() {
         ? {t(lang, "PANDUAN", "GUIDE")}
       </button>
       {open && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4" style={{ background: "rgb(0 0 0 / .45)" }} onClick={close}>
+        // z above the 3D map's <Html> location labels (zIndexRange up to 100 in CityScene)
+        <div className="absolute inset-0 z-[150] flex items-center justify-center p-4" style={{ background: "rgb(0 0 0 / .45)" }} onClick={close}>
           <section role="dialog" aria-modal="true" aria-labelledby="campaign-briefing-title" onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[720px] border p-5 shadow-2xl"
             style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .95)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}>
