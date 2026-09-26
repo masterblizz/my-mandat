@@ -87,7 +87,7 @@ export default function CampaignBriefing() {
                 "Early objective: reach 60% support in your home state by day 10 for a RM75,000 reward.")}
             </p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => { close(); router.push("/warroom"); }}
+              <button type="button" onClick={() => { close(); router.push("/location/operations"); }}
                 className="border px-4 py-2 text-[10px] font-black tracking-widest text-cyan"
                 style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--cyan-rgb) / .06)" }}>
                 {t(lang, "BUKA PUSAT OPERASI", "OPEN OPERATIONS CENTRE")}
