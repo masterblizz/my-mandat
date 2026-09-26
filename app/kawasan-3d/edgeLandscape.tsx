@@ -78,21 +78,49 @@ function Sea({ tod, span }: { tod: Tod; span: number }) {
 // the sea, so the player can read a genuine kampung nelayan rather than a
 // generic inland river plot.
 function FishingVillageHarbour({ village }: { village: CellPlacement }) {
-  const shore = -120;
+  const houses = [
+    { x: -70, z: 50, color: "#9e7955", roof: "#a94737" },
+    { x: -28, z: 25, color: "#b78d63", roof: "#6e7b79" },
+    { x: 28, z: 45, color: "#987051", roof: "#b94f3d" },
+    { x: 68, z: 6, color: "#b38a62", roof: "#73817b" },
+  ];
+  const planks = Array.from({ length: 19 }, (_, index) => 92 - index * 13);
   return <group position={[village.cx, TILE_H, village.cz]}>
-    <mesh position={[0, 1.1, shore / 2]} castShadow><boxGeometry args={[18, 2.2, 240]} /><meshStandardMaterial color="#8a6344" roughness={0.9} /></mesh>
-    {[-1, 1].flatMap((side) => [-76, -20, 38, 94].map((z) => (
-      <mesh key={`${side}-${z}`} position={[side * 7, -4.5, z]}><cylinderGeometry args={[1.1, 1.45, 13, 6]} /><meshStandardMaterial color="#5a402e" roughness={0.95} /></mesh>
+    {/* A real boardwalk has visible planks, side fingers and piles rather
+        than reading as a single brown strip. */}
+    <mesh position={[0, 1.2, -24]} castShadow><boxGeometry args={[15, 2.4, 260]} /><meshStandardMaterial color="#825e3d" roughness={0.95} /></mesh>
+    {planks.map((z) => <mesh key={z} position={[0, 2.65, z]}><boxGeometry args={[21, 1.1, 3.2]} /><meshStandardMaterial color="#b18961" roughness={1} /></mesh>)}
+    {[-98, -55].map((z) => <mesh key={z} position={[36, 1.1, z]} castShadow><boxGeometry args={[78, 2.2, 13]} /><meshStandardMaterial color="#8a6344" roughness={0.94} /></mesh>)}
+    {[-1, 1].flatMap((side) => [-142, -104, -62, -18, 28, 72].map((z) => (
+      <mesh key={`${side}-${z}`} position={[side * 7, -5, z]}><cylinderGeometry args={[1.25, 1.7, 15, 6]} /><meshStandardMaterial color="#58402d" roughness={1} /></mesh>
     )))}
-    {[-42, 34].map((x, index) => <group key={x} position={[x, 0, -44 - index * 30]}>
-      <mesh position={[0, 9, 0]} castShadow><boxGeometry args={[31, 18, 24]} /><meshStandardMaterial color={index ? "#b98b62" : "#9d7655"} roughness={0.78} /></mesh>
-      {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => <mesh key={`${sx}-${sz}`} position={[sx * 11, 3, sz * 8]}><cylinderGeometry args={[0.7, 0.9, 8, 6]} /><meshStandardMaterial color="#5a402e" roughness={0.9} /></mesh>))}
-      <mesh position={[0, 20, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[23, 10, 4]} /><meshStandardMaterial color="#b84335" roughness={0.8} /></mesh>
+
+    {/* Compact stilt houses link back to the boardwalk by short bridges. */}
+    {houses.map((house, index) => <group key={house.x} position={[house.x, 0, house.z]}>
+      {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => <mesh key={`${sx}-${sz}`} position={[sx * 10, -2.5, sz * 8]}>
+        <cylinderGeometry args={[0.85, 1.05, 15, 6]} /><meshStandardMaterial color="#60452f" roughness={1} />
+      </mesh>))}
+      <mesh position={[0, 4, 0]} castShadow><boxGeometry args={[29, 2, 23]} /><meshStandardMaterial color="#805d42" roughness={0.95} /></mesh>
+      <mesh position={[0, 14, 0]} castShadow><boxGeometry args={[26, 18, 20]} /><meshStandardMaterial color={house.color} roughness={0.9} /></mesh>
+      <mesh position={[0, 25, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[20, 10, 4]} /><meshStandardMaterial color={house.roof} roughness={0.9} /></mesh>
+      <mesh position={[-16, 3.2, -index * 7]}><boxGeometry args={[17, 1.5, 4]} /><meshStandardMaterial color="#9f7852" roughness={1} /></mesh>
     </group>)}
-    {[-72, 62].map((x, index) => <group key={x} position={[x, 0.8, -132 - index * 18]} rotation={[0, index ? -0.45 : 0.35, 0]}>
-      <mesh><boxGeometry args={[7, 3, 20]} /><meshStandardMaterial color={index ? "#2f7db4" : "#d05740"} roughness={0.65} /></mesh>
-      <mesh position={[0, 7, 0]}><boxGeometry args={[0.6, 13, 0.6]} /><meshStandardMaterial color="#8a6344" /></mesh>
+
+    {/* Moored sampans, fishing nets and landed crates keep the harbour active
+        even while the animated vessels are travelling offshore. */}
+    {[-92, -48, -10].map((z, index) => <group key={z} position={[index === 1 ? 48 : -44, 3, z]} rotation={[0, index === 1 ? 0.24 : -0.2, 0]}>
+      <mesh castShadow><boxGeometry args={[23, 3.5, 7]} /><meshStandardMaterial color={["#315f8e", "#c45a3c", "#d3a444"][index]} roughness={0.72} /></mesh>
+      <mesh position={[4, 4.2, 0]}><boxGeometry args={[7, 4, 5]} /><meshStandardMaterial color="#e5dfcf" roughness={0.82} /></mesh>
+      <mesh position={[9, 8, 0]}><boxGeometry args={[0.7, 11, 0.7]} /><meshStandardMaterial color="#654731" roughness={0.9} /></mesh>
     </group>)}
+    {[-72, -28].map((z) => <group key={z} position={[-34, 5, z]}>
+      <mesh position={[-11, 5, 0]}><boxGeometry args={[0.8, 13, 0.8]} /><meshStandardMaterial color="#6c5035" /></mesh>
+      <mesh position={[11, 5, 0]}><boxGeometry args={[0.8, 13, 0.8]} /><meshStandardMaterial color="#6c5035" /></mesh>
+      <mesh rotation={[0, 0, Math.PI / 2]}><planeGeometry args={[18, 10]} /><meshBasicMaterial color="#527d6e" transparent opacity={0.55} side={THREE.DoubleSide} /></mesh>
+    </group>)}
+    {[[-18, 82], [10, 78], [38, 75], [-4, 64]].map(([x, z], index) => <mesh key={index} position={[x, 4.5, z]} castShadow>
+      <boxGeometry args={[7, 5, 7]} /><meshStandardMaterial color={index % 2 ? "#c28a3e" : "#a96c35"} roughness={0.94} />
+    </mesh>)}
   </group>;
 }
 
