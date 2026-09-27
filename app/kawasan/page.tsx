@@ -160,7 +160,7 @@ const KINABALU_SEATS = new Set(["kota kinabalu", "ranau", "kundasang"]);
 const BUKIT_BINTANG_ZONE_NAMES = [
   "Bukit Bintang Walk", "KLCC & Jalan Ampang", "Imbi & Berangan",
   "Pavilion & Jalan Bukit Bintang", "Bukit Nanas", "TRX & Tun Razak",
-  "Menara Kuala Lumpur", "Jalan Imbi", "Merdeka 118 & Pudu",
+  "Menara Kuala Lumpur", "Jalan Imbi", "Merdeka 118",
 ];
 const BUKIT_BINTANG_ZONE_PROFILE: [ZoneArchetype, ZoneKind, number][] = [
   ["townCentre", "urban", 0], ["commercialHub", "commercial", 0],

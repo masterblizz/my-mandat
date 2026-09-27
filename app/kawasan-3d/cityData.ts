@@ -129,7 +129,7 @@ export function assignZonePositions(
   // normal centre-out radial ordering. These anchor parcels preserve the
   // real broad relationship: KL Tower / Bukit Nanas to the north-west,
   // KLCC to the east-north-east, Bukit Bintang retail in the middle, and
-  // Merdeka 118 / Pudu to the south-east. Remaining zones retain their
+  // Merdeka 118 to the south-east. Remaining zones retain their
   // deterministic dense-city fill, so saves and selection ids stay stable.
   if (traits?.bukitBintang && gridSize >= 10) {
     const mid = Math.round((gridSize - 1) / 2);
@@ -142,7 +142,7 @@ export function assignZonePositions(
       [mid + 2, mid + 2], // TRX / Tun Razak approach
       [mid - 4, mid - 3], // Menara KL / Bukit Nanas
       [mid, mid + 2],   // Jalan Imbi market spine
-      [mid + 1, mid + 5], // Merdeka 118 / Pudu edge
+      [mid + 1, mid + 5], // Merdeka 118 precinct
     ];
     anchors.forEach(([col, row], zoneIndex) => {
       if (!positions[zoneIndex] || col < 0 || row < 0 || col >= gridSize || row >= gridSize) return;

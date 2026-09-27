@@ -44,7 +44,7 @@ export function klHeightMult(col: number, row: number, gridSize: number): number
 
 // Grid cells follow the actual broad geography of central Kuala Lumpur:
 // Menara KL / Bukit Nanas is north-west of the Bukit Bintang retail spine,
-// KLCC sits to its east-north-east, and Merdeka 118 rises toward Pudu in
+// KLCC sits to its east-north-east, and Merdeka 118 rises to the south-east
 // the south-east. The city is intentionally an isometric playable district,
 // not a cadastral GIS export, but this relative layout is fixed and visible.
 function spireCell(gridSize: number): [number, number] {
@@ -195,28 +195,35 @@ function buildSpireDetails(glass: boolean): THREE.BufferGeometry {
   return merged;
 }
 
-// Merdeka 118-inspired tapered tower: a broad glass base, successive
-// setbacks and an asymmetric crown/spire. It is deliberately distinct from
-// the twin Petronas-like shafts and the round Menara KL observation deck.
+// Merdeka 118-inspired tower: one continuous, faceted taper above a low
+// podium, followed by an off-axis blade crown. This avoids the old stack of
+// rectangular blocks and better matches its distinctive crystalline profile.
 function buildMerdeka118(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
-  const tiers: [number, number, number][] = [
-    [68, 84, 0], [56, 100, 84], [43, 112, 184], [30, 106, 296], [19, 76, 402],
+  // Square frusta catch light as four tall, angled glass planes. Cylinder
+  // radii are corner radii, hence the values are slightly lower than a box
+  // width would be for the same footprint.
+  const tiers: [number, number, number, number][] = [
+    [47, 39, 145, 20], [39, 30, 165, 165], [30, 21, 165, 330], [21, 12, 130, 495], [12, 6, 80, 625],
   ];
-  for (const [width, height, base] of tiers) {
-    parts.push(place(BOX, 0, TILE_H + base + height / 2, 0, width, height, width * 0.72));
-    parts.push(place(BOX, 0, TILE_H + base + height, 0, width + 2.2, 2.2, width * 0.72 + 2.2));
+  parts.push(place(BOX, 0, TILE_H + 10, 0, 86, 20, 64));
+  for (const [bottom, top, height, base] of tiers) {
+    const frustum = new THREE.CylinderGeometry(top, bottom, height, 4, 1, false, Math.PI / 4);
+    parts.push(place(frustum, 0, TILE_H + base + height / 2, 0, 1, 1, 1));
+    frustum.dispose();
   }
-  // Slender blade crown and antenna push the silhouette above the twins.
-  parts.push(place(CONE, 0, TILE_H + 570, 0, 13, 106, 13));
-  parts.push(place(CYL, 0, TILE_H + 664, 0, 1.5, 116, 1.5));
+  // The real tower's crown leans into a slender asymmetric blade rather
+  // than ending in a symmetric cone. A restrained tilt makes that legible
+  // from the isometric camera without creating a fragile separate mesh.
+  parts.push(place(CONE, 5, TILE_H + 760, 0, 8, 110, 8, -0.09));
+  parts.push(place(CYL, 13, TILE_H + 840, 0, 1.25, 80, 1.25, -0.09));
   return mergeGeometries(parts, false) ?? parts[0];
 }
 
 // apex heights (world units) — see shaft() / buildSpire() massing above.
 const TWIN_APEX_Y = 535;
 const SPIRE_APEX_Y = 400;
-const MERDEKA_APEX_Y = 780;
+const MERDEKA_APEX_Y = 880;
 const TWIN_GAP = 110;
 
 export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLighting = false }: {

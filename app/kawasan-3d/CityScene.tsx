@@ -792,7 +792,10 @@ export function CityScene({
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
       )}
       {selected && <SelectionPin position={[selected.cx, 0, selected.cz]} />}
-      {selected && <SelectedBuildingGlow placement={selected} gridSize={gridSize} density={density} traits={traits} />}
+      {/* Landmark cells have their own purpose-built silhouettes. Do not lay
+          the generic selected-building wireframe across Merdeka 118, KLCC or
+          Menara KL; the cyan pin is the selection feedback for those cells. */}
+      {selected && !claimed.has(`${selected.col},${selected.row}`) && <SelectedBuildingGlow placement={selected} gridSize={gridSize} density={density} traits={traits} />}
       {celebrate && celebration && (
         <ZoneBeacon
           key={celebration.at}
