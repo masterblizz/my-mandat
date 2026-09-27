@@ -242,7 +242,7 @@ function ElectionFlowPanel({ day, totalDays, lang, electionScope, prnStateName }
             <span style={{ color: "var(--gold)" }}>{status.progress}%</span>
           </div>
           <div className="mt-3 text-[10px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-            NEXT: <span style={{ color: "var(--text-primary)" }}>{nextTitle}</span>
+            {t(lang, "SETERUSNYA", "NEXT")}: <span style={{ color: "var(--text-primary)" }}>{nextTitle}</span>
           </div>
         </div>
 
