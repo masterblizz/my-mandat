@@ -8,9 +8,9 @@
 // at a road. Standalone billboards get a real two-post frame reaching the
 // panel. If a zone has no tall building, it gets no panel (no floaters).
 //
-// Panels: one InstancedMesh per colour variant (~6 draws total),
-// `toneMapped:false` so they read as lit by day and bloom at night, with
-// a throttled colour pulse for a "screen is playing" feel.
+// Panels share one instanced mesh and one canvas atlas. Each panel receives a
+// stable atlas tile plus its own animation phase, keeping dense cities cheap
+// while ensuring that adjacent screens never repeat the same campaign.
 
 import { useMemo, useRef, useLayoutEffect, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
@@ -23,28 +23,32 @@ import { klHeightMult } from "./klProfile";
 
 const TILE_H = 4;
 
-const VARIANTS = ["#2f6bff", "#ff5a2a", "#eef2ff", "#12e6ff", "#ff3fd0", "#ffd23f"] as const;
+const CAMPAIGNS = [
+  ["NOVA//MOBILE", "5G UNTUK SEMUA", "DATA TANPA HENTI", "SERTAI SEKARANG"],
+  ["RASA KITA", "MAKAN. LEPAK.", "MALAM INI", "TEMPAH MEJA"],
+  ["URBAN//RUN", "LARI LEBIH JAUH", "KOLEKSI BAHARU", "LIHAT DROP"],
+  ["VISTA BANK", "MASA DEPAN ANDA", "MULA DENGAN RM10", "BUKA AKAUN"],
+  ["KOPI LORONG", "SEBUAH CERITA", "DALAM SETIAP CAWAN", "JUMPA DI SINI"],
+  ["PULSE//STUDIO", "JADI LUAR BIASA", "KELAS PERCUBAAN", "MASUK SEKARANG"],
+  ["CINEMA 88", "MALAM INI", "SKRIN BESAR. RASA BESAR.", "DAPATKAN TIKET"],
+  ["HIJAU KITA", "BANDAR LEBIH BERSIH", "BERSAMA KITA", "KETAHUI CARA"],
+] as const;
+const AD_COLOURS = ["#2f6bff", "#ff5a2a", "#14d9c4", "#ff3fd0", "#e9b949", "#7c6cff", "#1ea5ff", "#78c850"] as const;
 
-// One procedural "advertisement" per colour variant, drawn to a canvas and
-// used as the screen's `map` so it's actually readable when you zoom in:
-// tinted ground, faux logo glyph, a bold headline word, body-copy bars and
-// a corner "AD" tag, inside a bezel margin.
-const AD_WORDS = ["MEGA SALE", "GRAND OPEN", "NEW SEASON", "50% OFF", "SHOP NOW", "SOON"];
-function makeAdTexture(hex: string, seed: number): THREE.CanvasTexture {
-  const W = 512, H = 256;
-  const cv = document.createElement("canvas");
-  cv.width = W; cv.height = H;
-  const g = cv.getContext("2d")!;
+function drawAd(g: CanvasRenderingContext2D, x: number, y: number, W: number, H: number, seed: number, frame: number) {
   let s = ((seed + 1) * 2654435761) >>> 0;
   const r = () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
+  const campaign = CAMPAIGNS[seed % CAMPAIGNS.length];
+  const hex = AD_COLOURS[(seed >>> 3) % AD_COLOURS.length];
+  const alternate = (frame + Math.floor(seed / 7)) % 3;
 
   g.fillStyle = hex;
-  g.fillRect(0, 0, W, H);
-  const grad = g.createLinearGradient(0, 0, W, H);
+  g.fillRect(x, y, W, H);
+  const grad = g.createLinearGradient(x, y, x + W, y + H);
   grad.addColorStop(0, "rgba(255,255,255,0.18)");
   grad.addColorStop(1, "rgba(0,0,0,0.24)");
   g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
+  g.fillRect(x, y, W, H);
 
   const c = new THREE.Color(hex);
   const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
@@ -53,39 +57,55 @@ function makeAdTexture(hex: string, seed: number): THREE.CanvasTexture {
 
   g.strokeStyle = ink;
   g.globalAlpha = 0.28;
-  g.lineWidth = 8;
-  g.strokeRect(12, 12, W - 24, H - 24);
+  g.lineWidth = Math.max(3, W * 0.018);
+  g.strokeRect(x + 8, y + 8, W - 16, H - 16);
   g.globalAlpha = 1;
 
-  // logo glyph, top-left
+  // Distinct seeded identity mark, hero form and copy layout per campaign.
   g.fillStyle = ink;
   const glyph = seed % 3;
-  if (glyph === 0) { g.beginPath(); g.arc(58, 56, 26, 0, Math.PI * 2); g.fill(); }
-  else if (glyph === 1) { g.beginPath(); g.moveTo(58, 26); g.lineTo(88, 84); g.lineTo(28, 84); g.closePath(); g.fill(); }
-  else { g.fillRect(30, 30, 54, 54); }
+  const iconX = x + W * (0.14 + r() * 0.08), iconY = y + H * (0.25 + r() * 0.1);
+  if (glyph === 0) { g.beginPath(); g.arc(iconX, iconY, W * 0.11, 0, Math.PI * 2); g.fill(); }
+  else if (glyph === 1) { g.beginPath(); g.moveTo(iconX, iconY - H * 0.13); g.lineTo(iconX + W * 0.13, iconY + H * 0.13); g.lineTo(iconX - W * 0.13, iconY + H * 0.13); g.closePath(); g.fill(); }
+  else { g.fillRect(iconX - W * 0.1, iconY - H * 0.1, W * 0.2, H * 0.2); }
 
-  // headline
   g.fillStyle = ink;
-  g.font = "bold 56px Arial, Helvetica, sans-serif";
+  g.font = `bold ${Math.round(H * 0.11)}px Arial, Helvetica, sans-serif`;
   g.textBaseline = "top";
-  g.fillText(AD_WORDS[seed % AD_WORDS.length], 30, 104);
+  g.fillText(campaign[0], x + W * 0.06, y + H * 0.06);
+  g.font = `bold ${Math.round(H * 0.17)}px Arial, Helvetica, sans-serif`;
+  g.fillText(alternate === 0 ? campaign[1] : alternate === 1 ? campaign[2] : "EDISI TERHAD", x + W * 0.06, y + H * 0.52);
 
-  // body-copy bars
+  // Moving frame copies use the same brand but a fresh scene every cycle.
   g.fillStyle = inkDim;
-  for (let i = 0; i < 3; i++) g.fillRect(30, 178 + i * 20, 200 + r() * 210, 9);
+  for (let i = 0; i < 2; i++) g.fillRect(x + W * 0.06, y + H * (0.76 + i * 0.055), W * (0.34 + r() * 0.2), Math.max(2, H * 0.025));
 
-  // corner "AD" tag
+  // CTA plus a frame counter makes the content visibly progress even when
+  // viewed from a distance. The shader below supplies continuous LED motion.
   g.fillStyle = ink;
-  g.fillRect(W - 118, 22, 92, 40);
+  g.fillRect(x + W * 0.68, y + H * 0.77, W * 0.26, H * 0.13);
   g.fillStyle = hex;
-  g.font = "bold 26px Arial, Helvetica, sans-serif";
-  g.fillText("AD", W - 102, 28);
+  g.font = `bold ${Math.max(9, Math.round(H * 0.055))}px Arial, Helvetica, sans-serif`;
+  g.fillText(campaign[3], x + W * 0.7, y + H * 0.805);
+  g.fillStyle = ink;
+  g.font = `bold ${Math.max(8, Math.round(H * 0.045))}px Arial, Helvetica, sans-serif`;
+  g.fillText(`LIVE 0${alternate + 1}`, x + W * 0.76, y + H * 0.19);
+}
 
-  const tex = new THREE.CanvasTexture(cv);
+function makeAdAtlas(panels: Panel[], frame: number): { texture: THREE.CanvasTexture; canvas: HTMLCanvasElement; grid: THREE.Vector2 } {
+  const cellW = 256, cellH = 128;
+  const cols = Math.min(16, Math.max(1, Math.ceil(Math.sqrt(panels.length))));
+  const rows = Math.max(1, Math.ceil(panels.length / cols));
+  const canvas = document.createElement("canvas");
+  canvas.width = cols * cellW; canvas.height = rows * cellH;
+  const g = canvas.getContext("2d")!;
+  panels.forEach((panel, i) => drawAd(g, (i % cols) * cellW, Math.floor(i / cols) * cellH, cellW, cellH, panel.seed, frame));
+
+  const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 4;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
-  return tex;
+  return { texture: tex, canvas, grid: new THREE.Vector2(cols, rows) };
 }
 
 // buildings a billboard may hang off — anything with a real flat-ish wall
@@ -124,7 +144,7 @@ function billboardCount(kind: ZoneKind, coreness: number, gridSize: number): num
   return n;
 }
 
-type Panel = { x: number; y: number; z: number; yaw: number; w: number; h: number; variant: number };
+type Panel = { x: number; y: number; z: number; yaw: number; w: number; h: number; seed: number };
 type Strut = { x: number; y: number; z: number; sx: number; sy: number; sz: number };
 type BBox = { type: BType; bx: number; bz: number; bw: number; bd: number; bh: number };
 
@@ -146,14 +166,6 @@ export function Billboards({
 }) {
   const winLitRef = useRef(winLit);
   winLitRef.current = winLit;
-
-  // build the ad textures once, client-side (canvas → CanvasTexture)
-  const [adTex, setAdTex] = useState<THREE.CanvasTexture[]>([]);
-  useEffect(() => {
-    const t = VARIANTS.map((h, i) => makeAdTexture(h, i));
-    setAdTex(t);
-    return () => t.forEach((x) => x.dispose());
-  }, []);
 
   const { panels, struts } = useMemo(() => {
     const panels: Panel[] = [];
@@ -243,7 +255,7 @@ export function Billboards({
           y,
           yaw: yawFor(nx, nz),
           w, h,
-          variant: Math.floor(rnd() * VARIANTS.length),
+          seed: hashSeed(`${zone.id}:${b.type}:${i}:${Math.round(w)}:${Math.round(h)}`),
         });
       }
 
@@ -277,7 +289,7 @@ export function Billboards({
           const yaw = Math.abs(px - cx) > Math.abs(pz - cz) ? yawFor(px > cx ? -1 : 1, 0) : yawFor(0, pz > cz ? -1 : 1);
           panels.push({
             x: px, y: bY + ph / 2, z: pz, yaw, w: pw, h: ph,
-            variant: Math.floor(rnd() * VARIANTS.length),
+            seed: hashSeed(`${zone.id}:tower:${Math.round(px)}:${Math.round(pz)}`),
           });
         }
       }
@@ -285,33 +297,44 @@ export function Billboards({
     return { panels, struts };
   }, [placed, gridSize, density, traits, claimed, buildingBudget]);
 
-  const byVariant = useMemo(() => {
-    const m: Panel[][] = VARIANTS.map(() => []);
-    for (const p of panels) m[p.variant].push(p);
-    return m;
+  const [adAtlas, setAdAtlas] = useState<ReturnType<typeof makeAdAtlas> | null>(null);
+  const atlasFrame = useRef(-1);
+  useEffect(() => {
+    if (!panels.length) return;
+    const atlas = makeAdAtlas(panels, 0);
+    atlasFrame.current = 0;
+    setAdAtlas(atlas);
+    return () => atlas.texture.dispose();
   }, [panels]);
 
-  const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
-  const matRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const screenRef = useRef<THREE.InstancedMesh>(null);
   const strutRef = useRef<THREE.InstancedMesh>(null);
   const frameRef = useRef<THREE.InstancedMesh>(null);
-  const acc = useRef(0);
+  const shaderRef = useRef<THREE.ShaderMaterial>(null);
+
+  // R3F creates the material before the client-only canvas exists. Assign the
+  // late texture directly as well as through JSX props so a billboard can
+  // never remain a blank fallback panel after hydration.
+  useEffect(() => {
+    if (!shaderRef.current || !adAtlas) return;
+    shaderRef.current.uniforms.uMap.value = adAtlas.texture;
+    shaderRef.current.uniforms.uAtlasGrid.value.copy(adAtlas.grid);
+  }, [adAtlas]);
 
   useLayoutEffect(() => {
     const dummy = new THREE.Object3D();
-    byVariant.forEach((list, vi) => {
-      const mesh = meshRefs.current[vi];
-      if (!mesh) return;
-      list.forEach((p, i) => {
+    const screen = screenRef.current;
+    if (screen) {
+      panels.forEach((p, i) => {
         dummy.position.set(p.x, p.y, p.z);
         dummy.rotation.set(0, p.yaw, 0);
         dummy.scale.set(p.w, p.h, 2.2);
         dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
+        screen.setMatrixAt(i, dummy.matrix);
       });
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.computeBoundingSphere();
-    });
+      screen.instanceMatrix.needsUpdate = true;
+      screen.computeBoundingSphere();
+    }
     const st = strutRef.current;
     if (st) {
       struts.forEach((s, i) => {
@@ -337,21 +360,39 @@ export function Billboards({
       fr.instanceMatrix.needsUpdate = true;
       fr.computeBoundingSphere();
     }
-  }, [byVariant, struts, panels]);
+  }, [struts, panels]);
 
-  useFrame((_, dt) => {
-    acc.current += dt;
-    if (acc.current < 0.09) return;
-    acc.current = 0;
-    const now = performance.now() / 1000;
-    const night = 1 + winLitRef.current * 1.35;
-    for (let vi = 0; vi < VARIANTS.length; vi++) {
-      const mat = matRefs.current[vi];
-      if (!mat) continue;
-      // `color` tints the ad `map`; pulse it as a screen-brightness flicker
-      // (near 1 by day, well over 1 at night so the ad blooms).
-      const pulse = 0.74 + 0.26 * Math.sin(now * 0.75 + vi * 1.7);
-      mat.color.setScalar(Math.min(2.4, pulse * night));
+  useLayoutEffect(() => {
+    const screen = screenRef.current;
+    if (!screen || !adAtlas) return;
+    const cells = new Float32Array(panels.length * 2);
+    const phases = new Float32Array(panels.length);
+    panels.forEach((panel, i) => {
+      cells[i * 2] = i % adAtlas.grid.x;
+      cells[i * 2 + 1] = Math.floor(i / adAtlas.grid.x);
+      phases[i] = (panel.seed % 1009) / 1009;
+    });
+    screen.geometry.setAttribute("adCell", new THREE.InstancedBufferAttribute(cells, 2));
+    screen.geometry.setAttribute("adPhase", new THREE.InstancedBufferAttribute(phases, 1));
+  }, [adAtlas, panels]);
+
+  useFrame(({ clock }) => {
+    const now = clock.getElapsedTime();
+    if (shaderRef.current) {
+      shaderRef.current.uniforms.uTime.value = now;
+      shaderRef.current.uniforms.uBrightness.value = 0.9 + winLitRef.current * 1.45;
+    }
+    // Every creative advances through its own copy sequence. Updating one
+    // atlas every four seconds is substantially cheaper than a video texture
+    // or material per billboard, and the shader carries the in-between motion.
+    const frame = Math.floor(now / 4);
+    if (adAtlas && frame !== atlasFrame.current) {
+      const g = adAtlas.canvas.getContext("2d");
+      if (g) {
+        panels.forEach((panel, i) => drawAd(g, (i % adAtlas.grid.x) * 256, Math.floor(i / adAtlas.grid.x) * 128, 256, 128, panel.seed, frame));
+        adAtlas.texture.needsUpdate = true;
+        atlasFrame.current = frame;
+      }
     }
   });
 
@@ -367,23 +408,53 @@ export function Billboards({
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#14171c" roughness={0.7} metalness={0.4} />
       </instancedMesh>
-      {byVariant.map((list, vi) =>
-        list.length ? (
-          <instancedMesh
-            key={`bb-${vi}-${list.length}`}
-            ref={(r) => { meshRefs.current[vi] = r; }}
-            args={[undefined, undefined, list.length]}
-            frustumCulled={false}
-          >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshBasicMaterial
-              ref={(r) => { matRefs.current[vi] = r as THREE.MeshBasicMaterial | null; }}
-              map={adTex[vi] ?? null}
-              toneMapped={false}
-            />
-          </instancedMesh>
-        ) : null,
-      )}
+      <instancedMesh ref={screenRef} args={[undefined, undefined, panels.length]} frustumCulled={false}>
+        <boxGeometry args={[1, 1, 1]} />
+        <shaderMaterial
+          ref={shaderRef}
+          transparent={false}
+          toneMapped={false}
+          uniforms={{
+            uMap: { value: adAtlas?.texture ?? null },
+            uAtlasGrid: { value: adAtlas?.grid ?? new THREE.Vector2(1, 1) },
+            uTime: { value: 0 },
+            uBrightness: { value: 1 },
+          }}
+          vertexShader={`
+            attribute mat4 instanceMatrix;
+            attribute vec2 adCell;
+            attribute float adPhase;
+            uniform vec2 uAtlasGrid;
+            varying vec2 vUv;
+            varying float vPhase;
+            void main() {
+              vUv = (uv + adCell) / uAtlasGrid;
+              vPhase = adPhase;
+              gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform sampler2D uMap;
+            uniform float uTime;
+            uniform float uBrightness;
+            uniform vec2 uAtlasGrid;
+            varying vec2 vUv;
+            varying float vPhase;
+            void main() {
+              vec4 ad = texture2D(uMap, vUv);
+              vec2 local = fract(vUv * uAtlasGrid);
+              float localX = local.x;
+              float localY = local.y;
+              float sweep = smoothstep(0.13, 0.0, abs(fract(localX * 0.72 + localY * 0.36 - uTime * 0.20 - vPhase) - 0.5));
+              float scan = 0.035 * sin((localY * 128.0 + uTime * 22.0 + vPhase * 41.0) * 1.8);
+              float ticker = step(0.88, localY) * (0.08 + 0.07 * sin(uTime * 4.0 + localX * 38.0 + vPhase * 9.0));
+              ad.rgb *= uBrightness + scan + ticker;
+              ad.rgb += sweep * vec3(0.20, 0.32, 0.38);
+              gl_FragColor = ad;
+            }
+          `}
+        />
+      </instancedMesh>
       {struts.length ? (
         <instancedMesh ref={strutRef} args={[undefined, undefined, struts.length]} castShadow key={`bbs-${struts.length}`}>
           <boxGeometry args={[1, 1, 1]} />
