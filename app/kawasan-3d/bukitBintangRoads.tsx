@@ -159,11 +159,16 @@ function pointOnRoute(route: Route, halfSpan: number, progress: number) {
   return { point: b, angle: Math.atan2(b.y - a.y, b.x - a.x) };
 }
 
-// One instanced moving-vehicle mesh gives the custom roads obvious life
-// without restoring the old grid-bound traffic system.
+// Low-poly city traffic. Each part is instanced, so the moving cars read as
+// actual vehicles (body, dark cabin, wheels and lamps) without one React tree
+// per car or a large draw-call cost.
 export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSize: number; trafficLevel?: number }) {
   const count = Math.max(18, Math.min(42, Math.round(gridSize * 1.15 * Math.max(0.5, trafficLevel))));
-  const ref = useRef<THREE.InstancedMesh>(null);
+  const bodyRef = useRef<THREE.InstancedMesh>(null);
+  const cabinRef = useRef<THREE.InstancedMesh>(null);
+  const wheelRef = useRef<THREE.InstancedMesh>(null);
+  const headlightRef = useRef<THREE.InstancedMesh>(null);
+  const tailLightRef = useRef<THREE.InstancedMesh>(null);
   const cars = useMemo(() => Array.from({ length: count }, (_, i) => ({
     route: i % ROUTES.length,
     progress: ((i * 0.173) % 1),
@@ -171,30 +176,84 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     lane: i % 2 ? 1 : -1,
   })), [count]);
   useLayoutEffect(() => {
-    const mesh = ref.current;
+    const mesh = bodyRef.current;
     if (!mesh) return;
-    const colours = ["#38bdf8", "#f8fafc", "#ef4444", "#facc15", "#22c55e", "#a855f7"];
+    const colours = ["#e9edf0", "#2f86bd", "#c9403c", "#e6b72b", "#277a59", "#704aa7", "#4d5968"];
     cars.forEach((_, i) => mesh.setColorAt(i, new THREE.Color(colours[i % colours.length])));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [cars]);
   useFrame(({ clock }) => {
-    const mesh = ref.current;
-    if (!mesh) return;
+    const body = bodyRef.current;
+    const cabin = cabinRef.current;
+    const wheels = wheelRef.current;
+    const headlights = headlightRef.current;
+    const tailLights = tailLightRef.current;
+    if (!body || !cabin || !wheels || !headlights || !tailLights) return;
     const halfSpan = (gridSize * 280 + 40) / 2;
-    const dummy = new THREE.Object3D();
+    const carRoot = new THREE.Object3D();
+    const part = new THREE.Object3D();
+    const put = (
+      mesh: THREE.InstancedMesh, index: number,
+      x: number, y: number, z: number,
+      sx: number, sy: number, sz: number,
+    ) => {
+      part.position.set(x, y, z);
+      part.rotation.set(0, 0, 0);
+      part.scale.set(sx, sy, sz);
+      part.updateMatrix();
+      part.matrix.premultiply(carRoot.matrix);
+      mesh.setMatrixAt(index, part.matrix);
+    };
     cars.forEach((car, i) => {
       const state = pointOnRoute(ROUTES[car.route], halfSpan, car.progress + clock.getElapsedTime() * car.speed);
       const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * 14);
-      dummy.position.set(state.point.x + side.x, 7.3, state.point.y + side.y);
-      dummy.rotation.set(0, -state.angle, 0);
-      dummy.scale.set(15, 3.2, 7.2);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
+      carRoot.position.set(state.point.x + side.x, 7.1, state.point.y + side.y);
+      carRoot.rotation.set(0, -state.angle, 0);
+      carRoot.scale.set(1, 1, 1);
+      carRoot.updateMatrix();
+
+      // Main painted shell and a smaller smoked-glass passenger cabin make
+      // the roofline readable from the default elevated camera.
+      put(body, i, 0, 0, 0, 16, 3.1, 7.4);
+      put(cabin, i, -0.8, 2.35, 0, 8.8, 2.35, 6.1);
+      // Four dark wheels show up as distinct wheel wells along the body.
+      put(wheels, i * 4, -5.4, -1.45, -3.55, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 1, -5.4, -1.45, 3.55, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 2, 5.4, -1.45, -3.55, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 3, 5.4, -1.45, 3.55, 3.1, 1.55, 1.45);
+      // White headlights and red tail lamps clarify direction and remain
+      // legible at night without turning the roads into neon strips.
+      put(headlights, i * 2, 8.15, 0.15, -2.15, 0.8, 0.62, 1.25);
+      put(headlights, i * 2 + 1, 8.15, 0.15, 2.15, 0.8, 0.62, 1.25);
+      put(tailLights, i * 2, -8.15, 0.15, -2.15, 0.65, 0.58, 1.2);
+      put(tailLights, i * 2 + 1, -8.15, 0.15, 2.15, 0.65, 0.58, 1.2);
     });
-    mesh.instanceMatrix.needsUpdate = true;
+    body.instanceMatrix.needsUpdate = true;
+    cabin.instanceMatrix.needsUpdate = true;
+    wheels.instanceMatrix.needsUpdate = true;
+    headlights.instanceMatrix.needsUpdate = true;
+    tailLights.instanceMatrix.needsUpdate = true;
   });
-  return <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
-    <boxGeometry args={[1, 1, 1]} />
-    <meshStandardMaterial color="#e8f1f5" vertexColors roughness={0.32} metalness={0.32} emissive="#35546a" emissiveIntensity={0.28} />
-  </instancedMesh>;
+  return <group>
+    <instancedMesh ref={bodyRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial vertexColors roughness={0.3} metalness={0.42} />
+    </instancedMesh>
+    <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#102b42" roughness={0.18} metalness={0.58} emissive="#183b55" emissiveIntensity={0.25} />
+    </instancedMesh>
+    <instancedMesh ref={wheelRef} args={[undefined, undefined, count * 4]} castShadow frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#10151a" roughness={0.9} metalness={0.06} />
+    </instancedMesh>
+    <instancedMesh ref={headlightRef} args={[undefined, undefined, count * 2]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#fff0af" emissive="#ffd45a" emissiveIntensity={1.1} toneMapped={false} />
+    </instancedMesh>
+    <instancedMesh ref={tailLightRef} args={[undefined, undefined, count * 2]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#ff5b4c" emissive="#df271f" emissiveIntensity={1.25} toneMapped={false} />
+    </instancedMesh>
+  </group>;
 }
