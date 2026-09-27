@@ -73,6 +73,8 @@ type ZoneArchetype =
 type Zone = {
   id: string;
   archetype: ZoneArchetype;
+  /** Curated real-world district name for profiled constituencies. */
+  realName?: string;
   // >0 when the archetype was cycled a second/third time; rendered as a numeric suffix.
   repeat: number;
   kind: ZoneKind;
@@ -126,7 +128,7 @@ function clamp(value: number) {
 // Real-constituency character, derived from the seat's actual name and
 // state so the generated city echoes the real kawasan: coastal seats get
 // a seafront, rice-bowl seats get paddies, highland seats get hills.
-type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean };
+type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean; bukitBintang: boolean };
 
 // "bukit" ("hill") appears in plenty of fully urban seat names too (Bukit
 // Bintang, Bukit Gelugor, Bukit Mertajam...) — a blanket substring match
@@ -155,10 +157,23 @@ const LAKE_SEATS = new Set([
 // tourism shot; Ranau/Kundasang (also `hilly`, generic rolling terrain)
 // are the district the mountain actually stands in.
 const KINABALU_SEATS = new Set(["kota kinabalu", "ranau", "kundasang"]);
+const BUKIT_BINTANG_ZONE_NAMES = [
+  "Bukit Bintang Walk", "KLCC & Jalan Ampang", "Imbi & Berangan",
+  "Pavilion & Jalan Bukit Bintang", "Bukit Nanas", "TRX & Tun Razak",
+  "Menara Kuala Lumpur", "Jalan Imbi", "Merdeka 118 & Pudu",
+];
+const BUKIT_BINTANG_ZONE_PROFILE: [ZoneArchetype, ZoneKind, number][] = [
+  ["townCentre", "urban", 0], ["commercialHub", "commercial", 0],
+  ["housingEstate", "housing", 0], ["commercialHub", "commercial", 2],
+  ["clinicHall", "community", 0], ["commercialHub", "commercial", 3],
+  ["townCentre", "urban", 2], ["marketHawkers", "market", 0],
+  ["housingEstate", "housing", 2],
+];
 
 function deriveSeatTraits(seatName: string, stateId: string, seatCode = ""): SeatTraits {
   const name = seatName.toLowerCase();
   const has = (...words: string[]) => words.some((word) => name.includes(word));
+  const bukitBintang = seatCode.startsWith("P.") && name === "bukit bintang";
   return {
     coastal: has("pantai", "teluk", "tanjung", "kuala", "pelabuhan", "port", "langkawi", "mersing", "pengerang", "sabak", "labuan", "sandakan", "tawau", "kudat", "semporna", "miri", "bintulu", "santubong", "bagan", "kepala batas", "balik pulau", "marang", "dungun", "kemaman", "besut", "bachok", "tumpat", "pontian", "batu pahat", "muar", "klang", "lumut", "beruas"),
     paddy: ["kedah", "perlis", "kelantan"].includes(stateId) || has("sabak bernam", "sungai besar", "sekinchan", "tanjung karang", "pendang", "yan", "kubang"),
@@ -169,7 +184,8 @@ function deriveSeatTraits(seatName: string, stateId: string, seatCode = ""): Sea
     // Iconic Kuala Lumpur landmarks belong to their actual parliamentary
     // constituency only. A dense grid is a performance/layout signal, not
     // permission to place KLCC, Menara KL or Merdeka 118 elsewhere.
-    klLandmarks: seatCode.startsWith("P.") && name === "bukit bintang",
+    klLandmarks: bukitBintang,
+    bukitBintang,
   };
 }
 
@@ -189,7 +205,7 @@ function seedFrom(text: string) {
 // them reading as literal duplicates.
 function makeZones(seedKey: string, traits: SeatTraits, developedCount: number): Zone[] {
   const base = seedFrom(seedKey);
-  const basePool: [ZoneArchetype, ZoneKind, number][] = [
+  let basePool: [ZoneArchetype, ZoneKind, number][] = [
     ["townCentre", "urban", 0],
     ["mainVillage", "village", 0],
     ["housingEstate", "housing", 0],
@@ -203,6 +219,10 @@ function makeZones(seedKey: string, traits: SeatTraits, developedCount: number):
   if (traits.coastal) basePool[6] = ["fishingVillage", "river", 0];
   if (traits.paddy) basePool[1] = ["paddyVillage", "village", 0];
   if (traits.industrial) basePool[5] = ["industrialEstate", "industry", 0];
+  // Bukit Bintang is an intensely built central district, not a generic
+  // town with a kampung, river and industrial wedge. This curated mix is
+  // consumed by both the visual city and the game-zone actions.
+  if (traits.bukitBintang) basePool = BUKIT_BINTANG_ZONE_PROFILE;
 
   const names: [ZoneArchetype, ZoneKind, number][] = basePool.slice(0, Math.min(developedCount, basePool.length));
   if (developedCount > basePool.length) {
@@ -221,6 +241,7 @@ function makeZones(seedKey: string, traits: SeatTraits, developedCount: number):
     return {
       id: `zone-${index}`,
       archetype,
+      realName: traits.bukitBintang ? BUKIT_BINTANG_ZONE_NAMES[index] : undefined,
       repeat,
       kind,
       economy,
@@ -293,6 +314,7 @@ function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<t
 }
 
 function zoneName(lang: Lang, zone: Zone) {
+  if (zone.realName) return zone.realName;
   const name = t(lang, `kawasan_page.zoneName_${zone.archetype}`);
   return zone.repeat ? `${name} ${zone.repeat}` : name;
 }
@@ -2644,8 +2666,15 @@ export default function KawasanDevelopmentPage() {
     const base = saved ?? makeZones(seatId, traits, developedCount);
     const completed = journey.pledges.filter(p => p.status === "delivered");
     const display = base.map((zone, index) => {
-      if (index !== 0) return zone;
-      let next = { ...zone, projects: [...zone.projects] };
+      // This is display/layout metadata only; the persisted zone stats and
+      // projects remain untouched. Existing Bukit Bintang saves therefore
+      // gain the real district labels without a save migration.
+      const profile = traits.bukitBintang ? BUKIT_BINTANG_ZONE_PROFILE[index] : undefined;
+      const profiled = profile && BUKIT_BINTANG_ZONE_NAMES[index]
+        ? { ...zone, archetype: profile[0], kind: profile[1], repeat: profile[2], realName: BUKIT_BINTANG_ZONE_NAMES[index] }
+        : zone;
+      if (index !== 0) return profiled;
+      let next = { ...profiled, projects: [...profiled.projects] };
       for (const pledge of completed) {
         const id = pledge.id === "jobs" ? "market" : pledge.id;
         if (!next.projects.includes(id)) {
@@ -2894,7 +2923,7 @@ export default function KawasanDevelopmentPage() {
               </div>
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <button type="button" onClick={() => router.push("/menu")} className="absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
-              <PersonalAssistant embedded />
+              <PersonalAssistant embedded cityContext={{ selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall }} />
               <CampaignBriefing />
               {selectedZone && <div className="absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div></div>

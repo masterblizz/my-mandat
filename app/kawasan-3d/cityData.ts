@@ -124,6 +124,33 @@ export function assignZonePositions(
       }
     });
   }
+
+  // Bukit Bintang receives a hand-composed district plan rather than the
+  // normal centre-out radial ordering. These anchor parcels preserve the
+  // real broad relationship: KL Tower / Bukit Nanas to the north-west,
+  // KLCC to the east-north-east, Bukit Bintang retail in the middle, and
+  // Merdeka 118 / Pudu to the south-east. Remaining zones retain their
+  // deterministic dense-city fill, so saves and selection ids stay stable.
+  if (traits?.bukitBintang && gridSize >= 10) {
+    const mid = Math.round((gridSize - 1) / 2);
+    const anchors: Array<[number, number]> = [
+      [mid, mid],       // Bukit Bintang retail spine
+      [mid + 3, mid - 1], // KLCC / Jalan Ampang edge
+      [mid - 1, mid + 3], // Imbi residential/hotel edge
+      [mid + 1, mid],   // Pavilion / Jalan Bukit Bintang
+      [mid - 2, mid - 1], // Bukit Nanas civic edge
+      [mid + 2, mid + 2], // TRX / Tun Razak approach
+      [mid - 4, mid - 3], // Menara KL / Bukit Nanas
+      [mid, mid + 2],   // Jalan Imbi market spine
+      [mid + 1, mid + 5], // Merdeka 118 / Pudu edge
+    ];
+    anchors.forEach(([col, row], zoneIndex) => {
+      if (!positions[zoneIndex] || col < 0 || row < 0 || col >= gridSize || row >= gridSize) return;
+      const occupant = positions.findIndex((p) => p.col === col && p.row === row);
+      if (occupant >= 0) [positions[zoneIndex], positions[occupant]] = [positions[occupant], positions[zoneIndex]];
+      else positions[zoneIndex] = { col, row };
+    });
+  }
   return positions;
 }
 
@@ -281,8 +308,8 @@ export type BSpec = {
   projectId?: string;
 };
 
-export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean };
-export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false, kinabalu: false, klLandmarks: false };
+export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean; bukitBintang: boolean };
+export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false, kinabalu: false, klLandmarks: false, bukitBintang: false };
 
 export const FLAT_TYPES: BType[] = ["sawah", "pond", "field", "plaza"];
 

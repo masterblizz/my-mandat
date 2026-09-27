@@ -42,30 +42,34 @@ export function klHeightMult(col: number, row: number, gridSize: number): number
   return 1.42 - 1.05 * t * t;
 }
 
-// Grid cells the KL landmarks occupy — CityScene folds these into
-// `claimed`. Twin = the dead-centre cell; spire = a mid-ring cell offset
-// off the main axes so it doesn't hide behind the twins.
-// Twin = the dead-centre cell; spire = a mid-ring cell in the quadrant
-// that faces the default iso camera (−col / +row) so it isn't hidden
-// behind the twins.
+// Grid cells follow the actual broad geography of central Kuala Lumpur:
+// Menara KL / Bukit Nanas is north-west of the Bukit Bintang retail spine,
+// KLCC sits to its east-north-east, and Merdeka 118 rises toward Pudu in
+// the south-east. The city is intentionally an isometric playable district,
+// not a cadastral GIS export, but this relative layout is fixed and visible.
 function spireCell(gridSize: number): [number, number] {
   const mid = Math.round((gridSize - 1) / 2);
-  return [Math.max(0, mid - 2), Math.min(gridSize - 1, mid + 2)];
+  return [Math.max(0, mid - 4), Math.max(0, mid - 3)];
 }
 
 // Merdeka 118 sits on a different mid-ring tile so the three landmarks read
 // as a skyline cluster instead of intersecting at the grid centre.
 function merdekaCell(gridSize: number): [number, number] {
   const mid = Math.round((gridSize - 1) / 2);
-  return [Math.min(gridSize - 1, mid + 3), Math.max(0, mid - 2)];
+  return [Math.min(gridSize - 1, mid + 1), Math.min(gridSize - 1, mid + 5)];
+}
+
+function twinCell(gridSize: number): [number, number] {
+  const mid = Math.round((gridSize - 1) / 2);
+  return [Math.min(gridSize - 1, mid + 3), Math.max(0, mid - 1)];
 }
 
 export function klClaims(gridSize: number, enabled = false): string[] {
   if (!enabled || !klActive(gridSize)) return [];
-  const mid = Math.round((gridSize - 1) / 2);
+  const [tc, tr] = twinCell(gridSize);
   const [sc, sr] = spireCell(gridSize);
   const [mc, mr] = merdekaCell(gridSize);
-  return [`${mid},${mid}`, `${sc},${sr}`, `${mc},${mr}`];
+  return [`${tc},${tr}`, `${sc},${sr}`, `${mc},${mr}`];
 }
 
 function tileCentre(index: number, gridSize: number): number {
@@ -229,14 +233,14 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
     const merdeka = buildMerdeka118();
     merdeka.computeVertexNormals();
     merdeka.computeBoundingSphere();
-    const mid = Math.round((gridSize - 1) / 2);
+    const [tc, tr] = twinCell(gridSize);
     const [sc, sr] = spireCell(gridSize);
     const [mc, mr] = merdekaCell(gridSize);
     return {
       twins, spire, merdeka,
       spireGlass: buildSpireDetails(true),
       spireTrim: buildSpireDetails(false),
-      twinAt: [tileCentre(mid, gridSize), tileCentre(mid, gridSize)] as const,
+      twinAt: [tileCentre(tc, gridSize), tileCentre(tr, gridSize)] as const,
       spireAt: [tileCentre(sc, gridSize), tileCentre(sr, gridSize)] as const,
       merdekaAt: [tileCentre(mc, gridSize), tileCentre(mr, gridSize)] as const,
     };

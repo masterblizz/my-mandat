@@ -2,19 +2,41 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGameStore } from "../../store/gameStore";
 import { resumeRoute } from "../../store/journey";
 import { useLang, t } from "../../i18n/useLang";
 
 type Guidance = { title: string; message: string; action: string; route: string };
+type CityContext = { selectedName: string; selectedSentiment: number; overall: number };
 
-export default function PersonalAssistant({ embedded = false, prominent = false }: { embedded?: boolean; prominent?: boolean }) {
+export default function PersonalAssistant({ embedded = false, prominent = false, cityContext }: { embedded?: boolean; prominent?: boolean; cityContext?: CityContext }) {
   const router = useRouter();
   const lang = useLang();
   const state = useGameStore();
   const [open, setOpen] = useState(false);
+  const [briefVisible, setBriefVisible] = useState(embedded);
   const journey = state.journey;
+
+  // A compact, state-aware briefing makes the assistant feel present in the
+  // city without forcing an intrusive card over the map. A new selection or
+  // meaningful change earns a fresh, short nudge; the player can always tap
+  // the larger avatar for the full plan.
+  const proactive = useMemo(() => {
+    if (journey.decisions <= 0) return t(lang, "Tenaga hari ini telah digunakan. Semak kalendar dan rancang tindakan esok.", "Today's energy is spent. Check the calendar and plan tomorrow's move.");
+    if (cityContext?.selectedSentiment !== undefined && cityContext.selectedSentiment < 54) return t(lang, `${cityContext.selectedName} memerlukan perhatian segera — sentimen ${cityContext.selectedSentiment}%.`, `${cityContext.selectedName} needs attention now — sentiment is ${cityContext.selectedSentiment}%.`);
+    if (cityContext && cityContext.overall < 55) return t(lang, "Sentimen keseluruhan masih rapuh. Utamakan lawatan komuniti dan isu paling lemah.", "Overall sentiment is fragile. Prioritise community visits and the weakest issue.");
+    if (state.resources.funds < 25_000) return t(lang, "Dana operasi rendah. Pilih aktiviti kos rendah sebelum komit projek besar.", "Operating funds are low. Choose low-cost activity before committing to a major project.");
+    if (cityContext) return t(lang, `Saya memantau ${cityContext.selectedName}. Sentimen zon: ${cityContext.selectedSentiment}%.`, `I'm monitoring ${cityContext.selectedName}. Zone sentiment: ${cityContext.selectedSentiment}%.`);
+    return t(lang, "Saya sedang memantau papan strategi anda. Tekan saya jika mahu langkah seterusnya.", "I'm monitoring your strategy board. Tap me when you want the next move.");
+  }, [cityContext, journey.decisions, lang, state.resources.funds]);
+  const proactiveKey = `${cityContext?.selectedName ?? ""}:${cityContext?.selectedSentiment ?? ""}:${journey.decisions}:${state.resources.funds}`;
+  useEffect(() => {
+    if (!embedded) return;
+    setBriefVisible(true);
+    const timer = window.setTimeout(() => setBriefVisible(false), 7500);
+    return () => window.clearTimeout(timer);
+  }, [embedded, proactiveKey]);
 
   if (state.phase === "ended" || (state.phase === "menu" && journey.characterStage === "member")) return null;
 
@@ -30,14 +52,16 @@ export default function PersonalAssistant({ embedded = false, prominent = false 
     : [t(lang, "1. Klik Bangunan Kabinet untuk membuat keputusan penggal.", "1. Click the Cabinet Building to make term decisions."), t(lang, "2. Semak bajet dan had tindakan sebelum sahkan arahan.", "2. Check budget and the action limit before confirming a directive."), t(lang, "3. Gunakan Pusat Pentadbiran untuk melaksanakan dasar selepas keputusan dibuat.", "3. Use the Administration Centre to deliver policy after a decision.")];
 
   if (embedded) {
-    return <div className={`absolute bottom-[178px] right-5 ${open ? "z-[120]" : "z-30"} flex items-end justify-end`} style={{ fontFamily: "'Space Mono', monospace" }}>
-      {open && <section className="absolute bottom-[calc(100%+12px)] right-0 z-10 max-h-[min(560px,calc(100vh-220px))] w-[min(460px,calc(100vw-48px))] overflow-y-auto border p-4 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
-        <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-sm font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="px-1 text-base leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
+    return <div className={`absolute bottom-[186px] right-4 ${open ? "z-[120]" : "z-30"} flex items-end justify-end`} style={{ fontFamily: "'Space Mono', monospace" }}>
+      {briefVisible && !open && <button type="button" onClick={() => { setOpen(true); setBriefVisible(false); }} className="absolute bottom-[calc(100%+10px)] right-0 w-[min(280px,calc(100vw-48px))] border px-3 py-2 text-left shadow-xl transition hover:border-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }} aria-label={t(lang, "Buka nasihat pembantu", "Open assistant advice")}><div className="flex items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full bg-cyan animate-pulse" /><span className="text-[8px] font-black tracking-[.16em] text-cyan">{t(lang, "PA // ANALISIS LANGSUNG", "PA // LIVE ANALYSIS")}</span></div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{proactive}</p></button>}
+      {open && <section className="absolute bottom-[calc(100%+14px)] right-0 z-10 max-h-[min(590px,calc(100vh-230px))] w-[min(480px,calc(100vw-40px))] overflow-y-auto border p-4 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PEMBANTU PERIBADI · AI AKTIF", "PERSONAL ASSISTANT · AI ACTIVE")}</div><h2 className="mt-1 text-sm font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="border px-2 py-1 text-[9px] font-black tracking-widest text-text-muted hover:text-white" style={{ borderColor: "rgb(var(--cyan-rgb) / .35)" }} aria-label={t(lang, "Minimumkan pembantu", "Minimise assistant")}>{t(lang, "MINIMUM", "MINIMISE")}</button></div>
+        <div className="mt-3 border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / .3)", background: "rgb(var(--gold-rgb) / .06)" }}><div className="text-[8px] font-black tracking-[.16em] text-gold">{t(lang, "BACAAN LANGSUNG", "LIVE READOUT")}</div><p className="mt-1 text-[11px] leading-relaxed text-white">{proactive}</p></div>
         <p className="mt-2 text-[12px] leading-relaxed text-text-muted">{guidance.message}</p>
         <div className="mt-3 border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .28)", background: "rgb(var(--cyan-rgb) / .05)" }}><b className="text-[9px] tracking-[.16em] text-cyan">{t(lang, "IKUT TURUTAN INI", "FOLLOW THESE STEPS")}</b><ol className="mt-2 space-y-2">{citySteps.map((step) => <li key={step} className="text-[11px] leading-relaxed text-text-muted">{step}</li>)}</ol></div>
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2.5 text-[11px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
       </section>}
-      <button type="button" onClick={() => setOpen((value) => !value)} className="relative h-14 w-14 overflow-hidden rounded-full border shadow-xl transition hover:scale-105 focus:outline-none" style={{ borderColor: "rgb(var(--gold-rgb) / .72)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 22px rgb(var(--cyan-rgb) / .38)" }} aria-label={t(lang, "Buka pembantu peribadi", "Open Personal Assistant")}><Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="56px" className="object-cover object-top" /><span className="absolute bottom-0 left-0 right-0 bg-black/75 py-0.5 text-[7px] font-black tracking-widest text-cyan">PA</span></button>
+      <button type="button" onClick={() => { setOpen((value) => !value); setBriefVisible(false); }} className="relative h-20 w-20 overflow-hidden rounded-full border-2 shadow-xl transition hover:scale-105 focus:outline-none" style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 30px rgb(var(--cyan-rgb) / .52)" }} aria-label={t(lang, "Buka pembantu peribadi", "Open Personal Assistant")}><Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="80px" className="object-cover object-top" /><span className="absolute inset-1 rounded-full border border-cyan/45 animate-pulse" /><span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-[#020814] bg-emerald-400" /><span className="absolute bottom-0 left-0 right-0 bg-black/75 py-1 text-[8px] font-black tracking-widest text-cyan">{t(lang, "PA · AKTIF", "PA · ACTIVE")}</span></button>
     </div>;
   }
 
