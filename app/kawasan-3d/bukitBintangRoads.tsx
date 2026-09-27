@@ -223,6 +223,8 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
   const cargoRef = useRef<THREE.InstancedMesh>(null);
+  const riderRef = useRef<THREE.InstancedMesh>(null);
+  const helmetRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const tailLightRef = useRef<THREE.InstancedMesh>(null);
@@ -240,7 +242,9 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   useLayoutEffect(() => {
     const mesh = bodyRef.current;
     if (!mesh) return;
-    const colours = ["#e9edf0", "#2f86bd", "#c9403c", "#e6b72b", "#277a59", "#704aa7", "#4d5968"];
+    // High-contrast KL traffic palette: blue, red and yellow stay visible
+    // against the dark glass towers even from the tactical camera.
+    const colours = ["#f8fafc", "#1677d2", "#e53935", "#f5c518", "#12a76d", "#ff7a18", "#8b5cf6", "#26b9d8"];
     cars.forEach((_, i) => mesh.setColorAt(i, new THREE.Color(colours[i % colours.length])));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [cars]);
@@ -248,10 +252,12 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     const body = bodyRef.current;
     const cabin = cabinRef.current;
     const cargo = cargoRef.current;
+    const rider = riderRef.current;
+    const helmet = helmetRef.current;
     const wheels = wheelRef.current;
     const headlights = headlightRef.current;
     const tailLights = tailLightRef.current;
-    if (!body || !cabin || !cargo || !wheels || !headlights || !tailLights) return;
+    if (!body || !cabin || !cargo || !rider || !helmet || !wheels || !headlights || !tailLights) return;
     const halfSpan = (gridSize * 280 + 40) / 2;
     const carRoot = new THREE.Object3D();
     const part = new THREE.Object3D();
@@ -286,6 +292,12 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       put(body, i, 0, 0, 0, spec.body[0], spec.body[1], spec.body[2]);
       put(cabin, i, spec.cabin[0], spec.cabin[1], 0, spec.cabin[2], spec.cabin[3], spec.cabin[4]);
       put(cargo, i, spec.cargo[0], spec.cargo[1], spec.cargo[2], spec.cargo[3], spec.cargo[4], spec.cargo[5]);
+      // Each motorcycle gets one rider and helmet only. For every other
+      // vehicle these instances collapse to near-zero: no passenger model
+      // is generated behind the rider.
+      const bike = car.kind === "motorcycle";
+      put(rider, i, bike ? -0.3 : 0, bike ? 3.1 : 0, 0, bike ? 2.5 : 0.001, bike ? 4.7 : 0.001, bike ? 2.25 : 0.001);
+      put(helmet, i, bike ? 1.25 : 0, bike ? 6.4 : 0, 0, bike ? 2.45 : 0.001, bike ? 2.45 : 0.001, bike ? 2.45 : 0.001);
       // Four wheels for road vehicles; the close paired wheels on a bike
       // collapse visually into its two-wheel profile from the city camera.
       put(wheels, i * 4, -spec.axle, -1.45, -spec.wheelZ, 3.1, 1.55, 1.45);
@@ -301,6 +313,8 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     body.instanceMatrix.needsUpdate = true;
     cabin.instanceMatrix.needsUpdate = true;
     cargo.instanceMatrix.needsUpdate = true;
+    rider.instanceMatrix.needsUpdate = true;
+    helmet.instanceMatrix.needsUpdate = true;
     wheels.instanceMatrix.needsUpdate = true;
     headlights.instanceMatrix.needsUpdate = true;
     tailLights.instanceMatrix.needsUpdate = true;
@@ -308,7 +322,7 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   return <group>
     <instancedMesh ref={bodyRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial vertexColors roughness={0.3} metalness={0.42} />
+      <meshStandardMaterial vertexColors roughness={0.28} metalness={0.38} emissive="#24313b" emissiveIntensity={0.16} />
     </instancedMesh>
     <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
@@ -317,6 +331,14 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color="#bcc7cd" roughness={0.52} metalness={0.35} />
+    </instancedMesh>
+    <instancedMesh ref={riderRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+      <cylinderGeometry args={[0.5, 0.62, 1, 8]} />
+      <meshStandardMaterial color="#27364a" roughness={0.82} />
+    </instancedMesh>
+    <instancedMesh ref={helmetRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+      <sphereGeometry args={[0.5, 10, 8]} />
+      <meshStandardMaterial color="#f4f7fb" metalness={0.38} roughness={0.25} />
     </instancedMesh>
     <instancedMesh ref={wheelRef} args={[undefined, undefined, count * 4]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
