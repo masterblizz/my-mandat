@@ -240,13 +240,22 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     }));
   }, [count]);
   useLayoutEffect(() => {
-    const mesh = bodyRef.current;
-    if (!mesh) return;
+    const body = bodyRef.current;
+    const cabin = cabinRef.current;
+    if (!body || !cabin) return;
     // High-contrast KL traffic palette: blue, red and yellow stay visible
     // against the dark glass towers even from the tactical camera.
     const colours = ["#f8fafc", "#1677d2", "#e53935", "#f5c518", "#12a76d", "#ff7a18", "#8b5cf6", "#26b9d8"];
-    cars.forEach((_, i) => mesh.setColorAt(i, new THREE.Color(colours[i % colours.length])));
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    const glassBase = new THREE.Color("#0b1724");
+    cars.forEach((_, i) => {
+      const paint = new THREE.Color(colours[i % colours.length]);
+      body.setColorAt(i, paint);
+      // Keep windows visibly glassy, but tint them with the vehicle paint so
+      // buses and vans do not collapse into an all-black silhouette.
+      cabin.setColorAt(i, paint.clone().lerp(glassBase, 0.58));
+    });
+    if (body.instanceColor) body.instanceColor.needsUpdate = true;
+    if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
   }, [cars]);
   useFrame(({ clock }) => {
     const body = bodyRef.current;
@@ -322,11 +331,13 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   return <group>
     <instancedMesh ref={bodyRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial vertexColors roughness={0.28} metalness={0.38} emissive="#24313b" emissiveIntensity={0.16} />
+      {/* Tactical camera views are intentionally dark. Basic material keeps
+          the fleet's instance paint readable instead of turning it black. */}
+      <meshBasicMaterial vertexColors toneMapped={false} />
     </instancedMesh>
     <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#102b42" roughness={0.18} metalness={0.58} emissive="#183b55" emissiveIntensity={0.25} />
+      <meshBasicMaterial vertexColors toneMapped={false} />
     </instancedMesh>
     <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
