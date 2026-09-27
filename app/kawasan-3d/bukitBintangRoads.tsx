@@ -246,13 +246,13 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     // High-contrast KL traffic palette: blue, red and yellow stay visible
     // against the dark glass towers even from the tactical camera.
     const colours = ["#f8fafc", "#1677d2", "#e53935", "#f5c518", "#12a76d", "#ff7a18", "#8b5cf6", "#26b9d8"];
-    const glassBase = new THREE.Color("#0b1724");
+    const glassBase = new THREE.Color("#315a72");
     cars.forEach((_, i) => {
       const paint = new THREE.Color(colours[i % colours.length]);
       body.setColorAt(i, paint);
       // Keep windows visibly glassy, but tint them with the vehicle paint so
       // buses and vans do not collapse into an all-black silhouette.
-      cabin.setColorAt(i, paint.clone().lerp(glassBase, 0.58));
+      cabin.setColorAt(i, paint.clone().lerp(glassBase, 0.28));
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
@@ -353,7 +353,7 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     </instancedMesh>
     <instancedMesh ref={wheelRef} args={[undefined, undefined, count * 4]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#10151a" roughness={0.9} metalness={0.06} />
+      <meshStandardMaterial color="#4b5861" roughness={0.84} metalness={0.14} />
     </instancedMesh>
     <instancedMesh ref={headlightRef} args={[undefined, undefined, count * 2]} frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
