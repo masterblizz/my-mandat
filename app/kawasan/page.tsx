@@ -2583,6 +2583,7 @@ export default function KawasanDevelopmentPage() {
   const [launchedType, setLaunchedType] = useState<OpType | null>(null);
   const [focusZoneId, setFocusZoneId] = useState<string | null>(null);
   const [focusedDestination, setFocusedDestination] = useState<string | null>(null);
+  const [activityMarkersVisible, setActivityMarkersVisible] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
@@ -2877,7 +2878,7 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
+                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
@@ -2887,7 +2888,7 @@ export default function KawasanDevelopmentPage() {
                   <div className="mt-1 text-sm font-black tracking-wider text-white">{ownSeat.name} <span className="text-gold">· {overall}%</span></div>
                 </div>
               </div>
-              <CityDestinations onFocus={focusDestination} variant="overlay" />
+              <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <button type="button" onClick={() => router.push("/menu")} className="absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded />
               <CampaignBriefing />

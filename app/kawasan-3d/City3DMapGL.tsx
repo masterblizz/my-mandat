@@ -45,6 +45,8 @@ export type City3DMapGLProps = {
   height?: CSSProperties["height"];
   /** Named buildings that can be entered directly from a floating 3D tag. */
   destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  /** Activity Locations panel deliberately reveals every label; otherwise the map stays decluttered. */
+  showAllDestinationTags?: boolean;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 };
 
@@ -66,7 +68,7 @@ function scoreTint(value: number): string {
 
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
-  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, onEnterDestination,
+  gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, showAllDestinationTags = false, onEnterDestination,
 }: City3DMapGLProps) {
   const hudRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
@@ -290,6 +292,7 @@ export default function City3DMapGL({
           festivals={festivals}
           lang={lang}
           destinationTags={destinationTags}
+          showAllDestinationTags={showAllDestinationTags}
           onEnterDestination={onEnterDestination}
         />
         <PostFX tod={tod} quality={quality} />
@@ -390,7 +393,10 @@ export default function City3DMapGL({
             </div>
           );
         })()}
-        <div style={{ position: "relative", width: mmGridPx, height: mmGridPx }}>
+        <div style={{ position: "relative", width: mmGridPx, height: mmGridPx, background: "#07131f", boxShadow: "inset 0 0 0 1px rgba(125,211,252,.18)" }}>
+          {/* Major road grid sits below the zone tiles so the map reads as a city plan, not a dot matrix. */}
+          {Array.from({ length: gridSize + 1 }, (_, i) => <div key={`road-v-${i}`} style={{ position: "absolute", left: i * mmCell - 1, top: 0, width: 2, height: mmGridPx, background: "rgba(100,160,190,.4)", pointerEvents: "none" }} />)}
+          {Array.from({ length: gridSize + 1 }, (_, i) => <div key={`road-h-${i}`} style={{ position: "absolute", left: 0, top: i * mmCell - 1, width: mmGridPx, height: 2, background: "rgba(100,160,190,.4)", pointerEvents: "none" }} />)}
           {Array.from({ length: gridSize * gridSize }, (_, index) => {
             const col = index % gridSize;
             const row = Math.floor(index / gridSize);
@@ -407,11 +413,17 @@ export default function City3DMapGL({
                   width: Math.max(1, mmCell - 1),
                   height: Math.max(1, mmCell - 1),
                   background: zone ? `rgba(${scoreTint(zone.sentiment)},0.85)` : "rgba(148,163,184,0.12)",
-                  outline: isSel ? `${mapExpanded ? 2 : 1}px solid #facc15` : undefined,
+                  border: isSel ? `${mapExpanded ? 2 : 1}px solid #facc15` : "1px solid rgba(3,8,15,.35)",
+                  boxShadow: isSel ? "0 0 8px rgba(34,211,238,.85)" : undefined,
                   cursor: "pointer",
                 }}
               />
             );
+          })}
+          {Object.entries(destinationTags ?? {}).map(([zoneId, tag]) => {
+            const cell = cellByZoneId.get(zoneId);
+            if (!cell) return null;
+            return <span key={`mm-destination-${zoneId}`} title={tag.label} style={{ position: "absolute", left: cell.col * mmCell + mmCell / 2 - 2, top: cell.row * mmCell + mmCell / 2 - 2, width: 4, height: 4, borderRadius: "50%", background: "#22d3ee", boxShadow: "0 0 4px #22d3ee", pointerEvents: "none" }} />;
           })}
           <div
             style={{

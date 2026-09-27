@@ -173,6 +173,7 @@ function ZoneTile({
 function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; seed: number; rural?: boolean }) {
   const tex = useMemo(() => grassTextureFor(seed), [seed]);
   useEffect(() => () => tex.dispose(), [tex]);
+  const construction = !rural && seed % 3 === 0;
   return (
     <group position={[cx, 0, cz]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.4, 0]} receiveShadow>
@@ -185,8 +186,43 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
           <meshStandardMaterial color={index % 2 ? "#2d5d31" : "#476f2b"} roughness={1} />
         </mesh>
       ))}
+      {construction && <group position={[0, TILE_H + 0.9, 0]}>
+        {/* Deterministic compact construction site: fence, foundations,
+            materials and a small crane read as an active project without
+            adding simulation state or per-frame updates. */}
+        {[
+          [0, -PLOT / 2 + 20, PLOT - 36, 2], [0, PLOT / 2 - 20, PLOT - 36, 2],
+          [-PLOT / 2 + 20, 0, 2, PLOT - 36], [PLOT / 2 - 20, 0, 2, PLOT - 36],
+        ].map(([x, z, w, d], i) => <mesh key={`fence-${i}`} position={[x, 3, z]}><boxGeometry args={[w, 6, d]} /><meshStandardMaterial color="#c79228" roughness={.72} /></mesh>)}
+        <mesh position={[-22, 1.3, 12]}><boxGeometry args={[92, 2.6, 64]} /><meshStandardMaterial color="#69727a" roughness={.9} /></mesh>
+        {[-8, 12, 32].map((x) => <mesh key={`pile-${x}`} position={[x, 5, -28]}><dodecahedronGeometry args={[7, 0]} /><meshStandardMaterial color="#b9894d" roughness={1} /></mesh>)}
+        <mesh position={[50, 31, 34]}><boxGeometry args={[3, 58, 3]} /><meshStandardMaterial color="#d1a538" metalness={.35} roughness={.55} /></mesh>
+        <mesh position={[76, 58, 34]}><boxGeometry args={[54, 2, 2]} /><meshStandardMaterial color="#d1a538" metalness={.35} roughness={.55} /></mesh>
+        <mesh position={[76, 45, 34]}><boxGeometry args={[1.2, 25, 1.2]} /><meshStandardMaterial color="#59626b" roughness={.6} /></mesh>
+      </group>}
     </group>
   );
+}
+
+// A precise cyan shell around the tallest eligible structure in the selected
+// zone. This is intentionally local to one mesh, rather than a scene-wide
+// post-processing outline which would make every road and tree glow.
+function SelectedBuildingGlow({ placement, gridSize, density, traits }: { placement: CellPlacement; gridSize: number; density: number; traits: SeatTraits }) {
+  const { zone, col, row, cx, cz } = placement;
+  const mid = (gridSize - 1) / 2;
+  const maxD = Math.hypot(mid, mid) || 1;
+  const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
+  const primary = zoneBuildings(zone, density, traits, coreness)
+    .filter((spec) => !FLAT_TYPES.includes(spec.type))
+    .sort((a, b) => b.h - a.h)[0];
+  if (!primary) return null;
+  const p = slotPos(primary.slot);
+  const vertical = primary.type === "tower" || primary.type === "skyscraper" || primary.type === "antenna";
+  const h = vertical ? Math.min(275, Math.max(14, primary.h * klHeightMult(col, row, gridSize))) : Math.max(primary.h, 8);
+  return <mesh position={[cx - PLOT / 2 + p.x + primary.w / 2, TILE_H + h / 2, cz - PLOT / 2 + p.y + primary.d / 2]} renderOrder={8}>
+    <boxGeometry args={[primary.w + 7, h + 7, primary.d + 7]} />
+    <meshBasicMaterial color="#22d3ee" transparent opacity={0.72} wireframe depthWrite={false} toneMapped={false} />
+  </mesh>;
 }
 
 function neighbourhoodSpans(gridSize: number, density: number) {
@@ -450,7 +486,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, destinationTags, onEnterDestination,
+  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -462,6 +498,7 @@ function Grid({
   weather?: Weather;
   nationalLighting?: boolean;
   destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  showAllDestinationTags?: boolean;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 }) {
   const empties = useMemo(() => emptyCells(zones, gridSize, traits), [zones, gridSize, traits]);
@@ -552,6 +589,11 @@ function Grid({
       {placed.map(({ zone, cx, cz }) => {
         const tag = destinationTags?.[zone.id];
         if (!tag) return null;
+        // Keep the city readable by default: the selected destination and
+        // two stable primary tags get cards; all other destinations remain
+        // compact cyan pins until the player opens Activity Locations.
+        const tagIndex = Object.keys(destinationTags ?? {}).indexOf(zone.id);
+        const showCard = showAllDestinationTags || zone.id === selectedId || tagIndex < 3;
         const baseOffset = DESTINATION_LABEL_LAYOUT[tag.destinationId] ?? [0, 120, 0];
         const rural = density < 0.3;
         // Small towns should read as a compact town centre: labels sit close
@@ -566,8 +608,8 @@ function Grid({
             <cylinderGeometry args={[rural ? 1.35 : 1.8, rural ? 1.35 : 1.8, beaconHeight, 8]} />
             <meshBasicMaterial color="#22d3ee" transparent opacity={0.62} toneMapped={false} depthTest={false} depthWrite={false} />
           </mesh>
-          <Line points={[[0, 0, 0], labelOffset]} color="#22d3ee" lineWidth={1.2} transparent opacity={0.82} depthTest={false} />
-          <Html position={labelOffset} center zIndexRange={[100, 0]} style={{ pointerEvents: "auto" }}>
+          {showCard && <Line points={[[0, 0, 0], labelOffset]} color="#22d3ee" lineWidth={1.2} transparent opacity={0.82} depthTest={false} />}
+          <Html position={showCard ? labelOffset : [0, 16, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label={`Masuk ${tag.label}`}
@@ -575,16 +617,15 @@ function Grid({
               onPointerOver={() => { document.body.style.cursor = "pointer"; }}
               onPointerOut={() => { document.body.style.cursor = "auto"; }}
               style={{
-                display: "flex", alignItems: "center", gap: 7, minWidth: rural ? 136 : 156, padding: rural ? "6px 8px" : "8px 10px",
+                display: "flex", alignItems: "center", gap: showCard ? 7 : 0, minWidth: showCard ? (rural ? 136 : 156) : 22, height: showCard ? undefined : 22, padding: showCard ? (rural ? "6px 8px" : "8px 10px") : 0,
                 border: "1px solid #22d3ee", borderRadius: 3, color: "#f0f9ff", background: "rgba(2, 12, 24, .94)",
                 boxShadow: "0 0 0 2px rgba(2,7,15,.78), 0 0 20px rgba(34,211,238,.58)",
                 fontFamily: "'Space Mono', monospace", fontSize: rural ? 8 : 10, fontWeight: 900, letterSpacing: ".06em",
                 cursor: "pointer", whiteSpace: "nowrap", textShadow: "0 1px 2px #000",
               }}
             >
-              <span style={{ color: "#f0a500", fontSize: rural ? 12 : 15, lineHeight: 1 }}>◆</span>
-              <span style={{ flex: 1, textAlign: "left" }}>{tag.label}</span>
-              <span style={{ color: "#22d3ee", fontSize: rural ? 8 : 9 }}>MASUK ›</span>
+              <span style={{ color: "#f0a500", fontSize: showCard ? (rural ? 12 : 15) : 14, lineHeight: 1 }}>◆</span>
+              {showCard && <><span style={{ flex: 1, textAlign: "left" }}>{tag.label}</span><span style={{ color: "#22d3ee", fontSize: rural ? 8 : 9 }}>MASUK ›</span></>}
             </button>
           </Html>
         </group>;
@@ -600,7 +641,7 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
-  soundEnabled = false, festivals = [], lang = "ms", destinationTags, onEnterDestination,
+  soundEnabled = false, festivals = [], lang = "ms", destinationTags, showAllDestinationTags = false, onEnterDestination,
 }: {
   zones: Zone[];
   gridSize: number;
@@ -630,6 +671,7 @@ export function CityScene({
   festivals?: Festival[];
   lang?: Lang;
   destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
+  showAllDestinationTags?: boolean;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
 }) {
   const qs = QUALITY_SETTINGS[quality];
@@ -723,6 +765,7 @@ export function CityScene({
         weather={weather}
         nationalLighting={tod === "night" && festivals.some(f => f.id === "malaysia" || f.id === "merdeka")}
         destinationTags={destinationTags}
+        showAllDestinationTags={showAllDestinationTags}
         onEnterDestination={onEnterDestination}
       />
       <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
@@ -744,6 +787,7 @@ export function CityScene({
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
       )}
       {selected && <SelectionPin position={[selected.cx, 0, selected.cz]} />}
+      {selected && <SelectedBuildingGlow placement={selected} gridSize={gridSize} density={density} traits={traits} />}
       {celebrate && celebration && (
         <ZoneBeacon
           key={celebration.at}
