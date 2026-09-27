@@ -281,8 +281,8 @@ export type BSpec = {
   projectId?: string;
 };
 
-export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean };
-export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false, kinabalu: false };
+export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean };
+export const DEFAULT_TRAITS: SeatTraits = { coastal: false, paddy: false, hilly: false, industrial: false, lake: false, kinabalu: false, klLandmarks: false };
 
 export const FLAT_TYPES: BType[] = ["sawah", "pond", "field", "plaza"];
 
@@ -710,7 +710,11 @@ export function farPlaneFor(span: number): number {
 // Responsive fit-zoom: narrower viewports frame a touch further out.
 // zoom is a distance multiplier now (baseDistance / zoom), so < 1 = out.
 export function fitZoom(widthPx: number): number {
-  return widthPx < 700 ? 0.62 : widthPx < 900 ? 0.74 : widthPx < 1150 ? 0.88 : CAM_DEFAULT.zoom;
+  // The prior desktop fit framed the entire 30×30 metro at once, making
+  // buildings and interaction targets read as a dense texture rather than
+  // a playable city. Keep phones conservative, but begin desktop one step
+  // closer so the core is immediately legible after a reload/reset.
+  return widthPx < 700 ? 0.72 : widthPx < 900 ? 0.88 : widthPx < 1150 ? 1.06 : 1.28;
 }
 
 export function clampCam(c: { rz: number; rx: number; zoom: number }) {

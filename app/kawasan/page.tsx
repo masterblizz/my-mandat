@@ -126,7 +126,7 @@ function clamp(value: number) {
 // Real-constituency character, derived from the seat's actual name and
 // state so the generated city echoes the real kawasan: coastal seats get
 // a seafront, rice-bowl seats get paddies, highland seats get hills.
-type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean };
+type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean };
 
 // "bukit" ("hill") appears in plenty of fully urban seat names too (Bukit
 // Bintang, Bukit Gelugor, Bukit Mertajam...) — a blanket substring match
@@ -156,7 +156,7 @@ const LAKE_SEATS = new Set([
 // are the district the mountain actually stands in.
 const KINABALU_SEATS = new Set(["kota kinabalu", "ranau", "kundasang"]);
 
-function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
+function deriveSeatTraits(seatName: string, stateId: string, seatCode = ""): SeatTraits {
   const name = seatName.toLowerCase();
   const has = (...words: string[]) => words.some((word) => name.includes(word));
   return {
@@ -166,6 +166,10 @@ function deriveSeatTraits(seatName: string, stateId: string): SeatTraits {
     industrial: has("gudang", "kulim", "shah alam", "klang", "perai", "prai", "senai", "skudai", "subang", "kapar", "larkin", "pasir gudang"),
     lake: LAKE_SEATS.has(name) || has("tasik"),
     kinabalu: KINABALU_SEATS.has(name),
+    // Iconic Kuala Lumpur landmarks belong to their actual parliamentary
+    // constituency only. A dense grid is a performance/layout signal, not
+    // permission to place KLCC, Menara KL or Merdeka 118 elsewhere.
+    klLandmarks: seatCode.startsWith("P.") && name === "bukit bintang",
   };
 }
 
@@ -2625,7 +2629,7 @@ export default function KawasanDevelopmentPage() {
     ? t(lang, "kawasan_page.semiUrban")
     : t(lang, "kawasan_page.rural");
 
-  const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? ""), [ownSeat?.name, homeState?.id]);
+  const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
   const traitLabels = [
     traits.coastal ? t(lang, "kawasan_page.coastal") : null,
     traits.paddy ? t(lang, "kawasan_page.riceBowl") : null,

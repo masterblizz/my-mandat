@@ -486,7 +486,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
+  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -497,6 +497,7 @@ function Grid({
   notchByCell: Map<string, RoundaboutCorner>;
   weather?: Weather;
   nationalLighting?: boolean;
+  klLandmarks?: boolean;
   destinationTags?: Record<string, { label: string; destinationId: string; originLabel?: string }>;
   showAllDestinationTags?: boolean;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
@@ -589,11 +590,14 @@ function Grid({
       {placed.map(({ zone, cx, cz }) => {
         const tag = destinationTags?.[zone.id];
         if (!tag) return null;
-        // Keep the city readable by default: the selected destination and
-        // two stable primary tags get cards; all other destinations remain
-        // compact cyan pins until the player opens Activity Locations.
-        const tagIndex = Object.keys(destinationTags ?? {}).indexOf(zone.id);
-        const showCard = showAllDestinationTags || zone.id === selectedId || tagIndex < 3;
+        // The normal city view should be legible at a glance. Only the
+        // active/selected destination is shown until Activity Locations is
+        // explicitly opened; that control intentionally reveals every tag.
+        if (!showAllDestinationTags && zone.id !== selectedId) return null;
+        // Once revealed, destinations use their full labelled card so the
+        // player can choose an exact building without ambiguous icon-only
+        // controls.
+        const showCard = true;
         const baseOffset = DESTINATION_LABEL_LAYOUT[tag.destinationId] ?? [0, 120, 0];
         const rural = density < 0.3;
         // Small towns should read as a compact town centre: labels sit close
@@ -630,7 +634,7 @@ function Grid({
           </Html>
         </group>;
       })}
-      {klActive(gridSize) && <KLProfile gridSize={gridSize} winLit={winLit} nationalLighting={nationalLighting} />}
+      {klLandmarks && <KLProfile gridSize={gridSize} enabled winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
@@ -701,12 +705,12 @@ export function CityScene({
   // Fold the KL landmark cells (twin-tower centre + spire) into `claimed`
   // so their ordinary per-cell towers / sidewalks / lamps step aside.
   const claimed = useMemo(() => {
-    const kl = klClaims(gridSize);
+    const kl = klClaims(gridSize, traits.klLandmarks);
     if (!kl.length) return largeClaimed;
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
     return s;
-  }, [largeClaimed, gridSize]);
+  }, [largeClaimed, gridSize, traits.klLandmarks]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
@@ -764,6 +768,7 @@ export function CityScene({
         notchByCell={notchByCell}
         weather={weather}
         nationalLighting={tod === "night" && festivals.some(f => f.id === "malaysia" || f.id === "merdeka")}
+        klLandmarks={traits.klLandmarks}
         destinationTags={destinationTags}
         showAllDestinationTags={showAllDestinationTags}
         onEnterDestination={onEnterDestination}

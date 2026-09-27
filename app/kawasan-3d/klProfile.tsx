@@ -53,11 +53,19 @@ function spireCell(gridSize: number): [number, number] {
   return [Math.max(0, mid - 2), Math.min(gridSize - 1, mid + 2)];
 }
 
-export function klClaims(gridSize: number): string[] {
-  if (!klActive(gridSize)) return [];
+// Merdeka 118 sits on a different mid-ring tile so the three landmarks read
+// as a skyline cluster instead of intersecting at the grid centre.
+function merdekaCell(gridSize: number): [number, number] {
+  const mid = Math.round((gridSize - 1) / 2);
+  return [Math.min(gridSize - 1, mid + 3), Math.max(0, mid - 2)];
+}
+
+export function klClaims(gridSize: number, enabled = false): string[] {
+  if (!enabled || !klActive(gridSize)) return [];
   const mid = Math.round((gridSize - 1) / 2);
   const [sc, sr] = spireCell(gridSize);
-  return [`${mid},${mid}`, `${sc},${sr}`];
+  const [mc, mr] = merdekaCell(gridSize);
+  return [`${mid},${mid}`, `${sc},${sr}`, `${mc},${mr}`];
 }
 
 function tileCentre(index: number, gridSize: number): number {
@@ -183,36 +191,59 @@ function buildSpireDetails(glass: boolean): THREE.BufferGeometry {
   return merged;
 }
 
+// Merdeka 118-inspired tapered tower: a broad glass base, successive
+// setbacks and an asymmetric crown/spire. It is deliberately distinct from
+// the twin Petronas-like shafts and the round Menara KL observation deck.
+function buildMerdeka118(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const tiers: [number, number, number][] = [
+    [68, 84, 0], [56, 100, 84], [43, 112, 184], [30, 106, 296], [19, 76, 402],
+  ];
+  for (const [width, height, base] of tiers) {
+    parts.push(place(BOX, 0, TILE_H + base + height / 2, 0, width, height, width * 0.72));
+    parts.push(place(BOX, 0, TILE_H + base + height, 0, width + 2.2, 2.2, width * 0.72 + 2.2));
+  }
+  // Slender blade crown and antenna push the silhouette above the twins.
+  parts.push(place(CONE, 0, TILE_H + 570, 0, 13, 106, 13));
+  parts.push(place(CYL, 0, TILE_H + 664, 0, 1.5, 116, 1.5));
+  return mergeGeometries(parts, false) ?? parts[0];
+}
+
 // apex heights (world units) — see shaft() / buildSpire() massing above.
 const TWIN_APEX_Y = 535;
 const SPIRE_APEX_Y = 400;
+const MERDEKA_APEX_Y = 780;
 const TWIN_GAP = 110;
 
-export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
-  gridSize: number; winLit?: number; nationalLighting?: boolean;
+export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLighting = false }: {
+  gridSize: number; enabled?: boolean; winLit?: number; nationalLighting?: boolean;
 }) {
   const built = useMemo(() => {
-    if (!klActive(gridSize)) return null;
+    if (!enabled || !klActive(gridSize)) return null;
     const twins = buildTwins();
     twins.computeVertexNormals();
     twins.computeBoundingSphere();
     const spire = buildSpire();
     spire.computeVertexNormals();
     spire.computeBoundingSphere();
+    const merdeka = buildMerdeka118();
+    merdeka.computeVertexNormals();
+    merdeka.computeBoundingSphere();
     const mid = Math.round((gridSize - 1) / 2);
     const [sc, sr] = spireCell(gridSize);
+    const [mc, mr] = merdekaCell(gridSize);
     return {
-      twins,
-      spire,
+      twins, spire, merdeka,
       spireGlass: buildSpireDetails(true),
       spireTrim: buildSpireDetails(false),
       twinAt: [tileCentre(mid, gridSize), tileCentre(mid, gridSize)] as const,
       spireAt: [tileCentre(sc, gridSize), tileCentre(sr, gridSize)] as const,
+      merdekaAt: [tileCentre(mc, gridSize), tileCentre(mr, gridSize)] as const,
     };
-  }, [gridSize]);
+  }, [gridSize, enabled]);
 
   useEffect(() => () => {
-    if (built) [built.twins, built.spire, built.spireGlass, built.spireTrim].forEach(g => g.dispose());
+    if (built) [built.twins, built.spire, built.merdeka, built.spireGlass, built.spireTrim].forEach(g => g.dispose());
   }, [built]);
 
   // Gridded curtain-wall by day (getTowerFacadeTexture — vertical
@@ -307,6 +338,7 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
       [built.twinAt[0] - TWIN_GAP / 2, TWIN_APEX_Y, built.twinAt[1]],
       [built.twinAt[0] + TWIN_GAP / 2, TWIN_APEX_Y, built.twinAt[1]],
       [built.spireAt[0], SPIRE_APEX_Y, built.spireAt[1]],
+      [built.merdekaAt[0], MERDEKA_APEX_Y, built.merdekaAt[1]],
     ];
     beacons.forEach((p, i) => {
       o.position.set(p[0], p[1], p[2]);
@@ -322,6 +354,7 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
     <group>
       <mesh geometry={built.twins} material={mat} position={[built.twinAt[0], 0, built.twinAt[1]]} castShadow receiveShadow />
       <mesh geometry={built.spire} material={steel} position={[built.spireAt[0], 0, built.spireAt[1]]} castShadow receiveShadow />
+      <mesh geometry={built.merdeka} material={mat} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} castShadow receiveShadow />
       <group position={[built.spireAt[0], 0, built.spireAt[1]]}>
         <mesh geometry={built.spireGlass}>
           <meshStandardMaterial color="#396775" metalness={0.48} roughness={0.2}
@@ -332,7 +365,7 @@ export function KLProfile({ gridSize, winLit = 0, nationalLighting = false }: {
             emissive="#ffcf83" emissiveIntensity={winLit * 0.55} />
         </mesh>
       </group>
-      <instancedMesh ref={beaconRef} args={[undefined, undefined, 3]} frustumCulled={false}>
+      <instancedMesh ref={beaconRef} args={[undefined, undefined, 4]} frustumCulled={false}>
         <sphereGeometry args={[3.2, 8, 6]} />
         <meshBasicMaterial color="#ff2b2b" toneMapped={false} />
       </instancedMesh>
