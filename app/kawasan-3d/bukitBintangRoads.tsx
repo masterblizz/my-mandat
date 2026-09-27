@@ -6,7 +6,8 @@
 // are normalised around the playable city footprint so the pattern survives
 // the 16×16 and 30×30 metro quality presets.
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { worldCentre, plotXY } from "./cityData";
 
@@ -61,16 +62,16 @@ export function bukitBintangRoadClaims(gridSize: number): Set<string> {
   const halfSpan = (gridSize * 280 + 40) / 2;
   const claims = new Set<string>();
   for (let row = 0; row < gridSize; row++) for (let col = 0; col < gridSize; col++) {
-    // Keep the nine curated landmark/activity parcels intact; roads bend
-    // around them rather than deleting a selectable destination.
-    if (col >= Math.floor(gridSize / 2) - 4 && col <= Math.floor(gridSize / 2) + 3 && row >= Math.floor(gridSize / 2) - 3 && row <= Math.floor(gridSize / 2) + 5) continue;
     const p = new THREE.Vector2(xy[col] + 120 - centre, xy[row] + 120 - centre);
     const crossed = ROUTES.some((route) => {
       const pts = routePoints(route, halfSpan);
       return pts.slice(0, -1).some((a, i) => {
         const b = pts[i + 1], ab = b.clone().sub(a), ap = p.clone().sub(a);
         const t = THREE.MathUtils.clamp(ap.dot(ab) / Math.max(ab.lengthSq(), 1), 0, 1);
-        return p.distanceTo(a.clone().addScaledVector(ab, t)) < route.width * 0.58;
+        // A building can fill most of its 240-unit parcel. Clear the whole
+        // footprint rather than only a cell-centre dot, otherwise facades
+        // visibly sit on top of a diagonal road.
+        return p.distanceTo(a.clone().addScaledVector(ab, t)) < route.width * 0.5 + 126;
       });
     });
     if (crossed) claims.add(`${col},${row}`);
@@ -92,4 +93,61 @@ export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: num
         emissive="#1b2731" emissiveIntensity={0.12 + night * 0.35} />
     </mesh>
   </group>;
+}
+
+function pointOnRoute(route: Route, halfSpan: number, progress: number) {
+  const points = routePoints(route, halfSpan);
+  const lengths = points.slice(0, -1).map((point, i) => point.distanceTo(points[i + 1]));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let travel = (progress % 1) * total;
+  for (let i = 0; i < lengths.length; i++) {
+    if (travel <= lengths[i]) {
+      const t = travel / Math.max(lengths[i], 1);
+      const a = points[i], b = points[i + 1];
+      return { point: a.clone().lerp(b, t), angle: Math.atan2(b.y - a.y, b.x - a.x) };
+    }
+    travel -= lengths[i];
+  }
+  const a = points[points.length - 2], b = points[points.length - 1];
+  return { point: b, angle: Math.atan2(b.y - a.y, b.x - a.x) };
+}
+
+// One instanced moving-vehicle mesh gives the custom roads obvious life
+// without restoring the old grid-bound traffic system.
+export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSize: number; trafficLevel?: number }) {
+  const count = Math.max(18, Math.min(42, Math.round(gridSize * 1.15 * Math.max(0.5, trafficLevel))));
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const cars = useMemo(() => Array.from({ length: count }, (_, i) => ({
+    route: i % ROUTES.length,
+    progress: ((i * 0.173) % 1),
+    speed: 0.012 + (i % 5) * 0.0025,
+    lane: i % 2 ? 1 : -1,
+  })), [count]);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const colours = ["#38bdf8", "#f8fafc", "#ef4444", "#facc15", "#22c55e", "#a855f7"];
+    cars.forEach((_, i) => mesh.setColorAt(i, new THREE.Color(colours[i % colours.length])));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [cars]);
+  useFrame(({ clock }) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const halfSpan = (gridSize * 280 + 40) / 2;
+    const dummy = new THREE.Object3D();
+    cars.forEach((car, i) => {
+      const state = pointOnRoute(ROUTES[car.route], halfSpan, car.progress + clock.getElapsedTime() * car.speed);
+      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * 14);
+      dummy.position.set(state.point.x + side.x, 7.3, state.point.y + side.y);
+      dummy.rotation.set(0, -state.angle, 0);
+      dummy.scale.set(15, 3.2, 7.2);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+  return <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial vertexColors roughness={0.38} metalness={0.22} emissive="#1b2b3a" emissiveIntensity={0.18} />
+  </instancedMesh>;
 }

@@ -50,7 +50,7 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
-import { BukitBintangRoadNetwork, bukitBintangRoadClaims } from "./bukitBintangRoads";
+import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadClaims } from "./bukitBintangRoads";
 
 // Spread the screen-space labels around the city core when the player is
 // zoomed out. The beacon remains on the real destination building and the
@@ -570,7 +570,7 @@ function Grid({
       {!irregularRoads && density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
       {!irregularRoads && density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
       {!irregularRoads && density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
-      <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />
+      {!irregularRoads && <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />}
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
       {placed.map(({ zone, col, row, cx, cz }) => (
@@ -704,17 +704,23 @@ export function CityScene({
     () => reserveLargeFootprints(placed, gridSize),
     [placed, gridSize],
   );
+  const bukitRoadClaimed = useMemo(
+    () => traits.bukitBintang ? bukitBintangRoadClaims(gridSize) : new Set<string>(),
+    [gridSize, traits.bukitBintang],
+  );
+  const visibleLarges = useMemo(
+    () => traits.bukitBintang ? larges.filter((large) => !bukitRoadClaimed.has(`${large.anchorCol},${large.anchorRow}`)) : larges,
+    [larges, bukitRoadClaimed, traits.bukitBintang],
+  );
   // Fold the KL landmark cells (twin-tower centre + spire) into `claimed`
   // so their ordinary per-cell towers / sidewalks / lamps step aside.
   const claimed = useMemo(() => {
     const kl = klClaims(gridSize, traits.klLandmarks);
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
-    if (traits.bukitBintang) {
-      bukitBintangRoadClaims(gridSize).forEach((c) => s.add(c));
-    }
+    bukitRoadClaimed.forEach((c) => s.add(c));
     return s;
-  }, [largeClaimed, gridSize, traits.klLandmarks, traits.bukitBintang]);
+  }, [largeClaimed, gridSize, traits.klLandmarks, bukitRoadClaimed]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
@@ -767,7 +773,7 @@ export function CityScene({
         tod={tod}
         foliageDensity={qs.foliageDensity}
         buildingBudget={qs.buildingBudget}
-        larges={larges}
+        larges={visibleLarges}
         claimed={claimed}
         notchByCell={notchByCell}
         weather={weather}
@@ -787,6 +793,7 @@ export function CityScene({
         {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
         {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       </>}
+      {traits.bukitBintang && <BukitBintangTraffic gridSize={gridSize} trafficLevel={trafficLevel} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
         claimed={claimed} avoidCentre={roundaboutAt} detail={qs.streetDetail}
