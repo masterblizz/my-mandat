@@ -88,14 +88,14 @@ const TILE_BORDER_W = 5;
 // (unlike zone tiles) since real asphalt doesn't change hue with time of
 // day, only its lit brightness — and a fixed neutral colour holds contrast
 // against every TOD's zone palette by construction, not by coincidence.
-const ROAD_COLOR = "#4d555e";
+const ROAD_COLOR = "#343b43";
 // Wet asphalt: darker (water film absorbs more light) and, combined with
 // the lowered roughness / added metalness at the mesh below, picks up a
 // sheen off the sky/env map instead of the flat matte look on a clear day.
 const WET_ROAD_COLOR = "#33383f";
 // Simulate scattered city light so asphalt and lane paint remain readable
 // between street lamps. Reuse the road map to preserve its texture and markings.
-const ROAD_FILL_COLOR = "#687588";
+const ROAD_FILL_COLOR = "#4f5a67";
 const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0, dusk: 0.08, night: 0.3 };
 
 export type PerfSample = { fps: number; calls: number; tris: number };
@@ -498,7 +498,7 @@ function Grid({
             emissive={ROAD_FILL_COLOR}
             emissiveMap={roadTex.vertical}
             emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
-            roughness={weather === "rain" ? 0.28 : 1}
+            roughness={weather === "rain" ? 0.28 : 0.86}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}
           />
@@ -513,7 +513,7 @@ function Grid({
             emissive={ROAD_FILL_COLOR}
             emissiveMap={roadTex.horizontal}
             emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
-            roughness={weather === "rain" ? 0.28 : 1}
+            roughness={weather === "rain" ? 0.28 : 0.86}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}
           />

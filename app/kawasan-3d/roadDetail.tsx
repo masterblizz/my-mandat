@@ -148,11 +148,11 @@ export function Sidewalks({
     <>
       <instancedMesh ref={southRef} key={`sw-s-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#c7ced9" />
+      <meshStandardMaterial color="#7a8490" roughness={0.92} metalness={0.02} />
       </instancedMesh>
       <instancedMesh ref={eastRef} key={`sw-e-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#c7ced9" />
+      <meshStandardMaterial color="#7a8490" roughness={0.92} metalness={0.02} />
       </instancedMesh>
     </>
   );

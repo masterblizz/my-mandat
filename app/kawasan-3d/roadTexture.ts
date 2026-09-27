@@ -45,23 +45,23 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   canvas.height = CANVAS_H;
   const ctx = canvas.getContext("2d")!;
 
-  // Asphalt base — drawn white so the plane's own meshStandardMaterial
-  // `color` (ROAD_COLOR, see CityScene.tsx) tints it; only the curb/lane
-  // paint below needs to carry real colour.
-  ctx.fillStyle = "#ffffff";
+  // Asphalt base. A cool mid-grey lets the material colour provide the
+  // final TOD lighting while retaining enough room for tyre wear and lane
+  // paint to read from the high city camera.
+  ctx.fillStyle = "#9aa2aa";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   // Faint asphalt grain plus restrained longitudinal tyre wear. These are
   // deliberately baked into the shared road texture: they break up the
   // formerly uniform ribbon without creating decals or extra draw calls.
   let seed = 8081 + laneCount * 193;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-  ctx.fillStyle = "rgba(0,0,0,0.055)";
-  for (let i = 0; i < 140; i++) {
+  ctx.fillStyle = "rgba(8,12,18,0.12)";
+  for (let i = 0; i < 190; i++) {
     const x = rnd() * CANVAS_W;
     const y = rnd() * CANVAS_H;
     ctx.fillRect(x, y, 1.5, 1.5);
   }
-  ctx.strokeStyle = "rgba(18,22,28,0.1)";
+  ctx.strokeStyle = "rgba(12,17,23,0.22)";
   ctx.lineWidth = 1.5;
   for (const x of [CANVAS_W * 0.32, CANVAS_W * 0.68]) {
     ctx.beginPath();
@@ -79,12 +79,16 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
     ctx.fillRect(x, y, 2 + rnd() * 4, 6 + rnd() * 12);
   }
 
-  // Curb strips along both edges (light concrete, matches the CSS
-  // sidewalk's paver-slab tone rather than the asphalt).
-  const curbW = CANVAS_W * 0.1;
-  ctx.fillStyle = "rgba(226,232,240,0.65)";
+  // Kerb-and-gutter strips stay muted concrete instead of white borders.
+  // The old bright strips formed a glowing square grid at the zoom level
+  // used by the 3D city; this reads as a real drainage gutter beside asphalt.
+  const curbW = CANVAS_W * 0.07;
+  ctx.fillStyle = "rgba(86,96,107,0.92)";
   ctx.fillRect(0, 0, curbW, CANVAS_H);
   ctx.fillRect(CANVAS_W - curbW, 0, curbW, CANVAS_H);
+  ctx.fillStyle = "rgba(20,27,34,0.7)";
+  ctx.fillRect(curbW, 0, 1.2, CANVAS_H);
+  ctx.fillRect(CANVAS_W - curbW - 1.2, 0, 1.2, CANVAS_H);
 
   // Lane markings: evenly spaced across the drivable width (inside the
   // curbs), one solid median if medianIndex is set, dashed dividers
@@ -100,7 +104,7 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
         ctx.fillStyle = "rgba(250,204,21,0.92)";
         ctx.fillRect(x - 1.6, 0, 3.2, CANVAS_H);
       } else {
-        ctx.fillStyle = "rgba(250,204,21,0.8)";
+        ctx.fillStyle = "rgba(245,201,56,0.76)";
         for (let y = -period; y < CANVAS_H + period; y += period) {
           ctx.fillRect(x - 1.1, y, 2.2, dash);
         }
