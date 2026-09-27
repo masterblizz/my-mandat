@@ -98,6 +98,14 @@ export default function City3DMapGL({
   // satisfy the browser autoplay policy, same pattern as AmbientMusic.
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [perf, setPerf] = useState<PerfSample>({ fps: 0, calls: 0, tris: 0 });
+  const [hintVisible, setHintVisible] = useState(true);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const noteMapInteraction = useCallback(() => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHintVisible(false), 6000);
+  }, []);
+  useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current); }, []);
 
   // Traffic density. "auto" tracks the real system clock (weekday rush
   // spikes / weekend gentle); the other modes pin it for demos. Kept
@@ -222,6 +230,12 @@ export default function City3DMapGL({
   return (
     <div
       ref={hudRef}
+      onPointerDown={noteMapInteraction}
+      onWheel={noteMapInteraction}
+      onPointerMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientY >= rect.bottom - 56) setHintVisible(true);
+      }}
       style={{
         position: "relative",
         height: height ?? "clamp(520px, 74vh, 760px)",
@@ -338,7 +352,7 @@ export default function City3DMapGL({
 
       {/* hint (bottom, centred) — dropped on phone-narrow to avoid clutter */}
       {!compact && (
-        <div style={css.hint}>
+        <div style={{ ...css.hint, opacity: hintVisible ? 1 : 0, transition: "opacity 260ms ease" }}>
           {t(lang, "kawasan_page.dragRotateMap")} / {t(lang, "kawasan_page.scrollZoom")} · {t(lang, "kawasan_page.clickAZoneToPickA")}
           {moodDim ? " · ⚠" : ""}
         </div>

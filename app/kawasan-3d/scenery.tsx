@@ -1456,3 +1456,34 @@ export function ZoneBeacon({
     </group>
   );
 }
+
+// A compact, screen-legible marker for the currently selected zone.  This
+// deliberately stays smaller than ZoneBeacon (which communicates a city-wide
+// landmark or a completed project) so selecting a building does not obscure
+// its neighbours in a dense block.
+export function SelectionPin({ position }: { position: [number, number, number] }) {
+  const pin = useRef<THREE.Group>(null);
+  // Metro towers top out just below 300 world units (CityScene's building
+  // clamp), so this stays visible above both a small town and the dense core.
+  const baseY = 310;
+
+  useFrame(({ clock }) => {
+    if (!pin.current) return;
+    pin.current.position.y = baseY + Math.sin(clock.elapsedTime * 2.2) * 5;
+    pin.current.rotation.y = clock.elapsedTime * 0.65;
+  });
+
+  return (
+    <group ref={pin} position={[position[0], baseY, position[2]]}>
+      <mesh>
+        <octahedronGeometry args={[13, 0]} />
+        <meshBasicMaterial color="#22d3ee" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -17, 0]}>
+        <cylinderGeometry args={[1.5, 2.5, 22, 8]} />
+        <meshBasicMaterial color="#67e8f9" transparent opacity={0.82} toneMapped={false} />
+      </mesh>
+      <pointLight color="#22d3ee" intensity={1.3} distance={80} decay={2} />
+    </group>
+  );
+}

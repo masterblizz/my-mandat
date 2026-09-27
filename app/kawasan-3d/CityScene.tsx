@@ -15,7 +15,7 @@ import { FunctionalBuildingDetails, ProjectLandmarks } from "./buildingDetails";
 import { RoofDetails } from "./roofDetails";
 import { UtilityLines } from "./utilities";
 import {
-  CityEnvironment, StreetLamps, TrafficLights, Traffic, Lrt, ZoneBeacon, type Weather,
+  CityEnvironment, StreetLamps, TrafficLights, Traffic, Lrt, ZoneBeacon, SelectionPin, type Weather,
 } from "./scenery";
 import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
@@ -696,6 +696,7 @@ export function CityScene({
 
   const landmark = landmarkZoneId ? byId.get(landmarkZoneId) : undefined;
   const celebrate = celebration ? byId.get(celebration.zoneId) : undefined;
+  const selected = byId.get(selectedId);
 
   return (
     <>
@@ -742,6 +743,7 @@ export function CityScene({
       {landmark && (
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
       )}
+      {selected && <SelectionPin position={[selected.cx, 0, selected.cz]} />}
       {celebrate && celebration && (
         <ZoneBeacon
           key={celebration.at}
