@@ -206,6 +206,10 @@ export default function SetupPage() {
   }, [settings.difficulty, settings.electionScope, settings.eventRandomness, settings.mediaBias, settings.oppositionStrength, settings.permanentConsequences, settings.prnStateId]);
 
   useEffect(() => {
+    if (!premiumLoading && !hasPremium && electionScope !== "prn") setElectionScope("prn");
+  }, [electionScope, hasPremium, premiumLoading]);
+
+  useEffect(() => {
     if (!currentDataset.parties.some((party) => party.id === selectedPartyId)) {
       setSelectedPartyId(currentDataset.parties[0]?.id ?? "");
     }
@@ -234,11 +238,16 @@ export default function SetupPage() {
   }
 
   function handleLaunch() {
+    if (premiumLoading) {
+      setNotice(t(lang, "Menyemak akses akaun. Sila tunggu sebentar.", "Checking account access. Please wait a moment."));
+      return;
+    }
     // LAUNCH CAMPAIGN must always start a fresh run from the setup choices.
     // If the player previously loaded an old slot, clear that active slot first
     // so the autosave subscriber creates a new slot instead of rewriting/resuming it.
     // Lands on /kawasan (the player's home constituency) rather than jumping
     // straight into /warroom — kawasan now carries an ENTER WAR ROOM button.
+    const campaignScope = hasPremium ? electionScope : "prn";
     navigate("/kawasan", () => {
       resetGame();
       setActiveSaveSlot(null);
@@ -264,7 +273,7 @@ export default function SetupPage() {
       });
       if (contestConstituencyId) setNomination(contestConstituencyId, { type: "leader" });
       updateSettings({
-        electionScope,
+        electionScope: campaignScope,
         prnStateId,
         difficulty,
         oppositionStrength: oppStrength,
@@ -272,10 +281,10 @@ export default function SetupPage() {
         eventRandomness,
         permanentConsequences,
       });
-      if (electionScope === "prn" && prnCandidateId) {
+      if (campaignScope === "prn" && prnCandidateId) {
         useGameStore.getState().journeyAction({ type: "prn-candidate", id: prnCandidateId });
       }
-      setSelectedState(electionScope === "prn" ? prnStateId : null);
+      setSelectedState(campaignScope === "prn" ? prnStateId : null);
       setPhase("playing");
     });
   }
@@ -801,14 +810,8 @@ export default function SetupPage() {
               <TacticalPanel title={t(lang, "setup_page.electionModePruPrn")}>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { id: "pru" as const, state: "unlocked" as const },
-                    // "checking" while usePremiumStatus() is still loading —
-                    // deliberately distinct from "locked" so this card
-                    // doesn't flash 🔒 PREMIUM for an instant before
-                    // possibly flipping to unlocked once the real answer
-                    // comes back (see the constraint about not flashing the
-                    // wrong state).
-                    { id: "prn" as const, state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
+                    { id: "prn" as const, state: "unlocked" as const },
+                    { id: "pru" as const, state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
                   ].map((mode) => {
                     const active = electionScope === mode.id;
                     const interactive = mode.state === "unlocked";
@@ -844,12 +847,12 @@ export default function SetupPage() {
                 {!premiumLoading && !hasPremium && (
                   <div className="mt-3 flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
                     <div className="text-[11px] leading-relaxed text-text-muted">
-                      {t(lang, "setup_page.prnModeIsAPremiumFeature")}
+                      {t(lang, "PRU nasional dan kempen pelbagai negeri dibuka dengan Premium. Akaun Free bermula dengan satu PRN di negeri pilihan anda.", "National PRU and multi-state campaigns unlock with Premium. Free accounts begin with one PRN in their selected state.")}
                     </div>
                     <UpgradeButton
-                      priceId={PREMIUM_PRICE_IDS.prnMode}
-                      mode="payment"
-                      label={t(lang, "setup_page.unlockPrnMode")}
+                      priceId={PREMIUM_PRICE_IDS.premiumMonthly}
+                      mode="subscription"
+                      label={t(lang, "BUKA PRU DENGAN PREMIUM", "UNLOCK PRU WITH PREMIUM")}
                     />
                   </div>
                 )}

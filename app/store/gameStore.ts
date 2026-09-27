@@ -17,6 +17,7 @@ import { getManifestoPackage, manifestoCampaignBonus } from "../data/manifestoPa
 import { getCampaignEvent, getCampaignTone, isCampaignEventUnlocked, previewCampaignEvent, type CampaignEventId, type CampaignToneId } from "../data/campaignEvents";
 import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates";
 import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
+import { getRankPerks, playerXp } from "../lib/playerRank";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -67,6 +68,7 @@ export interface CareerProgress {
   completed: string[];
   term: number;
   month: number;
+  playedMinutes: number;
 }
 
 export interface GovernmentProgress {
@@ -272,7 +274,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   politicalReactions: [],
   aiNews: [],
   hasWonElection: false,
-  careerProgress: { completed: [], term: 1, month: 1 },
+  careerProgress: { completed: [], term: 1, month: 1, playedMinutes: 0 },
   governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
   sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
   settings: {
@@ -308,16 +310,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
     const effect = campaignEffects[location]?.[action] ?? campaignEffects.party[action];
     if (campaign) {
-      if (state.journey.decisions < 1 || state.resources.funds < effect.funds || state.resources.manpower + effect.manpower < 0) return {};
+      const rankPerks = getRankPerks(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length }));
+      const actionFunds = Math.round(effect.funds * (1 - rankPerks.fundDiscount));
+      const supportGain = effect.support === 0 ? 0 : effect.support + rankPerks.locationSupportBonus;
+      if (state.journey.decisions < 1 || state.resources.funds < actionFunds || state.resources.manpower + effect.manpower < 0) return {};
       const verb = action === "prepare" ? "Persediaan" : "Tindakan";
-      const nextStates = effect.support ? shiftSupport(state, effect.support, true) : state.states;
+      const nextStates = supportGain ? shiftSupport(state, supportGain, true) : state.states;
       const homeSupport = nextStates.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0;
       const objectiveId = "campaign:home-support-60";
       const earnedObjective = homeSupport >= 60 && state.day <= Math.min(10, state.totalDays) && !state.journey.locationObjectives.includes(objectiveId);
       const reward = earnedObjective ? 75000 : 0;
       return {
         states: nextStates,
-        resources: { ...state.resources, funds: state.resources.funds - effect.funds + reward, manpower: state.resources.manpower + effect.manpower },
+        resources: { ...state.resources, funds: state.resources.funds - actionFunds + reward, manpower: state.resources.manpower + effect.manpower },
         mediaSentiment: effect.media ?? state.mediaSentiment,
         journey: {
           ...state.journey,
@@ -327,8 +332,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           trust: Math.max(0, Math.min(100, state.journey.trust + effect.trust + (earnedObjective ? 2 : 0))),
           locationObjectives: earnedObjective ? [...state.journey.locationObjectives, objectiveId] : state.journey.locationObjectives,
           journal: journal(state.journey,
-            `${verb} di ${location} selesai: dana -RM${effect.funds.toLocaleString()}, sokongan ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Objektif kawasan dicapai: ganjaran RM75,000, organisasi +3 dan kepercayaan +2." : ""}`,
-            `${verb} at ${location} completed: funds -RM${effect.funds.toLocaleString()}, support ${effect.support >= 0 ? "+" : ""}${effect.support.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Constituency objective completed: RM75,000 reward, organisation +3 and trust +2." : ""}`),
+            `${verb} di ${location} selesai: dana -RM${actionFunds.toLocaleString()}, sokongan ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Objektif kawasan dicapai: ganjaran RM75,000, organisasi +3 dan kepercayaan +2." : ""}`,
+            `${verb} at ${location} completed: funds -RM${actionFunds.toLocaleString()}, support ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Constituency objective completed: RM75,000 reward, organisation +3 and trust +2." : ""}`),
         },
       };
     }
@@ -434,7 +439,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
   }),
 
-  setPhase: (phase) => set({ phase }),
+  setPhase: (phase) => set((state) => {
+    if (phase !== "playing") return { phase };
+    const perks = getRankPerks(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length }));
+    return { phase, journey: { ...state.journey, decisions: Math.max(state.journey.decisions, perks.dailyDecisions) } };
+  }),
 
   setDataset: (dataset) => set({ dataset }),
 
@@ -496,7 +505,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       return {
         day: gameState.day + 1,
-        journey: { ...gameState.journey, decisions: 3, actionsToday: [], streaks: rollStreaks(gameState.journey.streaks, gameState.journey.actionsToday, CAMPAIGN_REPEATABLES), journal: journal(gameState.journey, `Hari ${gameState.day + 1}: perubahan sokongan ${delta.toFixed(1)} mata selepas operasi, peristiwa dan tindak balas lawan.`, `Day ${gameState.day + 1}: support changed ${delta.toFixed(1)} points after operations, events and opponent responses.`) },
+        journey: { ...gameState.journey, decisions: getRankPerks(playerXp({ playedMinutes: gameState.careerProgress.playedMinutes, day: gameState.day + 1, term: gameState.careerProgress.term, completed: gameState.careerProgress.completed, journalEntries: gameState.journey.journal.length })).dailyDecisions, actionsToday: [], streaks: rollStreaks(gameState.journey.streaks, gameState.journey.actionsToday, CAMPAIGN_REPEATABLES), journal: journal(gameState.journey, `Hari ${gameState.day + 1}: perubahan sokongan ${delta.toFixed(1)} mata selepas operasi, peristiwa dan tindak balas lawan.`, `Day ${gameState.day + 1}: support changed ${delta.toFixed(1)} points after operations, events and opponent responses.`) },
         states: updatedStates,
         resources: { ...gameState.resources, ...result.resourceUpdates },
         alerts: combinedAlerts,
@@ -519,7 +528,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       return updates.difficulty ? { settings, difficulty: updates.difficulty } : { settings };
     }),
 
-  startCampaign: () => set({ phase: "playing" }),
+  startCampaign: () => set((state) => {
+    const perks = getRankPerks(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length }));
+    return { phase: "playing", journey: { ...state.journey, decisions: Math.max(state.journey.decisions, perks.dailyDecisions) } };
+  }),
 
   resetGame: () => {
     if (typeof window !== "undefined") {
@@ -527,6 +539,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem(AI_NEWS_KEY);
     }
     const prologue = get().journey;
+    const lifetimePlayedMinutes = get().careerProgress.playedMinutes ?? 0;
     const freshJourney = newJourney();
     const retainedJourney = prologue.personalOffice && prologue.originIssue && prologue.leadershipApproach
       ? {
@@ -562,7 +575,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       politicalReactions: [],
       aiNews: [],
       hasWonElection: false,
-      careerProgress: { completed: [], term: 1, month: 1 },
+      careerProgress: { completed: [], term: 1, month: 1, playedMinutes: lifetimePlayedMinutes },
       governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
       sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
       settings: {
@@ -581,7 +594,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   addOperation: (op) =>
-    set((state) => state.journey.chapter === "campaign" && state.day < state.totalDays && state.journey.decisions > 0 ? { operations: [...state.operations, op], journey: { ...state.journey, decisions: state.journey.decisions - 1 } } : {}),
+    set((state) => {
+      const perks = getRankPerks(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length }));
+      const deployed = state.operations.filter((operation) => operation.status !== "completed").length;
+      return state.journey.chapter === "campaign" && state.day < state.totalDays && state.journey.decisions > 0 && deployed < perks.operationLimit
+        ? { operations: [...state.operations, op], journey: { ...state.journey, decisions: state.journey.decisions - 1 } }
+        : {};
+    }),
 
   removeOperation: (id) =>
     set((state) => ({ operations: state.operations.filter((op) => op.id !== id) })),

@@ -18,6 +18,7 @@ import { campaignCost, type MiniGameTactic, type MiniGameType } from "../store/c
 import CeramahSceneModal from "../components/campaign/CeramahSceneModal";
 import CampaignEventModal from "../components/campaign/CampaignEventModal";
 import { CAMPAIGN_EVENTS, campaignEventUnlockDay, isCampaignEventUnlocked, type CampaignEventId } from "../data/campaignEvents";
+import { getRankPerks, playerXp } from "../lib/playerRank";
 
 type Tab = "NOMINATION" | "MINI-GAMES" | "OPERATIONS" | "VOLUNTEERS" | "RESOURCES" | "SCHEDULE" | "MESSAGING";
 
@@ -142,16 +143,18 @@ function StatusBadge({ status, lang }: { status: string; lang: Lang }) {
 
 function DeployModal({ onClose }: { onClose: () => void }) {
   const lang = useLang();
-  const { resources, states: gameStates, addOperation, settings, journey, day, totalDays } = useGameStore();
+  const { resources, states: gameStates, addOperation, settings, journey, day, totalDays, operations, careerProgress } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   const targetableStates = isPrn ? gameStates.filter((s) => s.id === settings.prnStateId) : gameStates;
   const [opType, setOpType] = useState<OpType>("ceramah");
   const [selectedStateIds, setSelectedStateIds] = useState<string[]>(() => isPrn ? [settings.prnStateId] : []);
 
   const template = OP_TEMPLATES[opType];
+  const perks = getRankPerks(playerXp({ playedMinutes: careerProgress.playedMinutes, day, term: careerProgress.term, completed: careerProgress.completed, journalEntries: journey.journal.length }));
+  const deployedOperations = operations.filter((operation) => operation.status !== "completed").length;
   const canAffordFunds = resources.funds >= template.fundsCost;
   const canAffordManpower = resources.manpower >= template.manpowerCost;
-  const canDeploy = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0 && canAffordFunds && canAffordManpower && selectedStateIds.length > 0;
+  const canDeploy = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0 && canAffordFunds && canAffordManpower && selectedStateIds.length > 0 && deployedOperations < perks.operationLimit;
 
   function toggleState(id: string) {
     setSelectedStateIds((prev) =>
@@ -199,6 +202,8 @@ function DeployModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-5 py-4 flex flex-col gap-5">
+
+          <div className="flex items-center justify-between border px-3 py-2 text-[10px]" style={{ borderColor: "rgb(var(--gold-rgb) / .35)", background: "rgb(var(--gold-rgb) / .06)" }}><span className="tracking-widest text-gold">{t(lang, "SLOT OPERASI RANK", "RANK OPERATION SLOTS")}</span><b className="text-white">{deployedOperations}/{perks.operationLimit}</b></div>
 
           {/* Operation type */}
           <div>

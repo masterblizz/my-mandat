@@ -8,6 +8,7 @@ import { useGameStore } from "../../store/gameStore";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 import LangThemeToggle from "./LangThemeToggle";
 import PersonalAssistant from "../assistant/PersonalAssistant";
+import { getPlayerRank, playerXp } from "../../lib/playerRank";
 
 const CITY_HUB_ROUTES = [
   "/calendar",
@@ -44,6 +45,7 @@ export default function Header() {
   const router = useRouter();
   const lang = useLang();
   const electionScope = useGameStore((state) => state.settings.electionScope ?? "pru");
+  const playerRank = useGameStore((state) => getPlayerRank(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length })).rank);
   const { hasPremium, hasUltimate } = usePremiumStatus();
 
   const showCityHub = isCityHubRoute(pathname) || isGoverningRoute(pathname);
@@ -95,6 +97,10 @@ export default function Header() {
             {hasUltimate ? "✦ " + t(lang, "components_layout_Header.ultimate") : "⭐ " + t(lang, "components_layout_Header.premium")}
           </span>
         )}
+
+        <Link href="/profile" className="hidden border px-2 py-1 text-[10px] font-black tracking-widest sm:inline-block" style={{ borderColor: `${playerRank.color}66`, color: playerRank.color }}>
+          ◈ {t(lang, "PROFIL", "PROFILE")}
+        </Link>
 
         {showGenericBack && (
           <button

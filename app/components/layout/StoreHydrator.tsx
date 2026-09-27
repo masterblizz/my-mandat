@@ -40,7 +40,7 @@ export default function StoreHydrator() {
     const activeId = getActiveSaveSlotId();
     const active = getSavedGames().find(slot => slot.id === activeId);
     if (active) {
-      useGameStore.setState({ ...active.state });
+      useGameStore.setState({ ...active.state, careerProgress: { ...active.state.careerProgress, playedMinutes: active.state.careerProgress?.playedMinutes ?? 0 } });
       return;
     }
     const politicalReactions = readPersistedPoliticalReactions();

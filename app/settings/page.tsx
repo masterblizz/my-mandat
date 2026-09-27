@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -9,6 +9,7 @@ import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 import { useLang, t } from "../i18n/useLang";
 import { states } from "../data/states";
+import { usePremiumStatus } from "../hooks/usePremiumStatus";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -99,10 +100,15 @@ function VolumeSlider({ label, value, onChange }: { label: string; value: number
 function GameplayTab() {
   const lang = useLang();
   const { settings, updateSettings } = useGameStore();
+  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
   const difficulty = settings.difficulty as DifficultyKey;
   const preset = DIFFICULTY_PRESETS[difficulty];
   const [localFund, setLocalFund] = useState(settings.startingFund);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!premiumLoading && !hasPremium && settings.electionScope !== "prn") updateSettings({ electionScope: "prn" });
+  }, [hasPremium, premiumLoading, settings.electionScope, updateSettings]);
 
   const adjustFund = (delta: number) => {
     const next = Math.max(500000, Math.min(10000000, localFund + delta));
@@ -124,15 +130,16 @@ function GameplayTab() {
 
           <SettingRow label={t(lang, "settings_page.electionMode")}>
             <div className="flex flex-col gap-2" style={{ minWidth: "260px" }}>
-              <select value={settings.electionScope ?? "pru"} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
-                <option value="pru">{t(lang, "settings_page.geGeneralElection")}</option>
+              <select value={hasPremium ? (settings.electionScope ?? "pru") : "prn"} disabled={!hasPremium && !premiumLoading} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
+                <option value="pru" disabled={!hasPremium}>{t(lang, "settings_page.geGeneralElection")}{!hasPremium ? " · PREMIUM" : ""}</option>
                 <option value="prn">{t(lang, "settings_page.stateElection")}</option>
               </select>
-              {(settings.electionScope ?? "pru") === "prn" && (
+              {(hasPremium ? settings.electionScope : "prn") === "prn" && (
                 <select value={settings.prnStateId ?? "selangor"} onChange={(e) => updateSettings({ prnStateId: e.target.value })}>
                   {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "settings_page.seats")}</option>)}
                 </select>
               )}
+              {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "FREE: satu PRN di negeri pilihan.", "FREE: one PRN in your selected state.")}</span>}
             </div>
           </SettingRow>
 
