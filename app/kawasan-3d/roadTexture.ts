@@ -48,7 +48,7 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   // Asphalt base. A cool mid-grey lets the material colour provide the
   // final TOD lighting while retaining enough room for tyre wear and lane
   // paint to read from the high city camera.
-  ctx.fillStyle = "#9aa2aa";
+  ctx.fillStyle = "#b8bec3";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   // Faint asphalt grain plus restrained longitudinal tyre wear. These are
   // deliberately baked into the shared road texture: they break up the
@@ -83,12 +83,12 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   // The old bright strips formed a glowing square grid at the zoom level
   // used by the 3D city; this reads as a real drainage gutter beside asphalt.
   const curbW = CANVAS_W * 0.07;
-  ctx.fillStyle = "rgba(86,96,107,0.92)";
+  ctx.fillStyle = "rgba(164,173,181,0.96)";
   ctx.fillRect(0, 0, curbW, CANVAS_H);
   ctx.fillRect(CANVAS_W - curbW, 0, curbW, CANVAS_H);
-  ctx.fillStyle = "rgba(20,27,34,0.7)";
-  ctx.fillRect(curbW, 0, 1.2, CANVAS_H);
-  ctx.fillRect(CANVAS_W - curbW - 1.2, 0, 1.2, CANVAS_H);
+  ctx.fillStyle = "rgba(25,33,41,0.82)";
+  ctx.fillRect(curbW, 0, 1.8, CANVAS_H);
+  ctx.fillRect(CANVAS_W - curbW - 1.8, 0, 1.8, CANVAS_H);
 
   // Lane markings: evenly spaced across the drivable width (inside the
   // curbs), one solid median if medianIndex is set, dashed dividers
@@ -101,12 +101,17 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
     for (let i = 0; i < laneCount; i++) {
       const x = usableL + ((i + 1) / (laneCount + 1)) * (usableR - usableL);
       if (i === medianIndex) {
-        ctx.fillStyle = "rgba(250,204,21,0.92)";
-        ctx.fillRect(x - 1.6, 0, 3.2, CANVAS_H);
+        // A narrow double yellow centre line reads as a true arterial road
+        // from far above, without turning every street into a glowing grid.
+        ctx.fillStyle = "rgba(241,190,50,0.94)";
+        ctx.fillRect(x - 2.8, 0, 1.7, CANVAS_H);
+        ctx.fillRect(x + 1.1, 0, 1.7, CANVAS_H);
       } else {
-        ctx.fillStyle = "rgba(245,201,56,0.76)";
+        // White dashed dividers distinguish same-direction lanes; the
+        // yellow median above is reserved for opposing traffic.
+        ctx.fillStyle = "rgba(241,245,249,0.88)";
         for (let y = -period; y < CANVAS_H + period; y += period) {
-          ctx.fillRect(x - 1.1, y, 2.2, dash);
+          ctx.fillRect(x - 1.65, y, 3.3, dash);
         }
       }
     }

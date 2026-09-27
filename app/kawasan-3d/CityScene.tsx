@@ -75,6 +75,10 @@ import type { MutableRefObject } from "react";
 
 const TILE_H = 4;
 const ROAD_W = ROAD_GAP - PLOT;
+// Let the asphalt tuck slightly beneath the plot edges. The usable street is
+// still ROAD_W wide, but this prevents a thin green seam from breaking the
+// road network when viewed from the high city camera.
+const ROAD_RENDER_W = ROAD_W + 12;
 const GROUND_Y = TILE_H;
 const FLAT_BOX_H = 3;
 // Selection/hover border-frame thickness (ZoneTile) — see the note there:
@@ -88,15 +92,15 @@ const TILE_BORDER_W = 5;
 // (unlike zone tiles) since real asphalt doesn't change hue with time of
 // day, only its lit brightness — and a fixed neutral colour holds contrast
 // against every TOD's zone palette by construction, not by coincidence.
-const ROAD_COLOR = "#343b43";
+const ROAD_COLOR = "#66727c";
 // Wet asphalt: darker (water film absorbs more light) and, combined with
 // the lowered roughness / added metalness at the mesh below, picks up a
 // sheen off the sky/env map instead of the flat matte look on a clear day.
 const WET_ROAD_COLOR = "#33383f";
 // Simulate scattered city light so asphalt and lane paint remain readable
 // between street lamps. Reuse the road map to preserve its texture and markings.
-const ROAD_FILL_COLOR = "#4f5a67";
-const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0, dusk: 0.08, night: 0.3 };
+const ROAD_FILL_COLOR = "#25313c";
+const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0.1, dusk: 0.18, night: 0.38 };
 
 export type PerfSample = { fps: number; calls: number; tris: number };
 
@@ -491,14 +495,14 @@ function Grid({
       ))}
       {vRoads.map((x, i) => i === riverRoadIndex ? null : (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
-          <planeGeometry args={[ROAD_W, span]} />
+          <planeGeometry args={[ROAD_RENDER_W, span]} />
           <meshStandardMaterial
             color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
             map={roadTex.vertical}
             emissive={ROAD_FILL_COLOR}
             emissiveMap={roadTex.vertical}
             emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
-            roughness={weather === "rain" ? 0.28 : 0.86}
+            roughness={weather === "rain" ? 0.28 : 0.8}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}
           />
@@ -506,14 +510,14 @@ function Grid({
       ))}
       {hRoads.map((z, i) => (
         <mesh key={`h${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.8, z]} receiveShadow>
-          <planeGeometry args={[span, ROAD_W]} />
+          <planeGeometry args={[span, ROAD_RENDER_W]} />
           <meshStandardMaterial
             color={weather === "rain" ? WET_ROAD_COLOR : ROAD_COLOR}
             map={roadTex.horizontal}
             emissive={ROAD_FILL_COLOR}
             emissiveMap={roadTex.horizontal}
             emissiveIntensity={ROAD_FILL_INTENSITY[tod] * (weather === "rain" ? 0.8 : 1)}
-            roughness={weather === "rain" ? 0.28 : 0.86}
+            roughness={weather === "rain" ? 0.28 : 0.8}
             metalness={weather === "rain" ? 0.22 : 0}
             envMapIntensity={weather === "rain" ? 1.4 : 1}
           />
