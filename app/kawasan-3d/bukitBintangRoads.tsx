@@ -215,7 +215,11 @@ function pointOnRoute(route: Route, halfSpan: number, progress: number) {
 // actual vehicles (body, dark cabin, wheels and lamps) without one React tree
 // per car or a large draw-call cost.
 export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSize: number; trafficLevel?: number }) {
-  const count = Math.max(28, Math.min(64, Math.round(gridSize * 1.8 * Math.max(0.55, trafficLevel))));
+  // Bukit Bintang is the dense KL profile: keep a genuinely busy network at
+  // every supported map size. All vehicle categories below remain instanced
+  // meshes, so 200+ visible vehicles cost a handful of draw calls rather than
+  // hundreds of React/Three objects.
+  const count = Math.max(200, Math.min(260, Math.round(gridSize * 12 * Math.max(0.7, trafficLevel))));
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
   const cargoRef = useRef<THREE.InstancedMesh>(null);
