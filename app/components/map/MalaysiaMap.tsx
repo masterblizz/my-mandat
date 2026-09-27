@@ -5,6 +5,7 @@ import { formatNumber, formatPercent } from "../../utils/format";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import type { Operation } from "../../store/gameStore";
 import { stateTacticalVisual, type TacticalOverlay } from "../../data/tacticalMap";
+import { useLang, t } from "../../i18n/useLang";
 
 interface Props {
   states: StateData[];
@@ -179,6 +180,7 @@ function PathGroup({
 }
 
 export default function MalaysiaMap({ states, onStateClick, selectedStateId, showLabels = true, showHotspots = false, compact = false, tooltipPlacement = "cursor", overlay = "default", operations = [], mediaSentiment = "neutral" }: Props) {
+  const lang = useLang();
   const [pathData, setPathData] = useState<PathData[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; state: StateData } | null>(null);
@@ -276,8 +278,8 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
         {!compact && (
           <>
             <line x1="315" y1="35" x2="315" y2="305" stroke="rgb(var(--cyan-rgb) / 0.09)" strokeWidth="0.8" strokeDasharray="4,6" />
-            <text x="175" y="42" textAnchor="middle" fill="rgb(var(--cyan-rgb) / 0.2)" fontSize="7" fontFamily="Space Mono, monospace" letterSpacing="3">PENINSULAR</text>
-            <text x="530" y="42" textAnchor="middle" fill="rgb(var(--cyan-rgb) / 0.2)" fontSize="7" fontFamily="Space Mono, monospace" letterSpacing="3">EAST MALAYSIA</text>
+            <text x="175" y="42" textAnchor="middle" fill="rgb(var(--cyan-rgb) / 0.2)" fontSize="7" fontFamily="Space Mono, monospace" letterSpacing="3">{t(lang, "SEMENANJUNG", "PENINSULAR")}</text>
+            <text x="530" y="42" textAnchor="middle" fill="rgb(var(--cyan-rgb) / 0.2)" fontSize="7" fontFamily="Space Mono, monospace" letterSpacing="3">{t(lang, "MALAYSIA TIMUR", "EAST MALAYSIA")}</text>
           </>
         )}
 

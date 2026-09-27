@@ -3,6 +3,7 @@
 import type { Constituency } from "../../data/constituencies";
 import type { NominationEntry } from "../../store/gameStore";
 import type { StateData } from "../../data/states";
+import { useLang, t } from "../../i18n/useLang";
 
 type Props = {
   state: StateData;
@@ -80,6 +81,7 @@ function shortName(name: string) {
 }
 
 export default function StateDunMap({ state, constituencies, nominations = {}, selectedConstId, onSeatClick, compact = false }: Props) {
+  const lang = useLang();
   const cells = buildCells(constituencies);
   const nominatedCount = constituencies.filter((seat) => nominations[seat.id]).length;
   const outline = OUTLINE_BY_STATE[state.id] ?? OUTLINE_BY_STATE.selangor;
@@ -87,7 +89,7 @@ export default function StateDunMap({ state, constituencies, nominations = {}, s
 
   return (
     <div className="relative w-full" style={{ minHeight: compact ? 260 : 340 }}>
-      <svg viewBox="0 0 900 520" width="100%" height={compact ? 260 : 340} role="img" aria-label={`Peta DUN ${state.name}`} style={{ display: "block", filter: "drop-shadow(0 0 18px rgb(var(--cyan-rgb) / 0.10))" }}>
+      <svg viewBox="0 0 900 520" width="100%" height={compact ? 260 : 340} role="img" aria-label={t(lang, `Peta DUN ${state.name}`, `${state.name} state assembly map`)} style={{ display: "block", filter: "drop-shadow(0 0 18px rgb(var(--cyan-rgb) / 0.10))" }}>
         <defs>
           <linearGradient id={`state-dun-bg-${state.id}`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="rgb(var(--cyan-rgb) / 0.12)" />
@@ -125,13 +127,13 @@ export default function StateDunMap({ state, constituencies, nominations = {}, s
           })}
         </g>
 
-        <text x="34" y="38" fill="var(--gold)" fontSize="16" fontFamily="Space Mono, monospace" fontWeight="900" letterSpacing="2">PETA DUN {state.name.toUpperCase()}</text>
-        <text x="34" y="62" fill="rgba(226,232,240,0.72)" fontSize="11" fontFamily="Space Mono, monospace" letterSpacing="1.5">{nominatedCount}/{constituencies.length} CALON · SEMPADAN DUN · {state.shortName}</text>
+        <text x="34" y="38" fill="var(--gold)" fontSize="16" fontFamily="Space Mono, monospace" fontWeight="900" letterSpacing="2">{t(lang, "PETA DUN", "STATE ASSEMBLY MAP")} {state.name.toUpperCase()}</text>
+        <text x="34" y="62" fill="rgba(226,232,240,0.72)" fontSize="11" fontFamily="Space Mono, monospace" letterSpacing="1.5">{nominatedCount}/{constituencies.length} {t(lang, "CALON · SEMPADAN DUN", "CANDIDATES · ASSEMBLY BOUNDARY")} · {state.shortName}</text>
         {selected && (
           <g>
             <rect x="590" y="24" width="276" height="54" fill="rgba(2,8,23,0.76)" stroke="rgb(var(--cyan-rgb) / 0.32)" />
             <text x="606" y="47" fill="var(--cyan)" fontSize="12" fontFamily="Space Mono, monospace" fontWeight="900">{selected.code} · {selected.name.toUpperCase()}</text>
-            <text x="606" y="66" fill="rgba(226,232,240,0.68)" fontSize="10" fontFamily="Space Mono, monospace">KITA {selected.mandat}% · LAWAN {selected.lawan}% · {nominations[selected.id] ? "CALON ADA" : "BELUM CALON"}</text>
+            <text x="606" y="66" fill="rgba(226,232,240,0.68)" fontSize="10" fontFamily="Space Mono, monospace">{t(lang, "KITA", "US")} {selected.mandat}% · {t(lang, "LAWAN", "OPPONENT")} {selected.lawan}% · {nominations[selected.id] ? t(lang, "CALON ADA", "CANDIDATE NOMINATED") : t(lang, "BELUM CALON", "NO CANDIDATE")}</text>
           </g>
         )}
       </svg>

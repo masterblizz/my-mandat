@@ -16,9 +16,11 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
   const lang = useLang();
   const othersLabel = t(lang, "components_charts_SeatDonut.others");
   const seatsWord = t(lang, "components_charts_SeatDonut.seats");
+  const opponentLabel = t(lang, "PARTI LAWAN", "OPPONENT PARTY");
+  const noDataLabel = t(lang, "TIADA DATA", "NO DATA");
   const data = [
     { name: partyName, value: Math.max(0, Number.isFinite(mandat) ? mandat : 0), color: partyColor },
-    { name: "PARTI LAWAN", value: Math.max(0, Number.isFinite(lawan) ? lawan : 0), color: "var(--warn-orange)" },
+    { name: opponentLabel, value: Math.max(0, Number.isFinite(lawan) ? lawan : 0), color: "var(--warn-orange)" },
     { name: othersLabel, value: Math.max(0, Number.isFinite(others) ? others : 0), color: "#4a5568" },
   ];
   const totalSeats = data.reduce((total, item) => total + item.value, 0);
@@ -32,9 +34,9 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
     <div className="flex flex-col items-center">
       <div style={{ width: "100%", height: h }}>
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart aria-label="Pecahan kerusi parlimen">
+          <PieChart aria-label={t(lang, "Pecahan kerusi parlimen", "Parliament seat breakdown")}>
             <Pie
-              data={totalSeats ? data : [{ name: "TIADA DATA", value: 1, color: "#334155" }]}
+              data={totalSeats ? data : [{ name: noDataLabel, value: 1, color: "#334155" }]}
               cx="50%"
               cy="50%"
               innerRadius={innerRadius[size]}
@@ -45,7 +47,7 @@ export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size
               strokeWidth={0}
               minAngle={totalSeats ? 2 : 0}
             >
-              {(totalSeats ? data : [{ name: "TIADA DATA", value: 1, color: "#334155" }]).map((entry, index) => (
+              {(totalSeats ? data : [{ name: noDataLabel, value: 1, color: "#334155" }]).map((entry, index) => (
                 <Cell key={index} fill={entry.color} opacity={0.9} />
               ))}
             </Pie>
