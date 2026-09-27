@@ -263,7 +263,10 @@ function buildMerdeka118(): { tower: THREE.BufferGeometry; edges: THREE.BufferGe
   // A long, offset metal spire supplies ~23% of the 880-unit landmark
   // height (the real 160 m / 679 m relationship) without another mesh.
   const spireBase = rings[rings.length - 1];
-  const tip = new THREE.Vector3(25, TILE_H + 880, -3);
+  // Keep the antenna perfectly vertical above the offset crown. The crown
+  // itself stays asymmetric, but the real tower's final mast must not read
+  // as a bent horn from the default isometric camera.
+  const tip = new THREE.Vector3(8, TILE_H + 880, -1);
   const spireMid = spireBase.map((p) => p.clone().lerp(tip, 0.54));
   for (let i = 0; i < MERDEKA_SIDES; i++) {
     const next = (i + 1) % MERDEKA_SIDES;
