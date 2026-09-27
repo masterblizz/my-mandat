@@ -50,6 +50,7 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
+import { BukitBintangRoadNetwork, bukitBintangRoadClaims } from "./bukitBintangRoads";
 
 // Spread the screen-space labels around the city core when the player is
 // zoomed out. The beacon remains on the real destination building and the
@@ -516,6 +517,7 @@ function Grid({
   // texture's `.repeat` in place is safe here; a multi-instance host would
   // need to clone instead.
   const roadTex = useMemo(() => getRoadTextures(density), [density]);
+  const irregularRoads = traits.bukitBintang;
   useEffect(() => {
     const rep = span / ROAD_TEXTURE_WORLD_LENGTH;
     roadTex.vertical.repeat.set(1, rep);
@@ -524,14 +526,14 @@ function Grid({
 
   return (
     <group>
-      <NeighbourhoodBlocks gridSize={gridSize} density={density} />
+      {irregularRoads ? <BukitBintangRoadNetwork gridSize={gridSize} night={winLit} /> : <NeighbourhoodBlocks gridSize={gridSize} density={density} />}
       {/* One <mesh> per undeveloped cell is fine at ≤16×16; a 30×30 grid
           has hundreds and they are just flat planes, so drop them there
           and let the perimeter ground sheet show through. */}
       {gridSize < 22 && empties.map(({ col, row, cx, cz }) => (
         <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} rural={density < 0.3} />
       ))}
-      {vRoads.map((x, i) => i === riverRoadIndex ? null : (
+      {!irregularRoads && vRoads.map((x, i) => i === riverRoadIndex ? null : (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
           <planeGeometry args={[ROAD_RENDER_W, span]} />
           <meshStandardMaterial
@@ -546,7 +548,7 @@ function Grid({
           />
         </mesh>
       ))}
-      {hRoads.map((z, i) => (
+      {!irregularRoads && hRoads.map((z, i) => (
         <mesh key={`h${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.8, z]} receiveShadow>
           <planeGeometry args={[span, ROAD_RENDER_W]} />
           <meshStandardMaterial
@@ -561,13 +563,13 @@ function Grid({
           />
         </mesh>
       ))}
-      <UrbanRiver gridSize={gridSize} tod={tod} weather={weather} />
+      {!irregularRoads && <UrbanRiver gridSize={gridSize} tod={tod} weather={weather} />}
       {/* Rural roads are local kampung roads, not a miniature city grid:
           crossings, continuous pavements and municipal furniture belong in
           established town centres only. */}
-      {density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
-      {density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
-      {density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
+      {!irregularRoads && density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
+      {!irregularRoads && density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
+      {!irregularRoads && density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
       <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
@@ -636,7 +638,7 @@ function Grid({
       })}
       {klLandmarks && <KLProfile gridSize={gridSize} enabled winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
-      {notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
+      {!irregularRoads && notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
     </group>
   );
 }
@@ -706,11 +708,13 @@ export function CityScene({
   // so their ordinary per-cell towers / sidewalks / lamps step aside.
   const claimed = useMemo(() => {
     const kl = klClaims(gridSize, traits.klLandmarks);
-    if (!kl.length) return largeClaimed;
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
+    if (traits.bukitBintang) {
+      bukitBintangRoadClaims(gridSize).forEach((c) => s.add(c));
+    }
     return s;
-  }, [largeClaimed, gridSize, traits.klLandmarks]);
+  }, [largeClaimed, gridSize, traits.klLandmarks, traits.bukitBintang]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
@@ -773,14 +777,16 @@ export function CityScene({
         showAllDestinationTags={showAllDestinationTags}
         onEnterDestination={onEnterDestination}
       />
-      <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
-      {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
-      <UtilityLines gridSize={gridSize} />
-      <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
-      <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
-      {hasLrt && <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />}
-      {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
-      {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
+      {!traits.bukitBintang && <>
+        <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
+        {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
+        <UtilityLines gridSize={gridSize} />
+        <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
+        <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
+        {hasLrt && <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />}
+        {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
+        {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
+      </>}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
         claimed={claimed} avoidCentre={roundaboutAt} detail={qs.streetDetail}
