@@ -195,35 +195,97 @@ function buildSpireDetails(glass: boolean): THREE.BufferGeometry {
   return merged;
 }
 
-// Merdeka 118-inspired tower: one continuous, faceted taper above a low
-// podium, followed by an off-axis blade crown. This avoids the old stack of
-// rectangular blocks and better matches its distinctive crystalline profile.
-function buildMerdeka118(): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = [];
-  // Square frusta catch light as four tall, angled glass planes. Cylinder
-  // radii are corner radii, hence the values are slightly lower than a box
-  // width would be for the same footprint.
-  const tiers: [number, number, number, number][] = [
-    [47, 39, 145, 20], [39, 30, 165, 165], [30, 21, 165, 330], [21, 12, 130, 495], [12, 6, 80, 625],
-  ];
-  parts.push(place(BOX, 0, TILE_H + 10, 0, 86, 20, 64));
-  for (const [bottom, top, height, base] of tiers) {
-    const frustum = new THREE.CylinderGeometry(top, bottom, height, 4, 1, false, Math.PI / 4);
-    parts.push(place(frustum, 0, TILE_H + base + height / 2, 0, 1, 1, 1));
-    frustum.dispose();
+type MerdekaRing = { y: number; rx: number; rz: number; rotate: number; ox: number; oz: number };
+
+// A hand-built, eight-sided crystalline body. Each ring is rotated and
+// shifted a little so each quad splits into two differently angled triangles;
+// non-indexed vertices keep their normals separate for crisp diamond facets.
+const MERDEKA_RINGS: MerdekaRing[] = [
+  { y: 20,  rx: 48, rz: 35, rotate: 0.12, ox: 0,  oz: 0 },
+  { y: 142, rx: 43, rz: 31, rotate: 0.03, ox: -2, oz: 1 },
+  { y: 275, rx: 37, rz: 27, rotate: -0.10, ox: 2,  oz: -1 },
+  { y: 405, rx: 31, rz: 22, rotate: 0.07, ox: -3, oz: 1 },
+  { y: 530, rx: 25, rz: 17, rotate: -0.08, ox: 2, oz: -1 },
+  { y: 630, rx: 19, rz: 13, rotate: 0.12, ox: -2, oz: 1 },
+  // Short, offset crown: one shoulder is intentionally steeper, matching
+  // the real building's asymmetrical upper silhouette.
+  { y: 670, rx: 11, rz: 8, rotate: -0.06, ox: 5, oz: 0 },
+  { y: 682, rx: 5,  rz: 4, rotate: 0.02, ox: 8, oz: -1 },
+];
+const MERDEKA_SIDES = 8;
+const MERDEKA_IRREGULARITY = [1, 0.94, 1.04, 0.97, 1.02, 0.95, 1.06, 0.96];
+
+function merdekaPoint(ring: MerdekaRing, index: number): THREE.Vector3 {
+  const a = (index / MERDEKA_SIDES) * Math.PI * 2 + ring.rotate;
+  const scale = MERDEKA_IRREGULARITY[index];
+  return new THREE.Vector3(
+    ring.ox + Math.cos(a) * ring.rx * scale,
+    TILE_H + ring.y,
+    ring.oz + Math.sin(a) * ring.rz * scale,
+  );
+}
+
+function buildMerdeka118(): { tower: THREE.BufferGeometry; edges: THREE.BufferGeometry } {
+  const faces: number[] = [];
+  const lines: number[] = [];
+  const rings = MERDEKA_RINGS.map((ring) => Array.from({ length: MERDEKA_SIDES }, (_, i) => merdekaPoint(ring, i)));
+  const tri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => faces.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  const line = (a: THREE.Vector3, b: THREE.Vector3) => lines.push(a.x, a.y, a.z, b.x, b.y, b.z);
+
+  // Low, broad four-storey podium—part of the same merged landmark mesh.
+  const box = (minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number) => {
+    const p = [
+      new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(maxX, minY, minZ), new THREE.Vector3(maxX, minY, maxZ), new THREE.Vector3(minX, minY, maxZ),
+      new THREE.Vector3(minX, maxY, minZ), new THREE.Vector3(maxX, maxY, minZ), new THREE.Vector3(maxX, maxY, maxZ), new THREE.Vector3(minX, maxY, maxZ),
+    ];
+    [[0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1], [1, 5, 6, 2], [2, 6, 7, 3], [3, 7, 4, 0]].forEach(([a, b, c, d]) => { tri(p[a], p[b], p[c]); tri(p[a], p[c], p[d]); });
+  };
+  box(-72, 72, TILE_H, TILE_H + 20, -55, 55);
+
+  rings.forEach((ring) => ring.forEach((point, i) => line(point, ring[(i + 1) % MERDEKA_SIDES])));
+  for (let level = 0; level < rings.length - 1; level++) {
+    const lower = rings[level], upper = rings[level + 1];
+    for (let i = 0; i < MERDEKA_SIDES; i++) {
+      const next = (i + 1) % MERDEKA_SIDES;
+      // Alternate the diagonal direction from segment to segment to create
+      // the broken-diamond planes visible on the real blue-glass facade.
+      if ((level + i) % 2 === 0) {
+        tri(lower[i], upper[next], lower[next]); tri(lower[i], upper[i], upper[next]);
+        line(lower[i], upper[next]);
+      } else {
+        tri(lower[i], upper[i], lower[next]); tri(lower[next], upper[i], upper[next]);
+        line(lower[next], upper[i]);
+      }
+      line(lower[i], upper[i]);
+    }
   }
-  // The real tower's crown leans into a slender asymmetric blade rather
-  // than ending in a symmetric cone. A restrained tilt makes that legible
-  // from the isometric camera without creating a fragile separate mesh.
-  parts.push(place(CONE, 5, TILE_H + 760, 0, 8, 110, 8, -0.09));
-  parts.push(place(CYL, 13, TILE_H + 840, 0, 1.25, 80, 1.25, -0.09));
-  return mergeGeometries(parts, false) ?? parts[0];
+
+  // A long, offset metal spire supplies ~23% of the 880-unit landmark
+  // height (the real 160 m / 679 m relationship) without another mesh.
+  const spireBase = rings[rings.length - 1];
+  const tip = new THREE.Vector3(25, TILE_H + 880, -3);
+  const spireMid = spireBase.map((p) => p.clone().lerp(tip, 0.54));
+  for (let i = 0; i < MERDEKA_SIDES; i++) {
+    const next = (i + 1) % MERDEKA_SIDES;
+    tri(spireBase[i], spireMid[next], spireBase[next]); tri(spireBase[i], spireMid[i], spireMid[next]);
+    tri(spireMid[i], tip, spireMid[next]);
+    line(spireBase[i], spireMid[i]); line(spireMid[i], tip);
+  }
+
+  const tower = new THREE.BufferGeometry();
+  tower.setAttribute("position", new THREE.Float32BufferAttribute(faces, 3));
+  tower.computeVertexNormals();
+  tower.computeBoundingSphere();
+  const edges = new THREE.BufferGeometry();
+  edges.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+  edges.computeBoundingSphere();
+  return { tower, edges };
 }
 
 // apex heights (world units) — see shaft() / buildSpire() massing above.
 const TWIN_APEX_Y = 535;
 const SPIRE_APEX_Y = 400;
-const MERDEKA_APEX_Y = 880;
+const MERDEKA_APEX_Y = 884;
 const TWIN_GAP = 110;
 
 export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLighting = false }: {
@@ -238,13 +300,11 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
     spire.computeVertexNormals();
     spire.computeBoundingSphere();
     const merdeka = buildMerdeka118();
-    merdeka.computeVertexNormals();
-    merdeka.computeBoundingSphere();
     const [tc, tr] = twinCell(gridSize);
     const [sc, sr] = spireCell(gridSize);
     const [mc, mr] = merdekaCell(gridSize);
     return {
-      twins, spire, merdeka,
+      twins, spire, merdeka: merdeka.tower, merdekaEdges: merdeka.edges,
       spireGlass: buildSpireDetails(true),
       spireTrim: buildSpireDetails(false),
       twinAt: [tileCentre(tc, gridSize), tileCentre(tr, gridSize)] as const,
@@ -254,7 +314,7 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   }, [gridSize, enabled]);
 
   useEffect(() => () => {
-    if (built) [built.twins, built.spire, built.merdeka, built.spireGlass, built.spireTrim].forEach(g => g.dispose());
+    if (built) [built.twins, built.spire, built.merdeka, built.merdekaEdges, built.spireGlass, built.spireTrim].forEach(g => g.dispose());
   }, [built]);
 
   // Gridded curtain-wall by day (getTowerFacadeTexture — vertical
@@ -314,6 +374,23 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
     m.userData.baseEnv = 1.05;
     return m;
   }, []);
+  // Dedicated physical glass for Merdeka 118; it deliberately does not share
+  // KLCC's white curtain-wall material. The scene environment supplies the
+  // reflection map, letting each split-normal facet catch sky differently.
+  const merdekaGlass = useMemo(() => {
+    const m = new THREE.MeshPhysicalMaterial({
+      color: "#6faee4", map: getTowerFacadeTexture(),
+      metalness: 0.62, roughness: 0.19, envMapIntensity: 1.5,
+      clearcoat: 0.28, clearcoatRoughness: 0.12,
+      emissive: new THREE.Color("#4a8fd9"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+    });
+    m.userData.baseMetalness = 0.62;
+    m.userData.baseEnv = 1.5;
+    return m;
+  }, []);
+  const merdekaEdgeMat = useMemo(() => new THREE.LineBasicMaterial({
+    color: "#bed8ef", transparent: true, opacity: 0.42, toneMapped: false,
+  }), []);
 
   useEffect(() => {
     mat.userData.national.value = nationalLighting ? 1 : 0;
@@ -323,11 +400,18 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
     steel.emissiveIntensity = winLit * 0.18;
-  }, [mat, steel, winLit, nationalLighting]);
+    merdekaGlass.emissiveIntensity = winLit * 0.72;
+    merdekaGlass.metalness = (merdekaGlass.userData.baseMetalness as number) * (1 - winLit * 0.4);
+    merdekaGlass.envMapIntensity = (merdekaGlass.userData.baseEnv as number) * (1 - winLit * 0.34);
+    // At night the fine diamond lines read cool-white without a costly
+    // post-process. By day they remain a restrained light-grey etching.
+    merdekaEdgeMat.color.set(winLit > 0.25 ? "#d9f4ff" : "#9fc4e8");
+    merdekaEdgeMat.opacity = winLit > 0.25 ? 0.88 : 0.38;
+  }, [mat, steel, merdekaGlass, merdekaEdgeMat, winLit, nationalLighting]);
 
   useEffect(
-    () => () => { mat.dispose(); steel.dispose(); },
-    [mat, steel],
+    () => () => { mat.dispose(); steel.dispose(); merdekaGlass.dispose(); merdekaEdgeMat.dispose(); },
+    [mat, steel, merdekaGlass, merdekaEdgeMat],
   );
 
   // aviation warning lights: blink red at the tops (dusk + night only)
@@ -365,7 +449,15 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
     <group>
       <mesh geometry={built.twins} material={mat} position={[built.twinAt[0], 0, built.twinAt[1]]} castShadow receiveShadow />
       <mesh geometry={built.spire} material={steel} position={[built.spireAt[0], 0, built.spireAt[1]]} castShadow receiveShadow />
-      <mesh geometry={built.merdeka} material={mat} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} castShadow receiveShadow />
+      {/* A compact landscaped apron stops the landmark reading as a tower
+          dropped straight onto a road tile, while keeping the asset to one
+          extra ground draw rather than a forest of decorative objects. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[built.merdekaAt[0], 0.94, built.merdekaAt[1]]} receiveShadow>
+        <planeGeometry args={[202, 174]} />
+        <meshStandardMaterial color="#1e4a37" roughness={0.92} />
+      </mesh>
+      <mesh geometry={built.merdeka} material={merdekaGlass} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} castShadow receiveShadow />
+      <lineSegments geometry={built.merdekaEdges} material={merdekaEdgeMat} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} renderOrder={4} />
       <group position={[built.spireAt[0], 0, built.spireAt[1]]}>
         <mesh geometry={built.spireGlass}>
           <meshStandardMaterial color="#396775" metalness={0.48} roughness={0.2}
