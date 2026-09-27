@@ -18,12 +18,12 @@ type Route = { width: number; points: Array<[number, number]> };
 // Tun Razak and the short Jalan Kia Peng/KLCC connectors.
 const ROUTES: Route[] = [
   { width: 76, points: [[-0.98, -0.42], [-0.62, -0.34], [-0.28, -0.30], [0.10, -0.34], [0.52, -0.48], [0.98, -0.58]] },
-  { width: 58, points: [[0.12, -0.86], [0.08, -0.52], [0.02, -0.18], [-0.04, 0.15], [-0.08, 0.54]] },
+  { width: 58, points: [[0.12, -0.98], [0.08, -0.52], [0.02, -0.18], [-0.04, 0.15], [-0.08, 0.54], [-0.15, 0.98]] },
   { width: 64, points: [[-0.50, 0.96], [-0.34, 0.60], [-0.16, 0.30], [0.02, -0.02], [0.14, -0.34]] },
   { width: 70, points: [[-0.70, 0.46], [-0.35, 0.34], [0.02, 0.25], [0.36, 0.20], [0.78, 0.30], [0.98, 0.38]] },
-  { width: 54, points: [[0.58, 0.96], [0.50, 0.66], [0.40, 0.36], [0.30, 0.12], [0.26, -0.22]] },
-  { width: 78, points: [[0.98, -0.92], [0.78, -0.64], [0.64, -0.40], [0.54, -0.12], [0.48, 0.18], [0.46, 0.52]] },
-  { width: 44, points: [[0.20, -0.10], [0.42, -0.08], [0.68, -0.16], [0.90, -0.32]] },
+  { width: 54, points: [[0.58, 0.96], [0.50, 0.66], [0.40, 0.36], [0.30, 0.12], [0.14, -0.34]] },
+  { width: 78, points: [[0.98, -0.92], [0.78, -0.64], [0.64, -0.40], [0.54, -0.12], [0.48, 0.18], [0.46, 0.52], [0.44, 0.98]] },
+  { width: 44, points: [[-0.04, -0.14], [0.20, -0.10], [0.42, -0.08], [0.68, -0.16], [0.90, -0.32]] },
 ];
 
 function routePoints(route: Route, halfSpan: number) {
@@ -84,6 +84,56 @@ function laneMarkingGeometry(gridSize: number) {
   return geometry;
 }
 
+function segmentIntersection(a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2, d: THREE.Vector2) {
+  const r = b.clone().sub(a);
+  const s = d.clone().sub(c);
+  const cross = r.x * s.y - r.y * s.x;
+  if (Math.abs(cross) < 0.001) return null;
+  const q = c.clone().sub(a);
+  const t = (q.x * s.y - q.y * s.x) / cross;
+  const u = (q.x * r.y - q.y * r.x) / cross;
+  // Avoid treating shared end-points as a separate junction. The extended
+  // arterial lines still meet at the city boundary, but only real crossings
+  // receive signal equipment.
+  if (t < 0.08 || t > 0.92 || u < 0.08 || u > 0.92) return null;
+  return a.clone().addScaledVector(r, t);
+}
+
+function roadIntersections(gridSize: number) {
+  const halfSpan = (gridSize * 280 + 40) / 2;
+  const intersections: THREE.Vector2[] = [];
+  ROUTES.forEach((route, ri) => {
+    const points = routePoints(route, halfSpan);
+    ROUTES.slice(ri + 1).forEach((other) => {
+      const otherPoints = routePoints(other, halfSpan);
+      points.slice(0, -1).forEach((a, ai) => otherPoints.slice(0, -1).forEach((c, ci) => {
+        const hit = segmentIntersection(a, points[ai + 1], c, otherPoints[ci + 1]);
+        if (hit && !intersections.some((known) => known.distanceTo(hit) < 92)) intersections.push(hit);
+      }));
+    });
+  });
+  return intersections.slice(0, 10);
+}
+
+function BukitBintangTrafficLights({ intersections, night }: { intersections: THREE.Vector2[]; night: number }) {
+  const active = night > 0.25;
+  return <group>
+    {intersections.map((at, i) => (
+      <group key={`${Math.round(at.x)}-${Math.round(at.y)}`} position={[at.x, 0, at.y]}>
+        {([-1, 1] as const).flatMap((x) => ([-1, 1] as const).map((z) => [x, z] as const)).map(([x, z], signal) => {
+          const green = (signal + i) % 3 !== 0;
+          return <group key={`${x}-${z}`} position={[x * 29, 0, z * 29]} rotation={[0, Math.atan2(z, x), 0]}>
+            <mesh position={[0, 17, 0]} castShadow><boxGeometry args={[2.8, 28, 2.8]} /><meshStandardMaterial color="#28323a" roughness={0.72} metalness={0.35} /></mesh>
+            <mesh position={[0, 30, 0]} castShadow><boxGeometry args={[7.5, 12, 5.5]} /><meshStandardMaterial color="#10171d" roughness={0.65} metalness={0.45} /></mesh>
+            <mesh position={[0, 33.2, 2.9]}><sphereGeometry args={[1.45, 8, 8]} /><meshBasicMaterial color={green ? "#ef4444" : "#ffcf4a"} toneMapped={false} /></mesh>
+            <mesh position={[0, 29.1, 2.9]}><sphereGeometry args={[1.45, 8, 8]} /><meshBasicMaterial color={green ? "#2be680" : "#9f2f2f"} toneMapped={false} transparent opacity={active ? 1 : 0.72} /></mesh>
+          </group>;
+        })}
+      </group>
+    ))}
+  </group>;
+}
+
 export function bukitBintangRoadClaims(gridSize: number): Set<string> {
   const centre = worldCentre(gridSize);
   const xy = plotXY(gridSize);
@@ -125,6 +175,7 @@ export function bukitBintangRoadIntersects(gridSize: number, x: number, z: numbe
 export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: number; night?: number }) {
   const geometry = useMemo(() => roadGeometry(gridSize), [gridSize]);
   const markings = useMemo(() => laneMarkingGeometry(gridSize), [gridSize]);
+  const intersections = useMemo(() => roadIntersections(gridSize), [gridSize]);
   const span = gridSize * 280 + 40;
   return <group>
     {/* A continuous city paving bed removes the old green 40-unit grid gaps. */}
@@ -139,6 +190,7 @@ export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: num
     <mesh geometry={markings} renderOrder={2}>
       <meshBasicMaterial color="#e7eef2" toneMapped={false} transparent opacity={night > 0.25 ? 0.88 : 0.72} />
     </mesh>
+    <BukitBintangTrafficLights intersections={intersections} night={night} />
   </group>;
 }
 
@@ -163,18 +215,24 @@ function pointOnRoute(route: Route, halfSpan: number, progress: number) {
 // actual vehicles (body, dark cabin, wheels and lamps) without one React tree
 // per car or a large draw-call cost.
 export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSize: number; trafficLevel?: number }) {
-  const count = Math.max(18, Math.min(42, Math.round(gridSize * 1.15 * Math.max(0.5, trafficLevel))));
+  const count = Math.max(28, Math.min(64, Math.round(gridSize * 1.8 * Math.max(0.55, trafficLevel))));
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
+  const cargoRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const tailLightRef = useRef<THREE.InstancedMesh>(null);
-  const cars = useMemo(() => Array.from({ length: count }, (_, i) => ({
-    route: i % ROUTES.length,
-    progress: ((i * 0.173) % 1),
-    speed: 0.012 + (i % 5) * 0.0025,
-    lane: i % 2 ? 1 : -1,
-  })), [count]);
+  const cars = useMemo(() => {
+    const kinds = ["car", "car", "suv", "van", "car", "motorcycle", "bus", "car", "truck", "motorcycle"] as const;
+    return Array.from({ length: count }, (_, i) => ({
+      kind: kinds[i % kinds.length],
+      route: i % ROUTES.length,
+      progress: ((i * 0.173) % 1),
+      speed: 0.012 + (i % 5) * 0.0025,
+      lane: i % 2 ? 1 : -1,
+      direction: i % 3 === 0 ? -1 : 1,
+    }));
+  }, [count]);
   useLayoutEffect(() => {
     const mesh = bodyRef.current;
     if (!mesh) return;
@@ -185,10 +243,11 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   useFrame(({ clock }) => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
+    const cargo = cargoRef.current;
     const wheels = wheelRef.current;
     const headlights = headlightRef.current;
     const tailLights = tailLightRef.current;
-    if (!body || !cabin || !wheels || !headlights || !tailLights) return;
+    if (!body || !cabin || !cargo || !wheels || !headlights || !tailLights) return;
     const halfSpan = (gridSize * 280 + 40) / 2;
     const carRoot = new THREE.Object3D();
     const part = new THREE.Object3D();
@@ -205,31 +264,39 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       mesh.setMatrixAt(index, part.matrix);
     };
     cars.forEach((car, i) => {
-      const state = pointOnRoute(ROUTES[car.route], halfSpan, car.progress + clock.getElapsedTime() * car.speed);
-      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * 14);
+      const travel = car.progress + clock.getElapsedTime() * car.speed;
+      const state = pointOnRoute(ROUTES[car.route], halfSpan, car.direction > 0 ? travel : 1 - travel);
+      const heading = state.angle + (car.direction > 0 ? 0 : Math.PI);
+      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * (car.kind === "motorcycle" ? 8 : 14));
       carRoot.position.set(state.point.x + side.x, 7.1, state.point.y + side.y);
-      carRoot.rotation.set(0, -state.angle, 0);
+      carRoot.rotation.set(0, -heading, 0);
       carRoot.scale.set(1, 1, 1);
       carRoot.updateMatrix();
 
-      // Main painted shell and a smaller smoked-glass passenger cabin make
-      // the roofline readable from the default elevated camera.
-      put(body, i, 0, 0, 0, 16, 3.1, 7.4);
-      put(cabin, i, -0.8, 2.35, 0, 8.8, 2.35, 6.1);
-      // Four dark wheels show up as distinct wheel wells along the body.
-      put(wheels, i * 4, -5.4, -1.45, -3.55, 3.1, 1.55, 1.45);
-      put(wheels, i * 4 + 1, -5.4, -1.45, 3.55, 3.1, 1.55, 1.45);
-      put(wheels, i * 4 + 2, 5.4, -1.45, -3.55, 3.1, 1.55, 1.45);
-      put(wheels, i * 4 + 3, 5.4, -1.45, 3.55, 3.1, 1.55, 1.45);
-      // White headlights and red tail lamps clarify direction and remain
-      // legible at night without turning the roads into neon strips.
-      put(headlights, i * 2, 8.15, 0.15, -2.15, 0.8, 0.62, 1.25);
-      put(headlights, i * 2 + 1, 8.15, 0.15, 2.15, 0.8, 0.62, 1.25);
-      put(tailLights, i * 2, -8.15, 0.15, -2.15, 0.65, 0.58, 1.2);
-      put(tailLights, i * 2 + 1, -8.15, 0.15, 2.15, 0.65, 0.58, 1.2);
+      const spec = car.kind === "bus" ? { body: [26, 4.8, 8.8], cabin: [-1, 3.5, 22, 3.1, 7.9], cargo: [0, 0, 0, 0.001, 0.001, 0.001], axle: 9.2, wheelZ: 4.3 }
+        : car.kind === "truck" ? { body: [9, 4.9, 8.2], cabin: [5.9, 3.7, 6.2, 3.1, 6.9], cargo: [-5.4, 1.2, 0, 14, 5.4, 8.5], axle: 8.4, wheelZ: 4.0 }
+        : car.kind === "van" ? { body: [20, 4.2, 7.8], cabin: [1.4, 2.8, 14.2, 3, 6.6], cargo: [-5, 0.6, 0, 8, 2.6, 7], axle: 6.7, wheelZ: 3.7 }
+        : car.kind === "suv" ? { body: [18, 3.7, 8], cabin: [-0.5, 2.8, 10.3, 2.8, 6.6], cargo: [0, 0, 0, 0.001, 0.001, 0.001], axle: 6, wheelZ: 3.8 }
+        : car.kind === "motorcycle" ? { body: [8.5, 1.6, 2.8], cabin: [2.8, 1.65, 1.1, 2.7, 3.3], cargo: [0, 0, 0, 0.001, 0.001, 0.001], axle: 3.2, wheelZ: 1.4 }
+        : { body: [16, 3.1, 7.4], cabin: [-0.8, 2.35, 8.8, 2.35, 6.1], cargo: [0, 0, 0, 0.001, 0.001, 0.001], axle: 5.4, wheelZ: 3.55 };
+      put(body, i, 0, 0, 0, spec.body[0], spec.body[1], spec.body[2]);
+      put(cabin, i, spec.cabin[0], spec.cabin[1], 0, spec.cabin[2], spec.cabin[3], spec.cabin[4]);
+      put(cargo, i, spec.cargo[0], spec.cargo[1], spec.cargo[2], spec.cargo[3], spec.cargo[4], spec.cargo[5]);
+      // Four wheels for road vehicles; the close paired wheels on a bike
+      // collapse visually into its two-wheel profile from the city camera.
+      put(wheels, i * 4, -spec.axle, -1.45, -spec.wheelZ, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 1, -spec.axle, -1.45, spec.wheelZ, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 2, spec.axle, -1.45, -spec.wheelZ, 3.1, 1.55, 1.45);
+      put(wheels, i * 4 + 3, spec.axle, -1.45, spec.wheelZ, 3.1, 1.55, 1.45);
+      const nose = spec.body[0] / 2 + 0.15;
+      put(headlights, i * 2, nose, 0.15, -Math.min(2.15, spec.wheelZ * 0.62), 0.8, 0.62, 1.25);
+      put(headlights, i * 2 + 1, nose, 0.15, Math.min(2.15, spec.wheelZ * 0.62), 0.8, 0.62, 1.25);
+      put(tailLights, i * 2, -nose, 0.15, -Math.min(2.15, spec.wheelZ * 0.62), 0.65, 0.58, 1.2);
+      put(tailLights, i * 2 + 1, -nose, 0.15, Math.min(2.15, spec.wheelZ * 0.62), 0.65, 0.58, 1.2);
     });
     body.instanceMatrix.needsUpdate = true;
     cabin.instanceMatrix.needsUpdate = true;
+    cargo.instanceMatrix.needsUpdate = true;
     wheels.instanceMatrix.needsUpdate = true;
     headlights.instanceMatrix.needsUpdate = true;
     tailLights.instanceMatrix.needsUpdate = true;
@@ -242,6 +309,10 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color="#102b42" roughness={0.18} metalness={0.58} emissive="#183b55" emissiveIntensity={0.25} />
+    </instancedMesh>
+    <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#bcc7cd" roughness={0.52} metalness={0.35} />
     </instancedMesh>
     <instancedMesh ref={wheelRef} args={[undefined, undefined, count * 4]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
