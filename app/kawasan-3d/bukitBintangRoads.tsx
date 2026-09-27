@@ -17,13 +17,13 @@ type Route = { width: number; points: Array<[number, number]> };
 // Sultan Ismail/Ampang arc, P. Ramlee, Raja Chulan, Bukit Bintang, Imbi,
 // Tun Razak and the short Jalan Kia Peng/KLCC connectors.
 const ROUTES: Route[] = [
-  { width: 92, points: [[-0.98, -0.42], [-0.62, -0.34], [-0.28, -0.30], [0.10, -0.34], [0.52, -0.48], [0.98, -0.58]] },
-  { width: 72, points: [[0.12, -0.86], [0.08, -0.52], [0.02, -0.18], [-0.04, 0.15], [-0.08, 0.54]] },
-  { width: 78, points: [[-0.50, 0.96], [-0.34, 0.60], [-0.16, 0.30], [0.02, -0.02], [0.14, -0.34]] },
-  { width: 84, points: [[-0.70, 0.46], [-0.35, 0.34], [0.02, 0.25], [0.36, 0.20], [0.78, 0.30], [0.98, 0.38]] },
-  { width: 68, points: [[0.58, 0.96], [0.50, 0.66], [0.40, 0.36], [0.30, 0.12], [0.26, -0.22]] },
-  { width: 96, points: [[0.98, -0.92], [0.78, -0.64], [0.64, -0.40], [0.54, -0.12], [0.48, 0.18], [0.46, 0.52]] },
-  { width: 54, points: [[0.20, -0.10], [0.42, -0.08], [0.68, -0.16], [0.90, -0.32]] },
+  { width: 76, points: [[-0.98, -0.42], [-0.62, -0.34], [-0.28, -0.30], [0.10, -0.34], [0.52, -0.48], [0.98, -0.58]] },
+  { width: 58, points: [[0.12, -0.86], [0.08, -0.52], [0.02, -0.18], [-0.04, 0.15], [-0.08, 0.54]] },
+  { width: 64, points: [[-0.50, 0.96], [-0.34, 0.60], [-0.16, 0.30], [0.02, -0.02], [0.14, -0.34]] },
+  { width: 70, points: [[-0.70, 0.46], [-0.35, 0.34], [0.02, 0.25], [0.36, 0.20], [0.78, 0.30], [0.98, 0.38]] },
+  { width: 54, points: [[0.58, 0.96], [0.50, 0.66], [0.40, 0.36], [0.30, 0.12], [0.26, -0.22]] },
+  { width: 78, points: [[0.98, -0.92], [0.78, -0.64], [0.64, -0.40], [0.54, -0.12], [0.48, 0.18], [0.46, 0.52]] },
+  { width: 44, points: [[0.20, -0.10], [0.42, -0.08], [0.68, -0.16], [0.90, -0.32]] },
 ];
 
 function routePoints(route: Route, halfSpan: number) {
@@ -79,14 +79,29 @@ export function bukitBintangRoadClaims(gridSize: number): Set<string> {
   return claims;
 }
 
+export function bukitBintangRoadIntersects(gridSize: number, x: number, z: number, w: number, d: number): boolean {
+  const halfSpan = (gridSize * 280 + 40) / 2;
+  const footprintRadius = Math.hypot(w, d) * 0.5;
+  const point = new THREE.Vector2(x, z);
+  return ROUTES.some((route) => {
+    const pts = routePoints(route, halfSpan);
+    return pts.slice(0, -1).some((a, i) => {
+      const b = pts[i + 1];
+      const ab = b.clone().sub(a);
+      const t = THREE.MathUtils.clamp(point.clone().sub(a).dot(ab) / Math.max(ab.lengthSq(), 1), 0, 1);
+      return point.distanceTo(a.clone().addScaledVector(ab, t)) < route.width * 0.5 + footprintRadius;
+    });
+  });
+}
+
 export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: number; night?: number }) {
   const geometry = useMemo(() => roadGeometry(gridSize), [gridSize]);
   const span = gridSize * 280 + 40;
   return <group>
     {/* A continuous city paving bed removes the old green 40-unit grid gaps. */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 4.1, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]} receiveShadow>
       <planeGeometry args={[span, span]} />
-      <meshStandardMaterial color="#263039" roughness={0.88} metalness={0.04} />
+      <meshStandardMaterial color="#2c573f" roughness={0.95} metalness={0.01} />
     </mesh>
     <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial color="#53616c" roughness={night > 0.25 ? 0.35 : 0.72} metalness={night > 0.25 ? 0.16 : 0.02}

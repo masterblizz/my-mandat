@@ -50,7 +50,7 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
-import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadClaims } from "./bukitBintangRoads";
+import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadIntersects } from "./bukitBintangRoads";
 
 // Spread the screen-space labels around the city core when the player is
 // zoomed out. The beacon remains on the real destination building and the
@@ -347,6 +347,12 @@ function Buildings({
       const notchSign = notch ? cornerSign(notch) : null;
       for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         const sp = slotPos(spec.slot);
+        const buildingX = cx - PLOT / 2 + sp.x + spec.w / 2;
+        const buildingZ = cz - PLOT / 2 + sp.y + spec.d / 2;
+        // For the Bukit Bintang road map, clear precisely the procedural
+        // building that intersects a curved carriageway—not the entire zone
+        // tile. This retains street-wall density and grass/pocket parks.
+        if (traits.bukitBintang && bukitBintangRoadIntersects(gridSize, buildingX, buildingZ, spec.w, spec.d)) continue;
         if (!spec.flag && !spec.glow && !spec.anchor && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
         // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
         // of this tile's junction-facing corner, so none stands in the ring.
@@ -365,8 +371,8 @@ function Buildings({
         const h0 = flat ? FLAT_BOX_H : Math.max(spec.h, 6);
         const inst: BuildingInstance = {
           key: `${zone.id}:${spec.slot}:${spec.type}`,
-          x: cx - PLOT / 2 + sp.x + spec.w / 2,
-          z: cz - PLOT / 2 + sp.y + spec.d / 2,
+          x: buildingX,
+          z: buildingZ,
           w: spec.w,
           d: spec.d,
           h: vertical ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize))) : h0,
@@ -704,13 +710,9 @@ export function CityScene({
     () => reserveLargeFootprints(placed, gridSize),
     [placed, gridSize],
   );
-  const bukitRoadClaimed = useMemo(
-    () => traits.bukitBintang ? bukitBintangRoadClaims(gridSize) : new Set<string>(),
-    [gridSize, traits.bukitBintang],
-  );
   const visibleLarges = useMemo(
-    () => traits.bukitBintang ? larges.filter((large) => !bukitRoadClaimed.has(`${large.anchorCol},${large.anchorRow}`)) : larges,
-    [larges, bukitRoadClaimed, traits.bukitBintang],
+    () => traits.bukitBintang ? larges.filter((large) => !bukitBintangRoadIntersects(gridSize, large.cx, large.cz, large.w, large.d)) : larges,
+    [larges, gridSize, traits.bukitBintang],
   );
   // Fold the KL landmark cells (twin-tower centre + spire) into `claimed`
   // so their ordinary per-cell towers / sidewalks / lamps step aside.
@@ -718,9 +720,8 @@ export function CityScene({
     const kl = klClaims(gridSize, traits.klLandmarks);
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
-    bukitRoadClaimed.forEach((c) => s.add(c));
     return s;
-  }, [largeClaimed, gridSize, traits.klLandmarks, bukitRoadClaimed]);
+  }, [largeClaimed, gridSize, traits.klLandmarks]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
