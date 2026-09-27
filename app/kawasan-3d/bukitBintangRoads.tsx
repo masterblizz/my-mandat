@@ -56,6 +56,34 @@ function roadGeometry(gridSize: number) {
   return geometry;
 }
 
+function laneMarkingGeometry(gridSize: number) {
+  const halfSpan = (gridSize * 280 + 40) / 2;
+  const pos: number[] = [];
+  for (const route of ROUTES) {
+    const pts = routePoints(route, halfSpan);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const direction = b.clone().sub(a);
+      const length = direction.length();
+      direction.normalize();
+      const normal = new THREE.Vector2(-direction.y, direction.x).multiplyScalar(2.2);
+      // Broken centre lines: visually legible at city scale, but not a
+      // continuous glowing stripe that would make the roads look toy-like.
+      for (let at = 24; at < length - 12; at += 58) {
+        const start = a.clone().addScaledVector(direction, at);
+        const end = a.clone().addScaledVector(direction, Math.min(at + 22, length - 4));
+        const p1 = start.clone().add(normal), p2 = start.clone().sub(normal);
+        const p3 = end.clone().add(normal), p4 = end.clone().sub(normal);
+        pos.push(p1.x, 4.79, p1.y, p3.x, 4.79, p3.y, p2.x, 4.79, p2.y);
+        pos.push(p2.x, 4.79, p2.y, p3.x, 4.79, p3.y, p4.x, 4.79, p4.y);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  return geometry;
+}
+
 export function bukitBintangRoadClaims(gridSize: number): Set<string> {
   const centre = worldCentre(gridSize);
   const xy = plotXY(gridSize);
@@ -96,6 +124,7 @@ export function bukitBintangRoadIntersects(gridSize: number, x: number, z: numbe
 
 export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: number; night?: number }) {
   const geometry = useMemo(() => roadGeometry(gridSize), [gridSize]);
+  const markings = useMemo(() => laneMarkingGeometry(gridSize), [gridSize]);
   const span = gridSize * 280 + 40;
   return <group>
     {/* A continuous city paving bed removes the old green 40-unit grid gaps. */}
@@ -106,6 +135,9 @@ export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: num
     <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial color="#53616c" roughness={night > 0.25 ? 0.35 : 0.72} metalness={night > 0.25 ? 0.16 : 0.02}
         emissive="#1b2731" emissiveIntensity={0.12 + night * 0.35} />
+    </mesh>
+    <mesh geometry={markings} renderOrder={2}>
+      <meshBasicMaterial color="#e7eef2" toneMapped={false} transparent opacity={night > 0.25 ? 0.88 : 0.72} />
     </mesh>
   </group>;
 }
@@ -163,6 +195,6 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   });
   return <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
     <boxGeometry args={[1, 1, 1]} />
-    <meshStandardMaterial vertexColors roughness={0.38} metalness={0.22} emissive="#1b2b3a" emissiveIntensity={0.18} />
+    <meshStandardMaterial color="#e8f1f5" vertexColors roughness={0.32} metalness={0.32} emissive="#35546a" emissiveIntensity={0.28} />
   </instancedMesh>;
 }

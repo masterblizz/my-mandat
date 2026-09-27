@@ -20,6 +20,7 @@ import {
   type CellPlacement, type ZoneKind, type BType, type SeatTraits,
 } from "./cityData";
 import { klHeightMult } from "./klProfile";
+import { bukitBintangRoadIntersects } from "./bukitBintangRoads";
 
 const TILE_H = 4;
 
@@ -203,10 +204,16 @@ export function Billboards({
         const bh = vertical
           ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize)))
           : h0;
+        const bx = cx - PLOT / 2 + sp.x + spec.w / 2;
+        const bz = cz - PLOT / 2 + sp.y + spec.d / 2;
+        // Buildings crossing the hand-composed Bukit Bintang corridors are
+        // omitted by CityScene. Apply that exact test here too: a billboard
+        // must never attach to a wall that the visible city no longer has.
+        if (traits.bukitBintang && bukitBintangRoadIntersects(gridSize, bx, bz, spec.w, spec.d)) continue;
         boxes.push({
           type: spec.type,
-          bx: cx - PLOT / 2 + sp.x + spec.w / 2,
-          bz: cz - PLOT / 2 + sp.y + spec.d / 2,
+          bx,
+          bz,
           bw: spec.w, bd: spec.d, bh,
         });
       }
@@ -274,6 +281,10 @@ export function Billboards({
         if (clear) {
           const pw = 30 + rnd() * 14;
           const ph = 20 + rnd() * 10;
+          // Standalone frames need a genuine kerb-side footprint as well.
+          // Skipping a road overlap is preferable to a screen suspended above
+          // moving traffic.
+          if (traits.bukitBintang && bukitBintangRoadIntersects(gridSize, px, pz, pw, 10)) continue;
           const postTop = 40 + rnd() * 22;
           const post = 3.2;
           const bY = TILE_H + postTop; // panel BOTTOM sits exactly here
@@ -399,27 +410,28 @@ export function Billboards({
   if (!panels.length) return null;
   return (
     <group>
-      <instancedMesh
-        ref={frameRef}
-        args={[undefined, undefined, panels.length]}
-        castShadow
-        key={`bbf-${panels.length}`}
-      >
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#14171c" roughness={0.7} metalness={0.4} />
-      </instancedMesh>
-      <instancedMesh ref={screenRef} args={[undefined, undefined, panels.length]} frustumCulled={false}>
-        <boxGeometry args={[1, 1, 1]} />
-        <shaderMaterial
-          ref={shaderRef}
-          transparent={false}
-          toneMapped={false}
-          uniforms={{
-            uMap: { value: adAtlas?.texture ?? null },
-            uAtlasGrid: { value: adAtlas?.grid ?? new THREE.Vector2(1, 1) },
-            uTime: { value: 0 },
-            uBrightness: { value: 1 },
-          }}
+      {adAtlas ? <>
+        <instancedMesh
+          ref={frameRef}
+          args={[undefined, undefined, panels.length]}
+          castShadow
+          key={`bbf-${panels.length}`}
+        >
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#14171c" roughness={0.7} metalness={0.4} />
+        </instancedMesh>
+        <instancedMesh ref={screenRef} args={[undefined, undefined, panels.length]} frustumCulled={false}>
+          <boxGeometry args={[1, 1, 1]} />
+          <shaderMaterial
+            ref={shaderRef}
+            transparent={false}
+            toneMapped={false}
+            uniforms={{
+              uMap: { value: adAtlas.texture },
+              uAtlasGrid: { value: adAtlas.grid },
+              uTime: { value: 0 },
+              uBrightness: { value: 1 },
+            }}
           vertexShader={`
             attribute mat4 instanceMatrix;
             attribute vec2 adCell;
@@ -453,8 +465,9 @@ export function Billboards({
               gl_FragColor = ad;
             }
           `}
-        />
-      </instancedMesh>
+          />
+        </instancedMesh>
+      </> : null}
       {struts.length ? (
         <instancedMesh ref={strutRef} args={[undefined, undefined, struts.length]} castShadow key={`bbs-${struts.length}`}>
           <boxGeometry args={[1, 1, 1]} />
