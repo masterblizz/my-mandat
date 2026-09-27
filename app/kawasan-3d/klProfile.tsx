@@ -201,16 +201,16 @@ type MerdekaRing = { y: number; rx: number; rz: number; rotate: number; ox: numb
 // shifted a little so each quad splits into two differently angled triangles;
 // non-indexed vertices keep their normals separate for crisp diamond facets.
 const MERDEKA_RINGS: MerdekaRing[] = [
-  { y: 20,  rx: 48, rz: 35, rotate: 0.12, ox: 0,  oz: 0 },
-  { y: 142, rx: 43, rz: 31, rotate: 0.03, ox: -2, oz: 1 },
-  { y: 275, rx: 37, rz: 27, rotate: -0.10, ox: 2,  oz: -1 },
-  { y: 405, rx: 31, rz: 22, rotate: 0.07, ox: -3, oz: 1 },
-  { y: 530, rx: 25, rz: 17, rotate: -0.08, ox: 2, oz: -1 },
-  { y: 630, rx: 19, rz: 13, rotate: 0.12, ox: -2, oz: 1 },
+  { y: 20,  rx: 58, rz: 42, rotate: 0.12, ox: 0,  oz: 0 },
+  { y: 142, rx: 52, rz: 37, rotate: 0.03, ox: -2, oz: 1 },
+  { y: 275, rx: 44, rz: 32, rotate: -0.10, ox: 2,  oz: -1 },
+  { y: 405, rx: 35, rz: 26, rotate: 0.07, ox: -3, oz: 1 },
+  { y: 530, rx: 27, rz: 20, rotate: -0.08, ox: 2, oz: -1 },
+  { y: 630, rx: 21, rz: 15, rotate: 0.12, ox: -2, oz: 1 },
   // Short, offset crown: one shoulder is intentionally steeper, matching
   // the real building's asymmetrical upper silhouette.
-  { y: 670, rx: 11, rz: 8, rotate: -0.06, ox: 5, oz: 0 },
-  { y: 682, rx: 5,  rz: 4, rotate: 0.02, ox: 8, oz: -1 },
+  { y: 670, rx: 15, rz: 10, rotate: -0.06, ox: 5, oz: 0 },
+  { y: 682, rx: 7,  rz: 5, rotate: 0.02, ox: 8, oz: -1 },
 ];
 const MERDEKA_SIDES = 8;
 const MERDEKA_IRREGULARITY = [1, 0.94, 1.04, 0.97, 1.02, 0.95, 1.06, 0.96];
@@ -240,7 +240,7 @@ function buildMerdeka118(): { tower: THREE.BufferGeometry; edges: THREE.BufferGe
     ];
     [[0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1], [1, 5, 6, 2], [2, 6, 7, 3], [3, 7, 4, 0]].forEach(([a, b, c, d]) => { tri(p[a], p[b], p[c]); tri(p[a], p[c], p[d]); });
   };
-  box(-72, 72, TILE_H, TILE_H + 20, -55, 55);
+  box(-88, 88, TILE_H, TILE_H + 20, -68, 68);
 
   rings.forEach((ring) => ring.forEach((point, i) => line(point, ring[(i + 1) % MERDEKA_SIDES])));
   for (let level = 0; level < rings.length - 1; level++) {
@@ -379,17 +379,20 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   // reflection map, letting each split-normal facet catch sky differently.
   const merdekaGlass = useMemo(() => {
     const m = new THREE.MeshPhysicalMaterial({
-      color: "#6faee4", map: getTowerFacadeTexture(),
-      metalness: 0.62, roughness: 0.19, envMapIntensity: 1.5,
+      // Keep the broad facets blue-silver in direct daylight. The previous
+      // dark facade map overwhelmed the physical reflection and made this
+      // read as a wireframe obelisk from the default camera.
+      color: "#82bce9",
+      metalness: 0.56, roughness: 0.17, envMapIntensity: 1.75,
       clearcoat: 0.28, clearcoatRoughness: 0.12,
-      emissive: new THREE.Color("#4a8fd9"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+      emissive: new THREE.Color("#347cb9"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0.12,
     });
-    m.userData.baseMetalness = 0.62;
-    m.userData.baseEnv = 1.5;
+    m.userData.baseMetalness = 0.56;
+    m.userData.baseEnv = 1.75;
     return m;
   }, []);
   const merdekaEdgeMat = useMemo(() => new THREE.LineBasicMaterial({
-    color: "#bed8ef", transparent: true, opacity: 0.42, toneMapped: false,
+    color: "#c8e4f7", transparent: true, opacity: 0.22, toneMapped: false,
   }), []);
 
   useEffect(() => {
@@ -400,13 +403,13 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
     steel.emissiveIntensity = winLit * 0.18;
-    merdekaGlass.emissiveIntensity = winLit * 0.72;
+    merdekaGlass.emissiveIntensity = 0.12 + winLit * 0.62;
     merdekaGlass.metalness = (merdekaGlass.userData.baseMetalness as number) * (1 - winLit * 0.4);
     merdekaGlass.envMapIntensity = (merdekaGlass.userData.baseEnv as number) * (1 - winLit * 0.34);
     // At night the fine diamond lines read cool-white without a costly
     // post-process. By day they remain a restrained light-grey etching.
     merdekaEdgeMat.color.set(winLit > 0.25 ? "#d9f4ff" : "#9fc4e8");
-    merdekaEdgeMat.opacity = winLit > 0.25 ? 0.88 : 0.38;
+    merdekaEdgeMat.opacity = winLit > 0.25 ? 0.68 : 0.2;
   }, [mat, steel, merdekaGlass, merdekaEdgeMat, winLit, nationalLighting]);
 
   useEffect(
@@ -453,8 +456,8 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
           dropped straight onto a road tile, while keeping the asset to one
           extra ground draw rather than a forest of decorative objects. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[built.merdekaAt[0], 0.94, built.merdekaAt[1]]} receiveShadow>
-        <planeGeometry args={[202, 174]} />
-        <meshStandardMaterial color="#1e4a37" roughness={0.92} />
+        <planeGeometry args={[224, 196]} />
+        <meshStandardMaterial color="#24553e" roughness={0.92} />
       </mesh>
       <mesh geometry={built.merdeka} material={merdekaGlass} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} castShadow receiveShadow />
       <lineSegments geometry={built.merdekaEdges} material={merdekaEdgeMat} position={[built.merdekaAt[0], 0, built.merdekaAt[1]]} renderOrder={4} />
