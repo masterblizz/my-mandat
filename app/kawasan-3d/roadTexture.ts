@@ -48,25 +48,43 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   // Asphalt base. A cool mid-grey lets the material colour provide the
   // final TOD lighting while retaining enough room for tyre wear and lane
   // paint to read from the high city camera.
-  ctx.fillStyle = "#b8bec3";
+  // A road should be noticeably darker than concrete paving.  The former
+  // pale base made the network read like one broad grey sidewalk under the
+  // overhead camera instead of weathered asphalt.
+  ctx.fillStyle = "#707981";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  // Faint asphalt grain plus restrained longitudinal tyre wear. These are
-  // deliberately baked into the shared road texture: they break up the
-  // formerly uniform ribbon without creating decals or extra draw calls.
+  // Coarse aggregate and soft, irregular tone variation give the asphalt a
+  // lived-in surface. Everything remains baked into the one shared texture:
+  // no extra meshes or draw calls are needed for this extra definition.
   let seed = 8081 + laneCount * 193;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-  ctx.fillStyle = "rgba(8,12,18,0.12)";
-  for (let i = 0; i < 190; i++) {
+  for (let i = 0; i < 18; i++) {
     const x = rnd() * CANVAS_W;
     const y = rnd() * CANVAS_H;
-    ctx.fillRect(x, y, 1.5, 1.5);
+    const r = 7 + rnd() * 18;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rnd() > 0.48 ? "rgba(211,219,224,0.10)" : "rgba(25,31,36,0.16)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  ctx.strokeStyle = "rgba(12,17,23,0.22)";
-  ctx.lineWidth = 1.5;
-  for (const x of [CANVAS_W * 0.32, CANVAS_W * 0.68]) {
+  ctx.fillStyle = "rgba(15,20,25,0.25)";
+  for (let i = 0; i < 340; i++) {
+    const x = rnd() * CANVAS_W;
+    const y = rnd() * CANVAS_H;
+    const size = 0.45 + rnd() * 1.3;
+    ctx.fillRect(x, y, size, size);
+  }
+  // Subtle wheel polishing: narrow, broken tracks rather than hard black
+  // rails. They supply scale and traffic history without looking wet at noon.
+  ctx.strokeStyle = "rgba(20,27,33,0.18)";
+  ctx.lineWidth = 2.1;
+  for (const x of [CANVAS_W * 0.27, CANVAS_W * 0.39, CANVAS_W * 0.61, CANVAS_W * 0.73]) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x + (rnd() - 0.5) * 2, CANVAS_H);
+    for (let y = 0; y <= CANVAS_H; y += 18) {
+      ctx.lineTo(x + Math.sin(y * 0.075 + rnd() * 3) * 0.8, y);
+    }
     ctx.stroke();
   }
   // A handful of tiny repaired patches stop very large junctions reading
@@ -79,6 +97,20 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
     ctx.fillRect(x, y, 2 + rnd() * 4, 6 + rnd() * 12);
   }
 
+  // Fine sealed cracks, mostly near the gutters where real paving fails
+  // first. Their low opacity keeps the city legible at tactical zoom.
+  ctx.strokeStyle = "rgba(25,29,33,0.35)";
+  ctx.lineWidth = 0.65;
+  for (let i = 0; i < 13; i++) {
+    const edge = i % 2 ? 8 + rnd() * 7 : CANVAS_W - 8 - rnd() * 7;
+    const y = rnd() * CANVAS_H;
+    ctx.beginPath();
+    ctx.moveTo(edge, y);
+    ctx.lineTo(edge + (rnd() - 0.5) * 8, y + 5 + rnd() * 9);
+    ctx.lineTo(edge + (rnd() - 0.5) * 11, y + 12 + rnd() * 11);
+    ctx.stroke();
+  }
+
   // Kerb-and-gutter strips stay muted concrete instead of white borders.
   // The old bright strips formed a glowing square grid at the zoom level
   // used by the 3D city; this reads as a real drainage gutter beside asphalt.
@@ -89,6 +121,12 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   ctx.fillStyle = "rgba(25,33,41,0.82)";
   ctx.fillRect(curbW, 0, 1.8, CANVAS_H);
   ctx.fillRect(CANVAS_W - curbW - 1.8, 0, 1.8, CANVAS_H);
+  // Small drainage inlets anchor the gutter rhythm to the road without
+  // turning a whole block into bright street furniture.
+  ctx.fillStyle = "rgba(19,25,30,0.72)";
+  for (let y = 18; y < CANVAS_H; y += 62) {
+    for (const x of [1.7, CANVAS_W - curbW + 0.7]) ctx.fillRect(x, y, curbW - 2.4, 5);
+  }
 
   // Lane markings: evenly spaced across the drivable width (inside the
   // curbs), one solid median if medianIndex is set, dashed dividers
@@ -109,7 +147,9 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
       } else {
         // White dashed dividers distinguish same-direction lanes; the
         // yellow median above is reserved for opposing traffic.
-        ctx.fillStyle = "rgba(241,245,249,0.88)";
+        // Paint fades very slightly into the asphalt, closer to a used road
+        // than perfectly white game-guide dashes.
+        ctx.fillStyle = "rgba(235,239,235,0.79)";
         for (let y = -period; y < CANVAS_H + period; y += period) {
           ctx.fillRect(x - 1.65, y, 3.3, dash);
         }
