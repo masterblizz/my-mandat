@@ -54,6 +54,12 @@ export default function ContinueRunModal({ lang, slot, onConfirm, onClose }: {
           <dd className="font-bold text-white">{slot.slotNumber.toString().padStart(2, "0")}</dd>
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.campaign")}</dt>
           <dd className="font-bold text-white">{slot.label}</dd>
+          <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.constituency")}</dt>
+          <dd className="font-bold text-white">{slot.state.leader.homeConstituencyName || "—"}</dd>
+          <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.leaderName")}</dt>
+          <dd className="font-bold text-white">{slot.state.leader.name || "—"}</dd>
+          <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.party")}</dt>
+          <dd className="font-bold" style={{ color: slot.state.leader.partyColor || "var(--cyan)" }}>{slot.state.leader.partyAbbr || slot.state.leader.party || "—"}</dd>
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.lastSaved")}</dt>
           <dd className="font-bold" style={{ color: "var(--gold)" }}>{formatSavedAt(slot.savedAt, lang)}</dd>
         </dl>
