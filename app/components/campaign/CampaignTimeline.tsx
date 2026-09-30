@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { getElectionFlowStatus } from "../../data/electionFlow";
 import { t, type Lang } from "../../i18n/useLang";
 
@@ -30,6 +31,12 @@ export default function CampaignTimeline({ day, totalDays, lang, compact = false
   const phaseTitle = lang === "ms" ? phase.titleMs : phase.titleEn;
   const phaseHelp = lang === "ms" ? phase.helpMs : phase.helpEn;
   const phaseAction = lang === "ms" ? phase.actionMs : phase.actionEn;
+  const actionRoute = phase.id === "polling" ? "/warroom" : "/campaign";
+  const actionLabel = phase.id === "prepare" || phase.id === "nomination"
+    ? t(lang, "SUSUN CALON", "PLACE CANDIDATES")
+    : phase.id === "campaign"
+      ? t(lang, "BUKA OPERASI", "OPEN OPERATIONS")
+      : t(lang, "BUKA WAR ROOM", "OPEN WAR ROOM");
 
   return <section aria-label={t(lang, "Jadual kempen", "Campaign schedule")} className={`border border-cyan/45 bg-[#020814]/95 shadow-xl ${compact ? "p-3" : "p-4"}`} style={{ fontFamily: "'Space Mono', monospace", backdropFilter: "blur(12px)", boxShadow: "0 14px 28px rgb(0 0 0 / .3), inset 0 0 20px rgb(var(--cyan-rgb) / .045)" }}>
     <div className="flex items-start justify-between gap-3"><div><div className="text-[8px] font-black tracking-[.22em] text-cyan">{t(lang, "JADUAL KEMPEN", "CAMPAIGN SCHEDULE")}</div><div className="mt-1 text-[11px] font-black tracking-wide text-white">{phaseTitle}</div></div><div className="shrink-0 border px-2 py-1 text-right" style={{ borderColor: `${phase.color}88`, background: "rgb(var(--bg-rgb) / .7)" }}><div className="text-[7px] font-black tracking-widest" style={{ color: phase.color }}>{t(lang, "HARI SEMASA", "CURRENT DAY")}</div><div className="mt-0.5 text-[12px] font-black text-white">{safeDay}<span className="text-[8px] text-text-muted"> / {totalDays}</span></div></div></div>
@@ -37,6 +44,7 @@ export default function CampaignTimeline({ day, totalDays, lang, compact = false
     <div className="mt-2.5"><div className="mb-1 flex items-center justify-between text-[7px] font-black tracking-[.1em] text-text-muted"><span>{t(lang, "PROGRES FASA", "PHASE PROGRESS")}</span><span style={{ color: phase.color }}>{phaseProgress}%</span></div><div className="h-1.5 overflow-hidden bg-white/10"><div className="h-full transition-all duration-500" style={{ width: `${phaseProgress}%`, background: phase.color, boxShadow: `0 0 10px ${phase.color}` }} /></div></div>
     <div className="mt-2.5 grid grid-cols-4 gap-1 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / .18)" }}>{PHASES.map((item) => { const active = item.id === phase.id; const done = safeDay > item.ends; return <div key={item.id} className="min-w-0 border px-1 py-1.5 text-center" style={{ borderColor: active ? `${item.color}99` : "rgb(var(--cyan-rgb) / .13)", background: active ? "rgb(var(--cyan-rgb) / .09)" : "transparent", opacity: done || active ? 1 : .58 }}><div className="text-[7px] font-black tracking-tight" style={{ color: active ? item.color : done ? "var(--gold)" : "var(--text-muted)" }}>{lang === "ms" ? item.shortMs : item.shortEn}</div><div className="mt-0.5 text-[6px] tracking-tight text-text-muted">{item.starts === item.ends ? `${t(lang, "H", "D")}${item.starts}` : `${t(lang, "H", "D")}${item.starts}–${item.ends}`}</div></div>; })}</div>
     <div className="mt-2 flex items-center justify-between gap-2 text-[8px]"><span className="text-text-muted">{daysToPoll > 0 ? t(lang, `${daysToPoll} hari ke hari mengundi`, `${daysToPoll} days to polling`) : t(lang, "Hari mengundi", "Polling day")}</span><span className="truncate text-right text-gold">{t(lang, "SETERUSNYA", "NEXT")}: {nextTitle}</span></div>
+    <Link href={actionRoute} className="mt-2 flex min-h-8 items-center justify-center border text-[8px] font-black tracking-[.12em] transition hover:brightness-125" style={{ borderColor: `${phase.color}88`, color: phase.color, background: "rgb(var(--bg-rgb) / .6)" }}>→ {actionLabel}</Link>
     {!compact && <div className="mt-1 text-right text-[7px] text-text-muted">{t(lang, "Progres pilihan raya", "Election progress")} {electionProgress}%</div>}
   </section>;
 }
