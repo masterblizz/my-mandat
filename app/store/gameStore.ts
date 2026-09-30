@@ -52,6 +52,8 @@ export interface Resources {
   mediaBuy: number;
 }
 
+export type ActivityApproach = "community" | "balanced" | "assertive";
+
 export interface Operation {
   id: string;
   name: string;
@@ -85,7 +87,7 @@ export interface SandboxProgress {
 export interface GameState {
   journey: Journey;
   journeyAction: (action: JourneyAction) => void;
-  runLocationActivity: (location: string, action: "prepare" | "commit") => void;
+  runLocationActivity: (location: string, action: "prepare" | "commit", approach?: ActivityApproach) => void;
   markOfficeMailRead: (index: number) => void;
   finishElection: () => void;
   confirmCoalition: (partners: string[], terms?: Record<string, CoalitionDeal>) => void;
@@ -291,7 +293,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   journeyAction: (action) => set((state) => reduceJourney(state, action)),
-  runLocationActivity: (location, action) => set((state) => {
+  runLocationActivity: (location, action, approach = "balanced") => set((state) => {
     const campaign = state.journey.chapter === "campaign" && state.day < state.totalDays;
     const term = ["government", "opposition", "rebuilding"].includes(state.journey.chapter);
     const key = `location:${location}:${action}`;
@@ -309,11 +311,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       national: { prepare: { funds: 10000, manpower: 0, organisation: 2, trust: 1, support: 0 }, commit: { funds: 18000, manpower: -5, organisation: 1, trust: 1, support: .6 } },
     };
     const effect = campaignEffects[location]?.[action] ?? campaignEffects.party[action];
+    const approachEffect: Record<ActivityApproach, { funds: number; manpower: number; trust: number; support: number; organisation: number }> = {
+      community: { funds: 5000, manpower: -5, trust: 2, support: .4, organisation: 1 },
+      balanced: { funds: 0, manpower: 0, trust: 0, support: 0, organisation: 0 },
+      assertive: { funds: -5000, manpower: 5, trust: -1, support: .7, organisation: -1 },
+    };
+    const choice = approachEffect[approach];
     if (campaign) {
       const rankPerks = getRankPerks(playerXp({ playedMinutes: state.careerProgress.playedMinutes, day: state.day, term: state.careerProgress.term, completed: state.careerProgress.completed, journalEntries: state.journey.journal.length }));
-      const actionFunds = Math.round(effect.funds * (1 - rankPerks.fundDiscount));
-      const supportGain = effect.support === 0 ? 0 : effect.support + rankPerks.locationSupportBonus;
-      if (state.journey.decisions < 1 || state.resources.funds < actionFunds || state.resources.manpower + effect.manpower < 0) return {};
+      const actionFunds = Math.max(0, Math.round((effect.funds + choice.funds) * (1 - rankPerks.fundDiscount)));
+      const supportGain = effect.support + choice.support + (effect.support + choice.support > 0 ? rankPerks.locationSupportBonus : 0);
+      const manpowerChange = effect.manpower + choice.manpower;
+      const trustChange = effect.trust + choice.trust;
+      if (state.journey.decisions < 1 || state.resources.funds < actionFunds || state.resources.manpower + manpowerChange < 0) return {};
       const verb = action === "prepare" ? "Persediaan" : "Tindakan";
       const nextStates = supportGain ? shiftSupport(state, supportGain, true) : state.states;
       const homeSupport = nextStates.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0;
@@ -322,18 +332,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       const reward = earnedObjective ? 75000 : 0;
       return {
         states: nextStates,
-        resources: { ...state.resources, funds: state.resources.funds - actionFunds + reward, manpower: state.resources.manpower + effect.manpower },
+        resources: { ...state.resources, funds: state.resources.funds - actionFunds + reward, manpower: state.resources.manpower + manpowerChange },
         mediaSentiment: effect.media ?? state.mediaSentiment,
         journey: {
           ...state.journey,
           decisions: state.journey.decisions - 1,
           actionsToday: [...state.journey.actionsToday, key],
-          organisation: Math.max(0, Math.min(100, state.journey.organisation + effect.organisation + (earnedObjective ? 3 : 0))),
-          trust: Math.max(0, Math.min(100, state.journey.trust + effect.trust + (earnedObjective ? 2 : 0))),
+          organisation: Math.max(0, Math.min(100, state.journey.organisation + effect.organisation + choice.organisation + (earnedObjective ? 3 : 0))),
+          trust: Math.max(0, Math.min(100, state.journey.trust + trustChange + (earnedObjective ? 2 : 0))),
           locationObjectives: earnedObjective ? [...state.journey.locationObjectives, objectiveId] : state.journey.locationObjectives,
           journal: journal(state.journey,
-            `${verb} di ${location} selesai: dana -RM${actionFunds.toLocaleString()}, sokongan ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, kepercayaan ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Objektif kawasan dicapai: ganjaran RM75,000, organisasi +3 dan kepercayaan +2." : ""}`,
-            `${verb} at ${location} completed: funds -RM${actionFunds.toLocaleString()}, support ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, trust ${effect.trust >= 0 ? "+" : ""}${effect.trust}.${earnedObjective ? " Constituency objective completed: RM75,000 reward, organisation +3 and trust +2." : ""}`),
+            `${verb} di ${location} selesai [${approach}]: dana -RM${actionFunds.toLocaleString()}, sokongan ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, kepercayaan ${trustChange >= 0 ? "+" : ""}${trustChange}.${earnedObjective ? " Objektif kawasan dicapai: ganjaran RM75,000, organisasi +3 dan kepercayaan +2." : ""}`,
+            `${verb} at ${location} completed [${approach}]: funds -RM${actionFunds.toLocaleString()}, support ${supportGain >= 0 ? "+" : ""}${supportGain.toFixed(1)}, trust ${trustChange >= 0 ? "+" : ""}${trustChange}.${earnedObjective ? " Constituency objective completed: RM75,000 reward, organisation +3 and trust +2." : ""}`),
         },
       };
     }

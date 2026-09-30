@@ -6,22 +6,145 @@ import { useEffect, useState } from "react";
 import Header from "../../components/layout/Header";
 import StatusBar from "../../components/layout/StatusBar";
 import MalaysiaMap from "../../components/map/MalaysiaMap";
-import { useGameStore } from "../../store/gameStore";
+import { useGameStore, type ActivityApproach } from "../../store/gameStore";
 import { useLang, t } from "../../i18n/useLang";
-import { currentLocalTimeIsNight, homeSeatProfile } from "../../lib/seatProfile";
-import { getLiveNewsForDay, newsMatchesElectionScope } from "../../data/liveNews";
+import {
+  currentLocalTimeIsNight,
+  homeSeatProfile,
+} from "../../lib/seatProfile";
+import {
+  getLiveNewsForDay,
+  newsMatchesElectionScope,
+} from "../../data/liveNews";
 import type { TacticalOverlay } from "../../data/tacticalMap";
 
-type Scene = { icon: string; ms: string; en: string; asset: string; route: string; actionMs: string; actionEn: string; accent: string; hotspotMs: string; hotspotEn: string; detailMs: string; detailEn: string };
+type Scene = {
+  icon: string;
+  ms: string;
+  en: string;
+  asset: string;
+  route: string;
+  actionMs: string;
+  actionEn: string;
+  accent: string;
+  hotspotMs: string;
+  hotspotEn: string;
+  detailMs: string;
+  detailEn: string;
+};
 const SCENES: Record<string, Scene> = {
-  party: { icon: "🏛️", ms: "Ibu Pejabat Parti", en: "Party Headquarters", asset: "/party-hq-realistic.png", route: "/campaign", actionMs: "Buka strategi parti", actionEn: "Open party strategy", accent: "#f2b53a", hotspotMs: "Dinding manifesto", hotspotEn: "Manifesto wall", detailMs: "Susun calon, manifesto dan rangkaian parti.", detailEn: "Organise candidates, manifesto and party network." },
-  operations: { icon: "🛰️", ms: "Pusat Operasi", en: "Operations Centre", asset: "/operations-room-realistic.png", route: "/warroom", actionMs: "Buka war room", actionEn: "Open war room", accent: "#ff6b5c", hotspotMs: "Meja medan", hotspotEn: "Battle table", detailMs: "Tentukan operasi, sasaran dan medan negeri.", detailEn: "Deploy operations, targets and state battlefield." },
-  calendar: { icon: "📅", ms: "Bilik Jadual Kempen", en: "Campaign Calendar Room", asset: "/campaign-calendar-room.png", route: "/calendar", actionMs: "Buka jadual", actionEn: "Open calendar", accent: "#a78bfa", hotspotMs: "Papan jadual", hotspotEn: "Schedule board", detailMs: "Atur lawatan, ceramah dan masa pasukan.", detailEn: "Schedule visits, rallies and team time." },
-  media: { icon: "📡", ms: "Pusat Media", en: "Media Centre", asset: "/media-centre-realistic.png", route: "/messaging", actionMs: "Buka konsol media", actionEn: "Open media console", accent: "#4fd6ec", hotspotMs: "Konsol siaran", hotspotEn: "Broadcast console", detailMs: "Bentuk mesej dan respons awam secara langsung.", detailEn: "Shape live messaging and public response." },
-  commission: { icon: "🗳️", ms: "Pusat Tinjauan", en: "Polling Centre", asset: "/polling-centre-realistic.png", route: "/polling", actionMs: "Buka data tinjauan", actionEn: "Open polling data", accent: "#5be39a", hotspotMs: "Terminal tinjauan", hotspotEn: "Polling terminal", detailMs: "Pantau momentum, swing dan sokongan kawasan.", detailEn: "Monitor momentum, swing and constituency support." },
-  cabinet: { icon: "🏛️", ms: "Bangunan Kabinet", en: "Cabinet Building", asset: "/cabinet-room-realistic.png", route: "/cabinet", actionMs: "Masuk bilik kabinet", actionEn: "Enter cabinet room", accent: "#f2b53a", hotspotMs: "Meja kabinet", hotspotEn: "Cabinet table", detailMs: "Lantik pasukan menteri dan urus portfolio.", detailEn: "Appoint ministers and manage portfolios." },
-  administration: { icon: "⚖️", ms: "Pusat Pentadbiran", en: "Administration Centre", asset: "/administration-centre.png", route: "/government", actionMs: "Urus pentadbiran", actionEn: "Manage administration", accent: "#4fd6ec", hotspotMs: "Meja dasar", hotspotEn: "Policy desk", detailMs: "Laksana dasar dan majukan penggal kerajaan.", detailEn: "Deliver policies and advance the government term." },
-  national: { icon: "🗺️", ms: "Pusat Analisis Negara", en: "National Analysis Centre", asset: "/national-analysis-centre.png", route: "/sandbox", actionMs: "Buka analisis negara", actionEn: "Open national analysis", accent: "#a78bfa", hotspotMs: "Peta nasional", hotspotEn: "National map", detailMs: "Bandingkan kesan keputusan di seluruh negara.", detailEn: "Compare decision impact across the country." },
+  party: {
+    icon: "🏛️",
+    ms: "Ibu Pejabat Parti",
+    en: "Party Headquarters",
+    asset: "/party-hq-realistic.png",
+    route: "/campaign",
+    actionMs: "Buka strategi parti",
+    actionEn: "Open party strategy",
+    accent: "#f2b53a",
+    hotspotMs: "Dinding manifesto",
+    hotspotEn: "Manifesto wall",
+    detailMs: "Susun calon, manifesto dan rangkaian parti.",
+    detailEn: "Organise candidates, manifesto and party network.",
+  },
+  operations: {
+    icon: "🛰️",
+    ms: "Pusat Operasi",
+    en: "Operations Centre",
+    asset: "/operations-room-realistic.png",
+    route: "/warroom",
+    actionMs: "Buka war room",
+    actionEn: "Open war room",
+    accent: "#ff6b5c",
+    hotspotMs: "Meja medan",
+    hotspotEn: "Battle table",
+    detailMs: "Tentukan operasi, sasaran dan medan negeri.",
+    detailEn: "Deploy operations, targets and state battlefield.",
+  },
+  calendar: {
+    icon: "📅",
+    ms: "Bilik Jadual Kempen",
+    en: "Campaign Calendar Room",
+    asset: "/campaign-calendar-room.png",
+    route: "/calendar",
+    actionMs: "Buka jadual",
+    actionEn: "Open calendar",
+    accent: "#a78bfa",
+    hotspotMs: "Papan jadual",
+    hotspotEn: "Schedule board",
+    detailMs: "Atur lawatan, ceramah dan masa pasukan.",
+    detailEn: "Schedule visits, rallies and team time.",
+  },
+  media: {
+    icon: "📡",
+    ms: "Pusat Media",
+    en: "Media Centre",
+    asset: "/media-centre-realistic.png",
+    route: "/messaging",
+    actionMs: "Buka konsol media",
+    actionEn: "Open media console",
+    accent: "#4fd6ec",
+    hotspotMs: "Konsol siaran",
+    hotspotEn: "Broadcast console",
+    detailMs: "Bentuk mesej dan respons awam secara langsung.",
+    detailEn: "Shape live messaging and public response.",
+  },
+  commission: {
+    icon: "🗳️",
+    ms: "Pusat Tinjauan",
+    en: "Polling Centre",
+    asset: "/polling-centre-realistic.png",
+    route: "/polling",
+    actionMs: "Buka data tinjauan",
+    actionEn: "Open polling data",
+    accent: "#5be39a",
+    hotspotMs: "Terminal tinjauan",
+    hotspotEn: "Polling terminal",
+    detailMs: "Pantau momentum, swing dan sokongan kawasan.",
+    detailEn: "Monitor momentum, swing and constituency support.",
+  },
+  cabinet: {
+    icon: "🏛️",
+    ms: "Bangunan Kabinet",
+    en: "Cabinet Building",
+    asset: "/cabinet-room-realistic.png",
+    route: "/cabinet",
+    actionMs: "Masuk bilik kabinet",
+    actionEn: "Enter cabinet room",
+    accent: "#f2b53a",
+    hotspotMs: "Meja kabinet",
+    hotspotEn: "Cabinet table",
+    detailMs: "Lantik pasukan menteri dan urus portfolio.",
+    detailEn: "Appoint ministers and manage portfolios.",
+  },
+  administration: {
+    icon: "⚖️",
+    ms: "Pusat Pentadbiran",
+    en: "Administration Centre",
+    asset: "/administration-centre.png",
+    route: "/government",
+    actionMs: "Urus pentadbiran",
+    actionEn: "Manage administration",
+    accent: "#4fd6ec",
+    hotspotMs: "Meja dasar",
+    hotspotEn: "Policy desk",
+    detailMs: "Laksana dasar dan majukan penggal kerajaan.",
+    detailEn: "Deliver policies and advance the government term.",
+  },
+  national: {
+    icon: "🗺️",
+    ms: "Pusat Analisis Negara",
+    en: "National Analysis Centre",
+    asset: "/national-analysis-centre.png",
+    route: "/sandbox",
+    actionMs: "Buka analisis negara",
+    actionEn: "Open national analysis",
+    accent: "#a78bfa",
+    hotspotMs: "Peta nasional",
+    hotspotEn: "National map",
+    detailMs: "Bandingkan kesan keputusan di seluruh negara.",
+    detailEn: "Compare decision impact across the country.",
+  },
 };
 
 // Rural districts use modest, place-based interiors rather than a generic
@@ -38,101 +161,813 @@ const RURAL_SCENE_ASSETS: Record<string, string> = {
   national: "/district-operations-rural.png",
 };
 
-type LocationHost = { roleMs: string; roleEn: string; welcomeMs: string; welcomeEn: string; asset: string };
+type LocationHost = {
+  roleMs: string;
+  roleEn: string;
+  welcomeMs: string;
+  welcomeEn: string;
+  asset: string;
+};
 const LOCATION_HOSTS: Record<string, LocationHost> = {
-  party: { roleMs: "Setiausaha Parti", roleEn: "Party Secretary", welcomeMs: "Selamat datang ke Ibu Pejabat Parti. Saya sudah sediakan ringkasan calon dan manifesto untuk keputusan anda.", welcomeEn: "Welcome to Party Headquarters. I have prepared the candidate and manifesto brief for your decision.", asset: "/party-secretary-standing.png" },
-  operations: { roleMs: "Pegawai Operasi", roleEn: "Operations Officer", welcomeMs: "Peta lapangan dan pasukan jentera sudah bersedia untuk arahan anda.", welcomeEn: "The field map and campaign teams are ready for your direction.", asset: "/personal-assistant-standing.png" },
-  calendar: { roleMs: "Penyelaras Kempen", roleEn: "Campaign Coordinator", welcomeMs: "Slot lawatan dan masa pasukan sedang menunggu pengesahan anda.", welcomeEn: "Visit slots and team time are waiting for your confirmation.", asset: "/personal-assistant-standing.png" },
-  media: { roleMs: "Pengurus Media", roleEn: "Media Manager", welcomeMs: "Bilik siaran sedia. Kita boleh semak mesej sebelum ia sampai kepada orang ramai.", welcomeEn: "The broadcast room is ready. We can review the message before it reaches the public.", asset: "/personal-assistant-standing.png" },
-  commission: { roleMs: "Penganalisis Tinjauan", roleEn: "Polling Analyst", welcomeMs: "Data sokongan terkini sudah masuk. Saya boleh bantu anda baca perubahan di kawasan.", welcomeEn: "The latest support data is in. I can help you read constituency changes.", asset: "/personal-assistant-standing.png" },
-  cabinet: { roleMs: "Setiausaha Kabinet", roleEn: "Cabinet Secretary", welcomeMs: "Portfolio dan arahan kerajaan tersedia untuk semakan anda.", welcomeEn: "Government portfolios and directives are ready for your review.", asset: "/personal-assistant-standing.png" },
-  administration: { roleMs: "Pegawai Pentadbiran", roleEn: "Administration Officer", welcomeMs: "Fail pelaksanaan dasar sudah disusun mengikut keutamaan penggal ini.", welcomeEn: "Policy delivery files are arranged by this term's priorities.", asset: "/personal-assistant-standing.png" },
-  national: { roleMs: "Penganalisis Negara", roleEn: "National Analyst", welcomeMs: "Saya sudah buka perbandingan negeri untuk langkah strategik anda yang seterusnya.", welcomeEn: "I have opened the state comparison for your next strategic move.", asset: "/personal-assistant-standing.png" },
+  party: {
+    roleMs: "Setiausaha Parti",
+    roleEn: "Party Secretary",
+    welcomeMs:
+      "Selamat datang ke Ibu Pejabat Parti. Saya sudah sediakan ringkasan calon dan manifesto untuk keputusan anda.",
+    welcomeEn:
+      "Welcome to Party Headquarters. I have prepared the candidate and manifesto brief for your decision.",
+    asset: "/party-secretary-standing.png",
+  },
+  operations: {
+    roleMs: "Pegawai Operasi",
+    roleEn: "Operations Officer",
+    welcomeMs:
+      "Peta lapangan dan pasukan jentera sudah bersedia untuk arahan anda.",
+    welcomeEn: "The field map and campaign teams are ready for your direction.",
+    asset: "/personal-assistant-standing.png",
+  },
+  calendar: {
+    roleMs: "Penyelaras Kempen",
+    roleEn: "Campaign Coordinator",
+    welcomeMs: "Slot lawatan dan masa pasukan sedang menunggu pengesahan anda.",
+    welcomeEn: "Visit slots and team time are waiting for your confirmation.",
+    asset: "/personal-assistant-standing.png",
+  },
+  media: {
+    roleMs: "Pengurus Media",
+    roleEn: "Media Manager",
+    welcomeMs:
+      "Bilik siaran sedia. Kita boleh semak mesej sebelum ia sampai kepada orang ramai.",
+    welcomeEn:
+      "The broadcast room is ready. We can review the message before it reaches the public.",
+    asset: "/personal-assistant-standing.png",
+  },
+  commission: {
+    roleMs: "Penganalisis Tinjauan",
+    roleEn: "Polling Analyst",
+    welcomeMs:
+      "Data sokongan terkini sudah masuk. Saya boleh bantu anda baca perubahan di kawasan.",
+    welcomeEn:
+      "The latest support data is in. I can help you read constituency changes.",
+    asset: "/personal-assistant-standing.png",
+  },
+  cabinet: {
+    roleMs: "Setiausaha Kabinet",
+    roleEn: "Cabinet Secretary",
+    welcomeMs: "Portfolio dan arahan kerajaan tersedia untuk semakan anda.",
+    welcomeEn:
+      "Government portfolios and directives are ready for your review.",
+    asset: "/personal-assistant-standing.png",
+  },
+  administration: {
+    roleMs: "Pegawai Pentadbiran",
+    roleEn: "Administration Officer",
+    welcomeMs:
+      "Fail pelaksanaan dasar sudah disusun mengikut keutamaan penggal ini.",
+    welcomeEn: "Policy delivery files are arranged by this term's priorities.",
+    asset: "/personal-assistant-standing.png",
+  },
+  national: {
+    roleMs: "Penganalisis Negara",
+    roleEn: "National Analyst",
+    welcomeMs:
+      "Saya sudah buka perbandingan negeri untuk langkah strategik anda yang seterusnya.",
+    welcomeEn:
+      "I have opened the state comparison for your next strategic move.",
+    asset: "/personal-assistant-standing.png",
+  },
 };
 
-type LocationGuide = { updateMs: string; updateEn: string; stepsMs: string[]; stepsEn: string[] };
+type LocationGuide = {
+  updateMs: string;
+  updateEn: string;
+  stepsMs: string[];
+  stepsEn: string[];
+};
 const LOCATION_GUIDES: Record<string, LocationGuide> = {
-  party: { updateMs: "Calon marginal dan draf manifesto sudah tersedia untuk keputusan anda.", updateEn: "Marginal candidates and the manifesto draft are ready for your decision.", stepsMs: ["Semak keutamaan calon dan isu utama.", "Pilih ‘Susun calon’ untuk sediakan pelan.", "Lancar manifesto apabila tenaga dan dana mencukupi."], stepsEn: ["Review candidate priorities and core issues.", "Choose ‘Brief candidates’ to prepare the plan.", "Launch the manifesto when energy and funds are sufficient."] },
-  operations: { updateMs: "Jentera lapangan sudah menunggu arahan di zon tumpuan.", updateEn: "Field teams are waiting for orders in the priority zone.", stepsMs: ["Semak zon dan kekuatan jentera.", "Pilih ‘Rancang jentera’ untuk menyusun operasi.", "Kerahkan pasukan selepas semak kos dana dan jentera."], stepsEn: ["Review zones and organiser strength.", "Choose ‘Plan field team’ to set up operations.", "Deploy the team after checking funds and organiser cost."] },
-  calendar: { updateMs: "Tiga slot lawatan masih terbuka untuk hari ini.", updateEn: "Three visit slots are still open today.", stepsMs: ["Semak slot lawatan yang tersedia.", "Pilih ‘Susun jadual’ untuk sediakan perjalanan.", "Sahkan lawatan untuk menggunakan tenaga hari ini."], stepsEn: ["Review available visit slots.", "Choose ‘Build schedule’ to prepare the itinerary.", "Confirm the visit to use today's energy."] },
-  media: { updateMs: "Isu saliran dan kos sara hidup sedang mendapat perhatian media.", updateEn: "Drainage and cost-of-living concerns are drawing media attention.", stepsMs: ["Baca berita semasa pada paparan live.", "Pilih ‘Draf mesej’ untuk semak respons.", "Terbit kenyataan apabila anda bersedia menanggung kosnya."], stepsEn: ["Read the live news display.", "Choose ‘Draft message’ to review the response.", "Publish the statement when you are ready to pay its cost."] },
-  commission: { updateMs: "Tinjauan terkini menunjukkan zon pinggir masih sangat kompetitif.", updateEn: "The latest poll shows fringe zones remain highly competitive.", stepsMs: ["Semak perubahan sokongan dan swing.", "Pilih ‘Semak tinjauan’ untuk sediakan analisis.", "Laras sasaran supaya jentera fokus pada zon penting."], stepsEn: ["Review support shifts and swing.", "Choose ‘Review poll’ to prepare analysis.", "Adjust targeting so organisers focus on key zones."] },
-  cabinet: { updateMs: "Dua portfolio dan satu arahan kabinet menunggu semakan anda.", updateEn: "Two portfolios and one cabinet directive await your review.", stepsMs: ["Nilai portfolio yang memerlukan keputusan.", "Pilih ‘Nilai portfolio’ untuk sediakan arahan.", "Sahkan arahan selepas semak bajet dan had penggal."], stepsEn: ["Review portfolios requiring a decision.", "Choose ‘Review portfolios’ to prepare a directive.", "Confirm the directive after checking budget and term limit."] },
-  administration: { updateMs: "Tiga fail dasar telah disusun mengikut keutamaan penggal ini.", updateEn: "Three policy files are arranged by this term's priorities.", stepsMs: ["Semak fail dasar yang perlu dilaksana.", "Pilih ‘Semak dasar’ untuk sediakan arahan.", "Laksana arahan apabila bajet dan had tindakan mencukupi."], stepsEn: ["Review policy files awaiting delivery.", "Choose ‘Review policy’ to prepare a directive.", "Deliver the directive when budget and action limit allow it."] },
-  national: { updateMs: "Data nasional menunjukkan dua negeri memerlukan perhatian segera.", updateEn: "National data shows two states need immediate attention.", stepsMs: ["Bandingkan perubahan antara negeri.", "Pilih ‘Analisis data’ untuk sediakan strategi.", "Sahkan strategi selepas semak sumber yang tersedia."], stepsEn: ["Compare changes across states.", "Choose ‘Analyse data’ to prepare a strategy.", "Confirm the strategy after checking available resources."] },
+  party: {
+    updateMs:
+      "Calon marginal dan draf manifesto sudah tersedia untuk keputusan anda.",
+    updateEn:
+      "Marginal candidates and the manifesto draft are ready for your decision.",
+    stepsMs: [
+      "Semak keutamaan calon dan isu utama.",
+      "Pilih ‘Susun calon’ untuk sediakan pelan.",
+      "Lancar manifesto apabila tenaga dan dana mencukupi.",
+    ],
+    stepsEn: [
+      "Review candidate priorities and core issues.",
+      "Choose ‘Brief candidates’ to prepare the plan.",
+      "Launch the manifesto when energy and funds are sufficient.",
+    ],
+  },
+  operations: {
+    updateMs: "Jentera lapangan sudah menunggu arahan di zon tumpuan.",
+    updateEn: "Field teams are waiting for orders in the priority zone.",
+    stepsMs: [
+      "Semak zon dan kekuatan jentera.",
+      "Pilih ‘Rancang jentera’ untuk menyusun operasi.",
+      "Kerahkan pasukan selepas semak kos dana dan jentera.",
+    ],
+    stepsEn: [
+      "Review zones and organiser strength.",
+      "Choose ‘Plan field team’ to set up operations.",
+      "Deploy the team after checking funds and organiser cost.",
+    ],
+  },
+  calendar: {
+    updateMs: "Tiga slot lawatan masih terbuka untuk hari ini.",
+    updateEn: "Three visit slots are still open today.",
+    stepsMs: [
+      "Semak slot lawatan yang tersedia.",
+      "Pilih ‘Susun jadual’ untuk sediakan perjalanan.",
+      "Sahkan lawatan untuk menggunakan tenaga hari ini.",
+    ],
+    stepsEn: [
+      "Review available visit slots.",
+      "Choose ‘Build schedule’ to prepare the itinerary.",
+      "Confirm the visit to use today's energy.",
+    ],
+  },
+  media: {
+    updateMs: "Isu saliran dan kos sara hidup sedang mendapat perhatian media.",
+    updateEn:
+      "Drainage and cost-of-living concerns are drawing media attention.",
+    stepsMs: [
+      "Baca berita semasa pada paparan live.",
+      "Pilih ‘Draf mesej’ untuk semak respons.",
+      "Terbit kenyataan apabila anda bersedia menanggung kosnya.",
+    ],
+    stepsEn: [
+      "Read the live news display.",
+      "Choose ‘Draft message’ to review the response.",
+      "Publish the statement when you are ready to pay its cost.",
+    ],
+  },
+  commission: {
+    updateMs:
+      "Tinjauan terkini menunjukkan zon pinggir masih sangat kompetitif.",
+    updateEn: "The latest poll shows fringe zones remain highly competitive.",
+    stepsMs: [
+      "Semak perubahan sokongan dan swing.",
+      "Pilih ‘Semak tinjauan’ untuk sediakan analisis.",
+      "Laras sasaran supaya jentera fokus pada zon penting.",
+    ],
+    stepsEn: [
+      "Review support shifts and swing.",
+      "Choose ‘Review poll’ to prepare analysis.",
+      "Adjust targeting so organisers focus on key zones.",
+    ],
+  },
+  cabinet: {
+    updateMs: "Dua portfolio dan satu arahan kabinet menunggu semakan anda.",
+    updateEn: "Two portfolios and one cabinet directive await your review.",
+    stepsMs: [
+      "Nilai portfolio yang memerlukan keputusan.",
+      "Pilih ‘Nilai portfolio’ untuk sediakan arahan.",
+      "Sahkan arahan selepas semak bajet dan had penggal.",
+    ],
+    stepsEn: [
+      "Review portfolios requiring a decision.",
+      "Choose ‘Review portfolios’ to prepare a directive.",
+      "Confirm the directive after checking budget and term limit.",
+    ],
+  },
+  administration: {
+    updateMs: "Tiga fail dasar telah disusun mengikut keutamaan penggal ini.",
+    updateEn: "Three policy files are arranged by this term's priorities.",
+    stepsMs: [
+      "Semak fail dasar yang perlu dilaksana.",
+      "Pilih ‘Semak dasar’ untuk sediakan arahan.",
+      "Laksana arahan apabila bajet dan had tindakan mencukupi.",
+    ],
+    stepsEn: [
+      "Review policy files awaiting delivery.",
+      "Choose ‘Review policy’ to prepare a directive.",
+      "Deliver the directive when budget and action limit allow it.",
+    ],
+  },
+  national: {
+    updateMs:
+      "Data nasional menunjukkan dua negeri memerlukan perhatian segera.",
+    updateEn: "National data shows two states need immediate attention.",
+    stepsMs: [
+      "Bandingkan perubahan antara negeri.",
+      "Pilih ‘Analisis data’ untuk sediakan strategi.",
+      "Sahkan strategi selepas semak sumber yang tersedia.",
+    ],
+    stepsEn: [
+      "Compare changes across states.",
+      "Choose ‘Analyse data’ to prepare a strategy.",
+      "Confirm the strategy after checking available resources.",
+    ],
+  },
 };
 
-function TelemetryWall({ partySupport, manpower, activeOperationCount, stateSignals }: { partySupport: number; manpower: number; activeOperationCount: number; stateSignals: { support: number; trend: number }[] }) {
+function TelemetryWall({
+  partySupport,
+  manpower,
+  activeOperationCount,
+  stateSignals,
+}: {
+  partySupport: number;
+  manpower: number;
+  activeOperationCount: number;
+  stateSignals: { support: number; trend: number }[];
+}) {
   const lang = useLang();
-  const barHeights = (stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]).slice(0, 5).map((signal) => Math.max(18, Math.min(92, Math.round(signal.support))));
-  const trendPoints = (stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]).slice(0, 5).map((signal, index) => `${8 + index * 23},${37 - Math.max(-12, Math.min(12, signal.trend)) * 1.25 - (signal.support - 50) * .18}`).join(" ");
+  const barHeights = (
+    stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]
+  )
+    .slice(0, 5)
+    .map((signal) => Math.max(18, Math.min(92, Math.round(signal.support))));
+  const trendPoints = (
+    stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]
+  )
+    .slice(0, 5)
+    .map(
+      (signal, index) =>
+        `${8 + index * 23},${37 - Math.max(-12, Math.min(12, signal.trend)) * 1.25 - (signal.support - 50) * 0.18}`,
+    )
+    .join(" ");
   const reach = Math.max(16, Math.min(94, Math.round(manpower / 10)));
   const threat = Math.max(18, Math.min(90, 30 + activeOperationCount * 12));
 
-  return <section className="grid shrink-0 grid-cols-2 border-b xl:grid-cols-4" style={{ borderColor: "#ff6b5c33", background: "linear-gradient(90deg, #07111c, #081826)" }}>
-    <div className="min-h-20 border-r px-3 py-2" style={{ borderColor: "#ff6b5c22" }}><div className="text-[8px] font-black tracking-[.16em] text-cyan">{t(lang, "TREND ISYARAT", "SIGNAL TREND")}</div><div className="mt-1 flex h-10 items-end gap-1.5">{barHeights.map((height, index) => <span key={`${height}-${index}`} className="flex-1 bg-cyan/70 shadow-[0_0_10px_rgba(0,229,255,.36)]" style={{ height: `${height}%` }} />)}</div><div className="mt-1 text-[8px] text-text-muted">{t(lang, `${partySupport}% sokongan · ayunan langsung`, `${partySupport}% support · live swing`)}</div></div>
-    <div className="min-h-20 border-r px-3 py-2" style={{ borderColor: "#ff6b5c22" }}><div className="text-[8px] font-black tracking-[.16em] text-[#a78bfa]">{t(lang, "GARIS MOMENTUM", "MOMENTUM LINE")}</div><svg className="mt-1 h-10 w-full" viewBox="0 0 105 44" preserveAspectRatio="none" aria-label={t(lang, "Trend momentum kempen", "Campaign momentum trend")}><path d="M0 38 H105 M0 21 H105 M0 5 H105" stroke="rgba(148,163,184,.18)" strokeWidth=".6" /><polyline points={trendPoints} fill="none" stroke="#a78bfa" strokeWidth="2" vectorEffect="non-scaling-stroke" /><polyline points={`0,40 ${trendPoints} 105,40`} fill="rgba(167,139,250,.12)" stroke="none" /></svg><div className="text-[8px] text-text-muted">{t(lang, "pemantau turun naik negeri", "state volatility monitor")}</div></div>
-    <div className="min-h-20 border-r px-3 py-2" style={{ borderColor: "#ff6b5c22" }}><div className="text-[8px] font-black tracking-[.16em] text-gold">{t(lang, "PECAHAN PENGUNDI", "VOTER SPLIT")}</div><div className="mt-1 flex items-center gap-3"><div className="h-10 w-10 rounded-full border border-gold/50" style={{ background: `conic-gradient(var(--gold) 0 ${partySupport}%, #ff4d5e ${partySupport}% 100%)` }}><div className="m-[7px] grid h-6 w-6 place-items-center rounded-full bg-[#08131f] text-[8px] font-black text-white">{partySupport}%</div></div><div className="text-[8px] leading-4 text-text-muted"><b className="text-gold">MANDAT</b> {partySupport}%<br /><b className="text-[#ff6b5c]">{t(lang, "LAWAN", "OPPONENT")}</b> {100 - partySupport}%</div></div></div>
-    <div className="min-h-20 px-3 py-2"><div className="text-[8px] font-black tracking-[.16em] text-[#ff6b5c]">{t(lang, "RADAR MEDAN", "FIELD RADAR")}</div><div className="mt-1 flex items-center gap-3"><svg className="h-10 w-12" viewBox="0 0 64 56" aria-label={t(lang, "Radar liputan lapangan", "Field coverage radar")}><path d="M32 2 60 28 32 54 4 28Z M32 2V54 M4 28H60" fill="rgba(255,107,92,.05)" stroke="rgba(255,107,92,.4)" /><path d={`M32 ${28 - reach / 5} ${32 + threat / 6} 28 32 ${28 + reach / 6} ${32 - threat / 7} 28Z`} fill="rgba(0,229,255,.28)" stroke="#00e5ff" /></svg><div className="text-[8px] leading-4 text-text-muted"><b className="text-white">{manpower}</b> {t(lang, "kekuatan jentera", "ground strength")}<br /><b className="text-[#ff6b5c]">{activeOperationCount}</b> {t(lang, "operasi langsung", "live operations")}</div></div></div>
-  </section>;
+  return (
+    <section
+      className="grid shrink-0 grid-cols-2 border-b xl:grid-cols-4"
+      style={{
+        borderColor: "#ff6b5c33",
+        background: "linear-gradient(90deg, #07111c, #081826)",
+      }}
+    >
+      <div
+        className="min-h-20 border-r px-3 py-2"
+        style={{ borderColor: "#ff6b5c22" }}
+      >
+        <div className="text-[8px] font-black tracking-[.16em] text-cyan">
+          {t(lang, "TREND ISYARAT", "SIGNAL TREND")}
+        </div>
+        <div className="mt-1 flex h-10 items-end gap-1.5">
+          {barHeights.map((height, index) => (
+            <span
+              key={`${height}-${index}`}
+              className="flex-1 bg-cyan/70 shadow-[0_0_10px_rgba(0,229,255,.36)]"
+              style={{ height: `${height}%` }}
+            />
+          ))}
+        </div>
+        <div className="mt-1 text-[8px] text-text-muted">
+          {t(
+            lang,
+            `${partySupport}% sokongan · ayunan langsung`,
+            `${partySupport}% support · live swing`,
+          )}
+        </div>
+      </div>
+      <div
+        className="min-h-20 border-r px-3 py-2"
+        style={{ borderColor: "#ff6b5c22" }}
+      >
+        <div className="text-[8px] font-black tracking-[.16em] text-[#a78bfa]">
+          {t(lang, "GARIS MOMENTUM", "MOMENTUM LINE")}
+        </div>
+        <svg
+          className="mt-1 h-10 w-full"
+          viewBox="0 0 105 44"
+          preserveAspectRatio="none"
+          aria-label={t(
+            lang,
+            "Trend momentum kempen",
+            "Campaign momentum trend",
+          )}
+        >
+          <path
+            d="M0 38 H105 M0 21 H105 M0 5 H105"
+            stroke="rgba(148,163,184,.18)"
+            strokeWidth=".6"
+          />
+          <polyline
+            points={trendPoints}
+            fill="none"
+            stroke="#a78bfa"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <polyline
+            points={`0,40 ${trendPoints} 105,40`}
+            fill="rgba(167,139,250,.12)"
+            stroke="none"
+          />
+        </svg>
+        <div className="text-[8px] text-text-muted">
+          {t(lang, "pemantau turun naik negeri", "state volatility monitor")}
+        </div>
+      </div>
+      <div
+        className="min-h-20 border-r px-3 py-2"
+        style={{ borderColor: "#ff6b5c22" }}
+      >
+        <div className="text-[8px] font-black tracking-[.16em] text-gold">
+          {t(lang, "PECAHAN PENGUNDI", "VOTER SPLIT")}
+        </div>
+        <div className="mt-1 flex items-center gap-3">
+          <div
+            className="h-10 w-10 rounded-full border border-gold/50"
+            style={{
+              background: `conic-gradient(var(--gold) 0 ${partySupport}%, #ff4d5e ${partySupport}% 100%)`,
+            }}
+          >
+            <div className="m-[7px] grid h-6 w-6 place-items-center rounded-full bg-[#08131f] text-[8px] font-black text-white">
+              {partySupport}%
+            </div>
+          </div>
+          <div className="text-[8px] leading-4 text-text-muted">
+            <b className="text-gold">MANDAT</b> {partySupport}%<br />
+            <b className="text-[#ff6b5c]">
+              {t(lang, "LAWAN", "OPPONENT")}
+            </b>{" "}
+            {100 - partySupport}%
+          </div>
+        </div>
+      </div>
+      <div className="min-h-20 px-3 py-2">
+        <div className="text-[8px] font-black tracking-[.16em] text-[#ff6b5c]">
+          {t(lang, "RADAR MEDAN", "FIELD RADAR")}
+        </div>
+        <div className="mt-1 flex items-center gap-3">
+          <svg
+            className="h-10 w-12"
+            viewBox="0 0 64 56"
+            aria-label={t(
+              lang,
+              "Radar liputan lapangan",
+              "Field coverage radar",
+            )}
+          >
+            <path
+              d="M32 2 60 28 32 54 4 28Z M32 2V54 M4 28H60"
+              fill="rgba(255,107,92,.05)"
+              stroke="rgba(255,107,92,.4)"
+            />
+            <path
+              d={`M32 ${28 - reach / 5} ${32 + threat / 6} 28 32 ${28 + reach / 6} ${32 - threat / 7} 28Z`}
+              fill="rgba(0,229,255,.28)"
+              stroke="#00e5ff"
+            />
+          </svg>
+          <div className="text-[8px] leading-4 text-text-muted">
+            <b className="text-white">{manpower}</b>{" "}
+            {t(lang, "kekuatan jentera", "ground strength")}
+            <br />
+            <b className="text-[#ff6b5c]">{activeOperationCount}</b>{" "}
+            {t(lang, "operasi langsung", "live operations")}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function OperationsDesk({ onClose }: { onClose: () => void }) {
   const lang = useLang();
   const [overlay, setOverlay] = useState<TacticalOverlay>("default");
-  const { states, resources, operations, day, totalDays, settings, mediaSentiment, politicalReactions, aiNews, opponentLog, getTotalProjectedSeats, getNationalSupport } = useGameStore();
+  const {
+    states,
+    resources,
+    operations,
+    day,
+    totalDays,
+    settings,
+    mediaSentiment,
+    politicalReactions,
+    aiNews,
+    opponentLog,
+    getTotalProjectedSeats,
+    getNationalSupport,
+  } = useGameStore();
   const electionScope = settings.electionScope ?? "pru";
-  const prnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
+  const prnState = states.find(
+    (state) => state.id === (settings.prnStateId ?? "selangor"),
+  );
   const mapStates = electionScope === "prn" && prnState ? [prnState] : states;
   const projectedSeats = getTotalProjectedSeats();
   const nationalSupport = getNationalSupport();
-  const partySupport = electionScope === "prn" && prnState ? Math.round(prnState.mandatSupport) : nationalSupport.mandat;
-  const priorityStates = [...mapStates].sort((a, b) => Math.abs(b.trend) - Math.abs(a.trend)).slice(0, 5);
-  const activeOperations = operations.filter((operation) => operation.status === "active").slice(0, 4);
-  const opponentIntel = opponentLog.slice(0, 4).map((item) => ({ ...item, narrative: item.narrativeMS }));
-  const news = [...politicalReactions, ...aiNews, ...getLiveNewsForDay(day).filter((item) => newsMatchesElectionScope(item, electionScope, settings.prnStateId))]
-    .filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
-    .filter((item) => item.day === day).slice(0, 4);
-  const overlays: { id: TacticalOverlay; ms: string; en: string; color: string }[] = [
-    { id: "default", ms: "Asas", en: "Base", color: "var(--cyan)" }, { id: "marginal", ms: "Marginal", en: "Marginal", color: "#ffd166" },
-    { id: "opponent", ms: "Kubu LAWAN", en: "LAWAN", color: "#ff4d5e" }, { id: "swing", ms: "Hotspot", en: "Hotspots", color: "#ff9f43" },
-    { id: "reach", ms: "Capaian", en: "Reach", color: "#35d9ff" }, { id: "sentiment", ms: "Sentimen", en: "Sentiment", color: "#00e5a8" },
+  const partySupport =
+    electionScope === "prn" && prnState
+      ? Math.round(prnState.mandatSupport)
+      : nationalSupport.mandat;
+  const priorityStates = [...mapStates]
+    .sort((a, b) => Math.abs(b.trend) - Math.abs(a.trend))
+    .slice(0, 5);
+  const activeOperations = operations
+    .filter((operation) => operation.status === "active")
+    .slice(0, 4);
+  const opponentIntel = opponentLog
+    .slice(0, 4)
+    .map((item) => ({ ...item, narrative: item.narrativeMS }));
+  const news = [
+    ...politicalReactions,
+    ...aiNews,
+    ...getLiveNewsForDay(day).filter((item) =>
+      newsMatchesElectionScope(item, electionScope, settings.prnStateId),
+    ),
+  ]
+    .filter(
+      (item, index, all) =>
+        all.findIndex((other) => other.id === item.id) === index,
+    )
+    .filter((item) => item.day === day)
+    .slice(0, 4);
+  const overlays: {
+    id: TacticalOverlay;
+    ms: string;
+    en: string;
+    color: string;
+  }[] = [
+    { id: "default", ms: "Asas", en: "Base", color: "var(--cyan)" },
+    { id: "marginal", ms: "Marginal", en: "Marginal", color: "#ffd166" },
+    { id: "opponent", ms: "Kubu LAWAN", en: "LAWAN", color: "#ff4d5e" },
+    { id: "swing", ms: "Hotspot", en: "Hotspots", color: "#ff9f43" },
+    { id: "reach", ms: "Capaian", en: "Reach", color: "#35d9ff" },
+    { id: "sentiment", ms: "Sentimen", en: "Sentiment", color: "#00e5a8" },
   ];
-  const tone = (value: string) => value === "positive" ? "var(--neon-green)" : value === "negative" ? "var(--neon-red)" : value === "warning" ? "var(--gold)" : "var(--cyan)";
+  const tone = (value: string) =>
+    value === "positive"
+      ? "var(--neon-green)"
+      : value === "negative"
+        ? "var(--neon-red)"
+        : value === "warning"
+          ? "var(--gold)"
+          : "var(--cyan)";
   const stats = [
-    [t(lang, "KERUSI UNJURAN", "SEATS PROJECTED"), `${projectedSeats}/${electionScope === "prn" && prnState ? prnState.dunSeats : 222}`, "var(--cyan)"],
+    [
+      t(lang, "KERUSI UNJURAN", "SEATS PROJECTED"),
+      `${projectedSeats}/${electionScope === "prn" && prnState ? prnState.dunSeats : 222}`,
+      "var(--cyan)",
+    ],
     [t(lang, "SOKONGAN PARTI", "PARTY SUPPORT"), `${partySupport}%`, "#a78bfa"],
-    [t(lang, "DANA KEMPEN", "CAMPAIGN FUND"), `RM ${(resources.funds / 1000000).toFixed(1)}M`, "var(--gold)"],
-    [t(lang, "HARI KE PILIHAN RAYA", "DAYS TO POLL"), String(Math.max(0, totalDays - day + 1)), "var(--cyan)"],
-    [t(lang, "KEKUATAN JENTERA", "GROUND STRENGTH"), String(resources.manpower), "var(--gold)"],
+    [
+      t(lang, "DANA KEMPEN", "CAMPAIGN FUND"),
+      `RM ${(resources.funds / 1000000).toFixed(1)}M`,
+      "var(--gold)",
+    ],
+    [
+      t(lang, "HARI KE PILIHAN RAYA", "DAYS TO POLL"),
+      String(Math.max(0, totalDays - day + 1)),
+      "var(--cyan)",
+    ],
+    [
+      t(lang, "KEKUATAN JENTERA", "GROUND STRENGTH"),
+      String(resources.manpower),
+      "var(--gold)",
+    ],
   ];
-  return <div className="absolute inset-0 z-[80] flex items-center justify-center bg-[#020814]/95 p-0 backdrop-blur-md"><section className="flex h-full w-full flex-col overflow-hidden border shadow-2xl" style={{ borderColor: "#ff6b5caa", background: "#06101b" }}>
-    <header className="flex shrink-0 items-center justify-between border-b px-4 py-3 md:px-5" style={{ borderColor: "#ff6b5c55" }}><div><div className="text-[9px] font-black tracking-[.22em] text-[#ff6b5c]">● {t(lang, "KONSOL ARAHAN OPERASI", "OPERATIONS COMMAND CONSOLE")}</div><h2 className="mt-1 text-base font-black text-white">🛰️ {t(lang, "Intel War Room Langsung", "Live War Room Intelligence")}</h2></div><button type="button" onClick={onClose} className="border px-3 py-2 text-[10px] font-black text-text-muted" style={{ borderColor: "#ff6b5c66" }}>× {t(lang, "TUTUP", "CLOSE")}</button></header>
-    <div className="relative hidden h-28 shrink-0 overflow-hidden border-b md:block" style={{ borderColor: "#ff6b5c55" }}><Image src="/operations-room-realistic.png" alt="Operations command display wall" fill sizes="100vw" className="object-cover object-[center_18%]" /><div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,20,.86),transparent_42%,rgba(2,8,20,.5))]" /><div className="absolute inset-x-5 bottom-3 flex items-end justify-between gap-5"><div><div className="text-[9px] font-black tracking-[.22em] text-cyan">● {t(lang, "DINDING PAPARAN LANGSUNG", "LIVE DISPLAY WALL")}</div><p className="mt-1 text-xs font-black text-white">{t(lang, "Peta nasional, radar Borneo dan telemetri medan dikemas kini secara langsung.", "National map, Borneo radar and field telemetry update live.")}</p></div><div className="border px-3 py-2 text-right" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(2 8 20 / .8)" }}><div className="text-[8px] tracking-widest text-text-muted">{t(lang, "STATUS RANGKAIAN", "NETWORK STATUS")}</div><b className="mt-1 block text-[10px] text-neon-green">● {t(lang, "SEMUA SISTEM AKTIF", "ALL SYSTEMS LIVE")}</b></div></div></div>
-    <div className="grid shrink-0 grid-cols-2 border-b sm:grid-cols-5" style={{ borderColor: "#ff6b5c33" }}>{stats.map(([label, value, color]) => <div key={String(label)} className="border-r px-3 py-3 last:border-r-0" style={{ borderColor: "#ff6b5c22" }}><div className="text-[8px] tracking-widest text-text-muted">{String(label)}</div><b className="mt-1 block text-base" style={{ color: String(color) }}>{String(value)}</b></div>)}</div>
-    <TelemetryWall partySupport={partySupport} manpower={resources.manpower} activeOperationCount={activeOperations.length} stateSignals={priorityStates.map((state) => ({ support: state.mandatSupport, trend: state.trend }))} />
-    <div className="grid min-h-0 flex-1 overflow-y-auto xl:grid-cols-[1.7fr_.7fr]"><div className="min-h-[420px] border-b p-3 xl:border-b-0 xl:border-r" style={{ borderColor: "#ff6b5c33" }}><div className="mb-3 flex flex-wrap gap-2">{overlays.map((item) => <button key={item.id} type="button" onClick={() => setOverlay(item.id)} className="border px-2.5 py-1.5 text-[9px] font-black tracking-wider" style={{ color: overlay === item.id ? item.color : "var(--text-muted)", borderColor: overlay === item.id ? item.color : "rgba(148,163,184,.22)", background: overlay === item.id ? "rgba(255,255,255,.06)" : "transparent" }}>{t(lang, item.ms, item.en)}</button>)}</div><div className="border" style={{ borderColor: "rgb(var(--cyan-rgb) / .3)", background: "#07111c" }}><MalaysiaMap states={mapStates} compact showLabels overlay={overlay} operations={operations} mediaSentiment={mediaSentiment} /></div><div className="mt-3 grid gap-2 lg:grid-cols-3"><section className="border p-3" style={{ borderColor: "#ff6b5c44" }}><b className="text-[8px] tracking-[.16em] text-cyan">{t(lang, "RINGKASAN NEGERI", "STATE SUMMARY")}</b><div className="mt-2 space-y-1.5">{priorityStates.map((state) => <div key={state.id} className="flex items-center justify-between text-[9px]"><span className="text-white">{state.name}</span><span className="text-text-muted">{state.projectedSeats} {t(lang, "kerusi", "seats")} · <b style={{ color: state.trend >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>{state.trend >= 0 ? "+" : ""}{state.trend.toFixed(1)}</b></span></div>)}</div></section><section className="border p-3" style={{ borderColor: "#ff6b5c44" }}><b className="text-[8px] tracking-[.16em] text-gold">{t(lang, "OPERASI AKTIF", "ACTIVE OPERATIONS")}</b><div className="mt-2 space-y-1.5">{activeOperations.length ? activeOperations.map((operation) => <div key={operation.id} className="text-[9px]"><span className="font-black text-white">{operation.name}</span><span className="ml-2 text-text-muted">{operation.location}</span></div>) : <p className="text-[9px] text-text-muted">{t(lang, "Belum ada operasi dikerahkan.", "No operations deployed yet.")}</p>}</div></section><section className="border p-3" style={{ borderColor: "#ff6b5c44" }}><b className="text-[8px] tracking-[.16em] text-[#ff6b5c]">{t(lang, "INTEL LAWAN", "OPPONENT INTEL")}</b><div className="mt-2 space-y-1.5">{opponentIntel.length ? opponentIntel.map((intel) => <p key={intel.id} className="text-[9px] leading-relaxed text-text-muted">{lang === "ms" ? intel.narrative : intel.narrativeEN}</p>) : <p className="text-[9px] text-text-muted">{t(lang, "Tiada gerakan lawan baharu dikesan.", "No new opponent movement detected.")}</p>}</div></section></div></div>
-      <aside className="flex min-h-[360px] flex-col p-4"><div className="text-[9px] font-black tracking-[.2em] text-gold">● {t(lang, "BERITA LANGSUNG", "LIVE NEWS")} · {t(lang, `HARI ${day}/${totalDays}`, `DAY ${day}/${totalDays}`)}</div><div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">{news.length ? news.map((item) => <article key={item.id} className="border-l-2 px-3 py-2" style={{ borderColor: tone(item.tone), background: "rgb(255 255 255 / .025)" }}><div className="text-[8px] font-black tracking-widest" style={{ color: tone(item.tone) }}>{item.time} · {item.outlet} · {item.impact}</div><p className="mt-1 text-[10px] font-black leading-relaxed text-white">{lang === "ms" ? item.headline : item.headlineEN}</p><p className="mt-1 text-[9px] leading-relaxed text-text-muted">{lang === "ms" ? item.summary : item.summaryEN}</p></article>) : <p className="text-[10px] text-text-muted">{t(lang, "Tiada berita baharu; pusat operasi terus memantau medan.", "No new wire; operations continue monitoring the battlefield.")}</p>}</div><div className="mt-3"><p className="mb-2 text-[9px] leading-relaxed text-text-muted">{t(lang, "War Room kini beroperasi sepenuhnya dari konsol ini. Anda kekal di Pusat Operasi.", "War Room now operates entirely from this console. You remain in the Operations Centre.")}</p><button type="button" onClick={onClose} className="w-full border px-3 py-3 text-[10px] font-black tracking-widest text-[#ff6b5c]" style={{ borderColor: "#ff6b5c99", background: "#ff6b5c12" }}>{t(lang, "KEMBALI KE LANTAI OPERASI", "RETURN TO OPERATIONS FLOOR")} →</button></div></aside></div>
-  </section></div>;
+  return (
+    <div className="absolute inset-0 z-[80] flex items-center justify-center bg-[#020814]/95 p-0 backdrop-blur-md">
+      <section
+        className="flex h-full w-full flex-col overflow-hidden border shadow-2xl"
+        style={{ borderColor: "#ff6b5caa", background: "#06101b" }}
+      >
+        <header
+          className="flex shrink-0 items-center justify-between border-b px-4 py-3 md:px-5"
+          style={{ borderColor: "#ff6b5c55" }}
+        >
+          <div>
+            <div className="text-[9px] font-black tracking-[.22em] text-[#ff6b5c]">
+              ● {t(lang, "KONSOL ARAHAN OPERASI", "OPERATIONS COMMAND CONSOLE")}
+            </div>
+            <h2 className="mt-1 text-base font-black text-white">
+              🛰️{" "}
+              {t(lang, "Intel War Room Langsung", "Live War Room Intelligence")}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="border px-3 py-2 text-[10px] font-black text-text-muted"
+            style={{ borderColor: "#ff6b5c66" }}
+          >
+            × {t(lang, "TUTUP", "CLOSE")}
+          </button>
+        </header>
+        <div
+          className="relative hidden h-28 shrink-0 overflow-hidden border-b md:block"
+          style={{ borderColor: "#ff6b5c55" }}
+        >
+          <Image
+            src="/operations-room-realistic.png"
+            alt="Operations command display wall"
+            fill
+            sizes="100vw"
+            className="object-cover object-[center_18%]"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,20,.86),transparent_42%,rgba(2,8,20,.5))]" />
+          <div className="absolute inset-x-5 bottom-3 flex items-end justify-between gap-5">
+            <div>
+              <div className="text-[9px] font-black tracking-[.22em] text-cyan">
+                ● {t(lang, "DINDING PAPARAN LANGSUNG", "LIVE DISPLAY WALL")}
+              </div>
+              <p className="mt-1 text-xs font-black text-white">
+                {t(
+                  lang,
+                  "Peta nasional, radar Borneo dan telemetri medan dikemas kini secara langsung.",
+                  "National map, Borneo radar and field telemetry update live.",
+                )}
+              </p>
+            </div>
+            <div
+              className="border px-3 py-2 text-right"
+              style={{
+                borderColor: "rgb(var(--gold-rgb) / .55)",
+                background: "rgb(2 8 20 / .8)",
+              }}
+            >
+              <div className="text-[8px] tracking-widest text-text-muted">
+                {t(lang, "STATUS RANGKAIAN", "NETWORK STATUS")}
+              </div>
+              <b className="mt-1 block text-[10px] text-neon-green">
+                ● {t(lang, "SEMUA SISTEM AKTIF", "ALL SYSTEMS LIVE")}
+              </b>
+            </div>
+          </div>
+        </div>
+        <div
+          className="grid shrink-0 grid-cols-2 border-b sm:grid-cols-5"
+          style={{ borderColor: "#ff6b5c33" }}
+        >
+          {stats.map(([label, value, color]) => (
+            <div
+              key={String(label)}
+              className="border-r px-3 py-3 last:border-r-0"
+              style={{ borderColor: "#ff6b5c22" }}
+            >
+              <div className="text-[8px] tracking-widest text-text-muted">
+                {String(label)}
+              </div>
+              <b
+                className="mt-1 block text-base"
+                style={{ color: String(color) }}
+              >
+                {String(value)}
+              </b>
+            </div>
+          ))}
+        </div>
+        <TelemetryWall
+          partySupport={partySupport}
+          manpower={resources.manpower}
+          activeOperationCount={activeOperations.length}
+          stateSignals={priorityStates.map((state) => ({
+            support: state.mandatSupport,
+            trend: state.trend,
+          }))}
+        />
+        <div className="grid min-h-0 flex-1 overflow-y-auto xl:grid-cols-[1.7fr_.7fr]">
+          <div
+            className="min-h-[420px] border-b p-3 xl:border-b-0 xl:border-r"
+            style={{ borderColor: "#ff6b5c33" }}
+          >
+            <div className="mb-3 flex flex-wrap gap-2">
+              {overlays.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setOverlay(item.id)}
+                  className="border px-2.5 py-1.5 text-[9px] font-black tracking-wider"
+                  style={{
+                    color:
+                      overlay === item.id ? item.color : "var(--text-muted)",
+                    borderColor:
+                      overlay === item.id
+                        ? item.color
+                        : "rgba(148,163,184,.22)",
+                    background:
+                      overlay === item.id
+                        ? "rgba(255,255,255,.06)"
+                        : "transparent",
+                  }}
+                >
+                  {t(lang, item.ms, item.en)}
+                </button>
+              ))}
+            </div>
+            <div
+              className="border"
+              style={{
+                borderColor: "rgb(var(--cyan-rgb) / .3)",
+                background: "#07111c",
+              }}
+            >
+              <MalaysiaMap
+                states={mapStates}
+                compact
+                showLabels
+                overlay={overlay}
+                operations={operations}
+                mediaSentiment={mediaSentiment}
+              />
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-3">
+              <section
+                className="border p-3"
+                style={{ borderColor: "#ff6b5c44" }}
+              >
+                <b className="text-[8px] tracking-[.16em] text-cyan">
+                  {t(lang, "RINGKASAN NEGERI", "STATE SUMMARY")}
+                </b>
+                <div className="mt-2 space-y-1.5">
+                  {priorityStates.map((state) => (
+                    <div
+                      key={state.id}
+                      className="flex items-center justify-between text-[9px]"
+                    >
+                      <span className="text-white">{state.name}</span>
+                      <span className="text-text-muted">
+                        {state.projectedSeats} {t(lang, "kerusi", "seats")} ·{" "}
+                        <b
+                          style={{
+                            color:
+                              state.trend >= 0
+                                ? "var(--neon-green)"
+                                : "var(--neon-red)",
+                          }}
+                        >
+                          {state.trend >= 0 ? "+" : ""}
+                          {state.trend.toFixed(1)}
+                        </b>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section
+                className="border p-3"
+                style={{ borderColor: "#ff6b5c44" }}
+              >
+                <b className="text-[8px] tracking-[.16em] text-gold">
+                  {t(lang, "OPERASI AKTIF", "ACTIVE OPERATIONS")}
+                </b>
+                <div className="mt-2 space-y-1.5">
+                  {activeOperations.length ? (
+                    activeOperations.map((operation) => (
+                      <div key={operation.id} className="text-[9px]">
+                        <span className="font-black text-white">
+                          {operation.name}
+                        </span>
+                        <span className="ml-2 text-text-muted">
+                          {operation.location}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[9px] text-text-muted">
+                      {t(
+                        lang,
+                        "Belum ada operasi dikerahkan.",
+                        "No operations deployed yet.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              </section>
+              <section
+                className="border p-3"
+                style={{ borderColor: "#ff6b5c44" }}
+              >
+                <b className="text-[8px] tracking-[.16em] text-[#ff6b5c]">
+                  {t(lang, "INTEL LAWAN", "OPPONENT INTEL")}
+                </b>
+                <div className="mt-2 space-y-1.5">
+                  {opponentIntel.length ? (
+                    opponentIntel.map((intel) => (
+                      <p
+                        key={intel.id}
+                        className="text-[9px] leading-relaxed text-text-muted"
+                      >
+                        {lang === "ms" ? intel.narrative : intel.narrativeEN}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-[9px] text-text-muted">
+                      {t(
+                        lang,
+                        "Tiada gerakan lawan baharu dikesan.",
+                        "No new opponent movement detected.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+          <aside className="flex min-h-[360px] flex-col p-4">
+            <div className="text-[9px] font-black tracking-[.2em] text-gold">
+              ● {t(lang, "BERITA LANGSUNG", "LIVE NEWS")} ·{" "}
+              {t(lang, `HARI ${day}/${totalDays}`, `DAY ${day}/${totalDays}`)}
+            </div>
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
+              {news.length ? (
+                news.map((item) => (
+                  <article
+                    key={item.id}
+                    className="border-l-2 px-3 py-2"
+                    style={{
+                      borderColor: tone(item.tone),
+                      background: "rgb(255 255 255 / .025)",
+                    }}
+                  >
+                    <div
+                      className="text-[8px] font-black tracking-widest"
+                      style={{ color: tone(item.tone) }}
+                    >
+                      {item.time} · {item.outlet} · {item.impact}
+                    </div>
+                    <p className="mt-1 text-[10px] font-black leading-relaxed text-white">
+                      {lang === "ms" ? item.headline : item.headlineEN}
+                    </p>
+                    <p className="mt-1 text-[9px] leading-relaxed text-text-muted">
+                      {lang === "ms" ? item.summary : item.summaryEN}
+                    </p>
+                  </article>
+                ))
+              ) : (
+                <p className="text-[10px] text-text-muted">
+                  {t(
+                    lang,
+                    "Tiada berita baharu; pusat operasi terus memantau medan.",
+                    "No new wire; operations continue monitoring the battlefield.",
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="mt-3">
+              <p className="mb-2 text-[9px] leading-relaxed text-text-muted">
+                {t(
+                  lang,
+                  "War Room kini beroperasi sepenuhnya dari konsol ini. Anda kekal di Pusat Operasi.",
+                  "War Room now operates entirely from this console. You remain in the Operations Centre.",
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full border px-3 py-3 text-[10px] font-black tracking-widest text-[#ff6b5c]"
+                style={{ borderColor: "#ff6b5c99", background: "#ff6b5c12" }}
+              >
+                {t(
+                  lang,
+                  "KEMBALI KE LANTAI OPERASI",
+                  "RETURN TO OPERATIONS FLOOR",
+                )}{" "}
+                →
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export default function LocationPage() {
   const { kind } = useParams<{ kind: string }>();
   const searchParams = useSearchParams();
-  const router = useRouter(); const lang = useLang();
-  const { journey, states, leader, settings, resources, day, totalDays, advanceDay, runLocationActivity, politicalReactions, aiNews } = useGameStore();
+  const router = useRouter();
+  const lang = useLang();
+  const {
+    journey,
+    states,
+    leader,
+    settings,
+    resources,
+    day,
+    totalDays,
+    advanceDay,
+    runLocationActivity,
+    politicalReactions,
+    aiNews,
+  } = useGameStore();
   const [activityOpen, setActivityOpen] = useState(false);
-  const [operationsDeskOpen, setOperationsDeskOpen] = useState(() => searchParams.get("console") === "1");
+  const [operationsDeskOpen, setOperationsDeskOpen] = useState(
+    () => searchParams.get("console") === "1",
+  );
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [hostGuideOpen, setHostGuideOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [activityFeedback, setActivityFeedback] = useState<string | null>(null);
-  const [arrivalOpen, setArrivalOpen] = useState(() => searchParams.get("console") !== "1");
+  const [activityApproach, setActivityApproach] =
+    useState<ActivityApproach>("balanced");
+  const [arrivalOpen, setArrivalOpen] = useState(
+    () => searchParams.get("console") !== "1",
+  );
   const [isNight, setIsNight] = useState(false);
   const scene = SCENES[kind] ?? SCENES.party;
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
-  const sceneAsset = isRural ? (RURAL_SCENE_ASSETS[kind] ?? "/political-office-rural.png") : scene.asset;
+  const sceneAsset = isRural
+    ? (RURAL_SCENE_ASSETS[kind] ?? "/political-office-rural.png")
+    : scene.asset;
   const host = LOCATION_HOSTS[kind] ?? LOCATION_HOSTS.party;
   const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
@@ -140,104 +975,1398 @@ export default function LocationPage() {
   const originLabel = searchParams.get("origin");
   const detail = originLabel
     ? `${t(lang, `Dari marker Bandar 3D: ${originLabel}`, `From 3D City marker: ${originLabel}`)} · ${lang === "ms" ? scene.detailMs : scene.detailEn}`
-    : (lang === "ms" ? scene.detailMs : scene.detailEn);
+    : lang === "ms"
+      ? scene.detailMs
+      : scene.detailEn;
   const action = lang === "ms" ? scene.actionMs : scene.actionEn;
   const electionScope = settings.electionScope ?? "pru";
-  const hotUpdate = [...politicalReactions, ...aiNews, ...getLiveNewsForDay(day).filter((item) => newsMatchesElectionScope(item, electionScope, settings.prnStateId))]
-    .filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
+  const hotUpdate = [
+    ...politicalReactions,
+    ...aiNews,
+    ...getLiveNewsForDay(day).filter((item) =>
+      newsMatchesElectionScope(item, electionScope, settings.prnStateId),
+    ),
+  ]
+    .filter(
+      (item, index, all) =>
+        all.findIndex((other) => other.id === item.id) === index,
+    )
     .filter((item) => item.day <= day)
     .sort((a, b) => b.day - a.day || b.time.localeCompare(a.time))[0];
-  const homeSupport = states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
-  const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
+  const homeSupport =
+    states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
+  const objectiveDone = journey.locationObjectives.includes(
+    "campaign:home-support-60",
+  );
   const objectiveDay = Math.min(10, totalDays);
-  useEffect(() => { if (!activityOpen) setActivityFeedback(null); }, [activityOpen]);
+  useEffect(() => {
+    if (!activityOpen) setActivityFeedback(null);
+  }, [activityOpen]);
   useEffect(() => {
     const updateTime = () => setIsNight(currentLocalTimeIsNight());
     updateTime();
     const timer = window.setInterval(updateTime, 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  const locationActions: Record<string, { prepareMs: string; prepareEn: string; commitMs: string; commitEn: string }> = {
-    party: { prepareMs: "Susun calon", prepareEn: "Brief candidates", commitMs: "Lancar manifesto", commitEn: "Launch manifesto" },
-    operations: { prepareMs: "Rancang jentera", prepareEn: "Plan field team", commitMs: "Kerahkan pasukan", commitEn: "Deploy team" },
-    calendar: { prepareMs: "Susun jadual", prepareEn: "Build schedule", commitMs: "Sahkan lawatan", commitEn: "Confirm visit" },
-    media: { prepareMs: "Draf mesej", prepareEn: "Draft message", commitMs: "Terbit kenyataan", commitEn: "Publish statement" },
-    commission: { prepareMs: "Semak tinjauan", prepareEn: "Review poll", commitMs: "Laras sasaran", commitEn: "Adjust targeting" },
-    cabinet: { prepareMs: "Nilai portfolio", prepareEn: "Review portfolios", commitMs: "Sahkan arahan", commitEn: "Confirm directive" },
-    administration: { prepareMs: "Semak dasar", prepareEn: "Review policy", commitMs: "Laksana arahan", commitEn: "Deliver directive" },
-    national: { prepareMs: "Analisis data", prepareEn: "Analyse data", commitMs: "Sahkan strategi", commitEn: "Confirm strategy" },
+  const locationActions: Record<
+    string,
+    { prepareMs: string; prepareEn: string; commitMs: string; commitEn: string }
+  > = {
+    party: {
+      prepareMs: "Susun calon",
+      prepareEn: "Brief candidates",
+      commitMs: "Lancar manifesto",
+      commitEn: "Launch manifesto",
+    },
+    operations: {
+      prepareMs: "Rancang jentera",
+      prepareEn: "Plan field team",
+      commitMs: "Kerahkan pasukan",
+      commitEn: "Deploy team",
+    },
+    calendar: {
+      prepareMs: "Susun jadual",
+      prepareEn: "Build schedule",
+      commitMs: "Sahkan lawatan",
+      commitEn: "Confirm visit",
+    },
+    media: {
+      prepareMs: "Draf mesej",
+      prepareEn: "Draft message",
+      commitMs: "Terbit kenyataan",
+      commitEn: "Publish statement",
+    },
+    commission: {
+      prepareMs: "Semak tinjauan",
+      prepareEn: "Review poll",
+      commitMs: "Laras sasaran",
+      commitEn: "Adjust targeting",
+    },
+    cabinet: {
+      prepareMs: "Nilai portfolio",
+      prepareEn: "Review portfolios",
+      commitMs: "Sahkan arahan",
+      commitEn: "Confirm directive",
+    },
+    administration: {
+      prepareMs: "Semak dasar",
+      prepareEn: "Review policy",
+      commitMs: "Laksana arahan",
+      commitEn: "Deliver directive",
+    },
+    national: {
+      prepareMs: "Analisis data",
+      prepareEn: "Analyse data",
+      commitMs: "Sahkan strategi",
+      commitEn: "Confirm strategy",
+    },
   };
   const locationAction = locationActions[kind] ?? locationActions.party;
   const activityBriefsMs: Record<string, string[]> = {
-    party: ["Calon marginal memerlukan keputusan hari ini", "Manifesto boleh mengukuhkan pengundi muda", "Rangkaian sukarelawan menunggu arahan"],
-    operations: ["Zon tumpuan: Pandan Barat", "Jentera lapangan tersedia untuk digerakkan", "Sasaran hari ini: 3 blok pengundi"],
-    calendar: ["3 slot lawatan masih terbuka", "Mesyuarat jentera: 11:30 pagi", "Pasukan media perlu masa persediaan"],
-    media: ["Isu saliran Pandan kembali tular", "Kos sara hidup jadi topik utama hari ini", "Respons calon lawan sedang dipantau"],
-    commission: ["Sokongan pengundi muda berubah +2 mata", "Zon pinggir kekal sangat kompetitif", "Tinjauan baharu masuk selepas 6 petang"],
-    cabinet: ["Dua portfolio memerlukan keputusan", "Arahan dasar menunggu kelulusan", "Kestabilan kabinet perlu dipantau"],
-    administration: ["Tiga fail dasar perlu tindakan", "Penyerahan suku tahun akan datang", "Kapasiti pasukan: stabil"],
-    national: ["Dua negeri menunjukkan momentum positif", "Kawasan marginal perlu tumpuan", "Data malam ini sedang dikemas kini"],
+    party: [
+      "Calon marginal memerlukan keputusan hari ini",
+      "Manifesto boleh mengukuhkan pengundi muda",
+      "Rangkaian sukarelawan menunggu arahan",
+    ],
+    operations: [
+      "Zon tumpuan: Pandan Barat",
+      "Jentera lapangan tersedia untuk digerakkan",
+      "Sasaran hari ini: 3 blok pengundi",
+    ],
+    calendar: [
+      "3 slot lawatan masih terbuka",
+      "Mesyuarat jentera: 11:30 pagi",
+      "Pasukan media perlu masa persediaan",
+    ],
+    media: [
+      "Isu saliran Pandan kembali tular",
+      "Kos sara hidup jadi topik utama hari ini",
+      "Respons calon lawan sedang dipantau",
+    ],
+    commission: [
+      "Sokongan pengundi muda berubah +2 mata",
+      "Zon pinggir kekal sangat kompetitif",
+      "Tinjauan baharu masuk selepas 6 petang",
+    ],
+    cabinet: [
+      "Dua portfolio memerlukan keputusan",
+      "Arahan dasar menunggu kelulusan",
+      "Kestabilan kabinet perlu dipantau",
+    ],
+    administration: [
+      "Tiga fail dasar perlu tindakan",
+      "Penyerahan suku tahun akan datang",
+      "Kapasiti pasukan: stabil",
+    ],
+    national: [
+      "Dua negeri menunjukkan momentum positif",
+      "Kawasan marginal perlu tumpuan",
+      "Data malam ini sedang dikemas kini",
+    ],
   };
   const activityBriefsEn: Record<string, string[]> = {
-    party: ["Marginal candidates need a decision today", "The manifesto can strengthen youth support", "Volunteer network awaits direction"],
-    operations: ["Priority zone: West Pandan", "Field organisers are ready to deploy", "Today's target: 3 voter blocks"],
-    calendar: ["3 visit slots remain open", "Organiser meeting: 11:30 am", "Media team needs preparation time"],
-    media: ["Pandan drainage issue is trending again", "Cost of living is today's main topic", "Opponent response is being monitored"],
-    commission: ["Young voter support shifts by +2 points", "Fringe zones remain highly competitive", "New polling arrives after 6 pm"],
-    cabinet: ["Two portfolios require a decision", "Policy directives await approval", "Cabinet stability needs monitoring"],
-    administration: ["Three policy files need action", "Quarterly delivery is approaching", "Team capacity: stable"],
-    national: ["Two states show positive momentum", "Marginal seats need attention", "Tonight's data is updating"],
+    party: [
+      "Marginal candidates need a decision today",
+      "The manifesto can strengthen youth support",
+      "Volunteer network awaits direction",
+    ],
+    operations: [
+      "Priority zone: West Pandan",
+      "Field organisers are ready to deploy",
+      "Today's target: 3 voter blocks",
+    ],
+    calendar: [
+      "3 visit slots remain open",
+      "Organiser meeting: 11:30 am",
+      "Media team needs preparation time",
+    ],
+    media: [
+      "Pandan drainage issue is trending again",
+      "Cost of living is today's main topic",
+      "Opponent response is being monitored",
+    ],
+    commission: [
+      "Young voter support shifts by +2 points",
+      "Fringe zones remain highly competitive",
+      "New polling arrives after 6 pm",
+    ],
+    cabinet: [
+      "Two portfolios require a decision",
+      "Policy directives await approval",
+      "Cabinet stability needs monitoring",
+    ],
+    administration: [
+      "Three policy files need action",
+      "Quarterly delivery is approaching",
+      "Team capacity: stable",
+    ],
+    national: [
+      "Two states show positive momentum",
+      "Marginal seats need attention",
+      "Tonight's data is updating",
+    ],
   };
   const activityBriefs = lang === "ms" ? activityBriefsMs : activityBriefsEn;
   const activityBrief = activityBriefs[kind] ?? activityBriefs.party;
-  const mediaHeadlines = lang === "ms"
-    ? ["Penduduk Pandan desak tindakan segera isu saliran", "Tinjauan baharu: pengundi muda kembali menilai manifesto", "Pasukan kempen umum jadual lawatan komuniti hujung minggu", "Kos sara hidup kekal kebimbangan utama penduduk bandar", "Pusat media menunggu respons rasmi calon"]
-    : ["Pandan residents demand immediate action on drainage", "New poll: young voters reassess the manifesto", "Campaign team announces weekend community visits", "Cost of living remains the top urban concern", "Media centre awaits the candidate's official response"];
-  const locationCosts: Record<string, { prepare: { funds: number; manpower: number }; commit: { funds: number; manpower: number } }> = {
-    party: { prepare: { funds: 20000, manpower: 0 }, commit: { funds: 15000, manpower: 0 } }, operations: { prepare: { funds: 30000, manpower: 20 }, commit: { funds: 35000, manpower: 40 } }, calendar: { prepare: { funds: 10000, manpower: 0 }, commit: { funds: 25000, manpower: 10 } }, media: { prepare: { funds: 15000, manpower: 0 }, commit: { funds: 20000, manpower: 5 } }, commission: { prepare: { funds: 5000, manpower: 0 }, commit: { funds: 12000, manpower: 0 } }, cabinet: { prepare: { funds: 15000, manpower: 0 }, commit: { funds: 30000, manpower: 10 } }, administration: { prepare: { funds: 10000, manpower: 0 }, commit: { funds: 25000, manpower: 10 } }, national: { prepare: { funds: 10000, manpower: 0 }, commit: { funds: 18000, manpower: 5 } },
+  const mediaHeadlines =
+    lang === "ms"
+      ? [
+          "Penduduk Pandan desak tindakan segera isu saliran",
+          "Tinjauan baharu: pengundi muda kembali menilai manifesto",
+          "Pasukan kempen umum jadual lawatan komuniti hujung minggu",
+          "Kos sara hidup kekal kebimbangan utama penduduk bandar",
+          "Pusat media menunggu respons rasmi calon",
+        ]
+      : [
+          "Pandan residents demand immediate action on drainage",
+          "New poll: young voters reassess the manifesto",
+          "Campaign team announces weekend community visits",
+          "Cost of living remains the top urban concern",
+          "Media centre awaits the candidate's official response",
+        ];
+  const locationCosts: Record<
+    string,
+    {
+      prepare: { funds: number; manpower: number };
+      commit: { funds: number; manpower: number };
+    }
+  > = {
+    party: {
+      prepare: { funds: 20000, manpower: 0 },
+      commit: { funds: 15000, manpower: 0 },
+    },
+    operations: {
+      prepare: { funds: 30000, manpower: 20 },
+      commit: { funds: 35000, manpower: 40 },
+    },
+    calendar: {
+      prepare: { funds: 10000, manpower: 0 },
+      commit: { funds: 25000, manpower: 10 },
+    },
+    media: {
+      prepare: { funds: 15000, manpower: 0 },
+      commit: { funds: 20000, manpower: 5 },
+    },
+    commission: {
+      prepare: { funds: 5000, manpower: 0 },
+      commit: { funds: 12000, manpower: 0 },
+    },
+    cabinet: {
+      prepare: { funds: 15000, manpower: 0 },
+      commit: { funds: 30000, manpower: 10 },
+    },
+    administration: {
+      prepare: { funds: 10000, manpower: 0 },
+      commit: { funds: 25000, manpower: 10 },
+    },
+    national: {
+      prepare: { funds: 10000, manpower: 0 },
+      commit: { funds: 18000, manpower: 5 },
+    },
   };
   const activityCost = locationCosts[kind] ?? locationCosts.party;
+  const approaches: { id: ActivityApproach; title: string; detail: string }[] =
+    [
+      {
+        id: "community",
+        title: t(lang, "DENGAR PENDUDUK", "LISTEN TO RESIDENTS"),
+        detail: t(
+          lang,
+          "+2 kepercayaan · +0.4 sokongan · kos RM5,000 & 5 jentera",
+          "+2 trust · +0.4 support · RM5,000 & 5 organisers",
+        ),
+      },
+      {
+        id: "balanced",
+        title: t(lang, "SEIMBANG", "BALANCED"),
+        detail: t(
+          lang,
+          "Kesan asas · tiada risiko tambahan",
+          "Base effect · no extra risk",
+        ),
+      },
+      {
+        id: "assertive",
+        title: t(lang, "TEGAS & PANTAS", "DECISIVE"),
+        detail: t(
+          lang,
+          "−1 kepercayaan · +0.7 sokongan · jimat RM5,000",
+          "−1 trust · +0.7 support · save RM5,000",
+        ),
+      },
+    ];
   const campaignActive = journey.chapter === "campaign" && day < totalDays;
-  const termActive = ["government", "opposition", "rebuilding"].includes(journey.chapter);
-  const availableFunds = journey.chapter === "government" ? journey.publicBudget : resources.funds;
-  const locationActionsUsed = journey.actionsToday.filter((entry) => entry.startsWith("location:")).length;
+  const termActive = ["government", "opposition", "rebuilding"].includes(
+    journey.chapter,
+  );
+  const availableFunds =
+    journey.chapter === "government" ? journey.publicBudget : resources.funds;
+  const locationActionsUsed = journey.actionsToday.filter((entry) =>
+    entry.startsWith("location:"),
+  ).length;
   const runActivity = (activity: "prepare" | "commit") => {
     const before = useGameStore.getState().journey.journal[0]?.id;
-    runLocationActivity(kind in SCENES ? kind : "party", activity);
+    runLocationActivity(
+      kind in SCENES ? kind : "party",
+      activity,
+      activityApproach,
+    );
     const completed = useGameStore.getState().journey.journal[0]?.id !== before;
-    setActivityFeedback(completed
-      ? t(lang, "Tindakan berjaya direkodkan. Meter permainan telah dikemas kini.", "Action recorded successfully. Game meters have been updated.")
-      : t(lang, "Tindakan belum boleh dibuat: tenaga, dana atau had aktiviti hari ini tidak mencukupi.", "Action unavailable: check energy, funds or today's activity limit."));
-    setNotice(completed
-      ? t(lang, activity === "prepare" ? "Persediaan selesai — sumber dan pengaruh telah dikemas kini." : "Tindakan selesai — kesan direkod dalam perjalanan politik anda.", activity === "prepare" ? "Preparation complete — resources and influence updated." : "Action complete — impact recorded in your political journey.")
-      : t(lang, "Tindakan tidak tersedia — semak tenaga, dana atau had aktiviti hari ini.", "Action unavailable — check energy, funds or today’s activity limit."));
+    setActivityFeedback(
+      completed
+        ? t(
+            lang,
+            "Tindakan berjaya direkodkan. Meter permainan telah dikemas kini.",
+            "Action recorded successfully. Game meters have been updated.",
+          )
+        : t(
+            lang,
+            "Tindakan belum boleh dibuat: tenaga, dana atau had aktiviti hari ini tidak mencukupi.",
+            "Action unavailable: check energy, funds or today's activity limit.",
+          ),
+    );
+    setNotice(
+      completed
+        ? t(
+            lang,
+            activity === "prepare"
+              ? "Persediaan selesai — sumber dan pengaruh telah dikemas kini."
+              : "Tindakan selesai — kesan direkod dalam perjalanan politik anda.",
+            activity === "prepare"
+              ? "Preparation complete — resources and influence updated."
+              : "Action complete — impact recorded in your political journey.",
+          )
+        : t(
+            lang,
+            "Tindakan tidak tersedia — semak tenaga, dana atau had aktiviti hari ini.",
+            "Action unavailable — check energy, funds or today’s activity limit.",
+          ),
+    );
     if (completed) setActivityOpen(false);
   };
-  return <div className="min-h-screen overflow-hidden bg-[#050b13]" style={{ fontFamily: "'Space Mono', monospace" }}>
-    <Header />
-    <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
-      <Image src={sceneAsset} alt={label} fill priority sizes="100vw" className="object-cover" />
-      {operationsDeskOpen && <OperationsDesk onClose={() => setOperationsDeskOpen(false)} />}
-      {isNight && <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_45%,rgba(3,12,28,.16),rgba(2,7,17,.68))] mix-blend-multiply" />}
-      <button type="button" onClick={() => setHostGuideOpen(true)} className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] text-left drop-shadow-[0_20px_22px_rgba(0,0,0,.62)] transition-transform hover:scale-[1.015] focus:outline-none" aria-label={lang === "ms" ? `Berbincang dengan ${host.roleMs}` : `Speak with ${host.roleEn}`}><Image src={host.asset} alt={lang === "ms" ? host.roleMs : host.roleEn} fill sizes="(max-width: 768px) 275px, 470px" className="origin-bottom scale-[1.18] object-contain object-bottom" /><span className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl" style={{ borderColor: `${scene.accent}aa`, color: scene.accent, background: "rgba(6,14,24,.95)" }}>{lang === "ms" ? host.roleMs.toUpperCase() : host.roleEn.toUpperCase()} · {t(lang, "BERBINCANG", "TALK")} →</span></button>
-      {activityOpen && activityFeedback && <div role="status" className="absolute left-1/2 top-24 z-[70] w-[min(620px,calc(100%-32px))] -translate-x-1/2 border px-4 py-3 text-center text-[10px] font-black tracking-wide shadow-2xl" style={{ borderColor: activityFeedback.startsWith("Tindakan berjaya") || activityFeedback.startsWith("Action recorded") ? scene.accent : "var(--neon-red)", color: activityFeedback.startsWith("Tindakan berjaya") || activityFeedback.startsWith("Action recorded") ? scene.accent : "var(--neon-red)", background: "rgb(2 8 20 / .98)" }}>{activityFeedback}</div>}
-      {activityOpen && <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/90 p-3 backdrop-blur-sm md:p-5"><section className="flex h-[calc(100vh-94px)] w-[min(1480px,100%)] flex-col overflow-hidden border shadow-2xl" style={{ borderColor: `${scene.accent}bb`, background: "rgb(6 14 24 / .99)", boxShadow: `0 0 70px ${scene.accent}33` }}><div className="flex shrink-0 items-center justify-between border-b px-5 py-4" style={{ borderColor: `${scene.accent}44` }}><div><div className="text-[9px] font-black tracking-[.22em]" style={{ color: scene.accent }}>● {t(lang, "STESEN AKTIVITI LOKASI", "LOCATION ACTIVITY STATION")}</div><h2 className="mt-1 text-lg font-black text-white">{scene.icon} {hotspot}</h2></div><button type="button" onClick={() => setActivityOpen(false)} className="border px-3 py-2 text-[10px] font-black text-text-muted" style={{ borderColor: `${scene.accent}55` }}>× {t(lang, "TUTUP", "CLOSE")}</button></div><div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[1.45fr_.55fr]"><div className="relative min-h-[440px] overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ borderColor: `${scene.accent}33` }}><Image src={scene.asset} alt={label} fill sizes="(max-width: 1024px) 100vw, 70vw" className="object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-[#020814] via-[#020814]/20 to-[#020814]/45" />{kind === "media" ? <div className="absolute bottom-5 right-5 top-5 w-[min(360px,45%)] overflow-hidden border shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgb(2 8 20 / .9)" }}><div className="absolute inset-x-0 top-0 z-10 border-b px-3 py-3" style={{ borderColor: `${scene.accent}55`, background: "rgb(2 8 20 / .98)" }}><b className="text-[9px] tracking-[.2em]" style={{ color: scene.accent }}>● {t(lang, "BERITA SEMASA · LANGSUNG", "CURRENT NEWS · LIVE")}</b></div><div className="location-news-scroll space-y-3 px-3 pt-16">{mediaHeadlines.concat(mediaHeadlines).map((headline, index) => <article key={`${headline}-${index}`} className="border-l-2 px-3 py-3" style={{ borderColor: index % 2 ? "var(--gold)" : scene.accent, background: "rgb(255 255 255 / .04)" }}><span className="text-[8px] font-black text-gold">{index % 2 ? t(lang, "ANALISIS", "ANALYSIS") : t(lang, "TERKINI", "LATEST")} · {String((index % mediaHeadlines.length) + 1).padStart(2, "0")}</span><p className="mt-1 text-[11px] font-black leading-relaxed text-white">{headline}</p></article>)}</div></div> : <div className="absolute inset-x-5 top-5 grid grid-cols-3 gap-2">{activityBrief.map((brief, index) => <div key={brief} className="border p-3 shadow-xl" style={{ borderColor: `${scene.accent}66`, background: "rgb(2 8 20 / .84)" }}><span className="text-[8px] font-black" style={{ color: scene.accent }}>0{index + 1} · {t(lang, "STATUS", "STATUS")}</span><p className="mt-2 text-[10px] font-black leading-relaxed text-white">{brief}</p></div>)}</div>}<div className="absolute inset-x-5 bottom-5"><div className="inline-block border px-2 py-1 text-[8px] font-black tracking-widest" style={{ borderColor: `${scene.accent}88`, color: scene.accent, background: "rgb(2 8 20 / .88)" }}>{t(lang, "LOKASI AKTIF", "ACTIVE LOCATION")}</div><h3 className="mt-3 max-w-2xl text-2xl font-black leading-tight text-white">{detail}</h3><p className="mt-3 max-w-xl text-[11px] leading-relaxed text-text-muted">{t(lang, "Gunakan paparan ini untuk menilai keadaan semasa sebelum mengesahkan keputusan politik anda.", "Use this display to assess the current situation before confirming your political decision.")}</p></div></div><aside className="flex min-h-[420px] flex-col p-5"><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "KEPUTUSAN POLITIK", "POLITICAL DECISION")}</div><p className="mt-3 text-[11px] leading-relaxed text-text-muted">{t(lang, "Tindakan dibuat terus dari lokasi ini. Sumber, tenaga dan rekod karier akan dikemas kini sebaik keputusan disahkan.", "The action is made directly from this location. Resources, energy and your career record update when the decision is confirmed.")}</p><div className="mt-4 grid grid-cols-2 gap-2"><div className="border p-3" style={{ borderColor: `${scene.accent}44` }}><span className="text-[8px] text-text-muted">{t(lang, "SOKONGAN", "SUPPORT")}</span><b className="mt-1 block text-lg" style={{ color: scene.accent }}>{homeSupport.toFixed(1)}%</b></div><div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / .35)" }}><span className="text-[8px] text-text-muted">{t(lang, "TENAGA", "ENERGY")}</span><b className="mt-1 block text-lg text-gold">{journey.decisions}/3</b></div></div><div className="mt-5 border p-3" style={{ borderColor: `${scene.accent}44`, background: `${scene.accent}0d` }}><b className="text-[9px] tracking-widest" style={{ color: scene.accent }}>{t(lang, "RINGKASAN TINDAKAN", "ACTION BRIEF")}</b><ol className="mt-3 space-y-3">{activityBrief.map((brief, index) => <li key={brief} className="flex gap-2 text-[10px] leading-relaxed text-text-muted"><b style={{ color: scene.accent }}>0{index + 1}</b><span>{brief}</span></li>)}</ol></div><div className="mt-auto grid gap-2 pt-5"><button type="button" onClick={() => runActivity("prepare")} className="border px-4 py-3 text-[10px] font-black tracking-widest" style={{ borderColor: `${scene.accent}99`, color: scene.accent, background: `${scene.accent}12` }}>{lang === "ms" ? locationAction.prepareMs : locationAction.prepareEn}</button><button type="button" onClick={() => runActivity("commit")} className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]" style={{ background: "var(--gold)" }}>{lang === "ms" ? locationAction.commitMs : locationAction.commitEn}</button><p className="text-[9px] leading-relaxed text-cyan">{t(lang, "Objektif: 60% sokongan sebelum hari ke-10 · Ganjaran RM75,000", "Objective: 60% support before day 10 · RM75,000 reward")}</p></div></aside></div></section></div>}
-      {activityOpen && <section className="fixed top-[62%] z-[71] w-[min(360px,calc(100%-32px))] -translate-y-1/2 border p-3 shadow-2xl" style={{ right: "max(20px, calc((100vw - 1480px) / 2 + 20px))", borderColor: `${scene.accent}88`, background: "rgb(2 8 20 / .97)", backdropFilter: "blur(14px)" }}><b className="text-[9px] tracking-[.18em]" style={{ color: scene.accent }}>{t(lang, "SUMBER & HAD TINDAKAN", "RESOURCES & ACTION LIMITS")}</b><div className="mt-3 grid grid-cols-2 gap-2 text-[9px]"><div className="border p-2" style={{ borderColor: "rgb(var(--gold-rgb) / .35)" }}><span className="text-text-muted">{t(lang, "TENAGA", "ENERGY")}</span><b className="mt-1 block text-gold">{journey.decisions}/3</b></div><div className="border p-2" style={{ borderColor: `${scene.accent}44` }}><span className="text-text-muted">{journey.chapter === "government" ? t(lang, "BAJET", "BUDGET") : t(lang, "DANA", "FUNDS")}</span><b className="mt-1 block" style={{ color: scene.accent }}>RM {availableFunds.toLocaleString("ms-MY")}</b></div><div className="border p-2" style={{ borderColor: `${scene.accent}44` }}><span className="text-text-muted">{t(lang, "JENTERA", "ORGANISERS")}</span><b className="mt-1 block" style={{ color: scene.accent }}>{resources.manpower}</b></div><div className="border p-2" style={{ borderColor: `${scene.accent}44` }}><span className="text-text-muted">{termActive ? t(lang, "HAD PENGGAL", "TERM LIMIT") : t(lang, "HAD HARI INI", "TODAY'S LIMIT")}</span><b className="mt-1 block" style={{ color: scene.accent }}>{termActive ? `${journey.termActions.length}/2` : `${journey.decisions}/3`}</b><span className="mt-1 block text-[8px] text-text-muted">{termActive ? t(lang, "tindakan penggal", "term actions") : `${locationActionsUsed} ${t(lang, "aktiviti lokasi", "location actions")}`}</span></div></div><div className="mt-3 grid grid-cols-2 gap-2 text-[9px]"><div className="border p-2" style={{ borderColor: `${scene.accent}44`, background: `${scene.accent}0d` }}><b style={{ color: scene.accent }}>{lang === "ms" ? locationAction.prepareMs : locationAction.prepareEn}</b><span className="mt-1 block text-text-muted">{campaignActive ? `RM ${activityCost.prepare.funds.toLocaleString("ms-MY")}${activityCost.prepare.manpower ? ` · ${activityCost.prepare.manpower} ${t(lang, "jentera", "organisers")}` : ""} · 1 ${t(lang, "tenaga", "energy")}` : termActive ? (journey.chapter === "government" ? "RM 20,000 · 1 had" : "1 had tindakan") : t(lang, "Tidak tersedia", "Unavailable")}</span></div><div className="border p-2" style={{ borderColor: "rgb(var(--gold-rgb) / .4)", background: "rgb(var(--gold-rgb) / .06)" }}><b className="text-gold">{lang === "ms" ? locationAction.commitMs : locationAction.commitEn}</b><span className="mt-1 block text-text-muted">{campaignActive ? `RM ${activityCost.commit.funds.toLocaleString("ms-MY")}${activityCost.commit.manpower ? ` · ${activityCost.commit.manpower} ${t(lang, "jentera", "organisers")}` : ""} · 1 ${t(lang, "tenaga", "energy")}` : termActive ? (journey.chapter === "government" ? "RM 50,000 · 1 had" : "1 had tindakan") : t(lang, "Tidak tersedia", "Unavailable")}</span></div></div></section>}
-      {hostGuideOpen && <section className="absolute bottom-12 left-4 z-30 w-[min(430px,calc(100%-32px))] border p-4 shadow-2xl" style={{ borderColor: `${scene.accent}99`, background: "rgb(2 8 20 / .96)", backdropFilter: "blur(14px)" }}><div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.18em]" style={{ color: scene.accent }}>{lang === "ms" ? host.roleMs.toUpperCase() : host.roleEn.toUpperCase()}</div><h2 className="mt-1 text-sm font-black text-white">{t(lang, "Taklimat langkah seterusnya", "Next-step briefing")}</h2></div><button type="button" onClick={() => setHostGuideOpen(false)} className="text-text-muted" aria-label={t(lang, "Tutup taklimat", "Close briefing")}>×</button></div><p className="mt-3 text-[11px] leading-relaxed text-text-muted">{lang === "ms" ? hostGuide.updateMs : hostGuide.updateEn}</p><div className="mt-3 border p-3" style={{ borderColor: `${scene.accent}44`, background: `${scene.accent}0d` }}><b className="text-[8px] tracking-[.16em]" style={{ color: scene.accent }}>{t(lang, "IKUT TURUTAN INI", "FOLLOW THESE STEPS")}</b><ol className="mt-2 space-y-2">{(lang === "ms" ? hostGuide.stepsMs : hostGuide.stepsEn).map((step, index) => <li key={step} className="flex gap-2 text-[10px] leading-relaxed text-text-muted"><b style={{ color: scene.accent }}>0{index + 1}</b><span>{step}</span></li>)}</ol></div><p className="mt-3 text-[9px] text-gold">{t(lang, "Semak tenaga, dana dan had tindakan sebelum sahkan.", "Check energy, funds and the action limit before confirming.")}</p><button type="button" onClick={() => { setHostGuideOpen(false); setActivityOpen(true); }} className="mt-3 w-full border px-3 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: `${scene.accent}88`, color: scene.accent, background: `${scene.accent}12` }}>{t(lang, "BUKA", "OPEN")} {hotspot.toUpperCase()} →</button></section>}
-      <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 62% 58% at 50% 46%, transparent 0%, rgba(5,11,19,.28) 60%, rgba(5,11,19,.82) 100%)` }} />
-      {arrivalOpen && <div className="absolute inset-0 z-40 flex items-center justify-center p-4" style={{ background: "rgba(2,7,15,.66)", backdropFilter: "blur(7px)" }}><section className="w-[min(720px,100%)] overflow-hidden border shadow-2xl" style={{ borderColor: `${scene.accent}aa`, background: "#07111c", boxShadow: `0 0 52px ${scene.accent}33` }}><div className="flex items-start justify-between border-b px-5 py-4" style={{ borderColor: `${scene.accent}55` }}><div><div className="text-[9px] font-black tracking-[.22em]" style={{ color: scene.accent }}>📍 {t(lang, "KETIBAAN LOKASI · PETA 3D", "LOCATION ARRIVAL · 3D MAP")}</div><h2 className="mt-1 text-lg font-black text-white">{scene.icon} {label}</h2><p className="mt-1 text-[10px] text-text-muted">{detail}</p></div><button type="button" onClick={() => setArrivalOpen(false)} className="text-text-muted">×</button></div><div className="grid gap-5 p-5 md:grid-cols-[1.2fr_.8fr]"><div className="relative h-56 overflow-hidden border" style={{ borderColor: `${scene.accent}66`, background: "linear-gradient(155deg,#152d3d,#07111c)" }}><div className="absolute left-1/2 top-1/2 h-40 w-64 -translate-x-1/2 -translate-y-1/2" style={{ transform: "translate(-50%,-50%) rotateX(58deg) rotateZ(-42deg)", transformStyle: "preserve-3d" }}><div className="absolute inset-0 border" style={{ borderColor: `${scene.accent}77`, background: "repeating-linear-gradient(0deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),repeating-linear-gradient(90deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),#183849" }} />{[18, 58, 98, 142, 184].map((left, index) => <i key={left} className="absolute bottom-8 w-8 border" style={{ left, height: 28 + (index % 3) * 18, transform: "translateZ(18px)", background: index === 2 ? scene.accent : "#253f54", borderColor: index === 2 ? "#fff" : "#4c7892", boxShadow: index === 2 ? `0 0 20px ${scene.accent}` : undefined }} />)}<i className="absolute left-[105px] top-[36px] h-10 w-10 border-2" style={{ borderColor: "#fff", background: scene.accent, transform: "translateZ(48px)", boxShadow: `0 0 24px ${scene.accent}` }} /></div><div className="absolute bottom-3 left-3 border px-2 py-1 text-[8px] font-black tracking-widest" style={{ borderColor: `${scene.accent}88`, color: scene.accent, background: "rgba(2,7,15,.82)" }}>◆ {t(lang, "BANGUNAN ANDA", "YOUR BUILDING")}</div></div><div className="flex flex-col justify-between"><div className="space-y-3"><div className="border p-3" style={{ borderColor: `${scene.accent}55`, background: `${scene.accent}12` }}><div className="text-[9px] font-black tracking-widest" style={{ color: scene.accent }}>{t(lang, "STATUS SEMASA", "CURRENT STATUS")}</div><div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><span className="text-text-muted">{t(lang, "KEPERCAYAAN", "TRUST")} <b className="ml-1 text-white">{journey.trust}</b></span><span className="text-text-muted">{t(lang, "TENAGA", "ENERGY")} <b className="ml-1 text-white">{journey.decisions}/3</b></span><span className="text-text-muted">{t(lang, "HARI", "DAY")} <b className="ml-1 text-white">{day}/{totalDays}</b></span><span className="text-text-muted">{t(lang, "LOKASI", "LOCATION")} <b className="ml-1 text-white">{t(lang, "AKTIF", "ACTIVE")}</b></span></div></div><p className="text-[10px] leading-relaxed text-text-muted">{t(lang, "Klik hotspot di dalam scene untuk mula tugasan khusus lokasi ini.", "Click a hotspot in the scene to begin this location's focused task.")}</p></div><button type="button" onClick={() => setArrivalOpen(false)} className="mt-4 border px-4 py-3 text-[10px] font-black tracking-widest" style={{ borderColor: scene.accent, color: scene.accent, background: `${scene.accent}12` }}>{t(lang, "MASUK LOKASI", "ENTER LOCATION")} →</button></div></div></section></div>}
-      <div className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.9)" }}><div className="text-[9px] font-black tracking-[.2em]" style={{ color: scene.accent }}>{isRural ? t(lang, "LOKASI LUAR BANDAR · AKTIF", "RURAL LOCATION · ACTIVE") : t(lang, "LOKASI BANDAR · AKTIF", "CITY LOCATION · ACTIVE")}</div><h1 className="mt-1 text-lg font-black text-white">{scene.icon} {label}</h1><p className="mt-1 text-[9px] text-text-muted">{isRural ? `${localProfile.seatName} · ${t(lang, "pusat pekan & komuniti", "town and community hub")}` : detail}</p></div>
-      {kind === "operations" && hotUpdate && <button type="button" onClick={() => setOperationsDeskOpen(true)} className="absolute left-1/2 top-14 z-10 hidden w-[min(500px,calc(100%-540px))] -translate-x-1/2 border px-4 py-3 text-left shadow-2xl transition hover:brightness-125 md:block" style={{ borderColor: "rgb(var(--gold-rgb) / .62)", background: "rgba(6,14,24,.94)" }}><div className="flex items-center justify-between gap-4"><span className="text-[9px] font-black tracking-[.2em] text-gold">● {t(lang, "KEMAS KINI PANAS", "HOT UPDATE")} · {hotUpdate.time}</span><span className="text-[8px] font-black tracking-widest text-[#ff6b5c]">{hotUpdate.impact}</span></div><b className="mt-1 block text-[11px] leading-relaxed text-white">{lang === "ms" ? hotUpdate.headline : hotUpdate.headlineEN}</b><span className="mt-1 block text-[9px] text-text-muted">{t(lang, "Klik untuk buka Command Console", "Click to open Command Console")} →</span></button>}
-      <button type="button" onClick={() => router.push("/kawasan")} className="absolute right-4 top-14 z-10 border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99`, background: "rgba(6,14,24,.9)" }}>← {t(lang, "BANDAR 3D", "3D CITY")}</button>
-      {notice && <div role="status" className="absolute left-1/2 top-14 z-30 -translate-x-1/2 border px-4 py-2 text-[9px] font-black tracking-widest shadow-2xl" style={{ color: scene.accent, borderColor: `${scene.accent}aa`, background: "rgba(6,14,24,.96)" }}>{notice}</div>}
-      <div className="absolute left-[42%] top-[42%] z-10 flex items-center gap-2"><span className="relative flex h-3 w-3"><i className="absolute inset-0 animate-ping rounded-full" style={{ background: scene.accent }} /><i className="relative m-auto h-2 w-2 rounded-full" style={{ background: scene.accent }} /></span><button type="button" onClick={() => kind === "operations" ? setOperationsDeskOpen(true) : setActivityOpen(true)} className="border px-3 py-2 text-[10px] font-black text-white shadow-xl" style={{ borderColor: `${scene.accent}aa`, background: "rgba(6,14,24,.9)" }}>{scene.icon} {hotspot}</button></div>
-      <section className="absolute bottom-12 right-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.94)" }}><div className="text-[9px] font-black tracking-[.18em]" style={{ color: scene.accent }}>{kind === "operations" ? t(lang, "INTEL WAR ROOM", "WAR ROOM INTEL") : t(lang, "TUGAS LOKASI", "LOCATION TASK")}</div><h2 className="mt-1 text-xs font-black text-white">{detail}</h2><button type="button" onClick={() => kind === "operations" ? setOperationsDeskOpen(true) : setActivityOpen(true)} className="mt-3 w-full border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99` }}>{kind === "operations" ? t(lang, "BUKA PAPAN ARAHAN", "OPEN COMMAND DASHBOARD") : action} →</button></section>
-      {activityOpen && <section className="absolute bottom-12 left-1/2 z-30 w-[min(400px,calc(100%-32px))] -translate-x-1/2 border p-4 shadow-2xl" style={{ borderColor: `${scene.accent}aa`, background: "rgba(6,14,24,.97)", backdropFilter: "blur(16px)" }}><div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em]" style={{ color: scene.accent }}>{scene.icon} {hotspot.toUpperCase()}</div><h2 className="mt-1 text-sm font-black text-white">{detail}</h2><p className="mt-2 text-[10px] leading-relaxed text-text-muted">{t(lang, "Aktiviti ini berjalan terus dalam lokasi semasa. Setiap pilihan menggunakan tenaga, sumber dan direkod dalam jurnal karier.", "This activity runs directly in the current location. Each choice uses energy, resources and is recorded in the career journal.")}</p></div><button type="button" onClick={() => setActivityOpen(false)} className="text-text-muted">×</button></div><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => runActivity("prepare")} className="border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99` }}>{lang === "ms" ? locationAction.prepareMs : locationAction.prepareEn}</button><button type="button" onClick={() => runActivity("commit")} className="border px-3 py-2 text-[9px] font-black tracking-widest text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>{lang === "ms" ? locationAction.commitMs : locationAction.commitEn}</button></div></section>}
-      <section className="absolute bottom-12 left-36 z-20 hidden border p-3 md:block" style={{ borderColor: "rgb(var(--gold-rgb) / .45)", background: "rgba(6,14,24,.94)" }}><div className="text-[9px] font-black tracking-widest text-gold">{t(lang, "TENAGA HARI INI", "TODAY'S ENERGY")}</div><div className="mt-2 flex items-center gap-1">{[0, 1, 2].map((i) => <i key={i} className="h-2 w-6" style={{ background: i < journey.decisions ? scene.accent : "rgba(255,255,255,.12)" }} />)}<b className="ml-2 text-sm text-white">{journey.decisions}/3</b></div><button type="button" onClick={advanceDay} className="mt-3 border px-3 py-2 text-[9px] font-black text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>{t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →</button></section>
-      {assistantOpen && <section className="absolute bottom-12 left-4 z-20 w-[min(360px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: `${scene.accent}88`, background: "rgba(6,14,24,.94)" }}><div className="flex items-center justify-between"><b className="text-[9px] tracking-[.18em]" style={{ color: scene.accent }}>{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</b><button type="button" onClick={() => setAssistantOpen(false)} className="text-text-muted">×</button></div><p className="mt-2 text-[10px] text-text-muted">{objectiveDone ? t(lang, "Objektif kawasan sudah dicapai. Gunakan lokasi ini untuk memperkukuh momentum.", "Constituency objective complete. Use this location to strengthen momentum.") : t(lang, "Objektif aktif: naikkan sokongan kawasan ke 60% sebelum hari ke-10.", "Active objective: raise constituency support to 60% before day 10.")}</p><div className="mt-2 border px-2 py-1.5 text-[9px]" style={{ borderColor: `${scene.accent}66`, background: `${scene.accent}12` }}><b style={{ color: scene.accent }}>{homeSupport.toFixed(1)}% / 60%</b><span className="ml-2 text-text-muted">{t(lang, `Hari ${day}/${objectiveDay} · RM75,000`, `Day ${day}/${objectiveDay} · RM75,000`)}</span></div><button type="button" onClick={() => setActivityOpen(true)} className="mt-2 border px-3 py-1.5 text-[9px] font-black" style={{ color: scene.accent, borderColor: `${scene.accent}88` }}>{t(lang, "LIHAT TUGAS", "VIEW TASK")}</button></section>}
-      <div className="absolute bottom-9 left-4 right-4 z-20 flex gap-2 md:hidden"><button type="button" onClick={() => router.push("/kawasan")} className="border px-3 py-2 text-[9px] font-black" style={{ borderColor: `${scene.accent}88`, color: scene.accent, background: "rgba(6,14,24,.94)" }}>← {t(lang, "BANDAR", "CITY")}</button><button type="button" onClick={advanceDay} className="flex-1 border px-3 py-2 text-[9px] font-black text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .6)", background: "rgba(6,14,24,.94)" }}>{t(lang, "TAMAT HARI", "END DAY")} · {journey.decisions}/3</button></div>
-      <footer className="absolute bottom-0 left-0 right-0 z-20 flex h-8 items-center overflow-hidden border-t bg-[#07111c]" style={{ borderColor: `${scene.accent}66` }}><b className="h-full px-3 pt-2 text-[9px] tracking-widest text-[#07111c]" style={{ background: scene.accent }}>● {t(lang, "LANGSUNG", "LIVE")}</b><span className="whitespace-nowrap px-5 text-[10px] text-text-muted">{t(lang, "Lokasi aktif: semua keputusan akan memberi kesan kepada perjalanan politik anda.", "Active location: every decision affects your political journey.")}</span></footer>
-    </main>
-    <StatusBar leftText={`${scene.icon} ${label.toUpperCase()}`} rightText={t(lang, "Klik hotspot untuk mula berinteraksi", "Click the hotspot to begin interacting")} />
-  </div>;
+  return (
+    <div
+      className="min-h-screen overflow-hidden bg-[#050b13]"
+      style={{ fontFamily: "'Space Mono', monospace" }}
+    >
+      <Header />
+      <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
+        <Image
+          src={sceneAsset}
+          alt={label}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        {operationsDeskOpen && (
+          <OperationsDesk onClose={() => setOperationsDeskOpen(false)} />
+        )}
+        {isNight && (
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_45%,rgba(3,12,28,.16),rgba(2,7,17,.68))] mix-blend-multiply" />
+        )}
+        <button
+          type="button"
+          onClick={() => setHostGuideOpen(true)}
+          className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] text-left drop-shadow-[0_20px_22px_rgba(0,0,0,.62)] transition-transform hover:scale-[1.015] focus:outline-none"
+          aria-label={
+            lang === "ms"
+              ? `Berbincang dengan ${host.roleMs}`
+              : `Speak with ${host.roleEn}`
+          }
+        >
+          <Image
+            src={host.asset}
+            alt={lang === "ms" ? host.roleMs : host.roleEn}
+            fill
+            sizes="(max-width: 768px) 275px, 470px"
+            className="origin-bottom scale-[1.18] object-contain object-bottom"
+          />
+          <span
+            className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
+            style={{
+              borderColor: `${scene.accent}aa`,
+              color: scene.accent,
+              background: "rgba(6,14,24,.95)",
+            }}
+          >
+            {lang === "ms"
+              ? host.roleMs.toUpperCase()
+              : host.roleEn.toUpperCase()}{" "}
+            · {t(lang, "BERBINCANG", "TALK")} →
+          </span>
+        </button>
+        {activityOpen && activityFeedback && (
+          <div
+            role="status"
+            className="absolute left-1/2 top-24 z-[70] w-[min(620px,calc(100%-32px))] -translate-x-1/2 border px-4 py-3 text-center text-[10px] font-black tracking-wide shadow-2xl"
+            style={{
+              borderColor:
+                activityFeedback.startsWith("Tindakan berjaya") ||
+                activityFeedback.startsWith("Action recorded")
+                  ? scene.accent
+                  : "var(--neon-red)",
+              color:
+                activityFeedback.startsWith("Tindakan berjaya") ||
+                activityFeedback.startsWith("Action recorded")
+                  ? scene.accent
+                  : "var(--neon-red)",
+              background: "rgb(2 8 20 / .98)",
+            }}
+          >
+            {activityFeedback}
+          </div>
+        )}
+        {activityOpen && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/90 p-3 backdrop-blur-sm md:p-5">
+            <section
+              className="flex h-[calc(100vh-94px)] w-[min(1480px,100%)] flex-col overflow-hidden border shadow-2xl"
+              style={{
+                borderColor: `${scene.accent}bb`,
+                background: "rgb(6 14 24 / .99)",
+                boxShadow: `0 0 70px ${scene.accent}33`,
+              }}
+            >
+              <div
+                className="flex shrink-0 items-center justify-between border-b px-5 py-4"
+                style={{ borderColor: `${scene.accent}44` }}
+              >
+                <div>
+                  <div
+                    className="text-[9px] font-black tracking-[.22em]"
+                    style={{ color: scene.accent }}
+                  >
+                    ●{" "}
+                    {t(
+                      lang,
+                      "STESEN AKTIVITI LOKASI",
+                      "LOCATION ACTIVITY STATION",
+                    )}
+                  </div>
+                  <h2 className="mt-1 text-lg font-black text-white">
+                    {scene.icon} {hotspot}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActivityOpen(false)}
+                  className="border px-3 py-2 text-[10px] font-black text-text-muted"
+                  style={{ borderColor: `${scene.accent}55` }}
+                >
+                  × {t(lang, "TUTUP", "CLOSE")}
+                </button>
+              </div>
+              <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[1.45fr_.55fr]">
+                <div
+                  className="relative min-h-[440px] overflow-hidden border-b lg:border-b-0 lg:border-r"
+                  style={{ borderColor: `${scene.accent}33` }}
+                >
+                  <Image
+                    src={scene.asset}
+                    alt={label}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 70vw"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#020814] via-[#020814]/20 to-[#020814]/45" />
+                  {kind === "media" ? (
+                    <div
+                      className="absolute bottom-5 right-5 top-5 w-[min(360px,45%)] overflow-hidden border shadow-2xl"
+                      style={{
+                        borderColor: `${scene.accent}88`,
+                        background: "rgb(2 8 20 / .9)",
+                      }}
+                    >
+                      <div
+                        className="absolute inset-x-0 top-0 z-10 border-b px-3 py-3"
+                        style={{
+                          borderColor: `${scene.accent}55`,
+                          background: "rgb(2 8 20 / .98)",
+                        }}
+                      >
+                        <b
+                          className="text-[9px] tracking-[.2em]"
+                          style={{ color: scene.accent }}
+                        >
+                          ●{" "}
+                          {t(
+                            lang,
+                            "BERITA SEMASA · LANGSUNG",
+                            "CURRENT NEWS · LIVE",
+                          )}
+                        </b>
+                      </div>
+                      <div className="location-news-scroll space-y-3 px-3 pt-16">
+                        {mediaHeadlines
+                          .concat(mediaHeadlines)
+                          .map((headline, index) => (
+                            <article
+                              key={`${headline}-${index}`}
+                              className="border-l-2 px-3 py-3"
+                              style={{
+                                borderColor:
+                                  index % 2 ? "var(--gold)" : scene.accent,
+                                background: "rgb(255 255 255 / .04)",
+                              }}
+                            >
+                              <span className="text-[8px] font-black text-gold">
+                                {index % 2
+                                  ? t(lang, "ANALISIS", "ANALYSIS")
+                                  : t(lang, "TERKINI", "LATEST")}{" "}
+                                ·{" "}
+                                {String(
+                                  (index % mediaHeadlines.length) + 1,
+                                ).padStart(2, "0")}
+                              </span>
+                              <p className="mt-1 text-[11px] font-black leading-relaxed text-white">
+                                {headline}
+                              </p>
+                            </article>
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-x-5 top-5 grid grid-cols-3 gap-2">
+                      {activityBrief.map((brief, index) => (
+                        <div
+                          key={brief}
+                          className="border p-3 shadow-xl"
+                          style={{
+                            borderColor: `${scene.accent}66`,
+                            background: "rgb(2 8 20 / .84)",
+                          }}
+                        >
+                          <span
+                            className="text-[8px] font-black"
+                            style={{ color: scene.accent }}
+                          >
+                            0{index + 1} · {t(lang, "STATUS", "STATUS")}
+                          </span>
+                          <p className="mt-2 text-[10px] font-black leading-relaxed text-white">
+                            {brief}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="absolute inset-x-5 bottom-5">
+                    <div
+                      className="inline-block border px-2 py-1 text-[8px] font-black tracking-widest"
+                      style={{
+                        borderColor: `${scene.accent}88`,
+                        color: scene.accent,
+                        background: "rgb(2 8 20 / .88)",
+                      }}
+                    >
+                      {t(lang, "LOKASI AKTIF", "ACTIVE LOCATION")}
+                    </div>
+                    <h3 className="mt-3 max-w-2xl text-2xl font-black leading-tight text-white">
+                      {detail}
+                    </h3>
+                    <p className="mt-3 max-w-xl text-[11px] leading-relaxed text-text-muted">
+                      {t(
+                        lang,
+                        "Gunakan paparan ini untuk menilai keadaan semasa sebelum mengesahkan keputusan politik anda.",
+                        "Use this display to assess the current situation before confirming your political decision.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <aside className="flex min-h-[420px] flex-col p-5">
+                  <div className="text-[9px] font-black tracking-[.2em] text-gold">
+                    {t(lang, "KEPUTUSAN POLITIK", "POLITICAL DECISION")}
+                  </div>
+                  <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
+                    {t(
+                      lang,
+                      "Tindakan dibuat terus dari lokasi ini. Sumber, tenaga dan rekod karier akan dikemas kini sebaik keputusan disahkan.",
+                      "The action is made directly from this location. Resources, energy and your career record update when the decision is confirmed.",
+                    )}
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div
+                      className="border p-3"
+                      style={{ borderColor: `${scene.accent}44` }}
+                    >
+                      <span className="text-[8px] text-text-muted">
+                        {t(lang, "SOKONGAN", "SUPPORT")}
+                      </span>
+                      <b
+                        className="mt-1 block text-lg"
+                        style={{ color: scene.accent }}
+                      >
+                        {homeSupport.toFixed(1)}%
+                      </b>
+                    </div>
+                    <div
+                      className="border p-3"
+                      style={{ borderColor: "rgb(var(--gold-rgb) / .35)" }}
+                    >
+                      <span className="text-[8px] text-text-muted">
+                        {t(lang, "TENAGA", "ENERGY")}
+                      </span>
+                      <b className="mt-1 block text-lg text-gold">
+                        {journey.decisions}/3
+                      </b>
+                    </div>
+                  </div>
+                  <div
+                    className="mt-5 border p-3"
+                    style={{
+                      borderColor: `${scene.accent}44`,
+                      background: `${scene.accent}0d`,
+                    }}
+                  >
+                    <b
+                      className="text-[9px] tracking-widest"
+                      style={{ color: scene.accent }}
+                    >
+                      {t(lang, "RINGKASAN TINDAKAN", "ACTION BRIEF")}
+                    </b>
+                    <ol className="mt-3 space-y-3">
+                      {activityBrief.map((brief, index) => (
+                        <li
+                          key={brief}
+                          className="flex gap-2 text-[10px] leading-relaxed text-text-muted"
+                        >
+                          <b style={{ color: scene.accent }}>0{index + 1}</b>
+                          <span>{brief}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div className="mt-4">
+                    <b className="text-[9px] tracking-widest" style={{ color: scene.accent }}>
+                      {t(lang, "PILIH PENDEKATAN", "CHOOSE AN APPROACH")}
+                    </b>
+                    <div className="mt-2 grid gap-2">
+                      {approaches.map((approach) => (
+                        <button
+                          key={approach.id}
+                          type="button"
+                          onClick={() => setActivityApproach(approach.id)}
+                          className={`border p-2 text-left transition ${activityApproach === approach.id ? "bg-white/10" : "opacity-60 hover:opacity-100"}`}
+                          style={{ borderColor: activityApproach === approach.id ? scene.accent : `${scene.accent}44` }}
+                        >
+                          <b className="block text-[9px]" style={{ color: activityApproach === approach.id ? scene.accent : "white" }}>
+                            {activityApproach === approach.id ? "✓ " : ""}{approach.title}
+                          </b>
+                          <span className="mt-1 block text-[8px] text-text-muted">{approach.detail}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-auto grid gap-2 pt-5">
+                    <button
+                      type="button"
+                      onClick={() => runActivity("prepare")}
+                      className="border px-4 py-3 text-[10px] font-black tracking-widest"
+                      style={{
+                        borderColor: `${scene.accent}99`,
+                        color: scene.accent,
+                        background: `${scene.accent}12`,
+                      }}
+                    >
+                      {lang === "ms"
+                        ? locationAction.prepareMs
+                        : locationAction.prepareEn}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runActivity("commit")}
+                      className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]"
+                      style={{ background: "var(--gold)" }}
+                    >
+                      {lang === "ms"
+                        ? locationAction.commitMs
+                        : locationAction.commitEn}
+                    </button>
+                    <p className="text-[9px] leading-relaxed text-cyan">
+                      {t(
+                        lang,
+                        "Objektif: 60% sokongan sebelum hari ke-10 · Ganjaran RM75,000",
+                        "Objective: 60% support before day 10 · RM75,000 reward",
+                      )}
+                    </p>
+                  </div>
+                </aside>
+              </div>
+            </section>
+          </div>
+        )}
+        {activityOpen && (
+          <section
+            className="fixed top-[62%] z-[71] w-[min(360px,calc(100%-32px))] -translate-y-1/2 border p-3 shadow-2xl"
+            style={{
+              right: "max(20px, calc((100vw - 1480px) / 2 + 20px))",
+              borderColor: `${scene.accent}88`,
+              background: "rgb(2 8 20 / .97)",
+              backdropFilter: "blur(14px)",
+            }}
+          >
+            <b
+              className="text-[9px] tracking-[.18em]"
+              style={{ color: scene.accent }}
+            >
+              {t(lang, "SUMBER & HAD TINDAKAN", "RESOURCES & ACTION LIMITS")}
+            </b>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[9px]">
+              <div
+                className="border p-2"
+                style={{ borderColor: "rgb(var(--gold-rgb) / .35)" }}
+              >
+                <span className="text-text-muted">
+                  {t(lang, "TENAGA", "ENERGY")}
+                </span>
+                <b className="mt-1 block text-gold">{journey.decisions}/3</b>
+              </div>
+              <div
+                className="border p-2"
+                style={{ borderColor: `${scene.accent}44` }}
+              >
+                <span className="text-text-muted">
+                  {journey.chapter === "government"
+                    ? t(lang, "BAJET", "BUDGET")
+                    : t(lang, "DANA", "FUNDS")}
+                </span>
+                <b className="mt-1 block" style={{ color: scene.accent }}>
+                  RM {availableFunds.toLocaleString("ms-MY")}
+                </b>
+              </div>
+              <div
+                className="border p-2"
+                style={{ borderColor: `${scene.accent}44` }}
+              >
+                <span className="text-text-muted">
+                  {t(lang, "JENTERA", "ORGANISERS")}
+                </span>
+                <b className="mt-1 block" style={{ color: scene.accent }}>
+                  {resources.manpower}
+                </b>
+              </div>
+              <div
+                className="border p-2"
+                style={{ borderColor: `${scene.accent}44` }}
+              >
+                <span className="text-text-muted">
+                  {termActive
+                    ? t(lang, "HAD PENGGAL", "TERM LIMIT")
+                    : t(lang, "HAD HARI INI", "TODAY'S LIMIT")}
+                </span>
+                <b className="mt-1 block" style={{ color: scene.accent }}>
+                  {termActive
+                    ? `${journey.termActions.length}/2`
+                    : `${journey.decisions}/3`}
+                </b>
+                <span className="mt-1 block text-[8px] text-text-muted">
+                  {termActive
+                    ? t(lang, "tindakan penggal", "term actions")
+                    : `${locationActionsUsed} ${t(lang, "aktiviti lokasi", "location actions")}`}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[9px]">
+              <div
+                className="border p-2"
+                style={{
+                  borderColor: `${scene.accent}44`,
+                  background: `${scene.accent}0d`,
+                }}
+              >
+                <b style={{ color: scene.accent }}>
+                  {lang === "ms"
+                    ? locationAction.prepareMs
+                    : locationAction.prepareEn}
+                </b>
+                <span className="mt-1 block text-text-muted">
+                  {campaignActive
+                    ? `RM ${activityCost.prepare.funds.toLocaleString("ms-MY")}${activityCost.prepare.manpower ? ` · ${activityCost.prepare.manpower} ${t(lang, "jentera", "organisers")}` : ""} · 1 ${t(lang, "tenaga", "energy")}`
+                    : termActive
+                      ? journey.chapter === "government"
+                        ? "RM 20,000 · 1 had"
+                        : "1 had tindakan"
+                      : t(lang, "Tidak tersedia", "Unavailable")}
+                </span>
+              </div>
+              <div
+                className="border p-2"
+                style={{
+                  borderColor: "rgb(var(--gold-rgb) / .4)",
+                  background: "rgb(var(--gold-rgb) / .06)",
+                }}
+              >
+                <b className="text-gold">
+                  {lang === "ms"
+                    ? locationAction.commitMs
+                    : locationAction.commitEn}
+                </b>
+                <span className="mt-1 block text-text-muted">
+                  {campaignActive
+                    ? `RM ${activityCost.commit.funds.toLocaleString("ms-MY")}${activityCost.commit.manpower ? ` · ${activityCost.commit.manpower} ${t(lang, "jentera", "organisers")}` : ""} · 1 ${t(lang, "tenaga", "energy")}`
+                    : termActive
+                      ? journey.chapter === "government"
+                        ? "RM 50,000 · 1 had"
+                        : "1 had tindakan"
+                      : t(lang, "Tidak tersedia", "Unavailable")}
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
+        {hostGuideOpen && (
+          <section
+            className="absolute bottom-12 left-4 z-30 w-[min(430px,calc(100%-32px))] border p-4 shadow-2xl"
+            style={{
+              borderColor: `${scene.accent}99`,
+              background: "rgb(2 8 20 / .96)",
+              backdropFilter: "blur(14px)",
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div
+                  className="text-[9px] font-black tracking-[.18em]"
+                  style={{ color: scene.accent }}
+                >
+                  {lang === "ms"
+                    ? host.roleMs.toUpperCase()
+                    : host.roleEn.toUpperCase()}
+                </div>
+                <h2 className="mt-1 text-sm font-black text-white">
+                  {t(lang, "Taklimat langkah seterusnya", "Next-step briefing")}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHostGuideOpen(false)}
+                className="text-text-muted"
+                aria-label={t(lang, "Tutup taklimat", "Close briefing")}
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
+              {lang === "ms" ? hostGuide.updateMs : hostGuide.updateEn}
+            </p>
+            <div
+              className="mt-3 border p-3"
+              style={{
+                borderColor: `${scene.accent}44`,
+                background: `${scene.accent}0d`,
+              }}
+            >
+              <b
+                className="text-[8px] tracking-[.16em]"
+                style={{ color: scene.accent }}
+              >
+                {t(lang, "IKUT TURUTAN INI", "FOLLOW THESE STEPS")}
+              </b>
+              <ol className="mt-2 space-y-2">
+                {(lang === "ms" ? hostGuide.stepsMs : hostGuide.stepsEn).map(
+                  (step, index) => (
+                    <li
+                      key={step}
+                      className="flex gap-2 text-[10px] leading-relaxed text-text-muted"
+                    >
+                      <b style={{ color: scene.accent }}>0{index + 1}</b>
+                      <span>{step}</span>
+                    </li>
+                  ),
+                )}
+              </ol>
+            </div>
+            <p className="mt-3 text-[9px] text-gold">
+              {t(
+                lang,
+                "Semak tenaga, dana dan had tindakan sebelum sahkan.",
+                "Check energy, funds and the action limit before confirming.",
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setHostGuideOpen(false);
+                setActivityOpen(true);
+              }}
+              className="mt-3 w-full border px-3 py-2 text-[9px] font-black tracking-widest"
+              style={{
+                borderColor: `${scene.accent}88`,
+                color: scene.accent,
+                background: `${scene.accent}12`,
+              }}
+            >
+              {t(lang, "BUKA", "OPEN")} {hotspot.toUpperCase()} →
+            </button>
+          </section>
+        )}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse 62% 58% at 50% 46%, transparent 0%, rgba(5,11,19,.28) 60%, rgba(5,11,19,.82) 100%)`,
+          }}
+        />
+        {arrivalOpen && (
+          <div
+            className="absolute inset-0 z-40 flex items-center justify-center p-4"
+            style={{
+              background: "rgba(2,7,15,.66)",
+              backdropFilter: "blur(7px)",
+            }}
+          >
+            <section
+              className="w-[min(720px,100%)] overflow-hidden border shadow-2xl"
+              style={{
+                borderColor: `${scene.accent}aa`,
+                background: "#07111c",
+                boxShadow: `0 0 52px ${scene.accent}33`,
+              }}
+            >
+              <div
+                className="flex items-start justify-between border-b px-5 py-4"
+                style={{ borderColor: `${scene.accent}55` }}
+              >
+                <div>
+                  <div
+                    className="text-[9px] font-black tracking-[.22em]"
+                    style={{ color: scene.accent }}
+                  >
+                    📍{" "}
+                    {t(
+                      lang,
+                      "KETIBAAN LOKASI · PETA 3D",
+                      "LOCATION ARRIVAL · 3D MAP",
+                    )}
+                  </div>
+                  <h2 className="mt-1 text-lg font-black text-white">
+                    {scene.icon} {label}
+                  </h2>
+                  <p className="mt-1 text-[10px] text-text-muted">{detail}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setArrivalOpen(false)}
+                  className="text-text-muted"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="grid gap-5 p-5 md:grid-cols-[1.2fr_.8fr]">
+                <div
+                  className="relative h-56 overflow-hidden border"
+                  style={{
+                    borderColor: `${scene.accent}66`,
+                    background: "linear-gradient(155deg,#152d3d,#07111c)",
+                  }}
+                >
+                  <div
+                    className="absolute left-1/2 top-1/2 h-40 w-64 -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      transform:
+                        "translate(-50%,-50%) rotateX(58deg) rotateZ(-42deg)",
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0 border"
+                      style={{
+                        borderColor: `${scene.accent}77`,
+                        background:
+                          "repeating-linear-gradient(0deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),repeating-linear-gradient(90deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),#183849",
+                      }}
+                    />
+                    {[18, 58, 98, 142, 184].map((left, index) => (
+                      <i
+                        key={left}
+                        className="absolute bottom-8 w-8 border"
+                        style={{
+                          left,
+                          height: 28 + (index % 3) * 18,
+                          transform: "translateZ(18px)",
+                          background: index === 2 ? scene.accent : "#253f54",
+                          borderColor: index === 2 ? "#fff" : "#4c7892",
+                          boxShadow:
+                            index === 2
+                              ? `0 0 20px ${scene.accent}`
+                              : undefined,
+                        }}
+                      />
+                    ))}
+                    <i
+                      className="absolute left-[105px] top-[36px] h-10 w-10 border-2"
+                      style={{
+                        borderColor: "#fff",
+                        background: scene.accent,
+                        transform: "translateZ(48px)",
+                        boxShadow: `0 0 24px ${scene.accent}`,
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="absolute bottom-3 left-3 border px-2 py-1 text-[8px] font-black tracking-widest"
+                    style={{
+                      borderColor: `${scene.accent}88`,
+                      color: scene.accent,
+                      background: "rgba(2,7,15,.82)",
+                    }}
+                  >
+                    ◆ {t(lang, "BANGUNAN ANDA", "YOUR BUILDING")}
+                  </div>
+                </div>
+                <div className="flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div
+                      className="border p-3"
+                      style={{
+                        borderColor: `${scene.accent}55`,
+                        background: `${scene.accent}12`,
+                      }}
+                    >
+                      <div
+                        className="text-[9px] font-black tracking-widest"
+                        style={{ color: scene.accent }}
+                      >
+                        {t(lang, "STATUS SEMASA", "CURRENT STATUS")}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                        <span className="text-text-muted">
+                          {t(lang, "KEPERCAYAAN", "TRUST")}{" "}
+                          <b className="ml-1 text-white">{journey.trust}</b>
+                        </span>
+                        <span className="text-text-muted">
+                          {t(lang, "TENAGA", "ENERGY")}{" "}
+                          <b className="ml-1 text-white">
+                            {journey.decisions}/3
+                          </b>
+                        </span>
+                        <span className="text-text-muted">
+                          {t(lang, "HARI", "DAY")}{" "}
+                          <b className="ml-1 text-white">
+                            {day}/{totalDays}
+                          </b>
+                        </span>
+                        <span className="text-text-muted">
+                          {t(lang, "LOKASI", "LOCATION")}{" "}
+                          <b className="ml-1 text-white">
+                            {t(lang, "AKTIF", "ACTIVE")}
+                          </b>
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-text-muted">
+                      {t(
+                        lang,
+                        "Klik hotspot di dalam scene untuk mula tugasan khusus lokasi ini.",
+                        "Click a hotspot in the scene to begin this location's focused task.",
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setArrivalOpen(false)}
+                    className="mt-4 border px-4 py-3 text-[10px] font-black tracking-widest"
+                    style={{
+                      borderColor: scene.accent,
+                      color: scene.accent,
+                      background: `${scene.accent}12`,
+                    }}
+                  >
+                    {t(lang, "MASUK LOKASI", "ENTER LOCATION")} →
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+        <div
+          className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl"
+          style={{
+            borderColor: `${scene.accent}88`,
+            background: "rgba(6,14,24,.9)",
+          }}
+        >
+          <div
+            className="text-[9px] font-black tracking-[.2em]"
+            style={{ color: scene.accent }}
+          >
+            {isRural
+              ? t(lang, "LOKASI LUAR BANDAR · AKTIF", "RURAL LOCATION · ACTIVE")
+              : t(lang, "LOKASI BANDAR · AKTIF", "CITY LOCATION · ACTIVE")}
+          </div>
+          <h1 className="mt-1 text-lg font-black text-white">
+            {scene.icon} {label}
+          </h1>
+          <p className="mt-1 text-[9px] text-text-muted">
+            {isRural
+              ? `${localProfile.seatName} · ${t(lang, "pusat pekan & komuniti", "town and community hub")}`
+              : detail}
+          </p>
+        </div>
+        {kind === "operations" && hotUpdate && (
+          <button
+            type="button"
+            onClick={() => setOperationsDeskOpen(true)}
+            className="absolute left-1/2 top-14 z-10 hidden w-[min(500px,calc(100%-540px))] -translate-x-1/2 border px-4 py-3 text-left shadow-2xl transition hover:brightness-125 md:block"
+            style={{
+              borderColor: "rgb(var(--gold-rgb) / .62)",
+              background: "rgba(6,14,24,.94)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[9px] font-black tracking-[.2em] text-gold">
+                ● {t(lang, "KEMAS KINI PANAS", "HOT UPDATE")} · {hotUpdate.time}
+              </span>
+              <span className="text-[8px] font-black tracking-widest text-[#ff6b5c]">
+                {hotUpdate.impact}
+              </span>
+            </div>
+            <b className="mt-1 block text-[11px] leading-relaxed text-white">
+              {lang === "ms" ? hotUpdate.headline : hotUpdate.headlineEN}
+            </b>
+            <span className="mt-1 block text-[9px] text-text-muted">
+              {t(
+                lang,
+                "Klik untuk buka Command Console",
+                "Click to open Command Console",
+              )}{" "}
+              →
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => router.push("/kawasan")}
+          className="absolute right-4 top-14 z-10 border px-3 py-2 text-[9px] font-black tracking-widest"
+          style={{
+            color: scene.accent,
+            borderColor: `${scene.accent}99`,
+            background: "rgba(6,14,24,.9)",
+          }}
+        >
+          ← {t(lang, "BANDAR 3D", "3D CITY")}
+        </button>
+        {notice && (
+          <div
+            role="status"
+            className="absolute left-1/2 top-14 z-30 -translate-x-1/2 border px-4 py-2 text-[9px] font-black tracking-widest shadow-2xl"
+            style={{
+              color: scene.accent,
+              borderColor: `${scene.accent}aa`,
+              background: "rgba(6,14,24,.96)",
+            }}
+          >
+            {notice}
+          </div>
+        )}
+        <div className="absolute left-[42%] top-[42%] z-10 flex items-center gap-2">
+          <span className="relative flex h-3 w-3">
+            <i
+              className="absolute inset-0 animate-ping rounded-full"
+              style={{ background: scene.accent }}
+            />
+            <i
+              className="relative m-auto h-2 w-2 rounded-full"
+              style={{ background: scene.accent }}
+            />
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              kind === "operations"
+                ? setOperationsDeskOpen(true)
+                : setActivityOpen(true)
+            }
+            className="border px-3 py-2 text-[10px] font-black text-white shadow-xl"
+            style={{
+              borderColor: `${scene.accent}aa`,
+              background: "rgba(6,14,24,.9)",
+            }}
+          >
+            {scene.icon} {hotspot}
+          </button>
+        </div>
+        <section
+          className="absolute bottom-12 right-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl"
+          style={{
+            borderColor: `${scene.accent}88`,
+            background: "rgba(6,14,24,.94)",
+          }}
+        >
+          <div
+            className="text-[9px] font-black tracking-[.18em]"
+            style={{ color: scene.accent }}
+          >
+            {kind === "operations"
+              ? t(lang, "INTEL WAR ROOM", "WAR ROOM INTEL")
+              : t(lang, "TUGAS LOKASI", "LOCATION TASK")}
+          </div>
+          <h2 className="mt-1 text-xs font-black text-white">{detail}</h2>
+          <button
+            type="button"
+            onClick={() =>
+              kind === "operations"
+                ? setOperationsDeskOpen(true)
+                : setActivityOpen(true)
+            }
+            className="mt-3 w-full border px-3 py-2 text-[9px] font-black tracking-widest"
+            style={{ color: scene.accent, borderColor: `${scene.accent}99` }}
+          >
+            {kind === "operations"
+              ? t(lang, "BUKA PAPAN ARAHAN", "OPEN COMMAND DASHBOARD")
+              : action}{" "}
+            →
+          </button>
+        </section>
+        {activityOpen && (
+          <section
+            className="absolute bottom-12 left-1/2 z-30 w-[min(400px,calc(100%-32px))] -translate-x-1/2 border p-4 shadow-2xl"
+            style={{
+              borderColor: `${scene.accent}aa`,
+              background: "rgba(6,14,24,.97)",
+              backdropFilter: "blur(16px)",
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div
+                  className="text-[9px] font-black tracking-[.2em]"
+                  style={{ color: scene.accent }}
+                >
+                  {scene.icon} {hotspot.toUpperCase()}
+                </div>
+                <h2 className="mt-1 text-sm font-black text-white">{detail}</h2>
+                <p className="mt-2 text-[10px] leading-relaxed text-text-muted">
+                  {t(
+                    lang,
+                    "Aktiviti ini berjalan terus dalam lokasi semasa. Setiap pilihan menggunakan tenaga, sumber dan direkod dalam jurnal karier.",
+                    "This activity runs directly in the current location. Each choice uses energy, resources and is recorded in the career journal.",
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivityOpen(false)}
+                className="text-text-muted"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => runActivity("prepare")}
+                className="border px-3 py-2 text-[9px] font-black tracking-widest"
+                style={{
+                  color: scene.accent,
+                  borderColor: `${scene.accent}99`,
+                }}
+              >
+                {lang === "ms"
+                  ? locationAction.prepareMs
+                  : locationAction.prepareEn}
+              </button>
+              <button
+                type="button"
+                onClick={() => runActivity("commit")}
+                className="border px-3 py-2 text-[9px] font-black tracking-widest text-gold"
+                style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}
+              >
+                {lang === "ms"
+                  ? locationAction.commitMs
+                  : locationAction.commitEn}
+              </button>
+            </div>
+          </section>
+        )}
+        <section
+          className="absolute bottom-12 left-36 z-20 hidden border p-3 md:block"
+          style={{
+            borderColor: "rgb(var(--gold-rgb) / .45)",
+            background: "rgba(6,14,24,.94)",
+          }}
+        >
+          <div className="text-[9px] font-black tracking-widest text-gold">
+            {t(lang, "TENAGA HARI INI", "TODAY'S ENERGY")}
+          </div>
+          <div className="mt-2 flex items-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <i
+                key={i}
+                className="h-2 w-6"
+                style={{
+                  background:
+                    i < journey.decisions
+                      ? scene.accent
+                      : "rgba(255,255,255,.12)",
+                }}
+              />
+            ))}
+            <b className="ml-2 text-sm text-white">{journey.decisions}/3</b>
+          </div>
+          <button
+            type="button"
+            onClick={advanceDay}
+            className="mt-3 border px-3 py-2 text-[9px] font-black text-gold"
+            style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}
+          >
+            {t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →
+          </button>
+        </section>
+        {assistantOpen && (
+          <section
+            className="absolute bottom-12 left-4 z-20 w-[min(360px,calc(100%-32px))] border p-3 shadow-2xl"
+            style={{
+              borderColor: `${scene.accent}88`,
+              background: "rgba(6,14,24,.94)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <b
+                className="text-[9px] tracking-[.18em]"
+                style={{ color: scene.accent }}
+              >
+                {t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}
+              </b>
+              <button
+                type="button"
+                onClick={() => setAssistantOpen(false)}
+                className="text-text-muted"
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-text-muted">
+              {objectiveDone
+                ? t(
+                    lang,
+                    "Objektif kawasan sudah dicapai. Gunakan lokasi ini untuk memperkukuh momentum.",
+                    "Constituency objective complete. Use this location to strengthen momentum.",
+                  )
+                : t(
+                    lang,
+                    "Objektif aktif: naikkan sokongan kawasan ke 60% sebelum hari ke-10.",
+                    "Active objective: raise constituency support to 60% before day 10.",
+                  )}
+            </p>
+            <div
+              className="mt-2 border px-2 py-1.5 text-[9px]"
+              style={{
+                borderColor: `${scene.accent}66`,
+                background: `${scene.accent}12`,
+              }}
+            >
+              <b style={{ color: scene.accent }}>
+                {homeSupport.toFixed(1)}% / 60%
+              </b>
+              <span className="ml-2 text-text-muted">
+                {t(
+                  lang,
+                  `Hari ${day}/${objectiveDay} · RM75,000`,
+                  `Day ${day}/${objectiveDay} · RM75,000`,
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivityOpen(true)}
+              className="mt-2 border px-3 py-1.5 text-[9px] font-black"
+              style={{ color: scene.accent, borderColor: `${scene.accent}88` }}
+            >
+              {t(lang, "LIHAT TUGAS", "VIEW TASK")}
+            </button>
+          </section>
+        )}
+        <div className="absolute bottom-9 left-4 right-4 z-20 flex gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => router.push("/kawasan")}
+            className="border px-3 py-2 text-[9px] font-black"
+            style={{
+              borderColor: `${scene.accent}88`,
+              color: scene.accent,
+              background: "rgba(6,14,24,.94)",
+            }}
+          >
+            ← {t(lang, "BANDAR", "CITY")}
+          </button>
+          <button
+            type="button"
+            onClick={advanceDay}
+            className="flex-1 border px-3 py-2 text-[9px] font-black text-gold"
+            style={{
+              borderColor: "rgb(var(--gold-rgb) / .6)",
+              background: "rgba(6,14,24,.94)",
+            }}
+          >
+            {t(lang, "TAMAT HARI", "END DAY")} · {journey.decisions}/3
+          </button>
+        </div>
+        <footer
+          className="absolute bottom-0 left-0 right-0 z-20 flex h-8 items-center overflow-hidden border-t bg-[#07111c]"
+          style={{ borderColor: `${scene.accent}66` }}
+        >
+          <b
+            className="h-full px-3 pt-2 text-[9px] tracking-widest text-[#07111c]"
+            style={{ background: scene.accent }}
+          >
+            ● {t(lang, "LANGSUNG", "LIVE")}
+          </b>
+          <span className="whitespace-nowrap px-5 text-[10px] text-text-muted">
+            {t(
+              lang,
+              "Lokasi aktif: semua keputusan akan memberi kesan kepada perjalanan politik anda.",
+              "Active location: every decision affects your political journey.",
+            )}
+          </span>
+        </footer>
+      </main>
+      <StatusBar
+        leftText={`${scene.icon} ${label.toUpperCase()}`}
+        rightText={t(
+          lang,
+          "Klik hotspot untuk mula berinteraksi",
+          "Click the hotspot to begin interacting",
+        )}
+      />
+    </div>
+  );
 }
