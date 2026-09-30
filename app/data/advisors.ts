@@ -14,7 +14,7 @@ export const advisors: Advisor[] = [
   {
     id: "strategist",
     codename: "ALPHA-1",
-    name: "DR. RAZMAN",
+    name: "DR. AZMAN",
     role: "STRATEGIC DIRECTOR",
     specialty: "Campaign strategy · Electoral mapping · Coalition tactics",
     icon: "⬡",

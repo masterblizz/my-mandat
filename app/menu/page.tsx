@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import CreditsModal from "../components/menu/CreditsModal";
+import ContinueRunModal from "../components/menu/ContinueRunModal";
 import Skyline from "../components/layout/Skyline";
 import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
@@ -12,7 +14,7 @@ import { generateConstituencies } from "../data/constituencies";
 import { advisors } from "../data/advisors";
 import { newJourney, normalizeJourney, resumeRoute } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
-import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot } from "../store/saveGame";
+import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot, type SavedGameSlot } from "../store/saveGame";
 import { useLang, t } from "../i18n/useLang";
 import { createClient } from "../utils/supabase/client";
 
@@ -101,6 +103,7 @@ export default function MainMenuPage() {
   const [clock, setClock] = useState("--:--:--");
   const [mounted, setMounted] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [continueSlot, setContinueSlot] = useState<SavedGameSlot | null>(null);
   // Save slots live in localStorage, so this can only be known post-mount
   // (see the `mounted` flag pattern used elsewhere on this page) — defaults
   // to false, the safe "nothing to continue" assumption, until the mount
@@ -162,6 +165,12 @@ export default function MainMenuPage() {
     [prnDunSeats]
   );
 
+  const resumeSavedGame = useCallback((slot: SavedGameSlot) => {
+    setActiveSaveSlot(slot.id);
+    useGameStore.setState({ ...slot.state, journey: normalizeJourney(slot.state.journey), phase: "playing" });
+    router.push(resumeRoute(slot.state));
+  }, [router]);
+
   const navigateMenuItem = useCallback((item: MenuItem) => {
     if (item.id === "01") {
       // A new career must always begin with the character creator. The 3D
@@ -196,9 +205,7 @@ export default function MainMenuPage() {
       const slotToContinue = activeSlot ?? latestSlot;
 
       if (slotToContinue) {
-        setActiveSaveSlot(slotToContinue.id);
-        useGameStore.setState({ ...slotToContinue.state, journey: normalizeJourney(slotToContinue.state.journey), phase: "playing" });
-        router.push(resumeRoute(slotToContinue.state));
+        setContinueSlot(slotToContinue);
       }
       return;
     }
@@ -213,6 +220,10 @@ export default function MainMenuPage() {
     update();
     const timer = setInterval(update, 1000);
     const handleKey = (event: KeyboardEvent) => {
+      if (continueSlot) {
+        if (event.key === "Escape") setContinueSlot(null);
+        return;
+      }
       if (event.key === "ArrowDown") setSelected((value) => Math.min(value + 1, MENU_ITEMS_CONFIG.length - 1));
       if (event.key === "ArrowUp") setSelected((value) => Math.max(value - 1, 0));
       if (event.key === "Enter") {
@@ -225,7 +236,7 @@ export default function MainMenuPage() {
       clearInterval(timer);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [navigateMenuItem, selected]);
+  }, [continueSlot, navigateMenuItem, selected]);
 
   return (
     <main
@@ -238,6 +249,7 @@ export default function MainMenuPage() {
       }}
     >
       {showCredits && <CreditsModal lang={lang} onClose={() => setShowCredits(false)} />}
+      {continueSlot && <ContinueRunModal lang={lang} slot={continueSlot} onClose={() => setContinueSlot(null)} onConfirm={() => resumeSavedGame(continueSlot)} />}
       <style>{`
         @keyframes mymandat-live-news-scroll {
           0% { transform: translateX(0); }
@@ -352,30 +364,45 @@ export default function MainMenuPage() {
             })}
           </nav>
 
-          <div
-            className="mt-2 border px-4 py-1.5"
-            style={{
-              borderColor: "rgb(var(--cyan-rgb) / 0.20)",
-              background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgb(var(--bg-rgb) / 0.62))",
-              boxShadow: "inset 0 0 22px rgb(var(--cyan-rgb) / 0.035)",
-            }}
-          >
-            <div className="mb-1 flex items-center justify-between gap-3">
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Link
+              href="/profile"
+              className="group border px-3 py-2 transition hover:border-cyan/70"
+              style={{ borderColor: "rgb(var(--cyan-rgb) / 0.20)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgb(var(--bg-rgb) / 0.62))" }}
+            >
+              <div className="mb-1 text-[8px] font-black tracking-[0.22em]" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.playerProfile")}</div>
               <div className="flex items-center gap-2">
-                <span className="text-[14px]" style={{ color: "var(--cyan)" }}>{leadAdvisor.icon}</span>
-                <span className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.aiAdvisor")}</span>
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--cyan-rgb) / .08)" }}>
+                  <Image src={`/avatars/leader-${String((leader.avatarIndex ?? 0) + 1).padStart(2, "0")}.png`} alt={leader.name} fill sizes="36px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-[11px] font-black tracking-[.08em] text-white">{leader.name}</div>
+                  <div className="truncate text-[8px] tracking-[.12em]" style={{ color: "var(--gold)" }}>{leader.partyAbbr || leader.party}</div>
+                </div>
               </div>
-              <span className="text-[8px] font-bold tracking-[0.18em]" style={{ color: "var(--neon-green)" }}>{activeAdvisors} {t(lang, "menu_page.active")}</span>
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-black tracking-[0.14em] text-white">{leadAdvisor.name}</div>
-                <div className="truncate text-[9px] tracking-[0.13em]" style={{ color: "var(--gold)" }}>{leadAdvisor.role}</div>
+              <div className="mt-1 text-[8px] font-bold tracking-[.16em] opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.openProfile")} →</div>
+            </Link>
+
+            <Link
+              href="/advisor"
+              className="group border px-3 py-2 transition hover:border-cyan/70"
+              style={{ borderColor: "rgb(var(--cyan-rgb) / 0.20)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgb(var(--bg-rgb) / 0.62))", boxShadow: "inset 0 0 22px rgb(var(--cyan-rgb) / 0.035)" }}
+            >
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-[8px] font-black tracking-[0.22em]" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.aiAdvisor")}</span>
+                <span className="text-[7px] font-bold tracking-[0.13em]" style={{ color: "var(--neon-green)" }}>{activeAdvisors} {t(lang, "menu_page.active")}</span>
               </div>
-              <div className="shrink-0 border px-2 py-1 text-[8px] font-bold tracking-[0.18em]" style={{ borderColor: "rgb(var(--gold-rgb) / 0.35)", color: "var(--gold)" }}>
-                {leadAdvisor.codename}
+              <div className="flex items-center gap-2">
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--cyan-rgb) / .08)" }}>
+                  <Image src="/avatars/dr-azman-advisor.png" alt={leadAdvisor.name} fill sizes="36px" style={{ objectFit: "cover", objectPosition: "center top" }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-[11px] font-black tracking-[.08em] text-white">{leadAdvisor.name}</div>
+                  <div className="truncate text-[8px] tracking-[.12em]" style={{ color: "var(--gold)" }}>{leadAdvisor.role}</div>
+                </div>
               </div>
-            </div>
+              <div className="mt-1 text-[8px] font-bold tracking-[.16em] opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.openAdvisor")} →</div>
+            </Link>
           </div>
 
           <div className="mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>

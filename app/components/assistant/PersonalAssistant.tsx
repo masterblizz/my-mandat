@@ -61,7 +61,19 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
         <div className="mt-3 border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / .28)", background: "rgb(var(--cyan-rgb) / .05)" }}><b className="text-[9px] tracking-[.16em] text-cyan">{t(lang, "IKUT TURUTAN INI", "FOLLOW THESE STEPS")}</b><ol className="mt-2 space-y-2">{citySteps.map((step) => <li key={step} className="text-[11px] leading-relaxed text-text-muted">{step}</li>)}</ol></div>
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2.5 text-[11px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
       </section>}
-      <button type="button" onClick={() => { setOpen((value) => !value); setBriefVisible(false); }} className="relative h-20 w-20 overflow-hidden rounded-full border-2 shadow-xl transition hover:scale-105 focus:outline-none" style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 30px rgb(var(--cyan-rgb) / .52)" }} aria-label={t(lang, "Buka pembantu peribadi", "Open Personal Assistant")}><Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="80px" className="object-cover object-top" /><span className="absolute inset-1 rounded-full border border-cyan/45 animate-pulse" /><span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-[#020814] bg-emerald-400" /><span className="absolute bottom-0 left-0 right-0 bg-black/75 py-1 text-[8px] font-black tracking-widest text-cyan">{t(lang, "PA · AKTIF", "PA · ACTIVE")}</span></button>
+      <button
+        type="button"
+        onClick={() => { setOpen((value) => !value); setBriefVisible(false); }}
+        className="group relative h-[132px] w-[min(220px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
+        style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 32px rgb(var(--cyan-rgb) / .5)" }}
+        aria-label={t(lang, "Buka panggilan video pembantu peribadi", "Open Personal Assistant video call")}
+      >
+        <Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="220px" className="object-cover object-[center_18%] transition duration-500 group-hover:scale-105" />
+        <span className="absolute inset-0 bg-gradient-to-t from-[#020814]/95 via-transparent to-[#020814]/20" />
+        <span className="absolute left-2 top-2 flex items-center gap-1.5 bg-emerald-400 px-2 py-1 text-[8px] font-black tracking-[.16em] text-[#021018] shadow"><span className="h-1.5 w-1.5 rounded-full bg-[#021018] animate-pulse" />{t(lang, "LANGSUNG", "LIVE")}</span>
+        <span className="absolute right-2 top-2 border border-white/50 bg-[#020814]/80 px-1.5 py-1 text-[8px] font-black tracking-widest text-white">HD</span>
+        <span className="absolute bottom-0 left-0 right-0 border-t border-cyan/35 bg-[#020814]/80 px-3 py-2 backdrop-blur-sm"><span className="block text-[9px] font-black tracking-[.16em] text-white">{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</span><span className="mt-0.5 block text-[8px] font-black tracking-[.12em] text-cyan">{t(lang, "PANGGILAN VIDEO · TEKAN UNTUK BUKA", "VIDEO CALL · TAP TO OPEN")}</span></span>
+      </button>
     </div>;
   }
 

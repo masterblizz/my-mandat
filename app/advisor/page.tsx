@@ -2,6 +2,7 @@
 
 import { useHasMounted } from "../hooks/useHasMounted";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -191,12 +192,17 @@ export default function AdvisorPage() {
       <Header />
       <main className="px-6 pb-[54px] pt-[56px]">
         <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
+          <div className="flex items-center gap-3">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: "rgb(var(--cyan-rgb) / .55)", background: "rgb(var(--cyan-rgb) / .08)", boxShadow: "0 0 22px rgb(var(--cyan-rgb) / .2)" }}>
+              <Image src="/avatars/dr-azman-advisor.png" alt={alpha.name} fill priority sizes="64px" style={{ objectFit: "cover", objectPosition: "center top" }} />
+            </div>
+            <div>
             <div className="mb-1 text-[12px] tracking-widest text-text-muted">◇ {t(lang, "advisor_page.warRoomStrategicAdvisor")}</div>
             <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>
               {alpha.name} <span style={{ color: "var(--cyan)" }}>· {alpha.codename}</span>
             </h1>
             <div className="mt-1 text-[11px] tracking-wider" style={{ color: "var(--gold)" }}>{alpha.role} · {alpha.specialty}</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: "rgb(var(--gold-rgb)/0.4)", color: "var(--gold)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
@@ -333,9 +339,11 @@ export default function AdvisorPage() {
               <div className="space-y-2">
                 {advisors.slice(0, 4).map((advisor) => (
                   <div key={advisor.id} className="flex items-center justify-between border p-2 text-[10px] tracking-wider" style={{ borderColor: advisor.id === alpha.id ? "rgb(var(--cyan-rgb)/0.4)" : "rgba(255,255,255,0.08)", background: advisor.id === alpha.id ? "rgb(var(--cyan-rgb)/0.06)" : "transparent" }}>
-                    <div>
-                      <div className="font-black text-white">{advisor.icon} {advisor.name}</div>
+                    <div className="flex items-center gap-2">
+                      {advisor.id === alpha.id && <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "rgb(var(--cyan-rgb)/.45)" }}><Image src="/avatars/dr-azman-advisor.png" alt="" fill sizes="28px" style={{ objectFit: "cover", objectPosition: "center top" }} /></div>}
+                      <div><div className="font-black text-white">{advisor.id === alpha.id ? "" : `${advisor.icon} `}{advisor.name}</div>
                       <div className="text-text-muted">{advisor.role}</div>
+                      </div>
                     </div>
                     <span className="font-black" style={{ color: advisor.id === alpha.id ? "var(--neon-green)" : "var(--text-muted)" }}>
                       {advisor.id === alpha.id ? t(lang, "advisor_page.active") : advisor.codename}
