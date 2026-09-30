@@ -309,6 +309,14 @@ export default function PoliticalOfficePage() {
     { id: "balanced", title: t(lang, "SEIMBANG", "BALANCED"), detail: t(lang, "Kesan asas, risiko rendah", "Base effect, low risk") },
     { id: "assertive", title: t(lang, "TEGAS & PANTAS", "DECISIVE"), detail: t(lang, "−1 kepercayaan · +0.7 sokongan", "−1 trust · +0.7 support") },
   ];
+  const officeActionReason = (action: "prepare" | "commit") => {
+    if (officeActionDone(action)) return t(lang, "Tindakan ini sudah dibuat hari ini. Tamatkan hari untuk membuka tindakan baharu.", "This action is already complete today. End the day to unlock new actions.");
+    if (officeCampaignActive && journey.decisions < 1) return t(lang, "Tenaga habis. Tekan TAMAT HARI untuk meneruskan aktiviti esok.", "No energy left. Press END DAY to continue with activities tomorrow.");
+    if (officeCampaignActive && resources.funds < (action === "commit" ? 25000 : 10000)) return t(lang, "Dana tidak mencukupi untuk tindakan ini. Pilih aktiviti yang lebih murah atau tamatkan hari.", "Insufficient funds. Choose a lower-cost activity or end the day.");
+    if (officeCampaignActive && action === "commit" && resources.manpower < 5) return t(lang, "Jentera tidak mencukupi. Gunakan persediaan atau tamatkan hari.", "Not enough organisers. Prepare first or end the day.");
+    if (officeTermActive && journey.termActions.length >= 2) return t(lang, "Had dua tindakan penggal telah digunakan.", "The two-action term limit has been used.");
+    return null;
+  };
   const runOfficeActivity = (action: "prepare" | "commit", title: string) => {
     const before = useGameStore.getState();
     const beforeJournal = before.journey.journal[0]?.id;
@@ -426,6 +434,8 @@ export default function PoliticalOfficePage() {
                 );
             const prepareDone = officeActionDone("prepare");
             const commitDone = officeActionDone("commit");
+            const prepareReason = officeActionReason("prepare");
+            const commitReason = officeActionReason("commit");
             return (
               <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-sm">
                 <section
@@ -553,14 +563,14 @@ export default function PoliticalOfficePage() {
                       <div className="mt-5 grid gap-2">
                         <button
                           type="button"
-                          disabled={prepareDone}
+                          disabled={Boolean(prepareReason)}
                           onClick={() =>
                             runOfficeActivity("prepare", spot.title)
                           }
                           className="border px-4 py-3 text-[10px] font-black tracking-widest text-cyan disabled:cursor-not-allowed disabled:opacity-45"
                           style={{ borderColor: "rgb(var(--cyan-rgb) / .6)" }}
                         >
-                          {prepareDone
+                          {prepareReason
                             ? t(lang, "✓ SUDAH DIBUAT", "✓ COMPLETED")
                             : schedule
                               ? t(
@@ -576,14 +586,14 @@ export default function PoliticalOfficePage() {
                         </button>
                         <button
                           type="button"
-                          disabled={commitDone}
+                          disabled={Boolean(commitReason)}
                           onClick={() =>
                             runOfficeActivity("commit", spot.title)
                           }
                           className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c] disabled:cursor-not-allowed disabled:opacity-45"
                           style={{ background: "var(--gold)" }}
                         >
-                          {commitDone
+                          {commitReason
                             ? t(lang, "✓ SUDAH DISAHKAN", "✓ CONFIRMED")
                             : schedule
                               ? t(
@@ -597,6 +607,7 @@ export default function PoliticalOfficePage() {
                                   "AUTHORIZE ACTION · −1 ENERGY",
                                 )}
                         </button>
+                        {(prepareReason || commitReason) && <p className="text-[9px] leading-relaxed text-gold">{prepareReason ?? commitReason}</p>}
                       </div>
                     </aside>
                   </div>
@@ -830,6 +841,8 @@ export default function PoliticalOfficePage() {
                     "Campaign strategy map and this week's targets",
                   )
                 : spot.detail;
+            const prepareReason = officeActionReason("prepare");
+            const commitReason = officeActionReason("commit");
             return (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020814]/80 p-4 backdrop-blur-sm">
                 <section
@@ -941,13 +954,15 @@ export default function PoliticalOfficePage() {
                       <div className="mt-3 grid gap-1.5">
                         {officeApproaches.map((approach) => <button key={approach.id} type="button" onClick={() => setOfficeApproach(approach.id)} className={`border p-2 text-left ${officeApproach === approach.id ? "border-cyan bg-cyan/10" : "border-cyan/20 opacity-60"}`}><b className="block text-[8px] text-cyan">{officeApproach === approach.id ? "✓ " : ""}{approach.title}</b><span className="mt-1 block text-[8px] text-text-muted">{approach.detail}</span></button>)}
                       </div>
+                      {officeFeedback && <div role="status" className="mt-3 border border-cyan/60 bg-cyan/10 p-2 text-[10px] font-bold leading-relaxed text-cyan">✓ {officeFeedback}</div>}
                       <div className="mt-5 grid gap-2">
                         <button
                           type="button"
+                          disabled={Boolean(prepareReason)}
                           onClick={() =>
                             runOfficeActivity("prepare", spot.title)
                           }
-                          className="border px-4 py-3 text-[10px] font-black tracking-widest text-cyan"
+                          className="border px-4 py-3 text-[10px] font-black tracking-widest text-cyan disabled:cursor-not-allowed disabled:opacity-45"
                           style={{
                             borderColor: "rgb(var(--cyan-rgb) / .6)",
                             background: "rgb(var(--cyan-rgb) / .08)",
@@ -963,10 +978,11 @@ export default function PoliticalOfficePage() {
                         </button>
                         <button
                           type="button"
+                          disabled={Boolean(commitReason)}
                           onClick={() =>
                             runOfficeActivity("commit", spot.title)
                           }
-                          className="border px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]"
+                          className="border px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c] disabled:cursor-not-allowed disabled:opacity-45"
                           style={{ background: "var(--gold)" }}
                         >
                           {isNews
@@ -977,6 +993,7 @@ export default function PoliticalOfficePage() {
                                 "EXECUTE DECISION",
                               )}
                         </button>
+                        {(prepareReason || commitReason) && <p className="text-[9px] leading-relaxed text-gold">{prepareReason ?? commitReason}</p>}
                       </div>
                     </aside>
                   </div>

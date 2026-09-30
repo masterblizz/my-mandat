@@ -1244,6 +1244,16 @@ export default function LocationPage() {
   const locationActionsUsed = journey.actionsToday.filter((entry) =>
     entry.startsWith("location:"),
   ).length;
+  const activityReason = (activity: "prepare" | "commit") => {
+    const key = `location:${kind in SCENES ? kind : "party"}:${activity}`;
+    if (journey.actionsToday.includes(key) || journey.termActions.includes(key)) return t(lang, "Tindakan ini sudah dibuat hari ini. Tekan TAMAT HARI untuk tindakan baharu.", "This action is already complete today. Press END DAY for new actions.");
+    if (campaignActive && journey.decisions < 1) return t(lang, "Tenaga habis. Tekan TAMAT HARI untuk sambung esok.", "No energy left. Press END DAY to continue tomorrow.");
+    const cost = activityCost[activity];
+    if (campaignActive && resources.funds < cost.funds) return t(lang, "Dana tidak mencukupi untuk tindakan ini.", "Insufficient funds for this action.");
+    if (campaignActive && resources.manpower < cost.manpower) return t(lang, "Jentera tidak mencukupi untuk tindakan ini.", "Not enough organisers for this action.");
+    if (termActive && journey.termActions.length >= 2) return t(lang, "Had dua tindakan penggal telah digunakan.", "The two-action term limit has been used.");
+    return null;
+  };
   const runActivity = (activity: "prepare" | "commit") => {
     const before = useGameStore.getState().journey.journal[0]?.id;
     runLocationActivity(
@@ -1282,7 +1292,6 @@ export default function LocationPage() {
             "Action unavailable — check energy, funds or today’s activity limit.",
           ),
     );
-    if (completed) setActivityOpen(false);
   };
   return (
     <div
@@ -1596,11 +1605,13 @@ export default function LocationPage() {
                       ))}
                     </div>
                   </div>
+                  {activityFeedback && <div role="status" className="mt-3 border p-2 text-[9px] font-bold leading-relaxed" style={{ borderColor: scene.accent, color: scene.accent, background: `${scene.accent}12` }}>✓ {activityFeedback}</div>}
                   <div className="mt-auto grid gap-2 pt-5">
                     <button
                       type="button"
+                      disabled={Boolean(activityReason("prepare"))}
                       onClick={() => runActivity("prepare")}
-                      className="border px-4 py-3 text-[10px] font-black tracking-widest"
+                      className="border px-4 py-3 text-[10px] font-black tracking-widest disabled:cursor-not-allowed disabled:opacity-45"
                       style={{
                         borderColor: `${scene.accent}99`,
                         color: scene.accent,
@@ -1613,14 +1624,16 @@ export default function LocationPage() {
                     </button>
                     <button
                       type="button"
+                      disabled={Boolean(activityReason("commit"))}
                       onClick={() => runActivity("commit")}
-                      className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c]"
+                      className="px-4 py-3 text-[10px] font-black tracking-widest text-[#07111c] disabled:cursor-not-allowed disabled:opacity-45"
                       style={{ background: "var(--gold)" }}
                     >
                       {lang === "ms"
                         ? locationAction.commitMs
                         : locationAction.commitEn}
                     </button>
+                    {(activityReason("prepare") || activityReason("commit")) && <p className="text-[9px] leading-relaxed text-gold">{activityReason("prepare") ?? activityReason("commit")}</p>}
                     <p className="text-[9px] leading-relaxed text-cyan">
                       {t(
                         lang,
@@ -2193,8 +2206,9 @@ export default function LocationPage() {
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
+                disabled={Boolean(activityReason("prepare"))}
                 onClick={() => runActivity("prepare")}
-                className="border px-3 py-2 text-[9px] font-black tracking-widest"
+                className="border px-3 py-2 text-[9px] font-black tracking-widest disabled:cursor-not-allowed disabled:opacity-45"
                 style={{
                   color: scene.accent,
                   borderColor: `${scene.accent}99`,
@@ -2206,8 +2220,9 @@ export default function LocationPage() {
               </button>
               <button
                 type="button"
+                disabled={Boolean(activityReason("commit"))}
                 onClick={() => runActivity("commit")}
-                className="border px-3 py-2 text-[9px] font-black tracking-widest text-gold"
+                className="border px-3 py-2 text-[9px] font-black tracking-widest text-gold disabled:cursor-not-allowed disabled:opacity-45"
                 style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}
               >
                 {lang === "ms"
@@ -2215,6 +2230,7 @@ export default function LocationPage() {
                   : locationAction.commitEn}
               </button>
             </div>
+            {(activityReason("prepare") || activityReason("commit")) && <p className="mt-2 text-[9px] leading-relaxed text-gold">{activityReason("prepare") ?? activityReason("commit")}</p>}
           </section>
         )}
         <section
