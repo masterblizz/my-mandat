@@ -20,10 +20,12 @@ function MonthlyFieldCalendar({
   lang,
   scheduleBuilt,
   visitConfirmed,
+  stateName,
 }: {
   lang: Lang;
   scheduleBuilt: boolean;
   visitConfirmed: boolean;
+  stateName: string;
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -47,6 +49,28 @@ function MonthlyFieldCalendar({
     weekday: "narrow",
   });
   const eventDate = (offset: number) => { const date = new Date(today); date.setDate(today.getDate() + offset); return date; };
+  const holidayDate = (month: number, date: number) => new Date(2026, month - 1, date);
+  const federalHolidays = [
+    { date: holidayDate(2, 17), name: t(lang, "Tahun Baharu Cina", "Chinese New Year") },
+    { date: holidayDate(2, 18), name: t(lang, "Tahun Baharu Cina (Hari Kedua)", "Chinese New Year (Second Day)") },
+    { date: holidayDate(5, 1), name: t(lang, "Hari Pekerja", "Labour Day") },
+    { date: holidayDate(5, 27), name: t(lang, "Hari Raya Haji", "Hari Raya Haji") },
+    { date: holidayDate(5, 28), name: t(lang, "Hari Raya Haji (Hari Kedua)", "Hari Raya Haji (Second Day)") },
+    { date: holidayDate(8, 31), name: t(lang, "Hari Kebangsaan", "National Day") },
+    { date: holidayDate(9, 16), name: t(lang, "Hari Malaysia", "Malaysia Day") },
+    { date: holidayDate(11, 8), name: t(lang, "Deepavali", "Deepavali") },
+    { date: holidayDate(12, 25), name: t(lang, "Hari Krismas", "Christmas Day") },
+  ];
+  const stateHolidays: Record<string, { date: Date; name: string }[]> = {
+    Selangor: [
+      { date: holidayDate(2, 1), name: t(lang, "Thaipusam", "Thaipusam") },
+      { date: holidayDate(3, 4), name: t(lang, "Nuzul Al-Quran", "Nuzul Al-Quran") },
+      { date: holidayDate(10, 25), name: t(lang, "Jubli Perak Sultan Selangor", "Selangor Sultan's Silver Jubilee") },
+      { date: holidayDate(10, 26), name: t(lang, "Cuti gantian Jubli Perak Sultan Selangor", "Selangor Sultan's Silver Jubilee replacement holiday") },
+      { date: holidayDate(12, 11), name: t(lang, "Hari Keputeraan Sultan Selangor", "Sultan of Selangor's Birthday") },
+    ],
+  };
+  const holidays = [...federalHolidays, ...(stateHolidays[stateName] ?? [])];
   const events = [
     {
       date: eventDate(1),
@@ -71,6 +95,7 @@ function MonthlyFieldCalendar({
     },
   ];
   const selectedEvents = events.filter((event) => dateKey(event.date) === dateKey(selectedDate));
+  const selectedHolidays = holidays.filter((holiday) => dateKey(holiday.date) === dateKey(selectedDate));
   return (
     <div className="flex min-h-[430px] flex-col bg-[#06101e] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan/20 pb-3">
@@ -90,6 +115,7 @@ function MonthlyFieldCalendar({
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((date) => {
           const eventsForDay = events.filter((event) => dateKey(event.date) === dateKey(date));
+          const holidaysForDay = holidays.filter((holiday) => dateKey(holiday.date) === dateKey(date));
           const isToday = date.toDateString() === today.toDateString();
           const isSelected = dateKey(date) === dateKey(selectedDate);
           const inMonth = date.getMonth() === monthCursor.getMonth();
@@ -99,6 +125,7 @@ function MonthlyFieldCalendar({
               className={`min-h-14 border p-1.5 text-left transition hover:border-cyan ${isSelected ? "border-cyan bg-cyan/10" : isToday ? "border-gold/80 bg-gold/10" : "border-cyan/20 bg-[#020814]/70"} ${inMonth ? "" : "opacity-30"}`}
             >
               <b className={`text-[10px] ${isToday ? "text-gold" : "text-white"}`}>{date.getDate()}</b>
+              {holidaysForDay.map((holiday) => <span key={holiday.name} className="mt-1 block truncate border-l-2 border-gold bg-gold/10 pl-1 text-[7px] font-black text-gold">★ {holiday.name}</span>)}
               {eventsForDay.map((event) => (
                 <span key={event.title} className={`mt-1 block truncate border-l-2 pl-1 text-[7px] font-bold ${scheduleBuilt ? event.tone === "gold" ? "border-gold text-gold" : event.tone === "red" ? "border-neon-red text-neon-red" : "border-cyan text-cyan" : "border-white/20 text-text-muted"}`}>{event.time} {event.title}</span>
               ))}
@@ -106,7 +133,7 @@ function MonthlyFieldCalendar({
           );
         })}
       </div>
-      <div className="mt-3 border-t border-cyan/20 pt-3"><div className="text-[8px] font-black tracking-widest text-gold">{t(lang, "AGENDA TARIKH DIPILIH", "SELECTED DATE AGENDA")}</div>{selectedEvents.length ? selectedEvents.map((event) => <div key={event.title} className="mt-2 flex items-center justify-between border-l-2 border-cyan bg-cyan/5 p-2 text-[9px]"><span><b className="text-cyan">{event.time}</b> <b className="ml-2 text-white">{event.title}</b><span className="ml-2 text-text-muted">· {event.location}</span></span>{event.tone === "red" && <b className={visitConfirmed ? "text-gold" : "text-text-muted"}>{visitConfirmed ? t(lang, "✓ DISAHKAN", "✓ CONFIRMED") : t(lang, "MENUNGGU SAH", "PENDING")}</b>}</div>) : <p className="mt-2 text-[9px] text-text-muted">{t(lang, "Tiada acara. Pilih tarikh yang bertanda untuk melihat butiran.", "No events. Select a marked date to view details.")}</p>}</div>
+      <div className="mt-3 border-t border-cyan/20 pt-3"><div className="text-[8px] font-black tracking-widest text-gold">{t(lang, "AGENDA TARIKH DIPILIH", "SELECTED DATE AGENDA")}</div>{selectedHolidays.map((holiday) => <div key={holiday.name} className="mt-2 border-l-2 border-gold bg-gold/10 p-2 text-[9px] font-black text-gold">★ {holiday.name} · {t(lang, `Cuti umum ${stateName}`, `${stateName} public holiday`)}</div>)}{selectedEvents.length ? selectedEvents.map((event) => <div key={event.title} className="mt-2 flex items-center justify-between border-l-2 border-cyan bg-cyan/5 p-2 text-[9px]"><span><b className="text-cyan">{event.time}</b> <b className="ml-2 text-white">{event.title}</b><span className="ml-2 text-text-muted">· {event.location}</span></span>{event.tone === "red" && <b className={visitConfirmed ? "text-gold" : "text-text-muted"}>{visitConfirmed ? t(lang, "✓ DISAHKAN", "✓ CONFIRMED") : t(lang, "MENUNGGU SAH", "PENDING")}</b>}</div>) : !selectedHolidays.length && <p className="mt-2 text-[9px] text-text-muted">{t(lang, "Tiada acara. Pilih tarikh yang bertanda untuk melihat butiran.", "No events. Select a marked date to view details.")}</p>}</div>
     </div>
   );
 }
@@ -143,6 +170,7 @@ export default function PoliticalOfficePage() {
     : "/political-office-realistic.png";
   const homeSupport =
     states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
+  const calendarStateName = states.find((state) => state.id === leader.homeState)?.name ?? "Malaysia";
   const objectiveDone = journey.locationObjectives.includes(
     "campaign:home-support-60",
   );
@@ -426,6 +454,7 @@ export default function PoliticalOfficePage() {
                         lang={lang}
                         scheduleBuilt={prepareDone}
                         visitConfirmed={commitDone}
+                        stateName={calendarStateName}
                       />
                     ) : (
                       <div
