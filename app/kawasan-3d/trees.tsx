@@ -86,13 +86,15 @@ function pickSpecies(rnd: () => number, traits: SeatTraits, kind?: ZoneKind, lus
 }
 
 export function Trees({
-  placed, empties, traits, claimed, lush = false, weather = "clear",
+  placed, empties, traits, claimed, roadClear, lush = false, weather = "clear",
 }: {
   placed: CellPlacement[];
   empties: { col: number; row: number; cx: number; cz: number }[];
   traits: SeatTraits;
   /** cells under a large footprint — no trees there, the podium covers them */
   claimed?: Set<string>;
+  /** Optional point-level exclusion for irregular road networks. */
+  roadClear?: (x: number, z: number) => boolean;
   /** SUNGAI & HIJAU: denser canopy + palms + jungle empties (KL variant). */
   lush?: boolean;
   /** Rain drives a faster, wider gust while clear weather stays gentle. */
@@ -120,9 +122,11 @@ export function Trees({
       for (let i = 0; i < Math.min(n, candidates.length); i++) {
         const idx = Math.floor(rnd() * candidates.length);
         const [ox, oz] = candidates.splice(idx, 1)[0];
+        const x = cx + ox + (rnd() - 0.5) * 10;
+        const z = cz + oz + (rnd() - 0.5) * 10;
+        if (roadClear?.(x, z)) continue;
         out.push({
-          x: cx + ox + (rnd() - 0.5) * 10,
-          z: cz + oz + (rnd() - 0.5) * 10,
+          x, z,
           groundY: TILE_H,
           species: pickSpecies(rnd, traits, zone.kind, lush),
           scale: 0.82 + rnd() * 0.46,
@@ -134,9 +138,11 @@ export function Trees({
       if (claimed?.has(`${col},${row}`)) continue;
       const rnd = rngFrom(hashSeed(`${col},${row}:tree`));
       for (let i = 0; i < perEmpty; i++) {
+        const x = cx + (rnd() - 0.5) * (PLOT - 40);
+        const z = cz + (rnd() - 0.5) * (PLOT - 40);
+        if (roadClear?.(x, z)) continue;
         out.push({
-          x: cx + (rnd() - 0.5) * (PLOT - 40),
-          z: cz + (rnd() - 0.5) * (PLOT - 40),
+          x, z,
           groundY: EMPTY_CELL_Y,
           species: pickSpecies(rnd, traits, undefined, lush),
           scale: 0.74 + rnd() * 0.46,
@@ -145,7 +151,7 @@ export function Trees({
       }
     }
     return out;
-  }, [placed, empties, traits, claimed, lush]);
+  }, [placed, empties, traits, claimed, roadClear, lush]);
 
   const bySpecies = useMemo(() => {
     const m: Record<TreeSpecies, TreeSpot[]> = { round: [], conifer: [], palm: [] };

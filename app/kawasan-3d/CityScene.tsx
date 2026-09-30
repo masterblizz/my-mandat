@@ -50,7 +50,7 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
-import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadClaims, bukitBintangRoadIntersects } from "./bukitBintangRoads";
+import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadIntersects } from "./bukitBintangRoads";
 import { BukitBintangDistricts, bukitBintangDistrictClaims } from "./bukitBintangDistricts";
 
 // Spread the screen-space labels around the city core when the player is
@@ -504,6 +504,12 @@ function Grid({
   // need to clone instead.
   const roadTex = useMemo(() => getRoadTextures(density), [density]);
   const irregularRoads = traits.bukitBintang;
+  // Buildings have a precise footprint test, while foliage needs its own
+  // point-level exclusion so a tree cannot land on a diagonal road.
+  const roadTreeClear = useMemo(
+    () => irregularRoads ? (x: number, z: number) => bukitBintangRoadIntersects(gridSize, x, z, 38, 38) : undefined,
+    [irregularRoads, gridSize],
+  );
   useEffect(() => {
     const rep = span / ROAD_TEXTURE_WORLD_LENGTH;
     roadTex.vertical.repeat.set(1, rep);
@@ -557,7 +563,7 @@ function Grid({
       {!irregularRoads && density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
       {!irregularRoads && density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
       {!irregularRoads && <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />}
-      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed}
+      <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} roadClear={roadTreeClear}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
       {placed.map(({ zone, col, row, cx, cz }) => (
         <ZoneTile
@@ -691,14 +697,6 @@ export function CityScene({
     () => new Set(traits.bukitBintang ? bukitBintangDistrictClaims(gridSize) : []),
     [gridSize, traits.bukitBintang],
   );
-  // Diagonal Bukit Bintang arterials do not align to the normal parcel grid.
-  // Claim every parcel their full carriageway crosses before buildings are
-  // produced; checking an individual building spec alone can miss a large
-  // procedural facade or its attached detail mesh.
-  const roadClaims = useMemo(
-    () => traits.bukitBintang ? bukitBintangRoadClaims(gridSize) : new Set<string>(),
-    [gridSize, traits.bukitBintang],
-  );
   // Task B: a few large buildings claim an N×M block; `claimed` holds
   // those cells so per-cell buildings / sidewalks / trees / lamps skip
   // them. Deterministic from `placed` — recomputed only on layout change.
@@ -720,9 +718,8 @@ export function CityScene({
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
     districtClaims.forEach((c) => s.add(c));
-    roadClaims.forEach((c) => s.add(c));
     return s;
-  }, [largeClaimed, districtClaims, roadClaims, gridSize, traits.klLandmarks]);
+  }, [largeClaimed, districtClaims, gridSize, traits.klLandmarks]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
