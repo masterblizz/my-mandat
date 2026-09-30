@@ -8,6 +8,7 @@ import AmbientMusic from "./components/layout/AmbientMusic";
 import DayRecap from "./components/layout/DayRecap";
 import PlayerProgressTracker from "./components/layout/PlayerProgressTracker";
 import MobileGameDock from "./components/layout/MobileGameDock";
+import MobileAppShell from "./components/layout/MobileAppShell";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
         <PlayerProgressTracker />
         <JourneyGuard />
         <AmbientMusic />
+        <MobileAppShell />
         {children}
         <MobileGameDock />
         <DayRecap />
