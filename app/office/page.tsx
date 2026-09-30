@@ -8,6 +8,7 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
+import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
   icon: string;
@@ -21,11 +22,15 @@ function MonthlyFieldCalendar({
   scheduleBuilt,
   visitConfirmed,
   stateName,
+  campaignDay,
+  totalDays,
 }: {
   lang: Lang;
   scheduleBuilt: boolean;
   visitConfirmed: boolean;
   stateName: string;
+  campaignDay: number;
+  totalDays: number;
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -94,8 +99,19 @@ function MonthlyFieldCalendar({
       tone: "red",
     },
   ];
+  // Election milestones are projected onto the player's real field calendar
+  // from campaign day one. This turns abstract "Day 15" language into dates
+  // the player can plan around alongside their local visits.
+  const electionMilestones = [
+    { day: 1, title: t(lang, "PRU bermula", "Election starts"), tone: "cyan" },
+    { day: 15, title: t(lang, "Penamaan calon", "Nomination day"), tone: "gold" },
+    { day: 16, title: t(lang, "Kempen bermula", "Campaign starts"), tone: "green" },
+    { day: 29, title: t(lang, "Hari tenang", "Cooling-off day"), tone: "red" },
+    { day: 30, title: t(lang, "Hari mengundi", "Polling day"), tone: "red" },
+  ].filter((milestone) => milestone.day <= totalDays).map((milestone) => ({ ...milestone, date: eventDate(milestone.day - campaignDay) }));
   const selectedEvents = events.filter((event) => dateKey(event.date) === dateKey(selectedDate));
   const selectedHolidays = holidays.filter((holiday) => dateKey(holiday.date) === dateKey(selectedDate));
+  const selectedMilestones = electionMilestones.filter((milestone) => dateKey(milestone.date) === dateKey(selectedDate));
   return (
     <div className="flex min-h-[430px] flex-col bg-[#06101e] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan/20 pb-3">
@@ -111,11 +127,15 @@ function MonthlyFieldCalendar({
             : t(lang, "DRAF BELUM SIAP", "DRAFT NOT BUILT")}
         </span>
       </div>
+      <div className="mt-3">
+        <CampaignTimeline day={campaignDay} totalDays={totalDays} lang={lang} compact />
+      </div>
       <div className="mt-3 grid grid-cols-7 gap-1 text-center">{Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-[8px] font-black text-text-muted">{weekday.format(new Date(2026, 8, 28 + index))}</span>)}</div>
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((date) => {
           const eventsForDay = events.filter((event) => dateKey(event.date) === dateKey(date));
           const holidaysForDay = holidays.filter((holiday) => dateKey(holiday.date) === dateKey(date));
+          const milestonesForDay = electionMilestones.filter((milestone) => dateKey(milestone.date) === dateKey(date));
           const isToday = date.toDateString() === today.toDateString();
           const isSelected = dateKey(date) === dateKey(selectedDate);
           const inMonth = date.getMonth() === monthCursor.getMonth();
@@ -125,6 +145,7 @@ function MonthlyFieldCalendar({
               className={`min-h-14 border p-1.5 text-left transition hover:border-cyan ${isSelected ? "border-cyan bg-cyan/10" : isToday ? "border-gold/80 bg-gold/10" : "border-cyan/20 bg-[#020814]/70"} ${inMonth ? "" : "opacity-30"}`}
             >
               <b className={`text-[10px] ${isToday ? "text-gold" : "text-white"}`}>{date.getDate()}</b>
+              {milestonesForDay.map((milestone) => <span key={milestone.title} className={`mt-1 block truncate border-l-2 pl-1 text-[7px] font-black ${milestone.tone === "gold" ? "border-gold bg-gold/10 text-gold" : milestone.tone === "red" ? "border-neon-red bg-neon-red/10 text-neon-red" : milestone.tone === "green" ? "border-neon-green bg-neon-green/10 text-neon-green" : "border-cyan bg-cyan/10 text-cyan"}`}>◆ {milestone.title}</span>)}
               {holidaysForDay.map((holiday) => <span key={holiday.name} className="mt-1 block truncate border-l-2 border-gold bg-gold/10 pl-1 text-[7px] font-black text-gold">★ {holiday.name}</span>)}
               {eventsForDay.map((event) => (
                 <span key={event.title} className={`mt-1 block truncate border-l-2 pl-1 text-[7px] font-bold ${scheduleBuilt ? event.tone === "gold" ? "border-gold text-gold" : event.tone === "red" ? "border-neon-red text-neon-red" : "border-cyan text-cyan" : "border-white/20 text-text-muted"}`}>{event.time} {event.title}</span>
@@ -133,7 +154,7 @@ function MonthlyFieldCalendar({
           );
         })}
       </div>
-      <div className="mt-3 border-t border-cyan/20 pt-3"><div className="text-[8px] font-black tracking-widest text-gold">{t(lang, "AGENDA TARIKH DIPILIH", "SELECTED DATE AGENDA")}</div>{selectedHolidays.map((holiday) => <div key={holiday.name} className="mt-2 border-l-2 border-gold bg-gold/10 p-2 text-[9px] font-black text-gold">★ {holiday.name} · {t(lang, `Cuti umum ${stateName}`, `${stateName} public holiday`)}</div>)}{selectedEvents.length ? selectedEvents.map((event) => <div key={event.title} className="mt-2 flex items-center justify-between border-l-2 border-cyan bg-cyan/5 p-2 text-[9px]"><span><b className="text-cyan">{event.time}</b> <b className="ml-2 text-white">{event.title}</b><span className="ml-2 text-text-muted">· {event.location}</span></span>{event.tone === "red" && <b className={visitConfirmed ? "text-gold" : "text-text-muted"}>{visitConfirmed ? t(lang, "✓ DISAHKAN", "✓ CONFIRMED") : t(lang, "MENUNGGU SAH", "PENDING")}</b>}</div>) : !selectedHolidays.length && <p className="mt-2 text-[9px] text-text-muted">{t(lang, "Tiada acara. Pilih tarikh yang bertanda untuk melihat butiran.", "No events. Select a marked date to view details.")}</p>}</div>
+      <div className="mt-3 border-t border-cyan/20 pt-3"><div className="text-[8px] font-black tracking-widest text-gold">{t(lang, "AGENDA TARIKH DIPILIH", "SELECTED DATE AGENDA")}</div>{selectedMilestones.map((milestone) => <div key={milestone.title} className="mt-2 border-l-2 bg-cyan/5 p-2 text-[9px] font-black text-cyan" style={{ borderColor: milestone.tone === "gold" ? "var(--gold)" : milestone.tone === "red" ? "var(--neon-red)" : milestone.tone === "green" ? "var(--neon-green)" : "var(--cyan)" }}>◆ {milestone.title} · {t(lang, `Hari pilihan raya ${milestone.day}`, `Election day ${milestone.day}`)}</div>)}{selectedHolidays.map((holiday) => <div key={holiday.name} className="mt-2 border-l-2 border-gold bg-gold/10 p-2 text-[9px] font-black text-gold">★ {holiday.name} · {t(lang, `Cuti umum ${stateName}`, `${stateName} public holiday`)}</div>)}{selectedEvents.length ? selectedEvents.map((event) => <div key={event.title} className="mt-2 flex items-center justify-between border-l-2 border-cyan bg-cyan/5 p-2 text-[9px]"><span><b className="text-cyan">{event.time}</b> <b className="ml-2 text-white">{event.title}</b><span className="ml-2 text-text-muted">· {event.location}</span></span>{event.tone === "red" && <b className={visitConfirmed ? "text-gold" : "text-text-muted"}>{visitConfirmed ? t(lang, "✓ DISAHKAN", "✓ CONFIRMED") : t(lang, "MENUNGGU SAH", "PENDING")}</b>}</div>) : !selectedHolidays.length && !selectedMilestones.length && <p className="mt-2 text-[9px] text-text-muted">{t(lang, "Tiada acara. Pilih tarikh yang bertanda untuk melihat butiran.", "No events. Select a marked date to view details.")}</p>}</div>
     </div>
   );
 }
@@ -455,6 +476,8 @@ export default function PoliticalOfficePage() {
                         scheduleBuilt={prepareDone}
                         visitConfirmed={commitDone}
                         stateName={calendarStateName}
+                        campaignDay={day}
+                        totalDays={totalDays}
                       />
                     ) : (
                       <div
