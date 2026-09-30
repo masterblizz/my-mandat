@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
+import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 // Day-1 campaign briefing from the Personal Assistant. Opens by itself on a
 // fresh campaign (day 1, full energy, nothing done yet) unless the player
@@ -96,6 +97,9 @@ export default function CampaignBriefing() {
                 </li>
               ))}
             </ol>
+            <div className="mt-4">
+              <CampaignTimeline day={day} totalDays={totalDays} lang={lang} />
+            </div>
             <p className="mt-3 border px-3 py-2 text-[10px] text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .35)", background: "rgb(var(--gold-rgb) / .06)" }}>
               {t(lang,
                 "Objektif awal: capai 60% sokongan di negeri asal sebelum hari 10 untuk ganjaran RM75,000.",

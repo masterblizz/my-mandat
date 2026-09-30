@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
 import CampaignBriefing from "./CampaignBriefing";
+import CampaignTimeline from "../components/campaign/CampaignTimeline";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
 import PersonalAssistant from "../components/assistant/PersonalAssistant";
 import { resumeRoute } from "../store/journey";
@@ -2921,6 +2922,7 @@ export default function KawasanDevelopmentPage() {
                   <div className="mt-1 text-sm font-black tracking-wider text-white">{ownSeat.name} <span className="text-gold">· {overall}%</span></div>
                 </div>
               </div>
+              {journey.chapter === "campaign" && day < totalDays && <div className="absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <button type="button" onClick={() => router.push("/menu")} className="absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded cityContext={selectedZone ? { selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall } : undefined} />
