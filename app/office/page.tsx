@@ -16,7 +16,7 @@ type Hotspot = {
   className: string;
 };
 
-function WeeklyFieldCalendar({
+function MonthlyFieldCalendar({
   lang,
   scheduleBuilt,
   visitConfirmed,
@@ -26,59 +26,57 @@ function WeeklyFieldCalendar({
   visitConfirmed: boolean;
 }) {
   const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
+  const [monthCursor, setMonthCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+  const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(1 - ((monthStart.getDay() + 6) % 7));
+  const calendarDays = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
     return date;
   });
-  const dateLabel = new Intl.DateTimeFormat(lang === "ms" ? "ms-MY" : "en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(days[0]);
-  const endLabel = new Intl.DateTimeFormat(lang === "ms" ? "ms-MY" : "en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(days[6]);
+  const dateKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const moveMonth = (delta: number) => {
+    const next = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
+    setMonthCursor(next);
+    setSelectedDate(next);
+  };
+  const monthLabel = new Intl.DateTimeFormat(lang === "ms" ? "ms-MY" : "en-GB", { month: "long", year: "numeric" }).format(monthCursor);
   const weekday = new Intl.DateTimeFormat(lang === "ms" ? "ms-MY" : "en-GB", {
-    weekday: "short",
+    weekday: "narrow",
   });
+  const eventDate = (offset: number) => { const date = new Date(today); date.setDate(today.getDate() + offset); return date; };
   const events = [
     {
-      day: 1,
+      date: eventDate(1),
       time: "09:30",
       title: t(lang, "Taklimat jentera", "Campaign briefing"),
       location: t(lang, "Pejabat Pandan", "Pandan office"),
       tone: "cyan",
     },
     {
-      day: 3,
+      date: eventDate(3),
       time: "11:00",
       title: t(lang, "Sesi dengar penduduk", "Resident listening session"),
       location: "Pandan Jaya",
       tone: "gold",
     },
     {
-      day: 5,
+      date: eventDate(5),
       time: "15:30",
       title: t(lang, "Lawatan isu saliran", "Drainage site visit"),
       location: "Taman Muda",
       tone: "red",
     },
   ];
+  const selectedEvents = events.filter((event) => dateKey(event.date) === dateKey(selectedDate));
   return (
-    <div className="flex min-h-[300px] flex-col bg-[#06101e] p-4 sm:p-5">
+    <div className="flex min-h-[430px] flex-col bg-[#06101e] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan/20 pb-3">
         <div>
-          <div className="text-[9px] font-black tracking-[.2em] text-cyan">
-            {t(lang, "KALENDAR LAPANGAN", "FIELD CALENDAR")}
-          </div>
-          <h3 className="mt-1 text-base font-black text-white">
-            {dateLabel} — {endLabel}
-          </h3>
+          <div className="text-[9px] font-black tracking-[.2em] text-cyan">{t(lang, "KALENDAR LAPANGAN", "FIELD CALENDAR")}</div>
+          <div className="mt-1 flex items-center gap-2"><button type="button" onClick={() => moveMonth(-1)} aria-label={t(lang, "Bulan sebelumnya", "Previous month")} className="border border-cyan/35 px-2 py-1 text-cyan hover:bg-cyan/10">‹</button><h3 className="min-w-40 text-base font-black capitalize text-white">{monthLabel}</h3><button type="button" onClick={() => moveMonth(1)} aria-label={t(lang, "Bulan seterusnya", "Next month")} className="border border-cyan/35 px-2 py-1 text-cyan hover:bg-cyan/10">›</button></div>
         </div>
         <span
           className={`border px-2 py-1 text-[8px] font-black tracking-widest ${scheduleBuilt ? "border-cyan/60 bg-cyan/10 text-cyan" : "border-white/20 text-text-muted"}`}
@@ -88,74 +86,27 @@ function WeeklyFieldCalendar({
             : t(lang, "DRAF BELUM SIAP", "DRAFT NOT BUILT")}
         </span>
       </div>
-      <div className="mt-4 grid grid-cols-7 gap-1.5">
-        {days.map((date, index) => {
-          const eventsForDay = events.filter((event) => event.day === index);
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center">{Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-[8px] font-black text-text-muted">{weekday.format(new Date(2026, 8, 28 + index))}</span>)}</div>
+      <div className="grid grid-cols-7 gap-1">
+        {calendarDays.map((date) => {
+          const eventsForDay = events.filter((event) => dateKey(event.date) === dateKey(date));
           const isToday = date.toDateString() === today.toDateString();
+          const isSelected = dateKey(date) === dateKey(selectedDate);
+          const inMonth = date.getMonth() === monthCursor.getMonth();
           return (
-            <div
+            <button type="button" onClick={() => setSelectedDate(date)}
               key={date.toISOString()}
-              className={`min-h-28 border p-1.5 ${isToday ? "border-gold/80 bg-gold/10" : "border-cyan/20 bg-[#020814]/70"}`}
+              className={`min-h-14 border p-1.5 text-left transition hover:border-cyan ${isSelected ? "border-cyan bg-cyan/10" : isToday ? "border-gold/80 bg-gold/10" : "border-cyan/20 bg-[#020814]/70"} ${inMonth ? "" : "opacity-30"}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[7px] font-black uppercase text-text-muted">
-                  {weekday.format(date)}
-                </span>
-                <b
-                  className={`text-[10px] ${isToday ? "text-gold" : "text-white"}`}
-                >
-                  {date.getDate()}
-                </b>
-              </div>
+              <b className={`text-[10px] ${isToday ? "text-gold" : "text-white"}`}>{date.getDate()}</b>
               {eventsForDay.map((event) => (
-                <div
-                  key={event.title}
-                  className={`mt-2 border-l-2 pl-1 text-[7px] leading-tight ${scheduleBuilt ? (event.tone === "gold" ? "border-gold text-gold" : event.tone === "red" ? "border-neon-red text-neon-red" : "border-cyan text-cyan") : "border-white/20 text-text-muted"}`}
-                >
-                  <b className="block">{event.time}</b>
-                  <span className="block font-bold">{event.title}</span>
-                  <span className="block opacity-75">{event.location}</span>
-                  {event.day === 5 && (
-                    <span className="mt-1 block text-[6px] font-black uppercase">
-                      {visitConfirmed
-                        ? t(lang, "✓ disahkan", "✓ confirmed")
-                        : t(lang, "menunggu sah", "awaiting approval")}
-                    </span>
-                  )}
-                </div>
+                <span key={event.title} className={`mt-1 block truncate border-l-2 pl-1 text-[7px] font-bold ${scheduleBuilt ? event.tone === "gold" ? "border-gold text-gold" : event.tone === "red" ? "border-neon-red text-neon-red" : "border-cyan text-cyan" : "border-white/20 text-text-muted"}`}>{event.time} {event.title}</span>
               ))}
-            </div>
+            </button>
           );
         })}
       </div>
-      <div className="mt-4 grid gap-2 border-t border-cyan/20 pt-3 text-[9px] sm:grid-cols-2">
-        <div className="text-text-muted">
-          {scheduleBuilt
-            ? t(
-                lang,
-                "✓ Jentera dan sesi penduduk telah dimasukkan ke kalendar.",
-                "✓ Team briefing and resident session are now on the calendar.",
-              )
-            : t(
-                lang,
-                "Tekan SUSUN JADUAL untuk masukkan aktiviti ke kalendar.",
-                "Press BUILD SCHEDULE to add activities to the calendar.",
-              )}
-        </div>
-        <div className={visitConfirmed ? "text-gold" : "text-text-muted"}>
-          {visitConfirmed
-            ? t(
-                lang,
-                "✓ Lawatan Taman Muda disahkan pada Jumaat, 15:30.",
-                "✓ Taman Muda visit confirmed for Friday, 15:30.",
-              )
-            : t(
-                lang,
-                "Sahkan lawatan untuk mengunci slot Jumaat, 15:30.",
-                "Confirm the visit to lock Friday's 15:30 slot.",
-              )}
-        </div>
-      </div>
+      <div className="mt-3 border-t border-cyan/20 pt-3"><div className="text-[8px] font-black tracking-widest text-gold">{t(lang, "AGENDA TARIKH DIPILIH", "SELECTED DATE AGENDA")}</div>{selectedEvents.length ? selectedEvents.map((event) => <div key={event.title} className="mt-2 flex items-center justify-between border-l-2 border-cyan bg-cyan/5 p-2 text-[9px]"><span><b className="text-cyan">{event.time}</b> <b className="ml-2 text-white">{event.title}</b><span className="ml-2 text-text-muted">· {event.location}</span></span>{event.tone === "red" && <b className={visitConfirmed ? "text-gold" : "text-text-muted"}>{visitConfirmed ? t(lang, "✓ DISAHKAN", "✓ CONFIRMED") : t(lang, "MENUNGGU SAH", "PENDING")}</b>}</div>) : <p className="mt-2 text-[9px] text-text-muted">{t(lang, "Tiada acara. Pilih tarikh yang bertanda untuk melihat butiran.", "No events. Select a marked date to view details.")}</p>}</div>
     </div>
   );
 }
@@ -471,7 +422,7 @@ export default function PoliticalOfficePage() {
                   </div>
                   <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]">
                     {schedule ? (
-                      <WeeklyFieldCalendar
+                      <MonthlyFieldCalendar
                         lang={lang}
                         scheduleBuilt={prepareDone}
                         visitConfirmed={commitDone}
