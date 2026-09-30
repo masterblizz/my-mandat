@@ -182,6 +182,7 @@ export default function PoliticalOfficePage() {
   const [officeFeedback, setOfficeFeedback] = useState<string | null>(null);
   const [officeApproach, setOfficeApproach] = useState<ActivityApproach>("balanced");
   const [isNight, setIsNight] = useState(false);
+  const [newsIndex, setNewsIndex] = useState(0);
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
   const officeVisual = isRural
@@ -252,6 +253,43 @@ export default function PoliticalOfficePage() {
       className: "left-[12%] top-[32%]",
     },
   ];
+  const liveNewsTitle = t(lang, "Berita TV", "Live News");
+  const newsBulletins = [
+    {
+      id: "drainage",
+      image: "/office-news-drainage.png",
+      tone: "var(--neon-red)",
+      tag: t(lang, "LIPUTAN LANGSUNG", "LIVE COVERAGE"),
+      headline: t(lang, "Penduduk Pandan desak tindakan isu saliran", "Pandan residents demand action on drainage"),
+      summary: t(lang, "Hujan dan saliran tersumbat kembali menjadi isu utama di beberapa zon. Respons pantas boleh meredakan tekanan awam.", "Rain and blocked drainage have returned as the lead concern in several zones. A fast response can ease public pressure."),
+      source: t(lang, "LAPORAN LAPANGAN · ZON PERUMAHAN", "FIELD REPORT · RESIDENTIAL ZONES"),
+    },
+    {
+      id: "cost",
+      image: "/office-news-cost-of-living.png",
+      tone: "var(--gold)",
+      tag: t(lang, "PULSE RAKYAT", "PUBLIC PULSE"),
+      headline: t(lang, "Kos sara hidup jadi tumpuan pengundi bandar", "Cost of living rises on the urban voter agenda"),
+      summary: t(lang, "Peniaga kecil dan keluarga komuter mahu pelan yang jelas tentang harga, gaji dan pengangkutan harian.", "Small traders and commuting families want a clear plan for prices, wages and daily transport."),
+      source: t(lang, "TINJAUAN PANTAS · BANDAR", "FLASH POLL · URBAN DESK"),
+    },
+    {
+      id: "housing",
+      image: "/office-news-housing.png",
+      tone: "var(--cyan)",
+      tag: t(lang, "LIPUTAN KOMUNITI", "COMMUNITY DESK"),
+      headline: t(lang, "Keluarga muda mahu perumahan mampu milik", "Young families press for affordable homes"),
+      summary: t(lang, "Liputan komuniti menunjukkan harga rumah dan kemudahan kejiranan semakin mempengaruhi keputusan pengundi muda.", "Community reporting shows home prices and neighbourhood amenities are increasingly shaping younger voters’ choices."),
+      source: t(lang, "SUARA KOMUNITI · PANDAN", "COMMUNITY VOICE · PANDAN"),
+    },
+  ];
+  useEffect(() => {
+    if (active !== liveNewsTitle) return;
+    setNewsIndex(day % newsBulletins.length);
+    const rotation = window.setInterval(() => setNewsIndex((current) => (current + 1) % newsBulletins.length), 9000);
+    return () => window.clearInterval(rotation);
+  }, [active, day, liveNewsTitle, newsBulletins.length]);
+  const officeTicker = newsBulletins[(Math.max(day, 1) - 1) % newsBulletins.length];
   const mails =
     lang === "ms"
       ? [
@@ -826,17 +864,14 @@ export default function PoliticalOfficePage() {
             const spot = hotspots.find((item) => item.title === active)!;
             const isNews = spot.title === hotspots[2].title;
             const isStrategy = spot.title === hotspots[0].title;
+            const bulletin = isNews ? newsBulletins[newsIndex % newsBulletins.length] : null;
             const visual = isNews
-              ? "/office-news-drainage.png"
+              ? bulletin!.image
               : isStrategy
                 ? "/office-strategy-board.png"
                 : "/political-office-realistic.png";
             const headline = isNews
-              ? t(
-                  lang,
-                  "Penduduk Pandan desak tindakan isu saliran",
-                  "Pandan residents demand action on drainage",
-                )
+              ? bulletin!.headline
               : isStrategy
                 ? t(
                     lang,
@@ -849,7 +884,7 @@ export default function PoliticalOfficePage() {
             return (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020814]/80 p-4 backdrop-blur-sm">
                 <section
-                  className="w-[min(1080px,100%)] overflow-hidden border shadow-2xl"
+                  className="w-[min(1420px,calc(100vw-32px))] overflow-hidden border shadow-2xl"
                   style={{
                     borderColor: isNews
                       ? "rgb(var(--neon-red-rgb) / .75)"
@@ -881,16 +916,16 @@ export default function PoliticalOfficePage() {
                       × {t(lang, "TUTUP", "CLOSE")}
                     </button>
                   </div>
-                  <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]">
+                    <div className="grid max-h-[82vh] overflow-y-auto lg:grid-cols-[1.65fr_.65fr]">
                     <div
-                      className="relative min-h-[300px] border-b lg:border-b-0 lg:border-r"
+                      className="relative min-h-[440px] border-b lg:min-h-[590px] lg:border-b-0 lg:border-r"
                       style={{ borderColor: "rgb(var(--cyan-rgb) / .22)" }}
                     >
                       <Image
                         src={visual}
                         alt={headline}
                         fill
-                        sizes="(max-width: 1024px) 100vw, 65vw"
+                        sizes="(max-width: 1024px) 100vw, 72vw"
                         className="object-cover"
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#020814] via-[#020814]/80 to-transparent p-5 pt-20">
@@ -902,10 +937,11 @@ export default function PoliticalOfficePage() {
                           }}
                         >
                           {isNews
-                            ? t(lang, "LIPUTAN LANGSUNG", "LIVE COVERAGE")
+                            ? bulletin!.tag
                             : t(lang, "PAPARAN AKTIF", "ACTIVE DISPLAY")}
                         </div>
-                        <h3 className="mt-2 max-w-xl text-xl font-black text-white">
+                        <div className="mt-2 text-[8px] font-black tracking-[.16em]" style={{ color: isNews ? bulletin!.tone : "var(--cyan)" }}>{isNews ? bulletin!.source : null}</div>
+                        <h3 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-white lg:text-3xl">
                           {headline}
                         </h3>
                       </div>
@@ -916,13 +952,15 @@ export default function PoliticalOfficePage() {
                       </div>
                       <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
                         {isNews
-                          ? t(
-                              lang,
-                              "Laporan lapangan menunjukkan isu saliran dan kos sara hidup sedang menaikkan tekanan awam. Pilih respons anda dari dalam pejabat ini.",
-                              "Field reporting shows drainage and cost-of-living concerns are increasing public pressure. Choose your response from inside this office.",
-                            )
+                          ? bulletin!.summary
                           : spot.detail}
                       </p>
+                      {isNews && <div className="mt-4 grid grid-cols-3 gap-1.5" aria-label={t(lang, "Pilih bulletin berita", "Choose news bulletin")}>
+                        {newsBulletins.map((item, index) => <button key={item.id} type="button" onClick={() => setNewsIndex(index)} className="overflow-hidden border text-left transition hover:brightness-125" style={{ borderColor: index === newsIndex ? item.tone : "rgb(var(--cyan-rgb) / .22)", background: index === newsIndex ? "rgb(var(--cyan-rgb) / .08)" : "transparent" }}>
+                          <div className="relative h-12"><Image src={item.image} alt="" fill sizes="160px" className="object-cover" /></div>
+                          <span className="block truncate px-1.5 py-1 text-[7px] font-black" style={{ color: index === newsIndex ? item.tone : "var(--text-muted)" }}>{item.tag}</span>
+                        </button>)}
+                      </div>}
                       <div className="mt-5 grid grid-cols-2 gap-2">
                         <div
                           className="border p-3"
@@ -1234,17 +1272,9 @@ export default function PoliticalOfficePage() {
             ● {t(lang, "BERITA", "NEWS")}
           </b>
           <div className="whitespace-nowrap px-5 text-[10px] text-text-muted animate-[pulse_5s_ease-in-out_infinite]">
-            {t(
-              lang,
-              "Penduduk Pandan desak tindakan segera isu saliran",
-              "Pandan residents demand immediate drainage action",
-            )}{" "}
+            {officeTicker.headline}{" "}
             <span className="mx-5 text-cyan">◆</span>
-            {t(
-              lang,
-              "Tinjauan: sokongan pengundi muda naik 2 mata minggu ini",
-              "Poll: youth support rises 2 points this week",
-            )}
+            {officeTicker.source}
           </div>
         </footer>
       </main>
