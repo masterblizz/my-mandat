@@ -21,7 +21,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { PLOT, plotXY, worldCentre } from "./cityData";
-import { getTowerStripTexture, getTowerFacadeTexture } from "./windows";
+import { getTwinTowerNightTexture, getTowerStripTexture, getTowerFacadeTexture } from "./windows";
 
 const KL_MIN_GRID = 10;
 const TILE_H = 4;
@@ -330,7 +330,7 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
     const m = new THREE.MeshStandardMaterial({
       color: "#eef2f6", map: getTowerFacadeTexture(),
       roughness: 0.32, metalness: 0.42, envMapIntensity: 1.15,
-      emissive: new THREE.Color("#dfe9ff"), emissiveMap: getTowerStripTexture(), emissiveIntensity: 0,
+      emissive: new THREE.Color("#e9f4ff"), emissiveMap: getTwinTowerNightTexture(), emissiveIntensity: 0,
     });
     m.userData.baseMetalness = 0.42;
     m.userData.baseEnv = 1.15;
@@ -401,7 +401,10 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   useEffect(() => {
     mat.userData.national.value = nationalLighting ? 1 : 0;
     for (const m of [mat, steel]) {
-      m.emissiveIntensity = winLit * 0.82;
+      // KLCC's facade lighting is intentionally landmark-bright at night:
+      // its silver-white silhouette needs to rise above the surrounding
+      // office towers, like the real illuminated twin towers.
+      m.emissiveIntensity = m === mat ? winLit * 1.72 : winLit * 0.82;
       m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }

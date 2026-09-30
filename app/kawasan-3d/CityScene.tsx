@@ -206,27 +206,6 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
   );
 }
 
-// A precise cyan shell around the tallest eligible structure in the selected
-// zone. This is intentionally local to one mesh, rather than a scene-wide
-// post-processing outline which would make every road and tree glow.
-function SelectedBuildingGlow({ placement, gridSize, density, traits }: { placement: CellPlacement; gridSize: number; density: number; traits: SeatTraits }) {
-  const { zone, col, row, cx, cz } = placement;
-  const mid = (gridSize - 1) / 2;
-  const maxD = Math.hypot(mid, mid) || 1;
-  const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
-  const primary = zoneBuildings(zone, density, traits, coreness)
-    .filter((spec) => !FLAT_TYPES.includes(spec.type))
-    .sort((a, b) => b.h - a.h)[0];
-  if (!primary) return null;
-  const p = slotPos(primary.slot);
-  const vertical = primary.type === "tower" || primary.type === "skyscraper" || primary.type === "antenna";
-  const h = vertical ? Math.min(275, Math.max(14, primary.h * klHeightMult(col, row, gridSize))) : Math.max(primary.h, 8);
-  return <mesh position={[cx - PLOT / 2 + p.x + primary.w / 2, TILE_H + h / 2, cz - PLOT / 2 + p.y + primary.d / 2]} renderOrder={8}>
-    <boxGeometry args={[primary.w + 7, h + 7, primary.d + 7]} />
-    <meshBasicMaterial color="#22d3ee" transparent opacity={0.72} wireframe depthWrite={false} toneMapped={false} />
-  </mesh>;
-}
-
 function neighbourhoodSpans(gridSize: number, density: number) {
   // Vary both directions: the city should have recognisable superblocks,
   // not a repeating chessboard. Rural keeps its two 3×6 town blocks while
@@ -819,10 +798,6 @@ export function CityScene({
         <ZoneBeacon position={[landmark.cx, 0, landmark.cz]} color="#7dd3fc" height={300} />
       )}
       {selected && <SelectionPin position={[selected.cx, 0, selected.cz]} />}
-      {/* Landmark cells have their own purpose-built silhouettes. Do not lay
-          the generic selected-building wireframe across Merdeka 118, KLCC or
-          Menara KL; the cyan pin is the selection feedback for those cells. */}
-      {selected && !claimed.has(`${selected.col},${selected.row}`) && <SelectedBuildingGlow placement={selected} gridSize={gridSize} density={density} traits={traits} />}
       {celebrate && celebration && (
         <ZoneBeacon
           key={celebration.at}

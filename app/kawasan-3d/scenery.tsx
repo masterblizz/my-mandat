@@ -536,7 +536,7 @@ export function TrafficLights({
 // on amber, and accelerates on green. Cars also keep a gap to the car
 // ahead on the same loop, so they queue at a red instead of stacking.
 
-const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827"];
+const CAR_COLORS = ["#f8fafc", "#e53935", "#1677d2", "#f5b21a", "#16a36a", "#8b5cf6", "#111827", "#ec6c20"];
 const TAIL_RUNNING = new THREE.Color("#791014");
 const TAIL_BRAKING = new THREE.Color("#ff332e");
 
@@ -547,9 +547,10 @@ const TAIL_BRAKING = new THREE.Color("#ff332e");
 //   van   — one tall boxy hull + a short glassy nose section
 //   lorry — `body` is the tall cargo box (shifted back), `cabin` the cab up front
 //   bus   — one long tall hull + a thin dark window band for `cabin`
-type VKind = "car" | "van" | "lorry" | "bus";
+type VKind = "car" | "van" | "lorry" | "bus" | "police" | "ambulance" | "fire";
 const V_MIX: { k: VKind; p: number }[] = [
-  { k: "car", p: 0.66 }, { k: "van", p: 0.13 }, { k: "lorry", p: 0.12 }, { k: "bus", p: 0.09 },
+  { k: "car", p: 0.635 }, { k: "van", p: 0.12 }, { k: "lorry", p: 0.10 }, { k: "bus", p: 0.08 },
+  { k: "police", p: 0.025 }, { k: "ambulance", p: 0.025 }, { k: "fire", p: 0.015 },
 ];
 function pickKind(r: number): VKind {
   let a = 0;
@@ -569,7 +570,20 @@ const V_SPEC: Record<VKind, {
            cabS: [0.72, 1.42, 1.0],   cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
   bus:   { bodyS: [1.95, 2.02, 1.05], bodyDX: 0,    bodyY: 6.8,
            cabS: [1.86, 0.5, 1.06],   cabDX: 0,     cabY: 10.6, half: 16,   wheel: 1.12, tint: 0.82 },
+  police:{ bodyS: [1, 1, 1],           bodyDX: 0,    bodyY: 4,
+           cabS: [1, 1, 1],            cabDX: 0,     cabY: 7.4,  half: 9,    wheel: 1,    tint: 0.64 },
+  ambulance: { bodyS: [1.18, 1.7, 1.02], bodyDX: -0.5, bodyY: 5.7,
+           cabS: [0.62, 0.62, 0.98],   cabDX: 6.4,   cabY: 7.6,  half: 10.5, wheel: 1,    tint: 0.72 },
+  fire:  { bodyS: [1.3, 1.45, 1.0],   bodyDX: -3.4, bodyY: 5.3,
+           cabS: [0.72, 1.42, 1.0],    cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
 };
+
+const emergencyVehicle = (kind: VKind) => kind === "police" || kind === "ambulance" || kind === "fire";
+function vehicleColor(kind: VKind, rnd: () => number) {
+  if (kind === "police" || kind === "ambulance") return new THREE.Color("#f8fafc");
+  if (kind === "fire") return new THREE.Color("#d9272e");
+  return new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]);
+}
 
 const CAR_BASE_SPEED = 78;   // world units / sec on a clear straight
 const CAR_ACCEL = 130;
@@ -821,9 +835,11 @@ export function Traffic({
           speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
           wheelSpin: rnd() * Math.PI * 2,
           braking: false,
-          color: new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]),
           kind: forceKind ?? pickKind(rnd()),
+          color: new THREE.Color(),
         });
+        const car = cars[cars.length - 1];
+        car.color = vehicleColor(car.kind, rnd);
       }
     };
 
@@ -864,6 +880,7 @@ export function Traffic({
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const taillightRef = useRef<THREE.InstancedMesh>(null);
   const indicatorRef = useRef<THREE.InstancedMesh>(null);
+  const emergencyLightRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const wheelYaw = useMemo(() => new THREE.Quaternion(), []);
   const wheelMount = useMemo(() => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), []);
@@ -884,16 +901,21 @@ export function Traffic({
     const body = bodyRef.current;
     const cabin = cabinRef.current;
     const taillights = taillightRef.current;
-    if (!body || !cabin || !taillights) return;
+    const emergencyLights = emergencyLightRef.current;
+    if (!body || !cabin || !taillights || !emergencyLights) return;
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
       cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), V_SPEC[c.kind].tint));
       taillights.setColorAt(i * 2, TAIL_RUNNING);
       taillights.setColorAt(i * 2 + 1, TAIL_RUNNING);
+      const fire = c.kind === "fire";
+      emergencyLights.setColorAt(i * 2, fire ? new THREE.Color("#ff3b30") : new THREE.Color("#248cff"));
+      emergencyLights.setColorAt(i * 2 + 1, fire ? new THREE.Color("#ffbd2e") : new THREE.Color("#ff3b30"));
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
     if (taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
+    if (emergencyLights.instanceColor) emergencyLights.instanceColor.needsUpdate = true;
   }, [cars]);
 
   useFrame((_, dt) => {
@@ -903,7 +925,8 @@ export function Traffic({
     const headlights = headlightRef.current;
     const taillights = taillightRef.current;
     const indicators = indicatorRef.current;
-    if (!body || !cabin || !wheels || !headlights || !taillights || !indicators) return;
+    const emergencyLights = emergencyLightRef.current;
+    if (!body || !cabin || !wheels || !headlights || !taillights || !indicators || !emergencyLights) return;
     const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
     const now = performance.now() / 1000;
 
@@ -927,6 +950,7 @@ export function Traffic({
       for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
       for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
       for (let n = 0; n < 2; n++) indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
+      for (let n = 0; n < 2; n++) emergencyLights.setMatrixAt(ci * 2 + n, dummy.matrix);
     };
 
     for (let li = 0; li < loops.length; li++) {
@@ -1100,6 +1124,16 @@ export function Traffic({
           dummy.updateMatrix();
           indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
         });
+
+        const emergencyOn = emergencyVehicle(c.kind) && Math.floor(now * 5.5 + ci) % 2 === 0;
+        const roofY = spec.bodyY + spec.bodyS[1] * 3.4 + yLift;
+        [-2.25, 2.25].forEach((side, n) => {
+          const [lx, lz] = local(spec.cabDX, side);
+          dummy.position.set(lx, roofY, lz);
+          dummy.scale.set(emergencyOn ? 1 : 0, emergencyOn ? 1 : 0, emergencyOn ? 1 : 0);
+          dummy.updateMatrix();
+          emergencyLights.setMatrixAt(ci * 2 + n, dummy.matrix);
+        });
       }
     }
     body.instanceMatrix.needsUpdate = true;
@@ -1108,6 +1142,7 @@ export function Traffic({
     headlights.instanceMatrix.needsUpdate = true;
     taillights.instanceMatrix.needsUpdate = true;
     indicators.instanceMatrix.needsUpdate = true;
+    emergencyLights.instanceMatrix.needsUpdate = true;
     if (tailColorDirty && taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
   });
 
@@ -1115,11 +1150,11 @@ export function Traffic({
     <group>
       <instancedMesh ref={bodyRef} args={[undefined, undefined, cars.length]} key={`car-body-${cars.length}`} castShadow>
         <boxGeometry args={[18, 5.5, 8]} />
-        <meshStandardMaterial color="#ffffff" metalness={0.18} roughness={0.42} />
+        <meshStandardMaterial color="#ffffff" metalness={0.18} roughness={0.42} vertexColors />
       </instancedMesh>
       <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
         <boxGeometry args={[9.5, 3.4, 6.7]} />
-        <meshStandardMaterial color="#ffffff" metalness={0.35} roughness={0.2} />
+        <meshStandardMaterial color="#ffffff" metalness={0.35} roughness={0.2} vertexColors />
       </instancedMesh>
       <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
         <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
@@ -1136,6 +1171,10 @@ export function Traffic({
       <instancedMesh ref={indicatorRef} args={[undefined, undefined, cars.length * 2]} key={`car-indicators-${cars.length}`}>
         <boxGeometry args={[0.8, 1, 0.9]} />
         <meshBasicMaterial color="#ff9f1c" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={emergencyLightRef} args={[undefined, undefined, cars.length * 2]} key={`car-emergency-lights-${cars.length}`}>
+        <boxGeometry args={[1.5, 0.9, 1.2]} />
+        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
       </instancedMesh>
     </group>
   );

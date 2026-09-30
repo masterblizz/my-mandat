@@ -242,6 +242,57 @@ export function getTowerStripTexture(): THREE.Texture {
   return tex;
 }
 
+// KLCC is a national landmark rather than another office block. Its night
+// facade has a continuous silver-white architectural glow, with a much denser
+// field of warm/cool occupied floors than the deliberately sparse generic
+// tower strip above. Keeping it separate means Merdeka 118 can retain its
+// blue-glass character.
+let twinTowerNight: THREE.Texture | null = null;
+export function getTwinTowerNightTexture(): THREE.Texture {
+  if (twinTowerNight) return twinTowerNight;
+  const W = 112;
+  const H = 224;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  // A low, cool luminous base makes the stainless-steel facade read from the
+  // whole city, not just as isolated pinprick office windows.
+  ctx.fillStyle = "#5d6d7b";
+  ctx.fillRect(0, 0, W, H);
+  let s = 19881228;
+  const next = () => (s = (s * 1103515245 + 12345) & 0x7fffffff);
+  const cols = 10;
+  const rows = 28;
+  const cw = W / cols;
+  const ch = H / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lit = (next() >>> 8) % 100 < 78;
+      const warm = (next() >>> 10) % 100 < 16;
+      ctx.fillStyle = lit
+        ? warm ? "#ffe7b0" : "#e8f4ff"
+        : "#394857";
+      ctx.fillRect(c * cw + 1.35, r * ch + 1.1, cw - 2.7, ch - 2.2);
+    }
+  }
+  // Strong vertical fins and fine level bands create the distinctive
+  // illuminated Petronas rhythm at the tactical camera distance.
+  ctx.fillStyle = "rgba(241,248,255,0.58)";
+  for (let c = 0; c <= cols; c++) ctx.fillRect(c * cw - 0.8, 0, 1.6, H);
+  ctx.fillStyle = "rgba(213,228,241,0.42)";
+  for (let r = 0; r <= rows; r++) ctx.fillRect(0, r * ch - 0.45, W, 0.9);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(5, 20);
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  twinTowerNight = tex;
+  return tex;
+}
+
 // DAYTIME facade for the KL landmark shafts (klProfile.tsx) — the twin
 // towers were a flat painted metal next to the procedural skyscrapers'
 // gridded curtain-wall. This is the sibling `map` of getTowerStripTexture

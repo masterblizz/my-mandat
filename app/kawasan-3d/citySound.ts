@@ -49,6 +49,7 @@ export class CitySound {
   private lrtGain: GainNode | null = null;
   private enabled = false;
   private hornTimer: number | null = null;
+  private sirenTimer: number | null = null;
   private closeness = 0;
   private trafficLevel = 0;
   private gestureArmed = false;
@@ -61,7 +62,7 @@ export class CitySound {
   }
 
   private start() {
-    if (this.ctx) { void this.ctx.resume(); this.scheduleHorn(); return; }
+    if (this.ctx) { void this.ctx.resume(); this.scheduleHorn(); this.scheduleSiren(); return; }
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
@@ -142,10 +143,12 @@ export class CitySound {
 
     master.gain.setTargetAtTime(1, ctx.currentTime, 0.6);
     this.scheduleHorn();
+    this.scheduleSiren();
   }
 
   private stop() {
     if (this.hornTimer !== null) { window.clearTimeout(this.hornTimer); this.hornTimer = null; }
+    if (this.sirenTimer !== null) { window.clearTimeout(this.sirenTimer); this.sirenTimer = null; }
     const ctx = this.ctx;
     const master = this.master;
     if (!ctx || !master) return;
@@ -163,12 +166,13 @@ export class CitySound {
     const master = this.master;
     if (!ctx || !master) return;
 
-    // Most passenger-car horns are two trumpets sounding together rather
-    // than one clean note. The old single sawtooth oscillator read more like
-    // an alert/UI beep. This pair uses the typical low/high horn interval,
-    // a slightly uneven start and a horn-shaped resonant filter.
+    // Each traffic event is a short double honk ("pon pon"), with two
+    // trumpets sounding together on each pulse. This feels like a real car
+    // signalling through a busy junction, rather than a lone UI-style beep.
     const t = ctx.currentTime;
-    const duration = 0.34 + Math.random() * 0.16;
+    const pulseDuration = 0.19 + Math.random() * 0.055;
+    const secondPulse = t + pulseDuration + 0.12 + Math.random() * 0.045;
+    const end = secondPulse + pulseDuration;
     const detune = (Math.random() - 0.5) * 16;
     const hornBus = ctx.createGain();
     const hornTone = ctx.createBiquadFilter();
@@ -181,9 +185,17 @@ export class CitySound {
     hornBody.frequency.value = 2100;
     hornBody.Q.value = 0.45;
     hornBus.gain.setValueAtTime(0, t);
-    hornBus.gain.linearRampToValueAtTime(0.055, t + 0.018);
-    hornBus.gain.setValueAtTime(0.046, t + duration * 0.72);
-    hornBus.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    // First "pon".
+    hornBus.gain.linearRampToValueAtTime(0.055, t + 0.014);
+    hornBus.gain.setValueAtTime(0.044, t + pulseDuration * 0.68);
+    hornBus.gain.exponentialRampToValueAtTime(0.001, t + pulseDuration);
+    // A small silent gap, followed by the second "pon". The second pulse is
+    // a touch softer, which prevents repeated city ambience from becoming
+    // harsh while leaving the double-hit unmistakable.
+    hornBus.gain.setValueAtTime(0, secondPulse);
+    hornBus.gain.linearRampToValueAtTime(0.049, secondPulse + 0.014);
+    hornBus.gain.setValueAtTime(0.039, secondPulse + pulseDuration * 0.68);
+    hornBus.gain.exponentialRampToValueAtTime(0.001, end);
     hornBus.connect(hornTone).connect(hornBody).connect(master);
 
     // The high trumpet begins a few milliseconds later. That small offset
@@ -198,10 +210,13 @@ export class CitySound {
       osc.frequency.setValueAtTime(frequency, t + start);
       // A tiny settling dip mimics the diaphragm finding its pitch.
       osc.frequency.linearRampToValueAtTime(frequency * 0.992, t + start + 0.07);
+      // A barely higher second hit stops the two pulses merging into one
+      // long tone when heard over the traffic bed.
+      osc.frequency.setValueAtTime(frequency * 1.018, secondPulse + start);
       voice.gain.value = level;
       osc.connect(voice).connect(hornBus);
       osc.start(t + start);
-      osc.stop(t + duration + 0.025);
+      osc.stop(end + 0.03);
     });
   }
 
@@ -211,6 +226,44 @@ export class CitySound {
     this.hornTimer = window.setTimeout(() => {
       if (this.enabled && this.closeness > 0.45 && this.trafficLevel > 0.4) this.honk();
       this.scheduleHorn();
+    }, delay);
+  }
+
+  // A distant emergency vehicle passes only occasionally. The rising/falling
+  // two-note pattern is recognisable as a police/ambulance/fire-engine siren
+  // without overpowering the continuous traffic mix.
+  private siren() {
+    const ctx = this.ctx;
+    const master = this.master;
+    if (!ctx || !master) return;
+    const t = ctx.currentTime;
+    const duration = 1.9;
+    const gain = ctx.createGain();
+    const tone = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1800;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.027, t + 0.08);
+    gain.gain.setValueAtTime(0.027, t + duration - 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    tone.type = "sine";
+    tone.frequency.setValueAtTime(720, t);
+    tone.frequency.linearRampToValueAtTime(970, t + 0.42);
+    tone.frequency.linearRampToValueAtTime(720, t + 0.84);
+    tone.frequency.linearRampToValueAtTime(970, t + 1.26);
+    tone.frequency.linearRampToValueAtTime(720, t + 1.68);
+    tone.connect(filter).connect(gain).connect(master);
+    tone.start(t);
+    tone.stop(t + duration + 0.03);
+  }
+
+  private scheduleSiren() {
+    if (this.sirenTimer !== null) window.clearTimeout(this.sirenTimer);
+    const delay = 22000 + Math.random() * 26000;
+    this.sirenTimer = window.setTimeout(() => {
+      if (this.enabled && this.closeness > 0.45 && this.trafficLevel > 0.5) this.siren();
+      this.scheduleSiren();
     }, delay);
   }
 
