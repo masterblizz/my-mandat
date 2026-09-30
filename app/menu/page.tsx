@@ -7,11 +7,9 @@ import Image from "next/image";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import CreditsModal from "../components/menu/CreditsModal";
 import ContinueRunModal from "../components/menu/ContinueRunModal";
-import Skyline from "../components/layout/Skyline";
 import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
-import { advisors } from "../data/advisors";
 import { newJourney, normalizeJourney, resumeRoute } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot, type SavedGameSlot } from "../store/saveGame";
@@ -125,8 +123,6 @@ export default function MainMenuPage() {
     : getNationalSupport();
   const campaignProgress = Math.round((day / totalDays) * 100);
   const daysLeft = Math.max(0, totalDays - day + 1);
-  const leadAdvisor = advisors[0];
-  const activeAdvisors = advisors.filter((advisor) => advisor.status === "active").length;
 
   const menuItems: MenuItem[] = MENU_ITEMS_CONFIG.map((item) => ({
     ...item,
@@ -308,10 +304,6 @@ export default function MainMenuPage() {
         </div>
         <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgb(var(--bg-rgb) / 0.24) 42%, rgb(var(--bg-rgb) / 0.78) 100%)" }} />
         <div className="mm-particles z-[1]" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1]" style={{ left: 300 }}>
-          <Skyline opacity={0.5} />
-        </div>
-
         <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgb(var(--bg-rgb) / 0.96), rgb(var(--bg-rgb) / 0.88) 72%, rgb(var(--bg-rgb) / 0.62))" }}>
           <div className="mb-3 flex items-center gap-3">
             <Image src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(var(--cyan-rgb) / 0.4))" }} />
@@ -364,7 +356,7 @@ export default function MainMenuPage() {
             })}
           </nav>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2">
             <Link
               href="/profile"
               className="group border px-3 py-2 transition hover:border-cyan/70"
@@ -383,26 +375,6 @@ export default function MainMenuPage() {
               <div className="mt-1 text-[8px] font-bold tracking-[.16em] opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.openProfile")} →</div>
             </Link>
 
-            <Link
-              href="/advisor"
-              className="group border px-3 py-2 transition hover:border-cyan/70"
-              style={{ borderColor: "rgb(var(--cyan-rgb) / 0.20)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.055), rgb(var(--bg-rgb) / 0.62))", boxShadow: "inset 0 0 22px rgb(var(--cyan-rgb) / 0.035)" }}
-            >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-[8px] font-black tracking-[0.22em]" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.aiAdvisor")}</span>
-                <span className="text-[7px] font-bold tracking-[0.13em]" style={{ color: "var(--neon-green)" }}>{activeAdvisors} {t(lang, "menu_page.active")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--cyan-rgb) / .08)" }}>
-                  <Image src="/avatars/dr-azman-advisor.png" alt={leadAdvisor.name} fill sizes="36px" style={{ objectFit: "cover", objectPosition: "center top" }} />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-[11px] font-black tracking-[.08em] text-white">{leadAdvisor.name}</div>
-                  <div className="truncate text-[8px] tracking-[.12em]" style={{ color: "var(--gold)" }}>{leadAdvisor.role}</div>
-                </div>
-              </div>
-              <div className="mt-1 text-[8px] font-bold tracking-[.16em] opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--cyan)" }}>{t(lang, "menu_page.openAdvisor")} →</div>
-            </Link>
           </div>
 
           <div className="mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>

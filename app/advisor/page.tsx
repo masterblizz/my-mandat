@@ -3,6 +3,7 @@
 import { useHasMounted } from "../hooks/useHasMounted";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -20,8 +21,9 @@ const QUICK_PROMPT_KEYS = ["situation", "focusStates", "funds", "finalDays"] as 
 
 export default function AdvisorPage() {
   const mounted = useHasMounted();
+  const router = useRouter();
   const lang = useLang();
-  const { leader, day, totalDays, resources, states, mediaSentiment, settings, getTotalProjectedSeats, getNationalSupport, opponentLog } = useGameStore();
+  const { phase, leader, day, totalDays, resources, states, mediaSentiment, settings, getTotalProjectedSeats, getNationalSupport, opponentLog } = useGameStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,13 +35,21 @@ export default function AdvisorPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (phase !== "playing") return;
     let cancelled = false;
     fetch("/api/advisor")
       .then((res) => res.json())
       .then((data) => { if (!cancelled) setAiAvailable(!!data.available); })
       .catch(() => { if (!cancelled) setAiAvailable(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [phase]);
+
+  // Advisor intelligence is a campaign tool. It is deliberately unavailable
+  // from the main menu: start or resume a run first, then open it through
+  // the War Room's in-game navigation.
+  useEffect(() => {
+    if (mounted && phase !== "playing") router.replace("/menu");
+  }, [mounted, phase, router]);
 
   const isPrn = settings.electionScope === "prn";
   const prnState = isPrn ? states.find((state) => state.id === settings.prnStateId) ?? states[0] : null;
@@ -186,7 +196,7 @@ export default function AdvisorPage() {
   const modeColor = effectiveMode === "ai" ? "var(--neon-green)" : effectiveMode === "offline" ? "var(--warn-orange)" : "var(--cyan)";
   const freeTextDisabled = busy || aiAvailable === false;
 
-  if (!mounted) return <div className="min-h-screen" style={{ background: "var(--bg)" }} />; // saved game restores after hydration
+  if (!mounted || phase !== "playing") return <div className="min-h-screen" style={{ background: "var(--bg)" }} />; // saved game restores after hydration
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 15% 0%, rgb(var(--cyan-rgb)/0.10), transparent 32%), var(--bg)" }}>
       <Header />
