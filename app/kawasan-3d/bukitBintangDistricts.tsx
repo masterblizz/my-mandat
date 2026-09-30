@@ -19,9 +19,9 @@ function landmarkCells(gridSize: number) {
   const mid = Math.round((gridSize - 1) / 2);
   return {
     // Keep these aligned with klProfile.tsx, where the landmark meshes live.
-    twin: [Math.min(gridSize - 1, mid + 3), Math.max(0, mid - 1)] as const,
+    twin: [Math.min(gridSize - 1, mid + 1), mid] as const,
     tower: [Math.max(0, mid - 4), Math.max(0, mid - 3)] as const,
-    retail: [Math.min(gridSize - 1, mid + 1), mid] as const,
+    retail: [Math.max(0, mid - 2), mid] as const,
   };
 }
 

@@ -135,9 +135,9 @@ export function assignZonePositions(
     const mid = Math.round((gridSize - 1) / 2);
     const anchors: Array<[number, number]> = [
       [mid, mid],       // Bukit Bintang retail spine
-      [mid + 3, mid - 1], // KLCC / Jalan Ampang edge
+      [mid + 1, mid], // KLCC — kept clear of the diagonal arterial
       [mid - 1, mid + 3], // Imbi residential/hotel edge
-      [mid + 1, mid],   // Pavilion / Jalan Bukit Bintang
+      [mid - 2, mid],   // Pavilion / Jalan Bukit Bintang
       [mid - 2, mid - 1], // Bukit Nanas civic edge
       [mid + 2, mid + 2], // TRX / Tun Razak approach
       [mid - 4, mid - 3], // Menara KL / Bukit Nanas

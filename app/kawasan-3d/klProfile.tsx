@@ -61,7 +61,10 @@ function merdekaCell(gridSize: number): [number, number] {
 
 function twinCell(gridSize: number): [number, number] {
   const mid = Math.round((gridSize - 1) / 2);
-  return [Math.min(gridSize - 1, mid + 3), Math.max(0, mid - 1)];
+  // This central-east parcel stays clear of Bukit Bintang's diagonal
+  // arterials at both Metro and Dense scales, unlike the former Jalan
+  // Ampang-edge lot which a route crossed directly.
+  return [Math.min(gridSize - 1, mid + 1), mid];
 }
 
 export function klClaims(gridSize: number, enabled = false): string[] {
