@@ -1150,11 +1150,14 @@ export function Traffic({
     <group>
       <instancedMesh ref={bodyRef} args={[undefined, undefined, cars.length]} key={`car-body-${cars.length}`} castShadow>
         <boxGeometry args={[18, 5.5, 8]} />
-        <meshStandardMaterial color="#ffffff" metalness={0.18} roughness={0.42} vertexColors />
+        {/* Keep red/blue/yellow vehicle paint legible in the deliberately
+            shadowy tactical city view. Physical paint was reading nearly
+            black once it passed under tall towers. */}
+        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
         <boxGeometry args={[9.5, 3.4, 6.7]} />
-        <meshStandardMaterial color="#ffffff" metalness={0.35} roughness={0.2} vertexColors />
+        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
         <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />

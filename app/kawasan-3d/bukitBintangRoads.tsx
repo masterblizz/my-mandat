@@ -9,7 +9,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { worldCentre, plotXY } from "./cityData";
+import { PLOT, worldCentre, plotXY } from "./cityData";
 
 type Route = { width: number; points: Array<[number, number]> };
 
@@ -146,10 +146,12 @@ export function bukitBintangRoadClaims(gridSize: number): Set<string> {
       return pts.slice(0, -1).some((a, i) => {
         const b = pts[i + 1], ab = b.clone().sub(a), ap = p.clone().sub(a);
         const t = THREE.MathUtils.clamp(ap.dot(ab) / Math.max(ab.lengthSq(), 1), 0, 1);
-        // A building can fill most of its 240-unit parcel. Clear the whole
-        // footprint rather than only a cell-centre dot, otherwise facades
-        // visibly sit on top of a diagonal road.
-        return p.distanceTo(a.clone().addScaledVector(ab, t)) < route.width * 0.5 + 126;
+        // Clear the entire parcel whenever its square footprint can touch a
+        // diagonal carriageway. The old 126-unit allowance covered building
+        // centres but not edge trees, so a tree could still appear on a
+        // road near a parcel corner. Half the parcel diagonal is the actual
+        // conservative radius for every building and foliage position.
+        return p.distanceTo(a.clone().addScaledVector(ab, t)) < route.width * 0.5 + Math.SQRT2 * PLOT * 0.5;
       });
     });
     if (crossed) claims.add(`${col},${row}`);
