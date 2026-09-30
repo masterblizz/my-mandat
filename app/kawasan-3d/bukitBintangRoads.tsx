@@ -286,7 +286,11 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       const travel = car.progress + clock.getElapsedTime() * car.speed;
       const state = pointOnRoute(ROUTES[car.route], halfSpan, car.direction > 0 ? travel : 1 - travel);
       const heading = state.angle + (car.direction > 0 ? 0 : Math.PI);
-      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * (car.kind === "motorcycle" ? 8 : 14));
+      // Keep every vehicle comfortably inside even the narrowest (44-unit)
+      // Jalan Kia Peng connector. The old 14-unit offset put the outer edge
+      // of buses and lorries onto adjacent pavements at the tactical angle.
+      const laneOffset = car.kind === "motorcycle" ? 6.5 : 9.5;
+      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * laneOffset);
       carRoot.position.set(state.point.x + side.x, 7.1, state.point.y + side.y);
       carRoot.rotation.set(0, -heading, 0);
       carRoot.scale.set(1, 1, 1);

@@ -88,26 +88,28 @@ export function BukitBintangDistricts({ gridSize, night = 0 }: { gridSize: numbe
   const light = night > 0.25;
 
   return <group>
-    {/* KLCC's tower plot is surrounded by a planted civic lawn, a reflecting
-        basin and pale pedestrian paths rather than more anonymous towers. */}
-    <group position={[klccX + 135, TILE_H + 0.8, klccZ + 130]}>
+    {/* Put KLCC Park on the adjoining claimed precinct, not through the twin
+        towers' own footprint. This keeps the planted landscape visually
+        connected to KLCC while preventing trees, water and paving from
+        intersecting the tower bases. */}
+    <group position={[klccX + 240, TILE_H + 0.8, klccZ + 120]}>
       <mesh receiveShadow>
-        <boxGeometry args={[430, 1.2, 405]} />
+        <boxGeometry args={[220, 1.2, 220]} />
         <meshStandardMaterial color="#315e43" roughness={0.96} />
       </mesh>
-      <mesh position={[-38, 1.2, 88]} receiveShadow>
-        <boxGeometry args={[214, 0.85, 36]} />
+      <mesh position={[0, 1.2, 68]} receiveShadow>
+        <boxGeometry args={[160, 0.85, 26]} />
         <meshStandardMaterial color="#d7d1bd" roughness={0.88} />
       </mesh>
-      <mesh position={[89, 2.1, -46]} receiveShadow>
-        <boxGeometry args={[112, 2.1, 78]} />
+      <mesh position={[42, 2.1, -34]} receiveShadow>
+        <boxGeometry args={[76, 2.1, 56]} />
         <meshStandardMaterial color="#28738b" roughness={0.2} metalness={0.24} emissive="#0b3141" emissiveIntensity={light ? 0.55 : 0.08} />
       </mesh>
-      <mesh position={[89, 3.3, -46]}>
-        <boxGeometry args={[96, 0.7, 62]} />
+      <mesh position={[42, 3.3, -34]}>
+        <boxGeometry args={[64, 0.7, 44]} />
         <meshBasicMaterial color="#67cde0" transparent opacity={light ? 0.58 : 0.22} toneMapped={false} />
       </mesh>
-      <ParkTrees x={-72} z={-72} count={18} radius={155} />
+      <ParkTrees x={-24} z={8} count={12} radius={58} />
     </group>
 
     {/* Bukit Nanas: an unmistakable low, forested hill below Menara KL. */}
