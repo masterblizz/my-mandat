@@ -13,6 +13,7 @@
 import { useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   roadsV, roadsH, worldCentre, PLOT, ROAD_GAP, type CellPlacement, type ZoneKind,
 } from "./cityData";
@@ -359,7 +360,104 @@ function cycCount(kind: ZoneKind, coreness: number, gridSize: number): number {
   return n;
 }
 
-type CycRider = { cx: number; cz: number; s: number; speed: number; phase: number; lean: number; spin: number; color: THREE.Color };
+// ── bicycle frame ──────────────────────────────────────────────────
+// Points in bike-local (forward, height) units, height measured from the
+// tile top like bodyPosition() below. Wheels sit at ±2.6 with a 1.3
+// radius, so hubs are at height 1.5. The rider's hip / grip / pedal
+// positions come from the same points, so the body stays on the bike.
+const CYC_HUB_R: [number, number] = [-2.6, 1.5];
+const CYC_HUB_F: [number, number] = [2.6, 1.5];
+const CYC_BB: [number, number] = [-0.2, 1.35];        // bottom bracket (pedal axle)
+const CYC_SEAT_TOP: [number, number] = [-0.75, 3.35]; // seat-tube top
+const CYC_HEAD_TOP: [number, number] = [1.85, 3.5];
+const CYC_HEAD_BOT: [number, number] = [2.0, 2.85];
+const CYC_SADDLE: [number, number] = [-0.85, 3.75];
+const CYC_BAR: [number, number] = [1.75, 3.95];        // handlebar centre
+const CYC_CRANK = 0.7;
+
+function tube(a: [number, number, number], b: [number, number, number], r: number) {
+  const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
+  const dir = vb.clone().sub(va);
+  const g = new THREE.CylinderGeometry(r, r, dir.length(), 6, 1);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()));
+  g.translate((va.x + vb.x) / 2, (va.y + vb.y) / 2, (va.z + vb.z) / 2);
+  return g;
+}
+
+// One merged diamond frame + fork + saddle + handlebar, origin at hub
+// height so the lean pivot matches the wheels'.
+function useBicycleFrameGeometry() {
+  const geometry = useMemo(() => {
+    const at = (p: [number, number], z = 0): [number, number, number] => [p[0], p[1] - 1.5, z];
+    const r = 0.13;
+    const parts: THREE.BufferGeometry[] = [];
+    for (const z of [-0.22, 0.22]) {
+      parts.push(tube(at(CYC_BB, z), at(CYC_HUB_R, z), r * 0.8));            // chain stays
+      parts.push(tube(at(CYC_SEAT_TOP, z * 0.5), at(CYC_HUB_R, z), r * 0.8)); // seat stays
+      parts.push(tube(at(CYC_HEAD_BOT, z * 0.5), at(CYC_HUB_F, z), r * 0.9)); // fork blades
+    }
+    parts.push(tube(at(CYC_BB), at(CYC_SEAT_TOP), r));              // seat tube
+    parts.push(tube(at(CYC_SEAT_TOP), at(CYC_HEAD_TOP), r));        // top tube
+    parts.push(tube(at(CYC_BB), at(CYC_HEAD_BOT), r * 1.15));       // down tube
+    parts.push(tube(at(CYC_HEAD_BOT), at(CYC_HEAD_TOP), r * 1.3));  // head tube
+    parts.push(tube(at(CYC_SEAT_TOP), at(CYC_SADDLE), r * 0.8));    // seat post
+    parts.push(tube(at(CYC_HEAD_TOP), at(CYC_BAR), r * 0.9));       // stem
+    parts.push(tube(at(CYC_BAR, -0.9), at(CYC_BAR, 0.9), r * 0.9)); // handlebar
+    const saddle = new THREE.BoxGeometry(1.2, 0.25, 0.55);
+    saddle.translate(CYC_SADDLE[0] + 0.05, CYC_SADDLE[1] - 1.5 + 0.12, 0);
+    parts.push(saddle);
+    const ring = new THREE.CylinderGeometry(0.45, 0.45, 0.12, 10);
+    ring.rotateX(Math.PI / 2);
+    ring.translate(CYC_BB[0], CYC_BB[1] - 1.5, 0.3);
+    parts.push(ring); // chainring
+    const flat = parts.map((g) => {
+      const f = g.index ? g.toNonIndexed() : g;
+      f.deleteAttribute("uv");
+      return f;
+    });
+    return mergeGeometries(flat, false) ?? new THREE.BoxGeometry(5.4, 0.5, 0.5);
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return geometry;
+}
+
+// Open bicycle wheel: a tyre ring (axle along local Z, like
+// useWheelGeometry) plus a hub and six thin spokes, so the frame shows
+// through instead of being hidden behind a solid disc.
+function useCycleWheelGeometry() {
+  const geometry = useMemo(() => {
+    const tyre = new THREE.TorusGeometry(1.15, 0.16, 6, 18);
+    const hub = new THREE.CylinderGeometry(0.16, 0.16, 0.3, 8);
+    hub.rotateX(Math.PI / 2);
+    const parts: THREE.BufferGeometry[] = [tyre, hub];
+    for (let k = 0; k < 3; k++) {
+      const spoke = new THREE.BoxGeometry(2.2, 0.05, 0.05);
+      spoke.rotateZ((k * Math.PI) / 3);
+      parts.push(spoke);
+    }
+    const flat = parts.map((g) => {
+      const f = g.index ? g.toNonIndexed() : g;
+      f.deleteAttribute("uv");
+      return f;
+    });
+    return mergeGeometries(flat, false) ?? tyre;
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return geometry;
+}
+
+// Two-bone leg IK in the bike's side plane; the knee bends forward.
+function kneeFor(hip: [number, number], foot: [number, number], seg: number): [number, number] {
+  const dx = foot[0] - hip[0], dy = foot[1] - hip[1];
+  const n = Math.hypot(dx, dy) || 1;
+  const L = Math.min(n, seg * 2 - 0.01);
+  const h = Math.sqrt(Math.max(0, seg * seg - (L / 2) ** 2));
+  return [hip[0] + dx / 2 - (dy / n) * h, hip[1] + dy / 2 + (dx / n) * h];
+}
+
+const CYC_FRAME_COLORS = ["#c0392b", "#1f6fb2", "#2e8b57", "#d4a017", "#e5e7eb", "#2b2f36"];
+
+type CycRider = { cx: number; cz: number; s: number; speed: number; phase: number; lean: number; spin: number; color: THREE.Color; frame: THREE.Color };
 
 export function Cyclists({
   placed, gridSize, trafficLevel = 0.5, claimed, avoidCentre,
@@ -398,6 +496,7 @@ export function Cyclists({
           phase: rnd() * Math.PI * 2,
           lean: 0, spin: 0,
           color: new THREE.Color(CYC_COLORS[Math.floor(rnd() * CYC_COLORS.length)]),
+          frame: new THREE.Color(CYC_FRAME_COLORS[Math.floor(rnd() * CYC_FRAME_COLORS.length)]),
         });
       }
     }
@@ -410,8 +509,10 @@ export function Cyclists({
   const riderRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
   const legRef = useRef<THREE.InstancedMesh>(null);
+  const armRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const wheelGeometry = useWheelGeometry(1.3, 0.35);
+  const wheelGeometry = useCycleWheelGeometry();
+  const frameGeometry = useBicycleFrameGeometry();
   const limbStart = useMemo(() => new THREE.Vector3(), []);
   const limbEnd = useMemo(() => new THREE.Vector3(), []);
   const limbDirection = useMemo(() => new THREE.Vector3(), []);
@@ -419,9 +520,11 @@ export function Cyclists({
 
   useLayoutEffect(() => {
     const rider = riderRef.current;
-    if (!rider) return;
-    riders.forEach((p, i) => rider.setColorAt(i, p.color));
+    const frame = frameRef.current;
+    if (!rider || !frame) return;
+    riders.forEach((p, i) => { rider.setColorAt(i, p.color); frame.setColorAt(i, p.frame); });
     if (rider.instanceColor) rider.instanceColor.needsUpdate = true;
+    if (frame.instanceColor) frame.instanceColor.needsUpdate = true;
   }, [riders]);
 
   useFrame((_, dt) => {
@@ -431,7 +534,8 @@ export function Cyclists({
     const rider = riderRef.current;
     const head = headRef.current;
     const legs = legRef.current;
-    if (!wheels || !frame || !spokes || !rider || !head || !legs) return;
+    const arms = armRef.current;
+    if (!wheels || !frame || !spokes || !rider || !head || !legs || !arms) return;
     const step = Math.min(dt, 0.05);
     const lv = Math.max(0, Math.min(1, levelRef.current));
     const active = Math.max(1, Math.round(riders.length * (0.4 + 0.6 * lv)));
@@ -450,6 +554,7 @@ export function Cyclists({
         rider.setMatrixAt(i, dummy.matrix);
         head.setMatrixAt(i, dummy.matrix);
         for (let n = 0; n < 4; n++) legs.setMatrixAt(i * 4 + n, dummy.matrix);
+        for (let n = 0; n < 2; n++) arms.setMatrixAt(i * 2 + n, dummy.matrix);
         continue;
       }
       const p = riders[i];
@@ -483,35 +588,45 @@ export function Cyclists({
         spokes.setMatrixAt(i * 2 + n, dummy.matrix);
       });
 
-      dummy.position.set(...bodyPosition(0, 2.2));
+      dummy.position.set(...bodyPosition(0, 1.5));
       dummy.rotation.set(p.lean, -heading, 0, "YXZ");
+      dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       frame.setMatrixAt(i, dummy.matrix);
 
-      dummy.position.set(...bodyPosition(0.25, 4.4 + bob));
-      dummy.rotation.set(p.lean, -heading, -0.22, "YXZ");
-      dummy.updateMatrix();
-      rider.setMatrixAt(i, dummy.matrix);
+      // Torso / limb as a unit box stretched between two body-space points.
+      const segment = (mesh: THREE.InstancedMesh, idx: number, a: readonly [number, number, number], b: readonly [number, number, number], thick: number, depth = thick) => {
+        limbStart.set(...a);
+        limbEnd.set(...b);
+        limbDirection.subVectors(limbEnd, limbStart);
+        dummy.position.copy(limbStart).add(limbEnd).multiplyScalar(0.5);
+        dummy.scale.set(thick, limbDirection.length(), depth);
+        dummy.quaternion.setFromUnitVectors(up, limbDirection.normalize());
+        dummy.updateMatrix();
+        mesh.setMatrixAt(idx, dummy.matrix);
+      };
 
-      dummy.position.set(...bodyPosition(0.8, 6.6 + bob));
+      // Seated on the saddle, leaning forward to the bars.
+      const hipF = CYC_SADDLE[0] + 0.05, hipH = CYC_SADDLE[1] + 0.35 + bob;
+      const shF = hipF + 1.3, shH = hipH + 1.6;
+      segment(rider, i, bodyPosition(hipF, hipH), bodyPosition(shF, shH), 1.35, 1.0);
+      dummy.rotation.set(p.lean, -heading, 0, "YXZ");
+      dummy.position.set(...bodyPosition(shF + 0.35, shH + 0.75));
+      dummy.scale.set(0.78, 0.78, 0.78);
       dummy.updateMatrix();
       head.setMatrixAt(i, dummy.matrix);
       for (let side = 0; side < 2; side++) {
+        const lateral = side === 0 ? -0.6 : 0.6;
+        // arm: shoulder -> grip on the handlebar
+        segment(arms, i * 2 + side, bodyPosition(shF, shH - 0.2, lateral), bodyPosition(CYC_BAR[0], CYC_BAR[1], lateral * 1.25), 0.36);
+        // leg: hip -> knee -> pedal; pedals sit 180 degrees apart on the crank
         const phase = p.phase + side * Math.PI;
-        const lateral = side === 0 ? -0.65 : 0.65;
-        const hip = bodyPosition(-0.3, 3.5 + bob, lateral);
-        const knee = bodyPosition(0.75 + Math.cos(phase) * 0.4, 2.75 + Math.sin(phase) * 0.4, lateral);
-        const foot = bodyPosition(Math.cos(phase) * 0.7, 1.55 + Math.sin(phase) * 0.7, lateral);
-        for (let part = 0; part < 2; part++) {
-          limbStart.set(...(part === 0 ? hip : knee));
-          limbEnd.set(...(part === 0 ? knee : foot));
-          limbDirection.subVectors(limbEnd, limbStart);
-          dummy.position.copy(limbStart).add(limbEnd).multiplyScalar(0.5);
-          dummy.scale.set(0.42, limbDirection.length(), 0.42);
-          dummy.quaternion.setFromUnitVectors(up, limbDirection.normalize());
-          dummy.updateMatrix();
-          legs.setMatrixAt(i * 4 + side * 2 + part, dummy.matrix);
-        }
+        const foot: [number, number] = [CYC_BB[0] + Math.cos(phase) * CYC_CRANK, CYC_BB[1] + Math.sin(phase) * CYC_CRANK];
+        const hip: [number, number] = [hipF, hipH - 0.15];
+        const knee = kneeFor(hip, foot, 1.55);
+        const legSide = lateral * 0.75;
+        segment(legs, i * 4 + side * 2, bodyPosition(hip[0], hip[1], legSide), bodyPosition(knee[0], knee[1], legSide), 0.42);
+        segment(legs, i * 4 + side * 2 + 1, bodyPosition(knee[0], knee[1], legSide), bodyPosition(foot[0], foot[1], legSide), 0.38);
       }
     }
     wheels.instanceMatrix.needsUpdate = true;
@@ -520,6 +635,7 @@ export function Cyclists({
     rider.instanceMatrix.needsUpdate = true;
     head.instanceMatrix.needsUpdate = true;
     legs.instanceMatrix.needsUpdate = true;
+    arms.instanceMatrix.needsUpdate = true;
   });
 
   if (!riders.length) return null;
@@ -528,16 +644,15 @@ export function Cyclists({
       <instancedMesh ref={wheelRef} geometry={wheelGeometry} args={[undefined, undefined, riders.length * 2]} key={`cyc-wheel-${riders.length}`} castShadow>
         <meshStandardMaterial color="#1a1d22" roughness={0.8} />
       </instancedMesh>
-      <instancedMesh ref={frameRef} args={[undefined, undefined, riders.length]} key={`cyc-frame-${riders.length}`} castShadow>
-        <boxGeometry args={[5.4, 0.5, 0.5]} />
-        <meshStandardMaterial color="#8a8f98" roughness={0.5} metalness={0.4} />
+      <instancedMesh ref={frameRef} geometry={frameGeometry} args={[undefined, undefined, riders.length]} key={`cyc-frame-${riders.length}`} castShadow frustumCulled={false}>
+        <meshStandardMaterial color="#ffffff" roughness={0.45} metalness={0.35} />
       </instancedMesh>
       <instancedMesh ref={spokeRef} args={[undefined, undefined, riders.length * 2]} key={`cyc-spoke-${riders.length}`} frustumCulled={false}>
-        <boxGeometry args={[2, 0.12, 0.39]} />
+        <boxGeometry args={[2.2, 0.07, 0.07]} />
         <meshStandardMaterial color="#c3cbd2" metalness={0.5} roughness={0.4} />
       </instancedMesh>
-      <instancedMesh ref={riderRef} args={[undefined, undefined, riders.length]} key={`cyc-rider-${riders.length}`} castShadow>
-        <boxGeometry args={[1.6, 3.4, 1.3]} />
+      <instancedMesh ref={riderRef} args={[undefined, undefined, riders.length]} key={`cyc-rider-${riders.length}`} castShadow frustumCulled={false}>
+        <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#ffffff" roughness={0.85} />
       </instancedMesh>
       <instancedMesh ref={headRef} args={[undefined, undefined, riders.length]} key={`cyc-head-${riders.length}`} castShadow>
@@ -547,6 +662,10 @@ export function Cyclists({
       <instancedMesh ref={legRef} args={[undefined, undefined, riders.length * 4]} key={`cyc-legs-${riders.length}`} castShadow frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#344052" roughness={0.85} />
+      </instancedMesh>
+      <instancedMesh ref={armRef} args={[undefined, undefined, riders.length * 2]} key={`cyc-arms-${riders.length}`} castShadow frustumCulled={false}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#caa987" roughness={0.9} />
       </instancedMesh>
     </group>
   );
