@@ -99,7 +99,11 @@ export function Pedestrians({
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
-  const R = PLOT / 2 + 5;   // sidewalk perimeter line, just outside the plot
+  // Walking line on the plot's paved forecourt, just inside the 7-unit kerb
+  // strip (PLOT/2-7 .. PLOT/2). It used to sit at PLOT/2+5 — out on the
+  // asphalt, where motorcycle lanes (~PLOT/2+6) and car flanks (~PLOT/2+8)
+  // passed within a body-width of walkers. Buildings end by ~PLOT/2-14.
+  const R = PLOT / 2 - 9;
   const segLen = 2 * R;
   const perim = 8 * R;
 
