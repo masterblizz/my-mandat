@@ -55,14 +55,13 @@ const SEA_FRAG = /* glsl */ `
 
 function Sea({ tod, span }: { tod: Tod; span: number }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
-  const env = TOD_ENV[tod];
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
       uDeep: { value: new THREE.Color(tod === "night" ? "#06213a" : "#07516c") },
       uSky: { value: new THREE.Color(tod === "night" ? "#17476b" : "#3b9bb3") },
     }),
-    [env.skyBottom],
+    [tod],
   );
   useFrame((_, dt) => { if (matRef.current) (matRef.current.uniforms.uTime.value as number) += dt; });
   return (

@@ -213,7 +213,6 @@ export function Pedestrians({
       let x: number;
       let z: number;
       let heading: number;
-      let travel: number;
       const moving = true;
       p.s = (p.s + p.speed * paceMul * step) % perim;
       const seg = Math.floor(p.s / segLen);
@@ -222,7 +221,7 @@ export function Pedestrians({
       else if (seg === 1) { x = p.cx + R; z = p.cz - R + t * segLen; heading = Math.PI / 2; }
       else if (seg === 2) { x = p.cx + R - t * segLen; z = p.cz + R; heading = Math.PI; }
       else { x = p.cx - R; z = p.cz + R - t * segLen; heading = -Math.PI / 2; }
-      travel = p.s;
+      const travel = p.s;
 
       // gait: legs/arms swing in cross-body coordination (right arm with
       // left leg), body double-bounces once per full stride — frozen to a
