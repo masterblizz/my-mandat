@@ -562,7 +562,7 @@ function Grid({
       {!irregularRoads && density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
       {!irregularRoads && density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
       {!irregularRoads && density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
-      {!irregularRoads && <ParkedVehicles placed={placed} gridSize={gridSize} claimed={claimed} />}
+      {!irregularRoads && <ParkedVehicles placed={placed} gridSize={gridSize} density={density} traits={traits} claimed={claimed} />}
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} roadClear={roadTreeClear}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
       {placed.map(({ zone, col, row, cx, cz }) => (

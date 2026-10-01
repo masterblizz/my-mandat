@@ -10,7 +10,7 @@
 
 import { useMemo, useRef, useLayoutEffect } from "react";
 import * as THREE from "three";
-import { PLOT, type CellPlacement, type ZoneKind } from "./cityData";
+import { PLOT, slotPos, zoneBuildings, type CellPlacement, type SeatTraits, type ZoneKind } from "./cityData";
 
 const TILE_H = 4;
 const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#ec6c20", "#a855f7"];
@@ -34,10 +34,12 @@ function parkWorthy(kind: ZoneKind): boolean {
 type Spot = { x: number; z: number; heading: number; isCar: boolean; color: THREE.Color };
 
 export function ParkedVehicles({
-  placed, gridSize, claimed,
+  placed, gridSize, density, traits, claimed,
 }: {
   placed: CellPlacement[];
   gridSize: number;
+  density: number;
+  traits: SeatTraits;
   claimed?: Set<string>;
 }) {
   const spots = useMemo<Spot[]>(() => {
@@ -53,9 +55,21 @@ export function ParkedVehicles({
       const busy = zone.kind === "urban" || zone.kind === "commercial" || zone.kind === "market";
       const n = busy ? Math.round(1 + coreness * 3) : rnd() < 0.5 ? 1 : 0;
       if (!n) continue;
-      // one edge of the tile's own margin is this zone's kerb-parking bay
-      const edge = Math.floor(rnd() * 4); // 0=+x,1=-x,2=+z,3=-z
-      const along = (t: number) => {
+      // Build a conservative footprint list from the exact same layout
+      // function used by <Buildings>. Parking candidates are rejected if
+      // their full car/motorcycle rectangle touches any of these boxes.
+      // This keeps a dense tile's forecourt lively without ever placing a
+      // vehicle inside a shop, tower or factory.
+      const footprints = zoneBuildings(zone, density, traits, coreness).map((spec) => {
+        const slot = slotPos(spec.slot);
+        return {
+          minX: cx - PLOT / 2 + slot.x,
+          maxX: cx - PLOT / 2 + slot.x + spec.w,
+          minZ: cz - PLOT / 2 + slot.y,
+          maxZ: cz - PLOT / 2 + slot.y + spec.d,
+        };
+      });
+      const along = (edge: number, t: number) => {
         if (edge === 0) return { x: cx + MARGIN, z: cz + t * (PLOT / 2 - 14), heading: Math.PI / 2 };
         if (edge === 1) return { x: cx - MARGIN, z: cz + t * (PLOT / 2 - 14), heading: -Math.PI / 2 };
         if (edge === 2) return { x: cx + t * (PLOT / 2 - 14), z: cz + MARGIN, heading: Math.PI };
@@ -63,17 +77,32 @@ export function ParkedVehicles({
       };
       for (let i = 0; i < n; i++) {
         const t = n === 1 ? (rnd() - 0.5) * 1.2 : -0.8 + (1.6 * i) / (n - 1);
-        const { x, z, heading } = along(t);
         const isCar = rnd() < 0.62;
+        const startEdge = Math.floor(rnd() * 4);
+        let spot: { x: number; z: number; heading: number } | null = null;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const edge = (startEdge + attempt) % 4;
+          const candidate = along(edge, t);
+          // Long axis follows the edge. Leave an extra two units so a car
+          // cannot visually kiss a building wall at shallow camera angles.
+          const halfX = edge < 2 ? (isCar ? 6 : 2.5) : (isCar ? 11 : 4.5);
+          const halfZ = edge < 2 ? (isCar ? 11 : 4.5) : (isCar ? 6 : 2.5);
+          const blocked = footprints.some((f) =>
+            candidate.x + halfX + 2 > f.minX && candidate.x - halfX - 2 < f.maxX &&
+            candidate.z + halfZ + 2 > f.minZ && candidate.z - halfZ - 2 < f.maxZ,
+          );
+          if (!blocked) { spot = candidate; break; }
+        }
+        if (!spot) continue;
         const palette = isCar ? CAR_COLORS : MC_COLORS;
         out.push({
-          x, z, heading: heading + (rnd() - 0.5) * 0.05, isCar,
+          x: spot.x, z: spot.z, heading: spot.heading + (rnd() - 0.5) * 0.05, isCar,
           color: new THREE.Color(palette[Math.floor(rnd() * palette.length)]),
         });
       }
     }
     return out;
-  }, [placed, gridSize, claimed]);
+  }, [placed, gridSize, density, traits, claimed]);
 
   const carSpots = useMemo(() => spots.filter((s) => s.isCar), [spots]);
   const mcSpots = useMemo(() => spots.filter((s) => !s.isCar), [spots]);
