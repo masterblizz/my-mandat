@@ -5,7 +5,7 @@
 // rig, and an optional dev perf probe. Shared by the /kawasan-3d sandbox
 // harness (Scene.tsx) and the drop-in City3DMapGL.
 
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { CameraRig, type CamState } from "./CameraRig";
@@ -418,6 +418,13 @@ function Buildings({
           return <WaterPatches key="pond-water" items={items} groundY={GROUND_Y} tod={tod} />;
         }
         const color = BUILDING_COLOR[type];
+        // High-rises deliberately use our procedural office kit even when a
+        // generic GLB is available. It gives the whole skyline one coherent
+        // Malaysian curtain-wall language—podium, side core, floor bands and
+        // rooftop plant—while deterministic variants keep every tower unique.
+        if (type === "tower" || type === "skyscraper" || type === "hotel") {
+          return <ProceduralBuildings key={`${type}-office-kit`} type={type} items={items} groundY={GROUND_Y} color={color} winLit={winLit} />;
+        }
         const variantUrls = available.get(type);
         if (!variantUrls?.length) {
           if (type === "field") {
@@ -474,85 +481,8 @@ function Buildings({
         items={groups.filter(([type]) => type === "house" || type === "terrace" || type === "kampung").flatMap(([, items]) => items)}
         groundY={GROUND_Y}
       />
-      <TropicalTowerDetails
-        items={groups.filter(([type]) => type === "tower" || type === "skyscraper").flatMap(([, items]) => items)}
-        groundY={GROUND_Y}
-        winLit={winLit}
-      />
     </group>
   );
-}
-
-type DetailPart = { x: number; y: number; z: number; sx: number; sy: number; sz: number };
-
-function DetailInstances({ parts, color, emissive, emissiveIntensity = 0 }: {
-  parts: DetailPart[]; color: string; emissive?: string; emissiveIntensity?: number;
-}) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    parts.forEach((part, index) => {
-      dummy.position.set(part.x, part.y, part.z);
-      dummy.scale.set(part.sx, part.sy, part.sz);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(index, dummy.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [parts, dummy]);
-  if (!parts.length) return null;
-  return <instancedMesh ref={ref} args={[undefined, undefined, parts.length]} castShadow receiveShadow>
-    <boxGeometry args={[1, 1, 1]} />
-    <meshStandardMaterial color={color} roughness={0.36} metalness={0.48} emissive={emissive ?? "#000000"} emissiveIntensity={emissiveIntensity} />
-  </instancedMesh>;
-}
-
-// Malaysian high-rises commonly read as condo/office stacks rather than a
-// single opaque shaft: repeated balcony bands, vertical sun-shading fins and
-// a compact rooftop plant/crown are practical tropical details as well as a
-// distinctive skyline silhouette. All pieces are instanced across the city.
-function TropicalTowerDetails({ items, groundY, winLit }: { items: BuildingInstance[]; groundY: number; winLit: number }) {
-  const { bands, fins, crowns, masts } = useMemo(() => {
-    const bands: DetailPart[] = [];
-    const fins: DetailPart[] = [];
-    const crowns: DetailPart[] = [];
-    const masts: DetailPart[] = [];
-    items.forEach((item, index) => {
-      let hash = 2166136261;
-      for (let i = 0; i < item.key.length; i++) hash = Math.imul(hash ^ item.key.charCodeAt(i), 16777619);
-      const tall = item.h >= 110;
-      const levels = tall ? 4 + (hash % 2) : 3;
-      for (let level = 1; level <= levels; level++) {
-        const ratio = 0.16 + level / (levels + 1) * 0.72;
-        bands.push({ x: item.x, y: groundY + item.h * ratio, z: item.z, sx: item.w * 1.1, sy: 1.6, sz: item.d * 1.1 });
-      }
-      // Double vertical fins on alternating faces give towers a shaded,
-      // humid-tropical facade instead of a repeated glass cuboid.
-      const finH = item.h * 0.72;
-      const finY = groundY + item.h * 0.52;
-      const finOffsetX = item.w * 0.43;
-      const finOffsetZ = item.d * 0.43;
-      fins.push(
-        { x: item.x - finOffsetX, y: finY, z: item.z, sx: 2.1, sy: finH, sz: item.d * 0.76 },
-        { x: item.x + finOffsetX, y: finY, z: item.z, sx: 2.1, sy: finH, sz: item.d * 0.76 },
-      );
-      if (tall) fins.push(
-        { x: item.x, y: finY, z: item.z - finOffsetZ, sx: item.w * 0.66, sy: finH, sz: 2.1 },
-        { x: item.x, y: finY, z: item.z + finOffsetZ, sx: item.w * 0.66, sy: finH, sz: 2.1 },
-      );
-      crowns.push({ x: item.x, y: groundY + item.h + 3.5, z: item.z, sx: item.w * 0.7, sy: 7, sz: item.d * 0.7 });
-      if (tall && index % 3 === 0) masts.push({ x: item.x, y: groundY + item.h + 18, z: item.z, sx: 2.4, sy: 30, sz: 2.4 });
-    });
-    return { bands, fins, crowns, masts };
-  }, [items, groundY]);
-  return <group>
-    <DetailInstances parts={bands} color="#bed4dc" emissive="#1d8faf" emissiveIntensity={winLit * 0.16} />
-    <DetailInstances parts={fins} color="#18384c" emissive="#0e7490" emissiveIntensity={winLit * 0.1} />
-    <DetailInstances parts={crowns} color="#d7e8e8" emissive="#38bdf8" emissiveIntensity={winLit * 0.22} />
-    <DetailInstances parts={masts} color="#a8c4cf" emissive="#67e8f9" emissiveIntensity={winLit * 0.32} />
-  </group>;
 }
 
 function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {

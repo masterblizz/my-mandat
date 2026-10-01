@@ -59,6 +59,10 @@ import { ArchitecturalDetails } from "./buildingDetails";
 
 const GABLE_TYPES = new Set<BType>(["house", "terrace", "kampung"]);
 const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse", "hotel"]);
+const HIGH_RISE_OFFICE_TYPES = new Set<BType>(["tower", "skyscraper", "hotel"]);
+// Bump whenever the office profiles change. Fast Refresh otherwise retains
+// an old module-level geometry cache and makes a live city look unchanged.
+const OFFICE_TEMPLATE_REV = "office-kit-v4";
 // Everything else that used to render as a bare InstancedBox now gets a
 // composed silhouette too: a flat-roof wall + a parapet rim + a small
 // rooftop plant unit. `masjid` gets a dome instead. `skyscraper` /
@@ -95,9 +99,11 @@ export const PROCEDURAL_TYPES = new Set<BType>([
 const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
   // Tall-building tones are linked to their geometry variant below so
   // variety costs one bucket per silhouette, not a variant × colour grid.
-  tower: ["#8ea5ad", "#9cabb0", "#849aa5", "#91a2a7", "#a2acad"],
-  skyscraper: ["#728b97", "#8297a1", "#6d8792", "#8c9ca2", "#788e96"],
-  hotel: ["#b08b70", "#99867b", "#87979f", "#a69379", "#81929a"],
+  // Three Malaysian office families: blue-glass boutique, pale ribbed
+  // commercial block, and blue-silver corporate slab.
+  tower: ["#3d6377", "#aab7b8", "#507786"],
+  skyscraper: ["#294f64", "#a2afb1", "#3b6575"],
+  hotel: ["#466d7d", "#adbabc", "#557d89"],
   kampung: ["#b89a7c", "#c9ac8c", "#a9c2a0", "#b6c6d2", "#d2b6a4"],
   house: ["#e0d3b6", "#d8c4a8", "#c9d4c0", "#d2c8d8", "#e0c8b8"],
   terrace: ["#c9b79c", "#bfa98c", "#a9b8a0", "#b2b9c8", "#c9b0a0"],
@@ -114,7 +120,7 @@ function pickColorIndex(key: string, count: number): number {
 // High-rises carry five skyline profiles; gables and low-rise setbacks use
 // three, while flat-roof / dome families carry two.
 export function variantCount(type: BType): number {
-  if (type === "tower" || type === "skyscraper" || type === "hotel") return 5;
+  if (HIGH_RISE_OFFICE_TYPES.has(type)) return 3;
   return GABLE_TYPES.has(type) || SETBACK_TYPES.has(type) ? 3 : 2;
 }
 export const PROCEDURAL_VARIANT_COUNT = 5; // kept for callers that want the max
@@ -285,6 +291,46 @@ function buildOctagonalTowerTemplate(): THREE.BufferGeometry {
   return merged;
 }
 
+// Variation 2: older KL commercial office. A pale, strongly ribbed shaft,
+// deep window bays and a small street-level podium echo the compact offices
+// around Bukit Bintang without copying any one real building.
+function buildRibbedOfficeTemplate(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const add = (w: number, h: number, d: number, y: number, x = 0, z = 0) => {
+    const box = new THREE.BoxGeometry(w, h, d);
+    box.translate(x, y, z);
+    parts.push(box);
+  };
+  add(1.04, 0.13, 1.04, 0.065);                 // street podium
+  add(0.78, 0.8, 0.76, 0.53, 0, -0.025);        // recessed shaft
+  add(0.84, 0.055, 0.82, 0.952, 0, -0.025);     // roof cap
+  // Proud vertical ribs provide the unmistakable older-office rhythm.
+  for (let i = -4; i <= 4; i++) {
+    const x = i * 0.086;
+    add(0.025, 0.78, 0.05, 0.53, x, -0.425);
+    add(0.025, 0.78, 0.05, 0.53, x, 0.375);
+  }
+  return mergeGeometries(parts.map(stripToPositionNormalUv), false) ?? parts[0];
+}
+
+// Variation 3: broad blue-silver corporate slab with a taller offset wing
+// and a mechanical crown. The asymmetric mass gives a different skyline
+// profile from the boutique setback and ribbed office families.
+function buildCorporateSlabTemplate(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const add = (w: number, h: number, d: number, y: number, x = 0, z = 0) => {
+    const box = new THREE.BoxGeometry(w, h, d);
+    box.translate(x, y, z);
+    parts.push(box);
+  };
+  add(1.06, 0.14, 1.02, 0.07);                  // forecourt podium
+  add(0.82, 0.66, 0.7, 0.47, -0.07, 0);         // main glass slab
+  add(0.49, 0.21, 0.64, 0.905, 0.115, -0.015);  // offset upper wing
+  add(0.58, 0.045, 0.7, 0.998, 0.115, -0.015);  // plant/crown cap
+  for (const y of [0.31, 0.5, 0.69, 0.86]) add(0.86, 0.015, 0.74, y, -0.07, 0);
+  return mergeGeometries(parts.map(stripToPositionNormalUv), false) ?? parts[0];
+}
+
 // A sawtooth (north-light) roof strip sitting on y=wallFrac — the
 // design canvas's BENTUK cue for the factory / warehouse. One extruded
 // polygon: `teeth` asymmetric ridges across local X (vertical riser
@@ -373,7 +419,9 @@ function withMast(geo: THREE.BufferGeometry): THREE.BufferGeometry {
 // re-mounts Buildings but reuses the same BType set) doesn't rebuild.
 const templateCache = new Map<string, THREE.BufferGeometry>();
 function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
-  const key = `${type}:${variant}`;
+  const key = HIGH_RISE_OFFICE_TYPES.has(type)
+    ? `${type}:${variant}:${OFFICE_TEMPLATE_REV}`
+    : `${type}:${variant}`;
   const cached = templateCache.get(key);
   if (cached) return cached;
 
@@ -388,22 +436,25 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     geo = buildBoxCapTemplate(variant, type === "factory" || type === "warehouse");
     if (type === "antenna" || type === "fire") geo = withMast(geo);
   } else {
-    // tower/skyscraper: pronounced setback + horizontal floor banding;
+    // tower/skyscraper: three Malaysian office families; shophouse keeps a
+    // subtle setback + five-foot-way awning.
     // shophouse: barely recessed upper floor (real low-rise proportions)
     // + a five-foot-way awning along its front.
     const isShop = type === "shophouse";
-    if (!isShop && variant === 3) {
-      geo = buildTerracedTowerTemplate();
-    } else if (!isShop && variant === 4) {
-      geo = buildOctagonalTowerTemplate();
+    if (HIGH_RISE_OFFICE_TYPES.has(type) && variant === 1) {
+      geo = buildRibbedOfficeTemplate();
+    } else if (HIGH_RISE_OFFICE_TYPES.has(type) && variant === 2) {
+      geo = buildCorporateSlabTemplate();
     } else {
       const pronounced = isShop
         ? { lower: [0.72, 0.76, 0.8], setback: [0.9, 0.86, 0.82] }
-        : { lower: [0.55, 0.62, 0.68], setback: [0.44, 0.58, 0.7] };
+        // Profile A: a shallow street podium under one clean curtain-wall
+        // volume—no oversized stacked terraces from the old skyline kit.
+        : { lower: [0.14, 0.62, 0.68], setback: [0.82, 0.58, 0.7] };
       geo = buildSetbackTemplate(
         pronounced.lower[variant] ?? 0.6,
         pronounced.setback[variant] ?? 0.6,
-        isShop ? 0 : 4,
+        isShop ? 0 : 0,
         isShop ? 0.16 : 0,
       );
     }
@@ -460,7 +511,17 @@ export function ProceduralBuildings({
 
   return (
     <group>
-      <ArchitecturalDetails type={type} items={items} groundY={groundY} winLit={winLit} />
+      {/*
+       * The previous generic detail pass adds dark balcony slabs, façade
+       * bands and rooftop boxes to every tower.  Those overlays were useful
+       * for the old apartment-stack kit, but they visually sit in front of
+       * and conceal the three office profiles below.  High-rises now own
+       * their complete silhouette in this module; low-rise types retain the
+       * shared detail pass.
+       */}
+      {!HIGH_RISE_OFFICE_TYPES.has(type) && (
+        <ArchitecturalDetails type={type} items={items} groundY={groundY} winLit={winLit} />
+      )}
       {buckets.map(({ variant, colorIdx, items: vItems }) => (
         <ProceduralVariant
           key={`${type}-${variant}-${colorIdx}`}
