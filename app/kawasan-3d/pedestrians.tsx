@@ -1,12 +1,10 @@
 "use client";
 
 // Walking people — a scene-dressing sibling (like <Traffic> / <Trees>).
-// Two behaviours, both in one rig of InstancedMeshes (torso + head + legs
-// + arms):
-//   • LOOP  — strolls the sidewalk perimeter of one developed tile.
-//   • CROSS — walks back and forth across the adjacent road at a corner
-//             crossing, holding at the kerb until the conflicting
-//             traffic's signal is red (reuses signalStateFor()).
+// Everyone follows the sidewalk perimeter of one developed tile. Road
+// crossings are intentionally left out: traffic does not yet simulate a
+// pedestrian-yield phase, so keeping people on the pavement guarantees they
+// never clip through moving vehicles.
 // The rig has an actual alternating-stride gait (legs + arms swing in
 // natural cross-body coordination, body double-bounces once per stride)
 // instead of a floating box with a sine bob, and freezes to a standing
@@ -18,11 +16,10 @@
 import { useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { PLOT, ROAD_GAP, type CellPlacement, type ZoneKind } from "./cityData";
-import { signalStateFor, type Weather } from "./scenery";
+import { PLOT, type CellPlacement, type ZoneKind } from "./cityData";
+import { type Weather } from "./scenery";
 
 const TILE_H = 4;
-const ROAD_W = ROAD_GAP - PLOT;
 const SHIRTS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#a855f7", "#111827", "#14b8a6"];
 const SHIRT_COL = SHIRTS.map((h) => new THREE.Color(h));
 const PANTS = ["#2b3140", "#1f2937", "#3f4a5c", "#584a3a", "#0f172a"];
@@ -84,17 +81,7 @@ type Ped = {
   cx: number; cz: number;
   speed: number; phase: number; shirt: number; pants: number; build: number;
   umbrella: number;
-  cross: boolean;
-  // LOOP
   s: number;
-  // CROSS
-  axisX: boolean;   // walking along world X (true) or Z (false)
-  from: number;     // start coord on the walk axis (at the near kerb)
-  span: number;     // signed length across the road
-  lat: number;      // fixed coord on the other axis
-  u: number;        // 0..1 progress across
-  dir: 1 | -1;
-  wait: number;     // kerb hold timer
 };
 
 export function Pedestrians({
@@ -123,22 +110,16 @@ export function Pedestrians({
     for (const { zone, col, row, cx, cz } of placed) {
       if (claimed?.has(`${col},${row}`)) continue;
       // The sidewalk route normally follows a tile perimeter. On the four
-      // plots beside the central roundabout, that route and its crossing
-      // route run under the roundabout deck / landscaped island. Suppress
-      // only those four local pedestrian spawners; all outer sidewalks and
-      // crossings remain active, so the junction stays free of walkers
-      // rather than having people visibly clip through the island or kerb.
+      // plots beside the central roundabout, that route runs under the
+      // roundabout deck / landscaped island. Suppress only those four local
+      // pedestrian spawners so the junction stays free of walkers rather
+      // than having people visibly clip through the island or kerb.
       if (avoidCentre && Math.hypot(cx - avoidCentre[0], cz - avoidCentre[1]) < PLOT) continue;
       const coreness = 1 - Math.hypot(col - mid, row - mid) / maxD;
       const n = pedCount(zone.kind, coreness, gridSize);
       if (!n) continue;
       const rnd = rng(hashSeed(`${zone.id}:ped`));
       for (let i = 0; i < n; i++) {
-        const cross = rnd() < 0.34;
-        const axisX = rnd() < 0.5;
-        const edgeSign = rnd() < 0.5 ? -1 : 1;
-        const latSign = rnd() < 0.5 ? -1 : 1;
-        const nearKerb = PLOT / 2 + 3;
         out.push({
           cx, cz,
           speed: 7 + rnd() * 5,
@@ -147,15 +128,7 @@ export function Pedestrians({
           pants: Math.floor(rnd() * PANTS.length),
           build: 0.86 + rnd() * 0.28,
           umbrella: Math.floor(rnd() * UMBRELLAS.length),
-          cross,
           s: rnd() * perim,
-          axisX,
-          from: edgeSign * nearKerb,           // relative to cx or cz
-          span: edgeSign * (ROAD_W - 6),        // signed distance across the road
-          lat: latSign * (PLOT / 2 - 22),       // near a corner crosswalk
-          u: rnd(),
-          dir: rnd() < 0.5 ? 1 : -1,
-          wait: 0,
         });
       }
     }
@@ -241,36 +214,15 @@ export function Pedestrians({
       let z: number;
       let heading: number;
       let travel: number;
-      let moving = true;
-
-      if (p.cross) {
-        // conflicting traffic runs perpendicular to the ped's walk axis:
-        // ped walking X crosses a Z-road (axisIsX = false) and vice versa.
-        const now = performance.now() / 1000;
-        const clear = signalStateFor(!p.axisX, now) === 2;
-        if (p.wait > 0) {
-          p.wait -= step;
-          moving = false;
-        } else if (clear || (p.u > 0.05 && p.u < 0.95)) {
-          p.u += (p.dir * p.speed * paceMul * step) / Math.abs(p.span);
-          if (p.u >= 1) { p.u = 1; p.dir = -1; p.wait = 1.5 + (p.phase % 2); }
-          else if (p.u <= 0) { p.u = 0; p.dir = 1; p.wait = 1.5 + (p.phase % 2); }
-        } else {
-          moving = false; // held at the kerb, signal not yet clear
-        }
-        travel = p.from + p.span * p.u;
-        if (p.axisX) { x = p.cx + travel; z = p.cz + p.lat; heading = p.span > 0 ? 0 : Math.PI; }
-        else { x = p.cx + p.lat; z = p.cz + travel; heading = p.span > 0 ? Math.PI / 2 : -Math.PI / 2; }
-      } else {
-        p.s = (p.s + p.speed * paceMul * step) % perim;
-        const seg = Math.floor(p.s / segLen);
-        const t = (p.s - seg * segLen) / segLen;
-        if (seg === 0) { x = p.cx - R + t * segLen; z = p.cz - R; heading = 0; }
-        else if (seg === 1) { x = p.cx + R; z = p.cz - R + t * segLen; heading = Math.PI / 2; }
-        else if (seg === 2) { x = p.cx + R - t * segLen; z = p.cz + R; heading = Math.PI; }
-        else { x = p.cx - R; z = p.cz + R - t * segLen; heading = -Math.PI / 2; }
-        travel = p.s;
-      }
+      const moving = true;
+      p.s = (p.s + p.speed * paceMul * step) % perim;
+      const seg = Math.floor(p.s / segLen);
+      const t = (p.s - seg * segLen) / segLen;
+      if (seg === 0) { x = p.cx - R + t * segLen; z = p.cz - R; heading = 0; }
+      else if (seg === 1) { x = p.cx + R; z = p.cz - R + t * segLen; heading = Math.PI / 2; }
+      else if (seg === 2) { x = p.cx + R - t * segLen; z = p.cz + R; heading = Math.PI; }
+      else { x = p.cx - R; z = p.cz + R - t * segLen; heading = -Math.PI / 2; }
+      travel = p.s;
 
       // gait: legs/arms swing in cross-body coordination (right arm with
       // left leg), body double-bounces once per full stride — frozen to a
