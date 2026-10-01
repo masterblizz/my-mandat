@@ -504,7 +504,9 @@ export function zoneBuildings(
     return Math.round(h * individual * (1 + hi * 0.3));
   };
   const spec = (type: BType, slot: number, extra?: Partial<BSpec>): BSpec => {
-    const t = upgrade(type, slot);
+    // Paddy only belongs to rice-bowl seats; elsewhere a kampung's sawah
+    // lot is just another house (which metro cores then upgrade as usual).
+    const t = upgrade(type === "sawah" && !traits.paddy ? "house" : type, slot);
     return { type: t, slot, ...jitterFootprint(t, zone.id, slot, density), h: lift(t, buildingHeight(t, zone), slot), ...extra };
   };
 
@@ -534,7 +536,7 @@ export function zoneBuildings(
   const free = [1, 3, 5, 7, 8, 6, 2, 0].filter((slot) => !used.has(slot));
   const fillers: BType[] = traits.paddy && (zone.kind === "village" || zone.kind === "river")
     ? ["sawah", "sawah", "house"]
-    : ZONE_FILLER[zone.kind];
+    : ZONE_FILLER[zone.kind].filter((t) => t !== "sawah" || traits.paddy);
   const seed = zseed;
   // Metro cores stack a real cluster of high-rises; below the metro
   // threshold this is exactly the ported original (urban only, 0-2).
