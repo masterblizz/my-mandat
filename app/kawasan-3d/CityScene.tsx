@@ -12,7 +12,7 @@ import { CameraRig, type CamState } from "./CameraRig";
 import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
-import { FunctionalBuildingDetails, ProjectLandmarks } from "./buildingDetails";
+import { FunctionalBuildingDetails, MasjidComplexes, ProjectLandmarks } from "./buildingDetails";
 import { RoofDetails } from "./roofDetails";
 import { UtilityLines } from "./utilities";
 import {
@@ -418,6 +418,11 @@ function Buildings({
           return <WaterPatches key="pond-water" items={items} groundY={GROUND_Y} tod={tod} />;
         }
         const color = BUILDING_COLOR[type];
+        // Mosques are a complete landmark kit (paired minarets, arched hall
+        // and dome), so never let a generic GLB flatten them back to a box.
+        if (type === "masjid") {
+          return <MasjidComplexes key="masjid-complexes" items={items} groundY={GROUND_Y} />;
+        }
         // High-rises deliberately use our procedural office kit even when a
         // generic GLB is available. It gives the whole skyline one coherent
         // Malaysian curtain-wall language—podium, side core, floor bands and

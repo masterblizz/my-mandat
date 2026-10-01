@@ -315,6 +315,96 @@ const FUNCTIONAL_LABEL: Partial<Record<BType, string>> = {
   hotel: "HOTEL", stadium: "STADIUM",
 };
 
+/**
+ * A dedicated mosque kit rather than a decorated generic box.  Its paired
+ * minarets, shallow prayer-hall roof, gold dome and three arched front bays
+ * keep the form recognisable from the isometric camera while remaining light
+ * enough to repeat in village and community districts.
+ */
+function MasjidComplex({ item, groundY }: { item: BuildingInstance; groundY: number }) {
+  const plinthH = 2.2;
+  const hallH = Math.max(11, item.h * 0.58);
+  const hallW = item.w * 0.78;
+  const hallD = item.d * 0.72;
+  const minaretH = Math.max(22, item.h * 1.08);
+  const minaretR = Math.max(2.1, item.w * 0.07);
+  const frontZ = hallD * 0.51;
+  const domeR = Math.min(hallW, hallD) * 0.25;
+  const archXs = [-0.26, 0, 0.26];
+
+  return <group position={[item.x, 0, item.z]}>
+    <mesh position={[0, groundY + plinthH / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[item.w * 0.96, plinthH, item.d * 0.9]} />
+      <meshStandardMaterial color="#d8d2bd" roughness={0.72} />
+    </mesh>
+    <mesh position={[0, groundY + plinthH + hallH / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[hallW, hallH, hallD]} />
+      <meshStandardMaterial color="#f0eee5" roughness={0.62} metalness={0.04} />
+    </mesh>
+    {/* Green cornice and a thin gold trim separate the prayer hall from dome. */}
+    <mesh position={[0, groundY + plinthH + hallH + 0.7, 0]} castShadow>
+      <boxGeometry args={[hallW * 1.05, 1.4, hallD * 1.05]} />
+      <meshStandardMaterial color="#4d8a7c" roughness={0.52} />
+    </mesh>
+    <mesh position={[0, groundY + plinthH + hallH + 1.55, 0]}>
+      <cylinderGeometry args={[domeR * 1.06, domeR * 1.06, 1.05, 16]} />
+      <meshStandardMaterial color="#c1a35c" metalness={0.55} roughness={0.3} />
+    </mesh>
+    <mesh position={[0, groundY + plinthH + hallH + 1.95, 0]} castShadow>
+      <sphereGeometry args={[domeR, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+      <meshStandardMaterial color="#d7ac38" metalness={0.66} roughness={0.24} />
+    </mesh>
+    <mesh position={[0, groundY + plinthH + hallH + 1.95 + domeR * 0.92, 0]}>
+      <torusGeometry args={[0.56, 0.09, 6, 14, Math.PI * 1.7]} />
+      <meshStandardMaterial color="#e7c35a" metalness={0.72} roughness={0.22} emissive="#9b6b12" emissiveIntensity={0.12} />
+    </mesh>
+
+    {/* Three recessed, pointed-looking entry bays framed by pale pilasters. */}
+    {archXs.map((ratio, index) => {
+      const x = hallW * ratio;
+      const archW = hallW * (index === 1 ? 0.19 : 0.16);
+      const archH = hallH * (index === 1 ? 0.48 : 0.38);
+      return <group key={ratio} position={[x, groundY + plinthH + archH / 2, frontZ + 0.18]}>
+        <mesh>
+          <boxGeometry args={[archW, archH, 0.42]} />
+          <meshStandardMaterial color="#174d59" metalness={0.35} roughness={0.28} emissive="#113e46" emissiveIntensity={0.16} />
+        </mesh>
+        <mesh position={[0, archH / 2, 0]}>
+          <sphereGeometry args={[archW * 0.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#174d59" metalness={0.35} roughness={0.28} />
+        </mesh>
+        {[-1, 1].map((side) => <mesh key={side} position={[side * archW * 0.57, 0, 0.1]} castShadow>
+          <boxGeometry args={[Math.max(0.7, hallW * 0.024), archH * 1.08, 0.72]} />
+          <meshStandardMaterial color="#d1c7a5" roughness={0.65} />
+        </mesh>)}
+      </group>;
+    })}
+
+    {[-1, 1].map((side) => <group key={side} position={[side * item.w * 0.42, groundY + plinthH, -item.d * 0.03]}>
+      <mesh position={[0, minaretH / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[minaretR * 0.74, minaretR, minaretH, 10]} />
+        <meshStandardMaterial color="#ede9df" roughness={0.56} />
+      </mesh>
+      <mesh position={[0, minaretH * 0.61, 0]} castShadow>
+        <cylinderGeometry args={[minaretR * 1.16, minaretR * 1.16, 1.45, 10]} />
+        <meshStandardMaterial color="#5a9889" roughness={0.46} />
+      </mesh>
+      <mesh position={[0, minaretH * 0.44, minaretR * 0.69]}>
+        <boxGeometry args={[minaretR * 0.48, minaretH * 0.34, 0.3]} />
+        <meshStandardMaterial color="#315462" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, minaretH + minaretR * 0.78, 0]} castShadow>
+        <coneGeometry args={[minaretR * 1.12, minaretR * 1.9, 10]} />
+        <meshStandardMaterial color="#c99f3d" metalness={0.48} roughness={0.34} />
+      </mesh>
+    </group>)}
+  </group>;
+}
+
+export function MasjidComplexes({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
+  return <group>{items.map((item) => <MasjidComplex key={`masjid-${item.key}`} item={item} groundY={groundY} />)}</group>;
+}
+
 function FunctionalBuilding({ type, item, groundY }: { type: BType; item: BuildingInstance; groundY: number }) {
   const label = FUNCTIONAL_LABEL[type];
   if (!label) return null;
@@ -370,6 +460,9 @@ export function FunctionalBuildingDetails({
   groundY: number;
 }) {
   return <group>{groups.flatMap(([type, items]) => {
+    // Masjid has its own complete geometry kit in CityScene. Keeping the old
+    // functional label/cylinder here would duplicate its dome and minaret.
+    if (type === "masjid") return [];
     if (!FUNCTIONAL_LABEL[type]) return [];
     // An anchor is the visual promise made by the zone name, so it cannot
     // lose its school flag / clinic cross simply because earlier cells used
