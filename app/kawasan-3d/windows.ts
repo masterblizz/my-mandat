@@ -104,7 +104,7 @@ export function getFacadeTexture(type: BType, variant: number): THREE.Texture {
     for (let c = 0; c < spec.cols; c++) {
       const shift = ((next() >>> 10) % 12) - 6;
       ctx.fillStyle = glassy
-        ? `rgb(${42 + shift},${65 + shift},${80 + shift})`
+        ? `rgb(${72 + shift},${100 + shift},${116 + shift})`
         : `rgb(${62 + shift},${69 + shift},${70 + shift})`;
       ctx.fillRect(c * cw + mx, r * ch + my, cw - mx * 2, ch - my * 2);
       if (glassy && (r + c + variant) % 3 === 0) {

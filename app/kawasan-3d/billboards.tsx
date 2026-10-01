@@ -432,8 +432,9 @@ export function Billboards({
               uTime: { value: 0 },
               uBrightness: { value: 1 },
             }}
+          // No instanceMatrix declaration: ShaderMaterial on an InstancedMesh
+          // already gets one in its prefix, and a second one fails to compile.
           vertexShader={`
-            attribute mat4 instanceMatrix;
             attribute vec2 adCell;
             attribute float adPhase;
             uniform vec2 uAtlasGrid;

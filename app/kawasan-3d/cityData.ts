@@ -815,16 +815,16 @@ export const TOD_ENV: Record<Tod, TodEnv> = {
     sun: [0.35, 0.92, 0.2], sunColor: "#fff3da", sunIntensity: 1.9,
     ambientColor: "#93b7c5", ambientIntensity: 0.34,
     hemiSky: "#b8d8e0", hemiGround: "#3f5148", hemiIntensity: 0.66,
-    fog: "#a8c5cb", ground: "#31443c", lamp: 0, winLit: 0, stars: 0,
+    fog: "#a8c5cb", ground: "#3a4f43", lamp: 0, winLit: 0, stars: 0,
   },
   // Blue-violet shadows against a restrained amber horizon. The previous
   // orange fog + brown ground + orange sun stack made the whole city sepia.
   dusk: {
     skyTop: "#343650", skyBottom: "#d69a70",
     sun: [-0.86, 0.17, -0.18], sunColor: "#ffad6b", sunIntensity: 1.55,
-    ambientColor: "#596177", ambientIntensity: 0.46,
-    hemiSky: "#7e7990", hemiGround: "#454940", hemiIntensity: 0.65,
-    fog: "#bd9279", ground: "#3e433d", lamp: 0.55, winLit: 0.6, stars: 0.35,
+    ambientColor: "#68708a", ambientIntensity: 0.58,
+    hemiSky: "#8c86a0", hemiGround: "#4c4f46", hemiIntensity: 0.78,
+    fog: "#bd9279", ground: "#474a43", lamp: 0.55, winLit: 0.6, stars: 0.35,
   },
   // deep blue night, moon mid-high; lamps + windows full on, stars out.
   // REAL_OVERRIDE.night: a touch more sky/hemi lift so massing stays read.

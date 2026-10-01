@@ -74,6 +74,10 @@ const BOXCAP_TYPES = new Set<BType>([
 ]);
 const DOME_TYPES = new Set<BType>(["masjid"]);
 const COMMERCIAL_TYPES = new Set<BType>(["shop", "shophouse", "mall"]);
+// Types whose horizontal faces (roof deck, setback ledges) get their own
+// window-free roof material. Office towers used to wrap the glass façade
+// over every ledge, so each setback read as a dark-glass slab from above.
+const CAPPED_TYPES = new Set<BType>(["shop", "shophouse", "mall", "tower", "skyscraper", "hotel"]);
 export const PROCEDURAL_TYPES = new Set<BType>([
   ...Array.from(GABLE_TYPES), ...Array.from(SETBACK_TYPES),
   ...Array.from(BOXCAP_TYPES), ...Array.from(DOME_TYPES),
@@ -405,15 +409,18 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     }
     if (type === "skyscraper") geo = withMast(geo);
   }
-  if (COMMERCIAL_TYPES.has(type)) {
+  if (CAPPED_TYPES.has(type)) {
     // Keep horizontal roof/canopy faces free of windows. Reorder triangles
     // into two contiguous groups to retain just two draws per instance batch.
     const flat = stripToPositionNormalUv(geo);
     const normals = flat.getAttribute("normal");
     const walls: number[] = [];
     const caps: number[] = [];
+    // Towers only cap near-flat faces; the octagonal variant's tapered
+    // crown slopes past 0.5 and must keep its glass.
+    const capY = COMMERCIAL_TYPES.has(type) ? 0.5 : 0.95;
     for (let i = 0; i < normals.count; i += 3) {
-      (Math.abs(normals.getY(i)) > 0.5 ? caps : walls).push(i, i + 1, i + 2);
+      (Math.abs(normals.getY(i)) > capY ? caps : walls).push(i, i + 1, i + 2);
     }
     flat.setIndex([...walls, ...caps]);
     flat.clearGroups();
@@ -526,11 +533,15 @@ function ProceduralVariant({
     });
     wall.userData.baseMetalness = refl.metalness;
     wall.userData.baseEnvMapIntensity = refl.envMapIntensity;
-    if (!isGable && !isCommercial) return wall;
+    if (!isGable && !CAPPED_TYPES.has(type)) return wall;
     // Terracotta clay tile — the design canvas's one warm accent on an
     // otherwise near-greyscale palette. kampung leans a shade browner.
     const roof = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(isCommercial ? "#626a70" : type === "kampung" ? "#8c4634" : "#a4573f"),
+      color: new THREE.Color(
+        isCommercial ? "#626a70"
+          : SETBACK_TYPES.has(type) ? "#8f979a" // concrete roof deck / ledges
+          : type === "kampung" ? "#8c4634" : "#a4573f",
+      ),
       roughness: 0.92,
       metalness: 0.05,
     });

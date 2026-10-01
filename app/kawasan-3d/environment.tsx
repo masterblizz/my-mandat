@@ -52,9 +52,13 @@ export function SceneEnvironment({ tod, weather = "clear" }: { tod: Tod; weather
     // This grounds glass facades and gives upper/lower panes a believable
     // contrast without adding lights or per-building reflection probes.
     const wet = weather === "rain";
+    // Lifted toward the horizon: the map camera looks down, so tower walls
+    // mostly reflect this lower half. Raw dark-green ground turned every
+    // glassy tower into a near-black slab in daylight.
+    const reflGround = overcast(env.ground, env.skyBottom, 0.42);
     const src = gradientEquirect(
       wet ? overcast(env.skyTop, "#536273", 0.62) : env.skyTop,
-      wet ? overcast(env.ground, "#202a33", 0.5) : env.ground,
+      wet ? overcast(reflGround, "#202a33", 0.5) : reflGround,
       wet ? overcast(env.skyBottom, "#788695", 0.55) : env.skyBottom,
     );
     const pmrem = new THREE.PMREMGenerator(gl);
