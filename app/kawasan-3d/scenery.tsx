@@ -315,27 +315,57 @@ export function StreetLamps({
   }, [gridSize, centre, detail, claimed, hideNear]);
 
   const poleRef = useRef<THREE.InstancedMesh>(null);
+  const baseRef = useRef<THREE.InstancedMesh>(null);
+  const armRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
+  const glowRef = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
     const pole = poleRef.current;
+    const base = baseRef.current;
+    const arm = armRef.current;
     const head = headRef.current;
-    if (!pole || !head) return;
+    const glow = glowRef.current;
+    if (!pole || !base || !arm || !head || !glow) return;
     const m = new THREE.Object3D();
     points.forEach(([x, z], i) => {
       m.position.set(x, LAMP_POLE_H / 2, z);
       m.scale.set(1, LAMP_POLE_H, 1);
       m.updateMatrix();
       pole.setMatrixAt(i, m.matrix);
-      m.position.set(x, LAMP_POLE_H, z);
+      m.position.set(x, 0.8, z);
+      m.scale.set(1, 1, 1);
+      m.updateMatrix();
+      base.setMatrixAt(i, m.matrix);
+
+      // Alternate the short outreach arm so a long street reads as a real
+      // staggered boulevard installation rather than repeated black posts.
+      const yaw = i % 2 ? 0 : Math.PI / 2;
+      const dx = Math.cos(yaw), dz = -Math.sin(yaw);
+      m.position.set(x + dx * 3.4, LAMP_POLE_H - 1.2, z + dz * 3.4);
+      m.rotation.set(0, yaw, 0);
+      m.scale.set(1, 1, 1);
+      m.updateMatrix();
+      arm.setMatrixAt(i, m.matrix);
+
+      m.position.set(x + dx * 7.1, LAMP_POLE_H - 1.25, z + dz * 7.1);
       m.scale.set(1, 1, 1);
       m.updateMatrix();
       head.setMatrixAt(i, m.matrix);
+      m.position.set(x + dx * 7.1, LAMP_POLE_H - 2.0, z + dz * 7.1);
+      m.updateMatrix();
+      glow.setMatrixAt(i, m.matrix);
     });
     pole.instanceMatrix.needsUpdate = true;
+    base.instanceMatrix.needsUpdate = true;
+    arm.instanceMatrix.needsUpdate = true;
     head.instanceMatrix.needsUpdate = true;
+    glow.instanceMatrix.needsUpdate = true;
     pole.computeBoundingSphere();
+    base.computeBoundingSphere();
+    arm.computeBoundingSphere();
     head.computeBoundingSphere();
+    glow.computeBoundingSphere();
   }, [points]);
 
   // A few real point lights (not one per lamp) for actual bounce at night.
@@ -347,12 +377,24 @@ export function StreetLamps({
   return (
     <group>
       <instancedMesh ref={poleRef} args={[undefined, undefined, points.length]} key={`pole-${points.length}`} castShadow>
-        <cylinderGeometry args={[1, 1.3, 1, 4]} />
-        <meshStandardMaterial color="#2b3340" roughness={0.8} />
+        <cylinderGeometry args={[0.62, 0.95, 1, 10]} />
+        <meshStandardMaterial color="#32404f" roughness={0.44} metalness={0.56} />
+      </instancedMesh>
+      <instancedMesh ref={baseRef} args={[undefined, undefined, points.length]} key={`lamp-base-${points.length}`} castShadow>
+        <cylinderGeometry args={[1.55, 2.1, 1.6, 10]} />
+        <meshStandardMaterial color="#465667" roughness={0.62} metalness={0.35} />
+      </instancedMesh>
+      <instancedMesh ref={armRef} args={[undefined, undefined, points.length]} key={`lamp-arm-${points.length}`} castShadow>
+        <boxGeometry args={[7.2, 0.9, 0.9]} />
+        <meshStandardMaterial color="#3a4b5c" roughness={0.4} metalness={0.62} />
       </instancedMesh>
       <instancedMesh ref={headRef} args={[undefined, undefined, points.length]} key={`head-${points.length}`} frustumCulled={false}>
-        <boxGeometry args={[5, 2.4, 5]} />
-        <meshStandardMaterial color="#3a4150" emissive="#ffd489" emissiveIntensity={0.15 + lamp * 2.6} toneMapped={false} />
+        <boxGeometry args={[6.2, 1.35, 3.4]} />
+        <meshStandardMaterial color="#526578" roughness={0.32} metalness={0.65} />
+      </instancedMesh>
+      <instancedMesh ref={glowRef} args={[undefined, undefined, points.length]} key={`lamp-led-${points.length}`} frustumCulled={false}>
+        <boxGeometry args={[5.25, 0.22, 2.45]} />
+        <meshStandardMaterial color="#fff0c8" emissive="#ffd08a" emissiveIntensity={0.12 + lamp * 5.2} toneMapped={false} />
       </instancedMesh>
       {lamp > 0.05 &&
         quads.map(([x, z], i) => (
