@@ -1371,6 +1371,50 @@ function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
 // short of centre on both sides so the two lines never overlap there.
 const INTERCHANGE_GAP = 19;
 
+function LrtTerminus({ z, livery }: { z: number; livery: string }) {
+  const end = Math.sign(z) || 1;
+  return (
+    <group position={[0, DECK_Y + 2, z]}>
+      {/* A real end station prevents the viaduct from reading as a beam that
+          simply stops in mid-air at the city boundary. */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[36, 3, 58]} />
+        <meshStandardMaterial color="#46536a" />
+      </mesh>
+      <mesh position={[0, 14, 0]} castShadow>
+        <boxGeometry args={[34, 1.8, 52]} />
+        <meshStandardMaterial color="#d5dee8" roughness={0.48} metalness={0.22} />
+      </mesh>
+      {[-12, 12].flatMap((x) => [-17, 17].map((dz) => (
+        <mesh key={`${x}:${dz}`} position={[x, 6.5, dz]} castShadow>
+          <boxGeometry args={[2.8, 13, 2.8]} />
+          <meshStandardMaterial color="#69788c" roughness={0.72} />
+        </mesh>
+      )))}
+      {/* End-wall, buffer block and line-coloured station band make the
+          terminus legible even when seen from high above. */}
+      <mesh position={[0, 5.6, end * 27]}>
+        <boxGeometry args={[30, 8, 2.2]} />
+        <meshStandardMaterial color="#344155" roughness={0.58} />
+      </mesh>
+      <mesh position={[0, 9.1, end * 28.3]}>
+        <boxGeometry args={[16, 2.1, 0.7]} />
+        <meshBasicMaterial color={livery} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 3.7, end * 21]}>
+        <boxGeometry args={[13, 1.8, 2.8]} />
+        <meshStandardMaterial color="#202b38" roughness={0.8} />
+      </mesh>
+      {[-3.2, 3.2].map((x) => (
+        <mesh key={x} position={[x, 1.8, end * 22]}>
+          <boxGeometry args={[0.8, 1.2, 7]} />
+          <meshStandardMaterial color="#8796a8" metalness={0.7} roughness={0.28} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number> }) {
   // Line-coded livery — the N-S and E-W lines read as two distinct
   // services where they cross at the interchange, the same way KL's
@@ -1383,7 +1427,9 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
   const d2 = useRef(axis === "x" ? 1 : -1);
   const piers = useMemo(() => {
     const out: number[] = [];
-    for (let z = -span / 2 + ROAD_GAP; z <= span / 2 - ROAD_GAP; z += ROAD_GAP * 2) {
+    // 280 units is one city block: support every block rather than leaving
+    // the edge sections as a long unsupported cantilever.
+    for (let z = -span / 2 + 96; z <= span / 2 - 96; z += ROAD_GAP) {
       if (Math.abs(z) < INTERCHANGE_GAP) continue; // the interchange stands on its own 4 columns
       out.push(z);
     }
@@ -1451,6 +1497,8 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
           </mesh>
         </group>
       ))}
+      <LrtTerminus z={-span / 2 + 29} livery={livery} />
+      <LrtTerminus z={span / 2 - 29} livery={livery} />
       <LrtTrain tref={t1} livery={livery} liveryDark={liveryDark} />
       <LrtTrain tref={t2} livery={livery} liveryDark={liveryDark} />
     </group>
