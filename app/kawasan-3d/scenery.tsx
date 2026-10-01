@@ -903,6 +903,16 @@ export function Traffic({
     const taillights = taillightRef.current;
     const emergencyLights = emergencyLightRef.current;
     if (!body || !cabin || !taillights || !emergencyLights) return;
+    // Some mobile/WebGL renderers retain the material's default uncoloured
+    // instance path after a hot route transition. Explicitly activate the
+    // per-instance paint path here as well as in JSX; otherwise every car
+    // falls back to the dark default material despite setColorAt() below.
+    [body, cabin, taillights, emergencyLights].forEach((mesh) => {
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.vertexColors = true;
+      material.color.set("#ffffff");
+      material.needsUpdate = true;
+    });
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
       // From the tactical camera the cabin/roof is most of a vehicle's
@@ -1508,27 +1518,54 @@ export function ZoneBeacon({
 // its neighbours in a dense block.
 export function SelectionPin({ position }: { position: [number, number, number] }) {
   const pin = useRef<THREE.Group>(null);
+  const orbit = useRef<THREE.Mesh>(null);
+  const halo = useRef<THREE.Mesh>(null);
   // Metro towers top out just below 300 world units (CityScene's building
   // clamp), so this stays visible above both a small town and the dense core.
   const baseY = 310;
 
   useFrame(({ clock }) => {
     if (!pin.current) return;
-    pin.current.position.y = baseY + Math.sin(clock.elapsedTime * 2.2) * 5;
+    const t = clock.elapsedTime;
+    pin.current.position.y = baseY + Math.sin(t * 2.2) * 5;
     pin.current.rotation.y = clock.elapsedTime * 0.65;
+    if (orbit.current) orbit.current.rotation.z = -t * 1.6;
+    if (halo.current) {
+      const s = 0.92 + Math.sin(t * 2.2) * 0.12;
+      halo.current.scale.setScalar(s);
+    }
   });
 
   return (
     <group ref={pin} position={[position[0], baseY, position[2]]}>
+      {/* Soft beacon makes the selected location readable against a dark
+          tower, while depthWrite=false prevents it becoming a black slab
+          when another facade sits directly behind it. */}
+      <mesh ref={halo} position={[0, 0, 0]}>
+        <sphereGeometry args={[22, 16, 12]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.12} depthWrite={false} toneMapped={false} />
+      </mesh>
       <mesh>
-        <octahedronGeometry args={[13, 0]} />
-        <meshBasicMaterial color="#22d3ee" toneMapped={false} />
+        <octahedronGeometry args={[14, 0]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.96} depthWrite={false} toneMapped={false} />
       </mesh>
-      <mesh position={[0, -17, 0]}>
-        <cylinderGeometry args={[1.5, 2.5, 22, 8]} />
-        <meshBasicMaterial color="#67e8f9" transparent opacity={0.82} toneMapped={false} />
+      <mesh scale={[0.52, 0.52, 0.52]}>
+        <octahedronGeometry args={[14, 0]} />
+        <meshBasicMaterial color="#fef3c7" toneMapped={false} />
       </mesh>
-      <pointLight color="#22d3ee" intensity={1.3} distance={80} decay={2} />
+      <mesh ref={orbit} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[20, 1.2, 6, 28]} />
+        <meshBasicMaterial color="#67e8f9" transparent opacity={0.86} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -62, 0]}>
+        <cylinderGeometry args={[2.2, 6.5, 96, 12, 1, true]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -110, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[8, 14, 4]} />
+        <meshBasicMaterial color="#facc15" toneMapped={false} />
+      </mesh>
+      <pointLight color="#67e8f9" intensity={1.6} distance={95} decay={2} />
     </group>
   );
 }

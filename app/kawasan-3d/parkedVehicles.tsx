@@ -90,6 +90,12 @@ export function ParkedVehicles({
     const cabin = carCabinRef.current;
     const wheels = carWheelRef.current;
     if (body && cabin && wheels) {
+      [body, cabin].forEach((mesh) => {
+        const material = mesh.material as THREE.MeshBasicMaterial;
+        material.vertexColors = true;
+        material.color.set("#ffffff");
+        material.needsUpdate = true;
+      });
       carSpots.forEach((s, i) => {
         dummy.position.set(s.x, TILE_H + 2.75, s.z);
         dummy.rotation.set(0, s.heading, 0);
@@ -126,6 +132,10 @@ export function ParkedVehicles({
     const mcBody = mcBodyRef.current;
     const mcWheels = mcWheelRef.current;
     if (mcBody && mcWheels) {
+      const material = mcBody.material as THREE.MeshBasicMaterial;
+      material.vertexColors = true;
+      material.color.set("#ffffff");
+      material.needsUpdate = true;
       mcSpots.forEach((s, i) => {
         dummy.position.set(s.x, TILE_H + 3.1, s.z);
         dummy.rotation.set(0, s.heading, 0);

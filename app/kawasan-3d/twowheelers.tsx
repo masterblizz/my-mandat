@@ -160,6 +160,12 @@ export function Motorcyclists({
     const helmet = helmetRef.current;
     const lights = lightRef.current;
     if (!body || !rider || !helmet || !lights) return;
+    [body, rider, helmet, lights].forEach((mesh) => {
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.vertexColors = true;
+      material.color.set("#ffffff");
+      material.needsUpdate = true;
+    });
     riders.forEach((c, i) => {
       body.setColorAt(i, c.color);
       rider.setColorAt(i, new THREE.Color("#33363f"));
