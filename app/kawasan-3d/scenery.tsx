@@ -265,6 +265,29 @@ function Rain({ span }: { span: number }) {
 // turns into a glow at night; a tiny bright bulb sphere gives that bloom
 // a hot core.
 const LAMP_POLE_H = 26;
+// Lamps stand on the road verge, this far in from the plot edge.
+const LAMP_KERB_IN = 2.5;
+
+// Soft radial falloff for the light pool under each lamp head: bright
+// centre fading to nothing at the rim, so it reads as cast light rather
+// than a painted disc. Built once and shared.
+let lampPoolTex: THREE.Texture | null = null;
+function lampPoolTexture(): THREE.Texture {
+  if (lampPoolTex) return lampPoolTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, "rgba(255,255,255,0.75)");
+  grad.addColorStop(0.35, "rgba(255,255,255,0.42)");
+  grad.addColorStop(0.7, "rgba(255,255,255,0.12)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  lampPoolTex = new THREE.CanvasTexture(c);
+  lampPoolTex.colorSpace = THREE.SRGBColorSpace;
+  return lampPoolTex;
+}
 
 export function StreetLamps({
   gridSize, lamp, detail = 1, claimed, hideNear,
@@ -281,34 +304,46 @@ export function StreetLamps({
   const points = useMemo(() => {
     const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
     const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
-    const out: [number, number][] = [];
+    // [x, z, yaw]: yaw points the outreach arm (local +X) over the road.
+    // Arm direction is (cos yaw, -sin yaw) in world XZ.
+    const out: [number, number, number][] = [];
     const blocked = (px: number, pz: number, i: number, j: number) =>
       (claimed && junctionInsideLarge(i, j, gridSize, claimed)) ||
       (hideNear && Math.hypot(px - hideNear[0], pz - hideNear[1]) < 130);
+    const yawToward = (dx: number, dz: number) => Math.atan2(-dz, dx);
+    // Junction lamps stand on one kerb corner (not in the middle of the
+    // intersection) and reach diagonally over the box junction.
+    const corner = ROAD_W / 2 - LAMP_KERB_IN;
     for (let i = 0; i < xs.length; i++) {
       for (let j = 0; j < zs.length; j++) {
-        if (!blocked(xs[i], zs[j], i, j)) out.push([xs[i], zs[j]]);
+        // TrafficLights use the (-,-) and (+,+) corners; take one of the others.
+        const sx = (i + j) % 2 ? 1 : -1;
+        const sz = -sx;
+        const px = xs[i] + sx * corner, pz = zs[j] + sz * corner;
+        if (!blocked(xs[i], zs[j], i, j)) out.push([px, pz, yawToward(-sx, -sz)]);
       }
     }
     // one mid-span lamp per road edge, alternating side — `detail` caps
     // the rate well below 100% even at the top tier so this stays a
     // trim, not a doubling.
-    const off = ROAD_W * 0.42;
+    const off = ROAD_W / 2 - LAMP_KERB_IN;
     const rate = detail * 52;
     for (let i = 0; i < xs.length; i++) {
       for (let j = 0; j + 1 < zs.length; j++) {
         if (((i * 131 + j * 17) % 100) >= rate) continue;
-        const px = xs[i] + (j % 2 ? off : -off);
+        const side = j % 2 ? 1 : -1;
+        const px = xs[i] + side * off;
         const pz = (zs[j] + zs[j + 1]) / 2;
-        if (!blocked(px, pz, i, j)) out.push([px, pz]);
+        if (!blocked(px, pz, i, j)) out.push([px, pz, yawToward(-side, 0)]);
       }
     }
     for (let j = 0; j < zs.length; j++) {
       for (let i = 0; i + 1 < xs.length; i++) {
         if (((j * 131 + i * 17 + 7) % 100) >= rate) continue;
+        const side = i % 2 ? 1 : -1;
         const px = (xs[i] + xs[i + 1]) / 2;
-        const pz = zs[j] + (i % 2 ? off : -off);
-        if (!blocked(px, pz, i, j)) out.push([px, pz]);
+        const pz = zs[j] + side * off;
+        if (!blocked(px, pz, i, j)) out.push([px, pz, yawToward(0, -side)]);
       }
     }
     return out;
@@ -330,7 +365,11 @@ export function StreetLamps({
     const pool = poolRef.current;
     if (!pole || !base || !arm || !head || !glow || !pool) return;
     const m = new THREE.Object3D();
-    points.forEach(([x, z], i) => {
+    points.forEach(([x, z, yaw], i) => {
+      // One Object3D is reused for every part, so reset its rotation per
+      // lamp: the light pool's lie-flat rotation used to leak into the next
+      // lamp's pole and base, knocking every pole over onto the road.
+      m.rotation.set(0, 0, 0);
       m.position.set(x, LAMP_POLE_H / 2, z);
       m.scale.set(1, LAMP_POLE_H, 1);
       m.updateMatrix();
@@ -340,9 +379,7 @@ export function StreetLamps({
       m.updateMatrix();
       base.setMatrixAt(i, m.matrix);
 
-      // Alternate the short outreach arm so a long street reads as a real
-      // staggered boulevard installation rather than repeated black posts.
-      const yaw = i % 2 ? 0 : Math.PI / 2;
+      // Outreach arm over the carriageway; the head sits at its tip.
       const dx = Math.cos(yaw), dz = -Math.sin(yaw);
       m.position.set(x + dx * 3.4, LAMP_POLE_H - 1.2, z + dz * 3.4);
       m.rotation.set(0, yaw, 0);
@@ -359,9 +396,9 @@ export function StreetLamps({
       glow.setMatrixAt(i, m.matrix);
       // A soft emissive pool guarantees each lit fixture visibly reaches
       // the pavement even when real point lights are culled at city scale.
-      m.position.set(x + dx * 7.1, 0.18, z + dz * 7.1);
+      m.position.set(x + dx * 7.1, 0.95, z + dz * 7.1); // just above the road slab (~0.8)
       m.rotation.set(-Math.PI / 2, 0, 0);
-      m.scale.set(13, 13, 1);
+      m.scale.set(20, 20, 1);
       m.updateMatrix();
       pool.setMatrixAt(i, m.matrix);
     });
@@ -384,7 +421,10 @@ export function StreetLamps({
   // predictable instead of creating a point light for every street pole.
   const nightLights = useMemo(() => {
     const n = Math.min(14, points.length);
-    return Array.from({ length: n }, (_, i) => points[Math.floor((i + 0.5) * points.length / n)]);
+    return Array.from({ length: n }, (_, i) => {
+      const [x, z, yaw] = points[Math.floor((i + 0.5) * points.length / n)];
+      return [x + Math.cos(yaw) * 7.1, z - Math.sin(yaw) * 7.1] as [number, number];
+    });
   }, [points]);
 
   return (
@@ -410,8 +450,8 @@ export function StreetLamps({
         <meshStandardMaterial color="#fff6d8" emissive="#ffd08a" emissiveIntensity={0.08 + lamp * 8} toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={poolRef} args={[undefined, undefined, points.length]} key={`lamp-pool-${points.length}`} frustumCulled={false} renderOrder={1}>
-        <circleGeometry args={[1, 16]} />
-        <meshBasicMaterial color="#f7b968" transparent opacity={lamp * 0.16} depthWrite={false} toneMapped={false} />
+        <circleGeometry args={[1, 24]} />
+        <meshBasicMaterial color="#ffc27a" map={lampPoolTexture()} transparent opacity={Math.min(1, lamp * 0.85)} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
       </instancedMesh>
       {lamp > 0.05 &&
         nightLights.map(([x, z], i) => (
