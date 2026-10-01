@@ -112,6 +112,11 @@ export function ParkedVehicles({
   const carCabinRef = useRef<THREE.InstancedMesh>(null);
   const carWheelRef = useRef<THREE.InstancedMesh>(null);
   const mcBodyRef = useRef<THREE.InstancedMesh>(null);
+  const mcTankRef = useRef<THREE.InstancedMesh>(null);
+  const mcSeatRef = useRef<THREE.InstancedMesh>(null);
+  const mcForkRef = useRef<THREE.InstancedMesh>(null);
+  const mcHandlebarRef = useRef<THREE.InstancedMesh>(null);
+  const mcLightRef = useRef<THREE.InstancedMesh>(null);
   const mcWheelRef = useRef<THREE.InstancedMesh>(null);
   const paint = useMemo(() => makePaintMaterial(), []);
   const glass = useMemo(() => makeGlassMaterial(), []);
@@ -163,33 +168,71 @@ export function ParkedVehicles({
     }
 
     const mcBody = mcBodyRef.current;
+    const mcTank = mcTankRef.current;
+    const mcSeat = mcSeatRef.current;
+    const mcFork = mcForkRef.current;
+    const mcHandlebar = mcHandlebarRef.current;
+    const mcLights = mcLightRef.current;
     const mcWheels = mcWheelRef.current;
-    if (mcBody && mcWheels) {
-      const material = mcBody.material as THREE.MeshBasicMaterial;
-      material.vertexColors = false;
-      material.color.set("#ffffff");
-      material.needsUpdate = true;
+    if (mcBody && mcTank && mcSeat && mcFork && mcHandlebar && mcLights && mcWheels) {
+      [mcBody, mcTank].forEach((mesh) => {
+        const material = mesh.material as THREE.MeshStandardMaterial;
+        material.vertexColors = false;
+        material.color.set("#ffffff");
+        material.needsUpdate = true;
+      });
       mcSpots.forEach((s, i) => {
-        dummy.position.set(s.x, TILE_H + 3.1, s.z);
+        const cos = Math.cos(s.heading), sin = Math.sin(s.heading);
+        const place = (fwd: number, side: number, y: number) =>
+          dummy.position.set(s.x + cos * fwd - sin * side, y, s.z + sin * fwd + cos * side);
+
+        // A slim chassis, tank and saddle give parked bikes a recognisable
+        // underbone/scooter silhouette instead of a single floating block.
+        place(0, 0, TILE_H + 3.05);
         dummy.rotation.set(0, s.heading, 0);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
         mcBody.setMatrixAt(i, dummy.matrix);
         mcBody.setColorAt(i, s.color);
 
-        const cos = Math.cos(s.heading), sin = Math.sin(s.heading);
+        place(0.45, 0, TILE_H + 4.0);
+        dummy.updateMatrix();
+        mcTank.setMatrixAt(i, dummy.matrix);
+        mcTank.setColorAt(i, s.color.clone().lerp(new THREE.Color("#e7eef4"), 0.18));
+
+        place(-1.75, 0, TILE_H + 4.12);
+        dummy.updateMatrix();
+        mcSeat.setMatrixAt(i, dummy.matrix);
+        place(3.35, 0, TILE_H + 3.7);
+        dummy.updateMatrix();
+        mcFork.setMatrixAt(i, dummy.matrix);
+        place(3.15, 0, TILE_H + 5.05);
+        dummy.updateMatrix();
+        mcHandlebar.setMatrixAt(i, dummy.matrix);
+
         ([-3.4, 3.4] as const).forEach((f, n) => {
-          const wx = s.x + cos * f;
-          const wz = s.z + sin * f;
-          dummy.position.set(wx, TILE_H + 1.6, wz);
+          place(f, 0, TILE_H + 1.6);
           dummy.rotation.set(Math.PI / 2, s.heading, 0);
           dummy.updateMatrix();
           mcWheels.setMatrixAt(i * 2 + n, dummy.matrix);
         });
+        place(4.05, 0, TILE_H + 3.95);
+        dummy.rotation.set(0, s.heading, 0);
+        dummy.updateMatrix();
+        mcLights.setMatrixAt(i * 2, dummy.matrix);
+        place(-4.0, 0, TILE_H + 3.55);
+        dummy.updateMatrix();
+        mcLights.setMatrixAt(i * 2 + 1, dummy.matrix);
       });
       mcBody.instanceMatrix.needsUpdate = true;
       if (mcBody.instanceColor) mcBody.instanceColor.needsUpdate = true;
       mcBody.computeBoundingSphere();
+      mcTank.instanceMatrix.needsUpdate = true;
+      if (mcTank.instanceColor) mcTank.instanceColor.needsUpdate = true;
+      mcSeat.instanceMatrix.needsUpdate = true;
+      mcFork.instanceMatrix.needsUpdate = true;
+      mcHandlebar.instanceMatrix.needsUpdate = true;
+      mcLights.instanceMatrix.needsUpdate = true;
       mcWheels.instanceMatrix.needsUpdate = true;
       mcWheels.computeBoundingSphere();
     }
@@ -217,8 +260,28 @@ export function ParkedVehicles({
       {mcSpots.length > 0 && (
         <>
           <instancedMesh ref={mcBodyRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-body-${mcSpots.length}`} castShadow>
-            <primitive object={vehicleBox(7.5, 3.2, 2.6, 0.8)} attach="geometry" />
+            <primitive object={vehicleBox(7.7, 0.7, 1.2, 0.32)} attach="geometry" />
             <primitive object={paint} attach="material" />
+          </instancedMesh>
+          <instancedMesh ref={mcTankRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-tank-${mcSpots.length}`} castShadow>
+            <primitive object={vehicleBox(2.9, 1.45, 2.15, 0.52)} attach="geometry" />
+            <primitive object={paint} attach="material" />
+          </instancedMesh>
+          <instancedMesh ref={mcSeatRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-seat-${mcSpots.length}`} castShadow>
+            <primitive object={vehicleBox(3.3, 0.72, 1.55, 0.3)} attach="geometry" />
+            <meshStandardMaterial color="#1b242d" roughness={0.82} />
+          </instancedMesh>
+          <instancedMesh ref={mcForkRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-fork-${mcSpots.length}`} castShadow>
+            <boxGeometry args={[0.6, 3.4, 0.55]} />
+            <meshStandardMaterial color="#a7b5c2" metalness={0.72} roughness={0.25} />
+          </instancedMesh>
+          <instancedMesh ref={mcHandlebarRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-bar-${mcSpots.length}`}>
+            <boxGeometry args={[0.7, 0.32, 3.8]} />
+            <meshStandardMaterial color="#465563" metalness={0.68} roughness={0.28} />
+          </instancedMesh>
+          <instancedMesh ref={mcLightRef} args={[undefined, undefined, mcSpots.length * 2]} key={`park-mc-light-${mcSpots.length}`}>
+            <sphereGeometry args={[0.62, 7, 6]} />
+            <meshBasicMaterial color="#fff1ad" toneMapped={false} />
           </instancedMesh>
           <instancedMesh ref={mcWheelRef} args={[undefined, undefined, mcSpots.length * 2]} key={`park-mc-wheel-${mcSpots.length}`} castShadow>
             <cylinderGeometry args={[1.6, 1.6, 0.9, 8]} />
