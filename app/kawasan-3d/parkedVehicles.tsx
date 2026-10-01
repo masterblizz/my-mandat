@@ -159,11 +159,11 @@ export function ParkedVehicles({
         <>
           <instancedMesh ref={carBodyRef} args={[undefined, undefined, carSpots.length]} key={`park-car-body-${carSpots.length}`} castShadow>
             <boxGeometry args={[18, 5.5, 8]} />
-            <meshStandardMaterial color="#ffffff" metalness={0.18} roughness={0.42} />
+            <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
           </instancedMesh>
           <instancedMesh ref={carCabinRef} args={[undefined, undefined, carSpots.length]} key={`park-car-cabin-${carSpots.length}`} castShadow>
             <boxGeometry args={[9.5, 3.4, 6.7]} />
-            <meshStandardMaterial color="#ffffff" metalness={0.35} roughness={0.2} />
+            <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
           </instancedMesh>
           <instancedMesh ref={carWheelRef} args={[undefined, undefined, carSpots.length * 4]} key={`park-car-wheel-${carSpots.length}`} castShadow>
             <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
@@ -175,7 +175,7 @@ export function ParkedVehicles({
         <>
           <instancedMesh ref={mcBodyRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-body-${mcSpots.length}`} castShadow>
             <boxGeometry args={[7.5, 3.2, 2.6]} />
-            <meshStandardMaterial color="#ffffff" metalness={0.3} roughness={0.35} />
+            <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
           </instancedMesh>
           <instancedMesh ref={mcWheelRef} args={[undefined, undefined, mcSpots.length * 2]} key={`park-mc-wheel-${mcSpots.length}`} castShadow>
             <cylinderGeometry args={[1.6, 1.6, 0.9, 8]} />
