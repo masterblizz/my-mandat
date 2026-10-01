@@ -903,13 +903,13 @@ export function Traffic({
     const taillights = taillightRef.current;
     const emergencyLights = emergencyLightRef.current;
     if (!body || !cabin || !taillights || !emergencyLights) return;
-    // Some mobile/WebGL renderers retain the material's default uncoloured
-    // instance path after a hot route transition. Explicitly activate the
-    // per-instance paint path here as well as in JSX; otherwise every car
-    // falls back to the dark default material despite setColorAt() below.
+    // Per-instance paint comes from instanceColor alone. vertexColors must
+    // stay OFF: these box geometries have no `color` attribute, so enabling
+    // it multiplies every car by (0,0,0) and the whole fleet renders black.
+    // needsUpdate forces a recompile so the instance-colour path is active.
     [body, cabin, taillights, emergencyLights].forEach((mesh) => {
       const material = mesh.material as THREE.MeshBasicMaterial;
-      material.vertexColors = true;
+      material.vertexColors = false;
       material.color.set("#ffffff");
       material.needsUpdate = true;
     });
@@ -1166,11 +1166,11 @@ export function Traffic({
         {/* Keep red/blue/yellow vehicle paint legible in the deliberately
             shadowy tactical city view. Physical paint was reading nearly
             black once it passed under tall towers. */}
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
         <boxGeometry args={[9.5, 3.4, 6.7]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
         <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
@@ -1190,7 +1190,7 @@ export function Traffic({
       </instancedMesh>
       <instancedMesh ref={emergencyLightRef} args={[undefined, undefined, cars.length * 2]} key={`car-emergency-lights-${cars.length}`}>
         <boxGeometry args={[1.5, 0.9, 1.2]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
     </group>
   );

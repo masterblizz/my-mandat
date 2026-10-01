@@ -162,7 +162,7 @@ export function Motorcyclists({
     if (!body || !rider || !helmet || !lights) return;
     [body, rider, helmet, lights].forEach((mesh) => {
       const material = mesh.material as THREE.MeshBasicMaterial;
-      material.vertexColors = true;
+      material.vertexColors = false;
       material.color.set("#ffffff");
       material.needsUpdate = true;
     });
@@ -321,14 +321,14 @@ export function Motorcyclists({
     <group>
       <instancedMesh ref={bodyRef} args={[undefined, undefined, riders.length]} key={`mc-body-${riders.length}`} castShadow>
         <boxGeometry args={[7.5, 3.2, 2.6]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={wheelRef} geometry={wheelGeometry} args={[undefined, undefined, riders.length * 2]} key={`mc-wheel-${riders.length}`} castShadow>
         <meshStandardMaterial color="#111318" roughness={0.9} />
       </instancedMesh>
       <instancedMesh ref={riderRef} args={[undefined, undefined, riders.length]} key={`mc-rider-${riders.length}`} castShadow>
         <boxGeometry args={[2.6, 4.2, 3.2]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={spokeRef} args={[undefined, undefined, riders.length * 2]} key={`mc-spoke-${riders.length}`} frustumCulled={false}>
         <boxGeometry args={[2.3, 0.2, 0.94]} />
@@ -336,11 +336,11 @@ export function Motorcyclists({
       </instancedMesh>
       <instancedMesh ref={helmetRef} args={[undefined, undefined, riders.length]} key={`mc-helmet-${riders.length}`} castShadow>
         <sphereGeometry args={[1.15, 7, 6]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={lightRef} args={[undefined, undefined, riders.length * 2]} key={`mc-light-${riders.length}`}>
         <sphereGeometry args={[0.5, 6, 5]} />
-        <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
     </group>
   );

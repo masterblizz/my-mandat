@@ -258,6 +258,8 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
+    (body.material as THREE.Material).needsUpdate = true;
+    (cabin.material as THREE.Material).needsUpdate = true;
   }, [cars]);
   useFrame(({ clock }) => {
     const body = bodyRef.current;
@@ -339,11 +341,11 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       <boxGeometry args={[1, 1, 1]} />
       {/* Tactical camera views are intentionally dark. Basic material keeps
           the fleet's instance paint readable instead of turning it black. */}
-      <meshBasicMaterial vertexColors toneMapped={false} />
+      <meshBasicMaterial color="#ffffff" toneMapped={false} />
     </instancedMesh>
     <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial vertexColors toneMapped={false} />
+      <meshBasicMaterial color="#ffffff" toneMapped={false} />
     </instancedMesh>
     <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
