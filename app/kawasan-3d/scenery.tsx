@@ -7,7 +7,7 @@
 //   haze, driven by TOD_ENV (the 3D port of .kw-scene[data-tod]); an
 //   overcast wash + falling <Rain> when weather === "rain".
 // - StreetLamps: instanced pole + head at every road junction; heads glow
-//   and 4 point lights switch on at dusk/night (TOD_ENV.lamp × mood).
+//   and camera-following point lights switch on at dusk/night (TOD_ENV.lamp × mood).
 // - Traffic: instanced cars looping the road lanes.
 // - Lrt: straight elevated guideway + one station + a shuttling 3-car
 //   train (metro / dense-metro grids only).
@@ -268,6 +268,8 @@ function Rain({ span }: { span: number }) {
 const LAMP_POLE_H = 26;
 // Lamps stand on the road verge, this far in from the plot edge.
 const LAMP_KERB_IN = 2.5;
+// How many real point lights follow the camera through the lamp field.
+const LAMP_LIGHT_COUNT = 12;
 
 // Soft radial falloff for the light pool under each lamp head: bright
 // centre fading to nothing at the rim, so it reads as cast light rather
@@ -397,7 +399,7 @@ export function StreetLamps({
       glow.setMatrixAt(i, m.matrix);
       // A soft emissive pool guarantees each lit fixture visibly reaches
       // the pavement even when real point lights are culled at city scale.
-      m.position.set(x + dx * 7.1, 0.95, z + dz * 7.1); // just above the road slab (~0.8)
+      m.position.set(x + dx * 7.1, 1.15, z + dz * 7.1); // clear of the road slab (0.8) so it never z-fights at range
       m.rotation.set(-Math.PI / 2, 0, 0);
       m.scale.set(20, 20, 1);
       m.updateMatrix();
@@ -417,16 +419,40 @@ export function StreetLamps({
     pool.computeBoundingSphere();
   }, [points]);
 
-  // A representative subset supplies actual local bounce. The emissive
-  // pools above cover every lamp, while this cap keeps dense-metro GPU cost
-  // predictable instead of creating a point light for every street pole.
-  const nightLights = useMemo(() => {
-    const n = Math.min(14, points.length);
-    return Array.from({ length: n }, (_, i) => {
-      const [x, z, yaw] = points[Math.floor((i + 0.5) * points.length / n)];
-      return [x + Math.cos(yaw) * 7.1, z - Math.sin(yaw) * 7.1] as [number, number];
-    });
-  }, [points]);
+  // Real light pools: a fixed-size set of point lights that follows the
+  // camera — every ~0.25s they jump to the lamps nearest the spot the camera
+  // is looking at, so whatever is on screen gets genuine diffuse/specular
+  // bounce on asphalt, pavements, cars and facades. The count never changes
+  // (no shader recompiles); the emissive pools above still cover the rest.
+  const heads = useMemo(
+    () => points.map(([x, z, yaw]) => [x + Math.cos(yaw) * 7.1, z - Math.sin(yaw) * 7.1] as [number, number]),
+    [points],
+  );
+  const lightCount = Math.min(LAMP_LIGHT_COUNT, heads.length);
+  const lightRefs = useRef<(THREE.PointLight | null)[]>([]);
+  const lightTick = useRef(-1);
+  const focus = useMemo(() => new THREE.Vector3(), []);
+  const lookDir = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ camera, clock }) => {
+    if (lamp <= 0.05 || !lightCount) return;
+    const t = clock.elapsedTime;
+    if (lightTick.current >= 0 && t - lightTick.current < 0.25) return;
+    lightTick.current = t;
+    // Where the view ray meets the ground (fallback: below the camera).
+    camera.getWorldDirection(lookDir);
+    focus.copy(camera.position);
+    if (lookDir.y < -0.05) focus.addScaledVector(lookDir, -camera.position.y / lookDir.y);
+    const fx = focus.x, fz = focus.z;
+    const order = heads
+      .map(([x, z], i) => [(x - fx) ** 2 + (z - fz) ** 2, i] as [number, number])
+      .sort((a, b) => a[0] - b[0]);
+    for (let k = 0; k < lightCount; k++) {
+      const l = lightRefs.current[k];
+      if (!l) continue;
+      const [x, z] = heads[order[k][1]];
+      l.position.set(x, LAMP_POLE_H - 2.2, z);
+    }
+  });
 
   return (
     <group>
@@ -452,17 +478,20 @@ export function StreetLamps({
       </instancedMesh>
       <instancedMesh ref={poolRef} args={[undefined, undefined, points.length]} key={`lamp-pool-${points.length}`} frustumCulled={false} renderOrder={1}>
         <circleGeometry args={[1, 24]} />
-        <meshBasicMaterial color="#ffc27a" map={lampPoolTexture()} transparent opacity={Math.min(1, lamp * 0.85)} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+        <meshBasicMaterial color="#ffc27a" map={lampPoolTexture()} transparent opacity={Math.min(1, lamp * 1.1)} depthWrite={false} fog={false} toneMapped={false} blending={THREE.AdditiveBlending} polygonOffset polygonOffsetFactor={-4} />
       </instancedMesh>
       {lamp > 0.05 &&
-        nightLights.map(([x, z], i) => (
+        Array.from({ length: lightCount }, (_, i) => (
           <pointLight
             key={i}
-            position={[x, LAMP_POLE_H - 2, z]}
-            color="#ffd39a"
-            intensity={lamp * 22}
-            distance={128}
-            decay={1.65}
+            ref={(l) => { lightRefs.current[i] = l; }}
+            position={[heads[i][0], LAMP_POLE_H - 2.2, heads[i][1]]}
+            color="#ffc98a"
+            // physically-based falloff: ~4–5 lux under the head on the road,
+            // fading out across the carriageway and onto the kerb.
+            intensity={lamp * 2600}
+            distance={95}
+            decay={2}
           />
         ))}
     </group>
