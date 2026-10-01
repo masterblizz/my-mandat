@@ -10,6 +10,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PLOT, worldCentre, plotXY } from "./cityData";
+import { vehicleBox, makePaintMaterial, makeGlassMaterial } from "./vehicleLook";
 
 type Route = { width: number; points: Array<[number, number]> };
 
@@ -230,6 +231,8 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   const wheelRef = useRef<THREE.InstancedMesh>(null);
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const tailLightRef = useRef<THREE.InstancedMesh>(null);
+  const paint = useMemo(() => makePaintMaterial(), []);
+  const glass = useMemo(() => makeGlassMaterial(), []);
   const cars = useMemo(() => {
     const kinds = ["car", "car", "suv", "van", "car", "motorcycle", "bus", "car", "truck", "motorcycle"] as const;
     return Array.from({ length: count }, (_, i) => ({
@@ -338,14 +341,14 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   });
   return <group>
     <instancedMesh ref={bodyRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1]} />
-      {/* Tactical camera views are intentionally dark. Basic material keeps
-          the fleet's instance paint readable instead of turning it black. */}
-      <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      {/* Chamfered unit box + lit paint (see vehicleLook.ts) so each
+          vehicle shades like a solid body instead of a flat sticker. */}
+      <primitive object={vehicleBox(1, 1, 1, 0.18)} attach="geometry" />
+      <primitive object={paint} attach="material" />
     </instancedMesh>
     <instancedMesh ref={cabinRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      <primitive object={vehicleBox(1, 1, 1, 0.2)} attach="geometry" />
+      <primitive object={glass} attach="material" />
     </instancedMesh>
     <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />

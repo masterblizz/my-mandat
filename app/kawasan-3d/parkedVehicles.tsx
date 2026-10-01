@@ -11,6 +11,7 @@
 import { useMemo, useRef, useLayoutEffect } from "react";
 import * as THREE from "three";
 import { PLOT, slotPos, zoneBuildings, type CellPlacement, type SeatTraits, type ZoneKind } from "./cityData";
+import { vehicleBox, makePaintMaterial, makeGlassMaterial, makeTyreMaterial } from "./vehicleLook";
 
 const TILE_H = 4;
 const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#ec6c20", "#a855f7"];
@@ -112,6 +113,9 @@ export function ParkedVehicles({
   const carWheelRef = useRef<THREE.InstancedMesh>(null);
   const mcBodyRef = useRef<THREE.InstancedMesh>(null);
   const mcWheelRef = useRef<THREE.InstancedMesh>(null);
+  const paint = useMemo(() => makePaintMaterial(), []);
+  const glass = useMemo(() => makeGlassMaterial(), []);
+  const tyre = useMemo(() => makeTyreMaterial(), []);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useLayoutEffect(() => {
@@ -197,24 +201,24 @@ export function ParkedVehicles({
       {carSpots.length > 0 && (
         <>
           <instancedMesh ref={carBodyRef} args={[undefined, undefined, carSpots.length]} key={`park-car-body-${carSpots.length}`} castShadow>
-            <boxGeometry args={[18, 5.5, 8]} />
-            <meshBasicMaterial color="#ffffff" toneMapped={false} />
+            <primitive object={vehicleBox(18, 5.5, 8, 1.6)} attach="geometry" />
+            <primitive object={paint} attach="material" />
           </instancedMesh>
           <instancedMesh ref={carCabinRef} args={[undefined, undefined, carSpots.length]} key={`park-car-cabin-${carSpots.length}`} castShadow>
-            <boxGeometry args={[9.5, 3.4, 6.7]} />
-            <meshBasicMaterial color="#ffffff" toneMapped={false} />
+            <primitive object={vehicleBox(9.5, 3.4, 6.7, 1.3)} attach="geometry" />
+            <primitive object={glass} attach="material" />
           </instancedMesh>
           <instancedMesh ref={carWheelRef} args={[undefined, undefined, carSpots.length * 4]} key={`park-car-wheel-${carSpots.length}`} castShadow>
-            <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
-            <meshStandardMaterial color="#111318" roughness={0.9} />
+            <cylinderGeometry args={[2.05, 2.05, 1.3, 10]} />
+            <primitive object={tyre} attach="material" />
           </instancedMesh>
         </>
       )}
       {mcSpots.length > 0 && (
         <>
           <instancedMesh ref={mcBodyRef} args={[undefined, undefined, mcSpots.length]} key={`park-mc-body-${mcSpots.length}`} castShadow>
-            <boxGeometry args={[7.5, 3.2, 2.6]} />
-            <meshBasicMaterial color="#ffffff" toneMapped={false} />
+            <primitive object={vehicleBox(7.5, 3.2, 2.6, 0.8)} attach="geometry" />
+            <primitive object={paint} attach="material" />
           </instancedMesh>
           <instancedMesh ref={mcWheelRef} args={[undefined, undefined, mcSpots.length * 2]} key={`park-mc-wheel-${mcSpots.length}`} castShadow>
             <cylinderGeometry args={[1.6, 1.6, 0.9, 8]} />

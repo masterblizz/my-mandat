@@ -27,6 +27,7 @@ import {
   TOD_ENV, type Tod,
 } from "./cityData";
 import { junctionInsideLarge } from "./largeBuildings";
+import { vehicleBox, makePaintMaterial, makeGlassMaterial, makeTyreMaterial } from "./vehicleLook";
 import { R_IN as RB_R_IN, R_OUT as RB_R_OUT, roundaboutLift } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
@@ -884,6 +885,9 @@ export function Traffic({
   const taillightRef = useRef<THREE.InstancedMesh>(null);
   const indicatorRef = useRef<THREE.InstancedMesh>(null);
   const emergencyLightRef = useRef<THREE.InstancedMesh>(null);
+  const paint = useMemo(() => makePaintMaterial(), []);
+  const glass = useMemo(() => makeGlassMaterial(), []);
+  const tyre = useMemo(() => makeTyreMaterial(), []);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const wheelYaw = useMemo(() => new THREE.Quaternion(), []);
   const wheelMount = useMemo(() => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), []);
@@ -1204,19 +1208,19 @@ export function Traffic({
   return (
     <group>
       <instancedMesh ref={bodyRef} args={[undefined, undefined, cars.length]} key={`car-body-${cars.length}`} castShadow>
-        <boxGeometry args={[18, 5.5, 8]} />
-        {/* Keep red/blue/yellow vehicle paint legible in the deliberately
-            shadowy tactical city view. Physical paint was reading nearly
-            black once it passed under tall towers. */}
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        {/* Chamfered hull + lit paint (see vehicleLook.ts): faces shade
+            differently and catch a highlight, so a car reads as a solid
+            body rather than a flat coloured sticker. */}
+        <primitive object={vehicleBox(18, 5.5, 8, 1.6)} attach="geometry" />
+        <primitive object={paint} attach="material" />
       </instancedMesh>
       <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
-        <boxGeometry args={[9.5, 3.4, 6.7]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        <primitive object={vehicleBox(9.5, 3.4, 6.7, 1.3)} attach="geometry" />
+        <primitive object={glass} attach="material" />
       </instancedMesh>
       <instancedMesh ref={windscreenRef} args={[undefined, undefined, cars.length]} key={`car-windscreen-${cars.length}`}>
         <boxGeometry args={[0.7, 2.3, 5.25]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        <primitive object={glass} attach="material" />
       </instancedMesh>
       <instancedMesh ref={bumperRef} args={[undefined, undefined, cars.length * 2]} key={`car-bumpers-${cars.length}`}>
         <boxGeometry args={[0.8, 1, 6.9]} />
@@ -1227,8 +1231,8 @@ export function Traffic({
         <meshBasicMaterial color="#071018" transparent opacity={0.34} depthWrite={false} toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
-        <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
-        <meshStandardMaterial color="#111318" roughness={0.9} />
+        <cylinderGeometry args={[2.05, 2.05, 1.3, 10]} />
+        <primitive object={tyre} attach="material" />
       </instancedMesh>
       <instancedMesh ref={headlightRef} args={[undefined, undefined, cars.length * 2]} key={`car-headlights-${cars.length}`}>
         <boxGeometry args={[0.7, 1.2, 1.55]} />
