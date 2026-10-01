@@ -292,6 +292,34 @@ function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density:
   })}</group>;
 }
 
+/** Flat "field" footprints are school/community football pitches, not
+    raised green slabs with a few oversized grass blades. */
+function SportsFields({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
+  return <group>{items.map((item) => {
+    const w = item.w * 0.78;
+    const d = item.d * 0.72;
+    const line = 0.72;
+    const y = groundY + FLAT_BOX_H + 0.16;
+    return <group key={`${item.key}:pitch`} position={[item.x, 0, item.z]}>
+      <mesh position={[0, y - 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color="#4f8e42" roughness={0.96} />
+      </mesh>
+      {/* painted touchlines + halfway line */}
+      {[-1, 1].flatMap((s) => [
+        <mesh key={`side:${s}`} position={[s * w / 2, y, 0]}><boxGeometry args={[line, 0.16, d]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>,
+        <mesh key={`end:${s}`} position={[0, y, s * d / 2]}><boxGeometry args={[w, 0.16, line]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>,
+      ])}
+      <mesh position={[0, y, 0]}><boxGeometry args={[line, 0.16, d]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>
+      {/* Small open goal frames make the pitch identifiable at city zoom. */}
+      {[-1, 1].map((s) => <group key={`goal:${s}`} position={[0, y + 2.4, s * (d / 2 - 1.5)]}>
+        {[-1, 1].map((x) => <mesh key={x} position={[x * w * 0.16, 0, 0]}><boxGeometry args={[0.55, 4.8, 0.55]} /><meshStandardMaterial color="#f1f5e9" roughness={0.55} /></mesh>)}
+        <mesh position={[0, 2.15, 0]}><boxGeometry args={[w * 0.32, 0.55, 0.55]} /><meshStandardMaterial color="#f1f5e9" roughness={0.55} /></mesh>
+      </group>)}
+    </group>;
+  })}</group>;
+}
+
 function Buildings({
   placed, gridSize, density, traits, winLit, tod, foliageDensity, buildingBudget, claimed, notchByCell,
 }: {
@@ -376,11 +404,17 @@ function Buildings({
         const color = BUILDING_COLOR[type];
         const variantUrls = available.get(type);
         if (!variantUrls?.length) {
-          if (type === "sawah" || type === "field") {
-            // Blades sit ON TOP of the flat ground box (still the paddy
-            // floor / turf colour underneath), not instead of it. Flat
-            // ground-cover types never get procedural detail — a "roof"
-            // or "setback" makes no sense for a paddy tile.
+          if (type === "field") {
+            return (
+              <group key={`${type}-group`}>
+                <InstancedBoxes items={items} groundY={GROUND_Y} color={color} winLit={winLit} />
+                <SportsFields items={items} groundY={GROUND_Y} />
+              </group>
+            );
+          }
+          if (type === "sawah") {
+            // Paddy blades sit on top of their irrigated ground box. A
+            // field, by contrast, is rendered above as a real marked pitch.
             return (
               <group key={`${type}-group`}>
                 <InstancedBoxes items={items} groundY={GROUND_Y} color={color} winLit={winLit} />
