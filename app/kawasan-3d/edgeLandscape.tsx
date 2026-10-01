@@ -25,6 +25,8 @@ import * as THREE from "three";
 import { TOD_ENV, type Tod, type SeatTraits, type CellPlacement } from "./cityData";
 
 const TILE_H = 4;
+// Sea rest level: max crest (0.8+0.5+0.35) stays below the wet sand (TILE_H-0.6).
+const SEA_Y = TILE_H - 2.4;
 
 const SEA_VERT = /* glsl */ `
   varying vec2 vSea;
@@ -32,23 +34,31 @@ const SEA_VERT = /* glsl */ `
   void main() {
     vSea = position.xy;
     vec3 p = position;
-    p.z += sin(p.x * 0.032 + uTime * 0.75) * 1.15
-         + sin(p.y * 0.046 - uTime * 0.58) * 0.72
-         + sin((p.x + p.y) * 0.021 + uTime * 0.42) * 0.5;
+    // Crest height stays under the wet-sand line (see SEA_Y); taller
+    // swells poked through the beach and city tiles as blue splotches.
+    p.z += sin(p.x * 0.032 + uTime * 0.75) * 0.8
+         + sin(p.y * 0.046 - uTime * 0.58) * 0.5
+         + sin((p.x + p.y) * 0.021 + uTime * 0.42) * 0.35;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `;
+// No `precision` line: ShaderMaterial prepends the same one to both stages.
+// A fragment-only mediump made uTime's precision differ from the vertex
+// stage, which fails program validation and the sea never drew.
 const SEA_FRAG = /* glsl */ `
-  precision mediump float;
   uniform float uTime; uniform vec3 uDeep; uniform vec3 uSky;
   varying vec2 vSea;
   void main() {
     float swell = sin(vSea.x * 0.009 + uTime * 0.34) * 0.5
                 + sin(vSea.y * 0.013 - uTime * 0.28) * 0.5;
     float ripples = sin((vSea.x - vSea.y) * 0.065 + uTime * 1.35) * 0.5 + 0.5;
-    float light = pow(max(0.0, sin((vSea.x + vSea.y) * 0.048 + uTime * 0.8)), 18.0);
+    // Glints broken up by the swell so they read as scattered sparkle,
+    // not long ruler-straight white stripes across the whole sea.
+    float light = pow(max(0.0, sin((vSea.x + vSea.y) * 0.048 + uTime * 0.8)), 18.0)
+                * smoothstep(0.1, 0.9, swell * 0.5 + 0.5)
+                * (0.5 + 0.5 * sin(vSea.x * 0.11 - vSea.y * 0.07 + uTime * 0.6));
     vec3 col = mix(uDeep, uSky, 0.28 + swell * 0.12 + ripples * 0.045);
-    col += vec3(0.62, 0.83, 0.88) * light * 0.23;
+    col += vec3(0.62, 0.83, 0.88) * light * 0.1;
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -64,9 +74,13 @@ function Sea({ tod, span }: { tod: Tod; span: number }) {
     [tod],
   );
   useFrame((_, dt) => { if (matRef.current) (matRef.current.uniforms.uTime.value as number) += dt; });
+  // The plane used to be centred at -0.98·span with 1.7·span depth, so it
+  // ran far under the city; it now starts beneath the wet-sand line.
+  const depth = span * 1.7;
+  const nearZ = -span / 2 - 140;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TILE_H - 1.2, -span * 0.98]}>
-      <planeGeometry args={[span * 3, span * 1.7, 140, 80]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, SEA_Y, nearZ - depth / 2]}>
+      <planeGeometry args={[span * 3, depth, 140, 80]} />
       <shaderMaterial ref={matRef} vertexShader={SEA_VERT} fragmentShader={SEA_FRAG} uniforms={uniforms} side={THREE.DoubleSide} />
     </mesh>
   );
