@@ -876,6 +876,9 @@ export function Traffic({
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
+  const windscreenRef = useRef<THREE.InstancedMesh>(null);
+  const bumperRef = useRef<THREE.InstancedMesh>(null);
+  const shadowRef = useRef<THREE.InstancedMesh>(null);
   const wheelRef = useRef<THREE.InstancedMesh>(null);
   const headlightRef = useRef<THREE.InstancedMesh>(null);
   const taillightRef = useRef<THREE.InstancedMesh>(null);
@@ -900,14 +903,15 @@ export function Traffic({
   useLayoutEffect(() => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
+    const windscreens = windscreenRef.current;
     const taillights = taillightRef.current;
     const emergencyLights = emergencyLightRef.current;
-    if (!body || !cabin || !taillights || !emergencyLights) return;
+    if (!body || !cabin || !windscreens || !taillights || !emergencyLights) return;
     // Per-instance paint comes from instanceColor alone. vertexColors must
     // stay OFF: these box geometries have no `color` attribute, so enabling
     // it multiplies every car by (0,0,0) and the whole fleet renders black.
     // needsUpdate forces a recompile so the instance-colour path is active.
-    [body, cabin, taillights, emergencyLights].forEach((mesh) => {
+    [body, cabin, windscreens, taillights, emergencyLights].forEach((mesh) => {
       const material = mesh.material as THREE.MeshBasicMaterial;
       material.vertexColors = false;
       material.color.set("#ffffff");
@@ -915,10 +919,11 @@ export function Traffic({
     });
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
-      // From the tactical camera the cabin/roof is most of a vehicle's
-      // visible surface. Keep it glassy but light enough that red, blue and
-      // other paint colours still read instead of collapsing into black.
-      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#78a6c2"), 0.28));
+      // Keep the greenhouse noticeably darker than the paint. This makes a
+      // proper roof/window silhouette from the overhead city camera instead
+      // of reading as one flat coloured brick.
+      cabin.setColorAt(i, new THREE.Color("#315d73"));
+      windscreens.setColorAt(i, new THREE.Color("#9bd8ed"));
       taillights.setColorAt(i * 2, TAIL_RUNNING);
       taillights.setColorAt(i * 2 + 1, TAIL_RUNNING);
       const fire = c.kind === "fire";
@@ -927,6 +932,7 @@ export function Traffic({
     });
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
+    if (windscreens.instanceColor) windscreens.instanceColor.needsUpdate = true;
     if (taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
     if (emergencyLights.instanceColor) emergencyLights.instanceColor.needsUpdate = true;
   }, [cars]);
@@ -934,12 +940,15 @@ export function Traffic({
   useFrame((_, dt) => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
+    const windscreens = windscreenRef.current;
+    const bumpers = bumperRef.current;
+    const shadows = shadowRef.current;
     const wheels = wheelRef.current;
     const headlights = headlightRef.current;
     const taillights = taillightRef.current;
     const indicators = indicatorRef.current;
     const emergencyLights = emergencyLightRef.current;
-    if (!body || !cabin || !wheels || !headlights || !taillights || !indicators || !emergencyLights) return;
+    if (!body || !cabin || !windscreens || !bumpers || !shadows || !wheels || !headlights || !taillights || !indicators || !emergencyLights) return;
     const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
     const now = performance.now() / 1000;
 
@@ -960,6 +969,10 @@ export function Traffic({
       dummy.updateMatrix();
       body.setMatrixAt(ci, dummy.matrix);
       cabin.setMatrixAt(ci, dummy.matrix);
+      windscreens.setMatrixAt(ci, dummy.matrix);
+      shadows.setMatrixAt(ci, dummy.matrix);
+      bumpers.setMatrixAt(ci * 2, dummy.matrix);
+      bumpers.setMatrixAt(ci * 2 + 1, dummy.matrix);
       for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
       for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
       for (let n = 0; n < 2; n++) indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
@@ -1095,6 +1108,32 @@ export function Traffic({
         dummy.updateMatrix();
         cabin.setMatrixAt(ci, dummy.matrix);
 
+        // A pale windscreen inset gives every vehicle a readable front
+        // face, while the dark greenhouse remains visible around it.
+        const cabFront = spec.cabDX + spec.cabS[0] * 4.72;
+        const [wsx, wsz] = local(cabFront, 0);
+        dummy.position.set(wsx, spec.cabY + 0.1 + yLift, wsz);
+        dummy.rotation.set(0, -heading, 0);
+        dummy.scale.set(Math.max(0.58, spec.cabS[0] * 0.72), spec.cabS[1] * 0.68, spec.cabS[2] * 0.78);
+        dummy.updateMatrix();
+        windscreens.setMatrixAt(ci, dummy.matrix);
+
+        // Soft ground contact and slim bumpers stop the cars from looking
+        // like floating toy blocks, especially on the pale daytime roads.
+        dummy.position.set(x, 0.24 + yLift, z);
+        dummy.rotation.set(-Math.PI / 2, 0, heading);
+        dummy.scale.set(spec.half * 0.96, 4.25 * spec.bodyS[2], 1);
+        dummy.updateMatrix();
+        shadows.setMatrixAt(ci, dummy.matrix);
+        [-1, 1].forEach((end, n) => {
+          const [px, pz] = local(end * spec.half * 1.04, 0);
+          dummy.position.set(px, 2.65 + yLift, pz);
+          dummy.rotation.set(0, -heading, 0);
+          dummy.scale.set(1, 1, spec.bodyS[2]);
+          dummy.updateMatrix();
+          bumpers.setMatrixAt(ci * 2 + n, dummy.matrix);
+        });
+
         const wf = spec.half * 0.62;
         const wy = 2.25 + (spec.wheel - 1) * 2.05 + yLift;
         [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
@@ -1151,6 +1190,9 @@ export function Traffic({
     }
     body.instanceMatrix.needsUpdate = true;
     cabin.instanceMatrix.needsUpdate = true;
+    windscreens.instanceMatrix.needsUpdate = true;
+    bumpers.instanceMatrix.needsUpdate = true;
+    shadows.instanceMatrix.needsUpdate = true;
     wheels.instanceMatrix.needsUpdate = true;
     headlights.instanceMatrix.needsUpdate = true;
     taillights.instanceMatrix.needsUpdate = true;
@@ -1171,6 +1213,18 @@ export function Traffic({
       <instancedMesh ref={cabinRef} args={[undefined, undefined, cars.length]} key={`car-cabin-${cars.length}`} castShadow>
         <boxGeometry args={[9.5, 3.4, 6.7]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={windscreenRef} args={[undefined, undefined, cars.length]} key={`car-windscreen-${cars.length}`}>
+        <boxGeometry args={[0.7, 2.3, 5.25]} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={bumperRef} args={[undefined, undefined, cars.length * 2]} key={`car-bumpers-${cars.length}`}>
+        <boxGeometry args={[0.8, 1, 6.9]} />
+        <meshBasicMaterial color="#1d2b35" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={shadowRef} args={[undefined, undefined, cars.length]} key={`car-shadows-${cars.length}`} renderOrder={-1}>
+        <circleGeometry args={[1, 16]} />
+        <meshBasicMaterial color="#071018" transparent opacity={0.34} depthWrite={false} toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={wheelRef} args={[undefined, undefined, cars.length * 4]} key={`car-wheels-${cars.length}`} castShadow>
         <cylinderGeometry args={[2.05, 2.05, 1.3, 8]} />
