@@ -319,6 +319,7 @@ export function StreetLamps({
   const armRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.InstancedMesh>(null);
+  const poolRef = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
     const pole = poleRef.current;
@@ -326,7 +327,8 @@ export function StreetLamps({
     const arm = armRef.current;
     const head = headRef.current;
     const glow = glowRef.current;
-    if (!pole || !base || !arm || !head || !glow) return;
+    const pool = poolRef.current;
+    if (!pole || !base || !arm || !head || !glow || !pool) return;
     const m = new THREE.Object3D();
     points.forEach(([x, z], i) => {
       m.position.set(x, LAMP_POLE_H / 2, z);
@@ -355,24 +357,35 @@ export function StreetLamps({
       m.position.set(x + dx * 7.1, LAMP_POLE_H - 2.0, z + dz * 7.1);
       m.updateMatrix();
       glow.setMatrixAt(i, m.matrix);
+      // A soft emissive pool guarantees each lit fixture visibly reaches
+      // the pavement even when real point lights are culled at city scale.
+      m.position.set(x + dx * 7.1, 0.18, z + dz * 7.1);
+      m.rotation.set(-Math.PI / 2, 0, 0);
+      m.scale.set(13, 13, 1);
+      m.updateMatrix();
+      pool.setMatrixAt(i, m.matrix);
     });
     pole.instanceMatrix.needsUpdate = true;
     base.instanceMatrix.needsUpdate = true;
     arm.instanceMatrix.needsUpdate = true;
     head.instanceMatrix.needsUpdate = true;
     glow.instanceMatrix.needsUpdate = true;
+    pool.instanceMatrix.needsUpdate = true;
     pole.computeBoundingSphere();
     base.computeBoundingSphere();
     arm.computeBoundingSphere();
     head.computeBoundingSphere();
     glow.computeBoundingSphere();
+    pool.computeBoundingSphere();
   }, [points]);
 
-  // A few real point lights (not one per lamp) for actual bounce at night.
-  const quads = useMemo(() => {
-    const q = worldSize(gridSize) * 0.28;
-    return [[-q, -q], [q, -q], [-q, q], [q, q]] as [number, number][];
-  }, [gridSize]);
+  // A representative subset supplies actual local bounce. The emissive
+  // pools above cover every lamp, while this cap keeps dense-metro GPU cost
+  // predictable instead of creating a point light for every street pole.
+  const nightLights = useMemo(() => {
+    const n = Math.min(14, points.length);
+    return Array.from({ length: n }, (_, i) => points[Math.floor((i + 0.5) * points.length / n)]);
+  }, [points]);
 
   return (
     <group>
@@ -394,17 +407,21 @@ export function StreetLamps({
       </instancedMesh>
       <instancedMesh ref={glowRef} args={[undefined, undefined, points.length]} key={`lamp-led-${points.length}`} frustumCulled={false}>
         <boxGeometry args={[5.25, 0.22, 2.45]} />
-        <meshStandardMaterial color="#fff0c8" emissive="#ffd08a" emissiveIntensity={0.12 + lamp * 5.2} toneMapped={false} />
+        <meshStandardMaterial color="#fff6d8" emissive="#ffd08a" emissiveIntensity={0.08 + lamp * 8} toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={poolRef} args={[undefined, undefined, points.length]} key={`lamp-pool-${points.length}`} frustumCulled={false} renderOrder={1}>
+        <circleGeometry args={[1, 16]} />
+        <meshBasicMaterial color="#f7b968" transparent opacity={lamp * 0.16} depthWrite={false} toneMapped={false} />
       </instancedMesh>
       {lamp > 0.05 &&
-        quads.map(([x, z], i) => (
+        nightLights.map(([x, z], i) => (
           <pointLight
             key={i}
-            position={[x, 90, z]}
+            position={[x, LAMP_POLE_H - 2, z]}
             color="#ffd39a"
-            intensity={lamp * worldSize(gridSize) * 0.05}
-            distance={worldSize(gridSize) * 0.5}
-            decay={1.4}
+            intensity={lamp * 22}
+            distance={128}
+            decay={1.65}
           />
         ))}
     </group>
