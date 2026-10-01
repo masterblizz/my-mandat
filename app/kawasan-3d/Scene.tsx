@@ -27,6 +27,11 @@ const DENSITY_PRESETS: { key: string; label: string; density: number }[] = [
   { key: "dense", label: "Dense metro · 30×30", density: 0.9 },
 ];
 
+// The sandbox is a Kuala Lumpur-inspired digital-twin presentation, not a
+// generic city-builder: landmark reservations create a clear skyline anchor
+// while normal game zones remain selectable beneath the visual layer.
+const DIGITAL_TWIN_TRAITS = DEFAULT_TRAITS;
+
 export default function Scene() {
   const lang = useLang();
   const [presetKey, setPresetKey] = useState("metro");
@@ -90,7 +95,7 @@ export default function Scene() {
     <div style={ui.page}>
       <div style={ui.bar}>
         <strong style={{ color: "#e0f2fe" }}>kawasan-3d</strong>
-        <span style={{ color: "#5c7186" }}>Phase 5 · &lt;City3DMapGL&gt; drop-in — demo data</span>
+        <span style={{ color: "#5c7186" }}>CITY DIGITAL TWIN · semantic district layers · local simulation</span>
         {DENSITY_PRESETS.map((p) => (
           <button
             key={p.key}
@@ -113,13 +118,13 @@ export default function Scene() {
           gridSize={gridSize}
           density={preset.density}
           densityLabel={preset.label}
-          traits={DEFAULT_TRAITS}
+          traits={DIGITAL_TWIN_TRAITS}
           celebration={celebration}
           overall={overall}
         />
 
         <aside style={ui.side}>
-          <div style={ui.sideKicker}>{selected && ZONE_KIND_LABEL[selected.kind]}</div>
+          <div style={ui.sideKicker}>OBJECT INSPECTOR · {selected && ZONE_KIND_LABEL[selected.kind]}</div>
           <div style={ui.sideTitle}>
             {selected?.archetype}{selected?.repeat ? ` ${selected.repeat}` : ""}
           </div>
@@ -137,9 +142,8 @@ export default function Scene() {
             <button type="button" style={{ ...ui.grow, marginTop: 0, borderColor: "rgba(250,204,21,0.5)", background: "rgba(250,204,21,0.14)", color: "#fde68a" }} onClick={celebrateSelected}>✦ Celebrate</button>
           </div>
           <div style={ui.sideNote}>
-            This panel is OUTSIDE the map component — it updates purely from
-            setSelectedZoneId, exactly like the live page&apos;s store-backed
-            panel will.
+            Semantic object metadata is driven by the selected game zone.
+            District frames are rendered locally; no external map or API is used.
           </div>
         </aside>
       </div>

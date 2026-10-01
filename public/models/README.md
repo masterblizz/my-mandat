@@ -64,3 +64,9 @@ always gets the same one). Add variants incrementally — an unlisted
 
 Only commit assets you have the right to redistribute — CC0 (e.g. Kenney.nl,
 Poly Pizza CC0), or with a LICENSE/attribution file alongside them here.
+
+The committed `tower*.glb`, `skyscraper*.glb` and civic/commercial variants
+are from Kenney City Kit (Commercial), CC0 1.0. House variants are from
+Kenney City Kit (Suburban), also CC0 1.0:
+https://kenney.nl/assets/city-kit-commercial
+https://kenney.nl/assets/city-kit-suburban

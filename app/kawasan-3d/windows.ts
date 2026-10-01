@@ -53,13 +53,13 @@ const DEFAULT_SPEC: WinSpec = { cols: 5, rows: 7, litPct: 28, repeatY: 3 };
 // lit/unlit — so the mix is stable per (type, variant) but varied across
 // the skyline. Neon accents (cyan / pink) are deliberately rare.
 const WIN_PALETTE: { c: [number, number, number]; w: number }[] = [
-  { c: [255, 236, 200], w: 34 }, // warm white
-  { c: [255, 202, 128], w: 26 }, // soft yellow (the old single colour)
-  { c: [223, 233, 255], w: 18 }, // cool white
-  { c: [169, 198, 255], w: 12 }, // office blue
-  { c: [120, 255, 240], w: 4 },  // neon cyan
-  { c: [255, 130, 220], w: 3 },  // neon pink
-  { c: [255, 150, 90], w: 3 },   // sodium orange
+  { c: [174, 224, 255], w: 34 }, // cool office white
+  { c: [104, 190, 255], w: 26 }, // blue data-city glow
+  { c: [220, 246, 255], w: 18 }, // clean white
+  { c: [80, 154, 255], w: 12 },  // deep office blue
+  { c: [72, 255, 245], w: 6 },   // cyan network accent
+  { c: [255, 105, 209], w: 3 },  // rare magenta event accent
+  { c: [255, 182, 82], w: 1 },   // rare warm lived-in window
 ];
 const WIN_PALETTE_TOTAL = WIN_PALETTE.reduce((s, p) => s + p.w, 0);
 function pickPaneColor(roll: number): [number, number, number] {

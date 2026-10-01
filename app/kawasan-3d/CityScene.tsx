@@ -5,8 +5,9 @@
 // rig, and an optional dev perf probe. Shared by the /kawasan-3d sandbox
 // harness (Scene.tsx) and the drop-in City3DMapGL.
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { CameraRig, type CamState } from "./CameraRig";
 import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
@@ -21,7 +22,6 @@ import { WaterPatches } from "./water";
 import { Vegetation } from "./vegetation";
 import { Crosswalks, Sidewalks } from "./roadDetail";
 import { StreetFurniture } from "./streetFurniture";
-import { ParkedVehicles } from "./parkedVehicles";
 import { getRoadTextures, ROAD_TEXTURE_WORLD_LENGTH } from "./roadTexture";
 import { Trees } from "./trees";
 import { Billboards } from "./billboards";
@@ -33,7 +33,7 @@ import { FestivalDecorations } from "./FestivalDecorations";
 import { CelebrationFireworks } from "./CelebrationFireworks";
 import type { Festival } from "./festivals";
 import type { Lang } from "../i18n/useLang";
-import { Motorcyclists, Cyclists } from "./twowheelers";
+import { Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
 import { Html, Line } from "@react-three/drei";
 import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
@@ -52,6 +52,7 @@ import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
 import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadIntersects } from "./bukitBintangRoads";
 import { BukitBintangDistricts, bukitBintangDistrictClaims } from "./bukitBintangDistricts";
+import { LandmarkModels, type LandmarkModelPlacement } from "./landmarkModels";
 
 // Spread the screen-space labels around the city core when the player is
 // zoomed out. The beacon remains on the real destination building and the
@@ -70,7 +71,7 @@ const DESTINATION_LABEL_LAYOUT: Record<string, [number, number, number]> = {
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
-  PLOT, ROAD_GAP, TOD_ENV, pickVariantIndex,
+  PLOT, ROAD_GAP, TOD_ENV, pickVariantIndex, METRO_DENSITY,
   type Zone, type BType, type CellPlacement, type SeatTraits, type Tod,
 } from "./cityData";
 import type { MutableRefObject } from "react";
@@ -94,14 +95,14 @@ const TILE_BORDER_W = 5;
 // (unlike zone tiles) since real asphalt doesn't change hue with time of
 // day, only its lit brightness — and a fixed neutral colour holds contrast
 // against every TOD's zone palette by construction, not by coincidence.
-const ROAD_COLOR = "#66727c";
+const ROAD_COLOR = "#48535b";
 // Wet asphalt: darker (water film absorbs more light) and, combined with
 // the lowered roughness / added metalness at the mesh below, picks up a
 // sheen off the sky/env map instead of the flat matte look on a clear day.
 const WET_ROAD_COLOR = "#33383f";
 // Simulate scattered city light so asphalt and lane paint remain readable
 // between street lamps. Reuse the road map to preserve its texture and markings.
-const ROAD_FILL_COLOR = "#25313c";
+const ROAD_FILL_COLOR = "#182129";
 const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0.1, dusk: 0.18, night: 0.38 };
 
 export type PerfSample = { fps: number; calls: number; tris: number };
@@ -340,6 +341,7 @@ function Buildings({
     // (zoneBuildings). Below METRO_DENSITY it's ignored.
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
+    const twinPresentation = density >= METRO_DENSITY && gridSize >= 10;
     // Deterministic thinning for the low quality tier — never touches the
     // zone's defining `flag` structure or a glowing facility.
     const keep = (key: string): boolean => {
@@ -362,6 +364,18 @@ function Buildings({
         // tile. This retains street-wall density and grass/pocket parks.
         if (traits.bukitBintang && bukitBintangRoadIntersects(gridSize, buildingX, buildingZ, spec.w, spec.d)) continue;
         if (!spec.flag && !spec.glow && !spec.anchor && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
+        // The legacy city-builder layout filled almost every slot with a
+        // vertical stack. A digital-twin city needs readable streets and
+        // recognisable precincts, so outer districts deliberately retain
+        // open plots while the centre keeps a concentrated skyline.
+        if (twinPresentation && !spec.flag && !spec.glow && !spec.anchor) {
+          let hash = 5381;
+          const key = `${zone.id}:${spec.slot}:${spec.type}`;
+          for (let i = 0; i < key.length; i++) hash = Math.imul(hash * 33, 1) ^ key.charCodeAt(i);
+          const roll = (hash >>> 0) % 100;
+          const keepRate = coreness > 0.62 ? 76 : coreness > 0.32 ? 58 : 40;
+          if (roll >= keepRate) continue;
+        }
         // Drop a building whose footprint centre is within CLEAR_R (Manhattan)
         // of this tile's junction-facing corner, so none stands in the ring.
         if (notchSign) {
@@ -383,7 +397,9 @@ function Buildings({
           z: buildingZ,
           w: spec.w,
           d: spec.d,
-          h: vertical ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize))) : h0,
+          h: vertical
+            ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize) * (twinPresentation ? 0.76 + coreness * 0.24 : 1)))
+            : h0,
           anchor: spec.anchor,
           projectId: spec.projectId,
         };
@@ -458,8 +474,85 @@ function Buildings({
         items={groups.filter(([type]) => type === "house" || type === "terrace" || type === "kampung").flatMap(([, items]) => items)}
         groundY={GROUND_Y}
       />
+      <TropicalTowerDetails
+        items={groups.filter(([type]) => type === "tower" || type === "skyscraper").flatMap(([, items]) => items)}
+        groundY={GROUND_Y}
+        winLit={winLit}
+      />
     </group>
   );
+}
+
+type DetailPart = { x: number; y: number; z: number; sx: number; sy: number; sz: number };
+
+function DetailInstances({ parts, color, emissive, emissiveIntensity = 0 }: {
+  parts: DetailPart[]; color: string; emissive?: string; emissiveIntensity?: number;
+}) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    parts.forEach((part, index) => {
+      dummy.position.set(part.x, part.y, part.z);
+      dummy.scale.set(part.sx, part.sy, part.sz);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(index, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [parts, dummy]);
+  if (!parts.length) return null;
+  return <instancedMesh ref={ref} args={[undefined, undefined, parts.length]} castShadow receiveShadow>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial color={color} roughness={0.36} metalness={0.48} emissive={emissive ?? "#000000"} emissiveIntensity={emissiveIntensity} />
+  </instancedMesh>;
+}
+
+// Malaysian high-rises commonly read as condo/office stacks rather than a
+// single opaque shaft: repeated balcony bands, vertical sun-shading fins and
+// a compact rooftop plant/crown are practical tropical details as well as a
+// distinctive skyline silhouette. All pieces are instanced across the city.
+function TropicalTowerDetails({ items, groundY, winLit }: { items: BuildingInstance[]; groundY: number; winLit: number }) {
+  const { bands, fins, crowns, masts } = useMemo(() => {
+    const bands: DetailPart[] = [];
+    const fins: DetailPart[] = [];
+    const crowns: DetailPart[] = [];
+    const masts: DetailPart[] = [];
+    items.forEach((item, index) => {
+      let hash = 2166136261;
+      for (let i = 0; i < item.key.length; i++) hash = Math.imul(hash ^ item.key.charCodeAt(i), 16777619);
+      const tall = item.h >= 110;
+      const levels = tall ? 4 + (hash % 2) : 3;
+      for (let level = 1; level <= levels; level++) {
+        const ratio = 0.16 + level / (levels + 1) * 0.72;
+        bands.push({ x: item.x, y: groundY + item.h * ratio, z: item.z, sx: item.w * 1.1, sy: 1.6, sz: item.d * 1.1 });
+      }
+      // Double vertical fins on alternating faces give towers a shaded,
+      // humid-tropical facade instead of a repeated glass cuboid.
+      const finH = item.h * 0.72;
+      const finY = groundY + item.h * 0.52;
+      const finOffsetX = item.w * 0.43;
+      const finOffsetZ = item.d * 0.43;
+      fins.push(
+        { x: item.x - finOffsetX, y: finY, z: item.z, sx: 2.1, sy: finH, sz: item.d * 0.76 },
+        { x: item.x + finOffsetX, y: finY, z: item.z, sx: 2.1, sy: finH, sz: item.d * 0.76 },
+      );
+      if (tall) fins.push(
+        { x: item.x, y: finY, z: item.z - finOffsetZ, sx: item.w * 0.66, sy: finH, sz: 2.1 },
+        { x: item.x, y: finY, z: item.z + finOffsetZ, sx: item.w * 0.66, sy: finH, sz: 2.1 },
+      );
+      crowns.push({ x: item.x, y: groundY + item.h + 3.5, z: item.z, sx: item.w * 0.7, sy: 7, sz: item.d * 0.7 });
+      if (tall && index % 3 === 0) masts.push({ x: item.x, y: groundY + item.h + 18, z: item.z, sx: 2.4, sy: 30, sz: 2.4 });
+    });
+    return { bands, fins, crowns, masts };
+  }, [items, groundY]);
+  return <group>
+    <DetailInstances parts={bands} color="#bed4dc" emissive="#1d8faf" emissiveIntensity={winLit * 0.16} />
+    <DetailInstances parts={fins} color="#18384c" emissive="#0e7490" emissiveIntensity={winLit * 0.1} />
+    <DetailInstances parts={crowns} color="#d7e8e8" emissive="#38bdf8" emissiveIntensity={winLit * 0.22} />
+    <DetailInstances parts={masts} color="#a8c4cf" emissive="#67e8f9" emissiveIntensity={winLit * 0.32} />
+  </group>;
 }
 
 function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
@@ -507,7 +600,7 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
+  buildingBudget, larges, claimed, landmarkModels, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
 }: {
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
@@ -515,6 +608,7 @@ function Grid({
   buildingBudget: number;
   larges: ReturnType<typeof reserveLargeFootprints>["larges"];
   claimed: Set<string>;
+  landmarkModels: LandmarkModelPlacement[];
   notchByCell: Map<string, RoundaboutCorner>;
   weather?: Weather;
   nationalLighting?: boolean;
@@ -596,7 +690,9 @@ function Grid({
       {!irregularRoads && density >= 0.32 && <Crosswalks placed={placed} gridSize={gridSize} vRoads={vRoads} hRoads={hRoads} />}
       {!irregularRoads && density >= 0.32 && <Sidewalks placed={placed} claimed={claimed} />}
       {!irregularRoads && density >= 0.32 && <StreetFurniture placed={placed} claimed={claimed} />}
-      {!irregularRoads && <ParkedVehicles placed={placed} gridSize={gridSize} density={density} traits={traits} claimed={claimed} />}
+      {/* ParkedVehicles used tile-edge coordinates, but most tiles are green
+          forecourts rather than marked parking bays. Keep the city legible:
+          dynamic vehicles are reserved for the actual asphalt network. */}
       <Trees placed={placed} empties={empties} traits={traits} claimed={claimed} roadClear={roadTreeClear}
         lush={klActive(gridSize) && gridSize < 22} weather={weather} />
       {placed.map(({ zone, col, row, cx, cz }) => (
@@ -613,6 +709,9 @@ function Grid({
       {irregularRoads && <BukitBintangDistricts gridSize={gridSize} night={winLit} />}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
+      <Suspense fallback={null}>
+        <LandmarkModels placements={landmarkModels} winLit={winLit} onSelect={onSelect} />
+      </Suspense>
       {/* Destination labels are HUD markers anchored to real buildings. Using
           Html keeps them readable above dense towers instead of letting 3D
           geometry hide the label behind a facade. */}
@@ -666,6 +765,96 @@ function Grid({
       {klLandmarks && <KLProfile gridSize={gridSize} enabled winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {!irregularRoads && notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
+    </group>
+  );
+}
+
+// A lightweight information layer, deliberately separate from the physical
+// roads and buildings. It makes the scene read as a live smart-city model
+// (data travelling between districts) without turning the city into a flat
+// map or adding pathfinding/state to the simulation.
+function SmartCityNetwork({ span }: { span: number }) {
+  const s = span * 0.19;
+  const nodes: [number, number, number][] = [
+    [0, 18, 0], [-s, 15, -s * 0.28], [s, 15, -s * 0.28],
+    [-s * 0.58, 15, s], [s * 0.58, 15, s], [0, 15, -s * 1.05],
+  ];
+  const links: [number, number, string][] = [
+    [0, 1, "#22d3ee"], [0, 2, "#22d3ee"], [0, 3, "#3b82f6"],
+    [0, 4, "#3b82f6"], [0, 5, "#f472b6"], [1, 5, "#2563eb"],
+    [2, 5, "#2563eb"], [3, 4, "#22d3ee"],
+  ];
+  return (
+    <group>
+      {links.map(([from, to, color], index) => (
+        <Line
+          key={`${from}-${to}`}
+          points={[nodes[from], nodes[to]]}
+          color={color}
+          lineWidth={index < 5 ? 1.6 : 0.8}
+          transparent
+          opacity={index < 5 ? 0.78 : 0.42}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      ))}
+      {nodes.map(([x, y, z], index) => (
+        <group key={`${x}-${z}`} position={[x, y, z]}>
+          <mesh rotation={[Math.PI / 4, 0, Math.PI / 4]}>
+            <octahedronGeometry args={[index === 0 ? 11 : 6, 0]} />
+            <meshBasicMaterial color={index === 0 ? "#7df9ff" : "#60a5fa"} toneMapped={false} />
+          </mesh>
+          {index === 0 && <pointLight color="#22d3ee" intensity={2.2} distance={span * 0.16} decay={2} />}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+type DistrictSpec = {
+  id: string;
+  label: string;
+  status: string;
+  x: number;
+  z: number;
+  color: string;
+};
+
+// Semantic districts are the local equivalent of a 3D-city-model layer:
+// their identity and operational state are explicit, while the buildings
+// beneath remain the playable zones. Unlike a GIS/map layer, this has no
+// network dependency and can be generated for every campaign seed.
+function SemanticDistrictLayer({ span }: { span: number }) {
+  const r = span * 0.19;
+  const districts: DistrictSpec[] = [
+    { id: "core", label: "CIVIC CORE", status: "SYSTEMS ONLINE", x: -r, z: -r, color: "#22d3ee" },
+    { id: "mobility", label: "MOBILITY", status: "NETWORK FLOW", x: r, z: -r, color: "#60a5fa" },
+    { id: "commerce", label: "ECONOMY", status: "MARKET SIGNAL", x: r, z: r, color: "#f472b6" },
+    { id: "community", label: "COMMUNITY", status: "CIVIC INDEX", x: -r, z: r, color: "#a3e635" },
+  ];
+  const half = span * 0.145;
+  return (
+    <group>
+      {districts.map((district) => {
+        const corners: [number, number, number][] = [
+          [district.x - half, 10, district.z - half], [district.x + half, 10, district.z - half],
+          [district.x + half, 10, district.z + half], [district.x - half, 10, district.z + half],
+          [district.x - half, 10, district.z - half],
+        ];
+        return <group key={district.id}>
+          <Line points={corners} color={district.color} lineWidth={1.1} transparent opacity={0.62} depthWrite={false} toneMapped={false} />
+          <mesh position={[district.x, 8, district.z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[half * 2, half * 2]} />
+            <meshBasicMaterial color={district.color} transparent opacity={0.028} depthWrite={false} toneMapped={false} />
+          </mesh>
+          <Html position={[district.x - half * 0.7, 22, district.z - half * 0.72]} center distanceFactor={18} style={{ pointerEvents: "none" }}>
+            <div style={{ minWidth: 104, borderLeft: `2px solid ${district.color}`, padding: "4px 6px", background: "rgba(2, 8, 23, .78)", color: "#e0f2fe", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", lineHeight: 1.25, boxShadow: `0 0 14px ${district.color}55` }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".1em" }}>{district.label}</div>
+              <div style={{ marginTop: 2, color: district.color, fontSize: 7, letterSpacing: ".08em" }}>{district.status}</div>
+            </div>
+          </Html>
+        </group>;
+      })}
     </group>
   );
 }
@@ -745,15 +934,40 @@ export function CityScene({
     ) : larges,
     [larges, gridSize, traits.bukitBintang, districtClaims],
   );
-  // Fold the KL landmark cells (twin-tower centre + spire) into `claimed`
-  // so their ordinary per-cell towers / sidewalks / lamps step aside.
-  const claimed = useMemo(() => {
+  // Base reservations: large complexes and optional named city districts.
+  const baseClaimed = useMemo(() => {
     const kl = klClaims(gridSize, traits.klLandmarks);
     const s = new Set(largeClaimed);
     kl.forEach((c) => s.add(c));
     districtClaims.forEach((c) => s.add(c));
     return s;
   }, [largeClaimed, districtClaims, gridSize, traits.klLandmarks]);
+  // Compact CC0 GLB landmarks use real zone positions and reserve their
+  // cells so procedural towers cannot grow through the model.
+  const landmarkModels = useMemo<LandmarkModelPlacement[]>(() => {
+    if (gridSize < 8 || traits.bukitBintang) return [];
+    const mid = (gridSize - 1) / 2;
+    const eligible = placed
+      .filter((p) => !baseClaimed.has(`${p.col},${p.row}`))
+      .sort((a, b) => Math.hypot(a.col - mid, a.row - mid) - Math.hypot(b.col - mid, b.row - mid));
+    const picks = [eligible[0], eligible[Math.min(6, eligible.length - 1)], eligible[Math.min(18, eligible.length - 1)]];
+    return picks.filter((p): p is CellPlacement => Boolean(p)).map((p, index) => ({
+      id: p.zone.id,
+      kind: (["hq", "civic", "transit"] as const)[index],
+      x: p.cx,
+      z: p.cz,
+      rotation: index === 2 ? Math.PI / 2 : index === 1 ? Math.PI : 0,
+    }));
+  }, [placed, gridSize, traits.bukitBintang, baseClaimed]);
+  const claimed = useMemo(() => {
+    const s = new Set(baseClaimed);
+    const byId = new Map(placed.map((p) => [p.zone.id, p]));
+    landmarkModels.forEach((landmark) => {
+      const cell = byId.get(landmark.id);
+      if (cell) s.add(`${cell.col},${cell.row}`);
+    });
+    return s;
+  }, [baseClaimed, landmarkModels, placed]);
   // Task C: one roundabout at the central junction. Only its four
   // *developed* tiles feed the building filter (undeveloped ones are thin
   // planes the raised ring already covers). Gives StreetLamps the junction.
@@ -791,6 +1005,10 @@ export function CityScene({
     <>
       <CityEnvironment tod={tod} span={span} weather={weather} shadowMapSize={qs.shadowMapSize} />
       <SceneEnvironment tod={tod} weather={weather} />
+      {tod === "night" && gridSize >= 8 && <>
+        <SemanticDistrictLayer span={span} />
+        <SmartCityNetwork span={span} />
+      </>}
       {weather !== "rain" && <SkyLife tod={tod} span={span} />}
       <EdgeLandscape traits={traits} tod={tod} span={span}
         coastalVillage={placed.find((placement) => placement.zone.archetype === "fishingVillage")} />
@@ -808,6 +1026,7 @@ export function CityScene({
         buildingBudget={qs.buildingBudget}
         larges={visibleLarges}
         claimed={claimed}
+        landmarkModels={landmarkModels}
         notchByCell={notchByCell}
         weather={weather}
         nationalLighting={tod === "night" && festivals.some(f => f.id === "malaysia" || f.id === "merdeka")}
@@ -821,12 +1040,17 @@ export function CityScene({
         {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
         <UtilityLines gridSize={gridSize} />
         <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
-        <Motorcyclists gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.56 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
+        {/* Two-wheelers will return once they share the same junction
+            reservation as cars; until then they are excluded so no vehicle
+            can visually pass through another at an intersection. */}
         {hasLrt && <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />}
         {!ruralRoadNetwork && gridSize >= 6 && <Pedestrians placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} weather={weather} />}
         {gridSize >= 6 && <Cyclists placed={placed} gridSize={gridSize} trafficLevel={trafficLevel} claimed={claimed} avoidCentre={roundaboutAt} />}
       </>}
       {traits.bukitBintang && <BukitBintangTraffic gridSize={gridSize} trafficLevel={trafficLevel} />}
+      {/* Bukit Bintang has its own curved street network, but it still needs
+          rail access. The LRT must not live inside the generic-road branch. */}
+      {traits.bukitBintang && hasLrt && <Lrt gridSize={gridSize} trafficLevel={trafficLevel} />}
       <Flags placed={placed} gridSize={gridSize} landmarkZoneId={landmarkZoneId} claimed={claimed} />
       {festivals.length > 0 && <FestivalDecorations festivals={festivals} placed={placed}
         claimed={claimed} avoidCentre={roundaboutAt} detail={qs.streetDetail}

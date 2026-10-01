@@ -15,12 +15,13 @@ import {
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
+import * as THREE from "three";
 import { CityScene, type PerfSample } from "./CityScene";
 import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
   worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
-  TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
+  TOD_ENV, TOD_ICON, TOD_SEQUENCE, trafficProfile,
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
 import { PostFX } from "./postfx";
@@ -74,8 +75,15 @@ export default function City3DMapGL({
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
   const movedRef = useRef(false);
 
-  const [tod, setTod] = useState<Tod>("day");
-  useEffect(() => setTod(todFromClientHour(new Date().getHours())), []);
+  // The city is presented as an operations digital twin first: a night
+  // control-room view makes the live network, beacons and city hierarchy
+  // visible the moment the scene opens. Players can still cycle to the
+  // real-clock daylight/dusk views with the existing control.
+  const [tod, setTod] = useState<Tod>("night");
+  // Fast Refresh deliberately preserves component state. Re-assert the
+  // presentation mode on mount so a previously selected daylight state does
+  // not make the upgraded smart-city view appear unchanged during local dev.
+  useEffect(() => { setTod("night"); }, []);
   const cycleTod = useCallback(
     () => setTod((c) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(c) + 1) % TOD_SEQUENCE.length]),
     [],
@@ -261,7 +269,16 @@ export default function City3DMapGL({
         gl={{ antialias: true, toneMappingExposure: 1.08, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0 }}
         camera={{ position: [distance, distance, distance], fov: 35, near: 0.5, far: farPlaneFor(span) }}
-        onCreated={({ camera }) => {
+        onCreated={({ camera, gl }) => {
+          // Keep albedo textures and the procedural facade canvases in the
+          // same display space.  r186 is stricter about colour management;
+          // explicitly selecting sRGB prevents the pale concrete and glass
+          // materials from collapsing into the dark blue, game-like mass
+          // visible under a high city camera.
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          // Soft PCF filtering gives towers a grounded contact shadow rather
+          // than the hard, miniature-looking shadow edge of the default map.
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
           applyFitZoom();
           const cam = camera as unknown as PerspectiveCamera;
           cam.zoom = camRef.current.zoom;

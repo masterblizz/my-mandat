@@ -1,4 +1,4 @@
 {
-  "models": [],
-  "_comment": "List BType keys here as you add <key>.glb files in this folder (e.g. [\"house\", \"tower\"]). Use \"*\" once every MODEL_MAP entry has its base file. Keys must match app/kawasan-3d/cityData.ts MODEL_MAP. Optional variants: \"house-2\", \"house-3\" for house-2.glb / house-3.glb alongside house.glb — see README.md."
+  "models": ["house", "house-2", "house-3", "terrace", "terrace-2", "terrace-3", "kampung", "kampung-2", "shophouse", "shophouse-2", "shop", "shop-2", "stall", "stall-2", "tower", "tower-2", "tower-3", "tower-4", "skyscraper", "skyscraper-2", "skyscraper-3", "skyscraper-4", "antenna", "factory", "warehouse", "school", "clinic", "masjid", "mall", "stadium", "terminal"],
+  "_comment": "All MODEL_MAP building families are covered by bundled CC0 Kenney City Kit assets. Procedural geometry remains the automatic failure fallback."
 }

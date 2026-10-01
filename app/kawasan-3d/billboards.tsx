@@ -16,7 +16,7 @@ import { useMemo, useRef, useLayoutEffect, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
-  PLOT, slotPos, zoneBuildings, FLAT_TYPES,
+  PLOT, slotPos, zoneBuildings, FLAT_TYPES, METRO_DENSITY,
   type CellPlacement, type ZoneKind, type BType, type SeatTraits,
 } from "./cityData";
 import { klHeightMult } from "./klProfile";
@@ -35,6 +35,10 @@ const CAMPAIGNS = [
   ["HIJAU KITA", "BANDAR LEBIH BERSIH", "BERSAMA KITA", "KETAHUI CARA"],
 ] as const;
 const AD_COLOURS = ["#2f6bff", "#ff5a2a", "#14d9c4", "#ff3fd0", "#e9b949", "#7c6cff", "#1ea5ff", "#78c850"] as const;
+// Freestanding panels are visually ambiguous in the tactical camera—their
+// slim supports disappear and the screen reads as a floater. Keep the city
+// language architectural: every visible campaign must be mounted to a wall.
+const ENABLE_FREESTANDING_BILLBOARDS = false;
 
 function drawAd(g: CanvasRenderingContext2D, x: number, y: number, W: number, H: number, seed: number, frame: number) {
   let s = ((seed + 1) * 2654435761) >>> 0;
@@ -173,6 +177,7 @@ export function Billboards({
     const struts: Strut[] = [];
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
+    const twinPresentation = density >= METRO_DENSITY && gridSize >= 10;
     // Exact copy of CityScene's <Buildings> `keep()` — same hash, same
     // key shape, same flag/glow exemption — so "is this building tall
     // enough to hang a billboard off" agrees with "does this building
@@ -197,12 +202,22 @@ export function Billboards({
       const boxes: BBox[] = [];
       for (const spec of zoneBuildings(zone, density, traits, coreness)) {
         if (FLAT_TYPES.includes(spec.type)) continue;
-        if (!spec.flag && !spec.glow && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
+        if (!spec.flag && !spec.glow && !spec.anchor && !keep(`${zone.id}:${spec.slot}:${spec.type}`)) continue;
+        // This is deliberately identical to <Buildings>. Without it an LED
+        // panel could select a tower removed by the metro skyline thinning.
+        if (twinPresentation && !spec.flag && !spec.glow && !spec.anchor) {
+          let hash = 5381;
+          const key = `${zone.id}:${spec.slot}:${spec.type}`;
+          for (let i = 0; i < key.length; i++) hash = Math.imul(hash * 33, 1) ^ key.charCodeAt(i);
+          const roll = (hash >>> 0) % 100;
+          const keepRate = coreness > 0.62 ? 76 : coreness > 0.32 ? 58 : 40;
+          if (roll >= keepRate) continue;
+        }
         const sp = slotPos(spec.slot);
         const vertical = spec.type === "tower" || spec.type === "skyscraper" || spec.type === "antenna";
         const h0 = Math.max(spec.h, 6);
         const bh = vertical
-          ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize)))
+          ? Math.min(275, Math.max(14, h0 * klHeightMult(col, row, gridSize) * (twinPresentation ? 0.76 + coreness * 0.24 : 1)))
           : h0;
         const bx = cx - PLOT / 2 + sp.x + spec.w / 2;
         const bz = cz - PLOT / 2 + sp.y + spec.d / 2;
@@ -270,7 +285,7 @@ export function Billboards({
       // building footprint, and it gets a real 2-post frame.
       const urbanish = zone.kind === "urban" || zone.kind === "commercial" || zone.kind === "market";
       const civic = zone.kind === "community" || zone.kind === "education";
-      if (gridSize >= 10 && ((urbanish && rnd() < 0.16) || (civic && rnd() < 0.1))) {
+      if (ENABLE_FREESTANDING_BILLBOARDS && gridSize >= 10 && ((urbanish && rnd() < 0.16) || (civic && rnd() < 0.1))) {
         const sxS = rnd() < 0.5 ? -1 : 1;
         const szS = rnd() < 0.5 ? -1 : 1;
         const px = cx + sxS * (PLOT / 2 - 28);

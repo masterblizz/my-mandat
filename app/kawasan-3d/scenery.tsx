@@ -20,7 +20,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, RefObject, MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Stars, GradientTexture, Sparkles } from "@react-three/drei";
+import { Stars, GradientTexture, Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import {
   roadsV, roadsH, worldCentre, worldSize, ROAD_GAP, PLOT,
@@ -135,6 +135,7 @@ export function CityEnvironment({
         shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-bias={-0.0004}
         shadow-normalBias={2}
+        shadow-radius={3}
         shadow-camera-near={span * 0.2}
         shadow-camera-far={span * 4}
         shadow-camera-left={-span * 0.75}
@@ -775,6 +776,30 @@ export function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOf
   return finishLoop(pieces);
 }
 
+export type GridRoadCentres = { x: number[]; z: number[] };
+
+// The rendered road planes use the same grid centres. Keep this check next
+// to the route code so every dynamic road user can reject a bad transform
+// instead of ever placing a vehicle on a neighbourhood ground slab.
+export function gridRoadCentres(
+  gridSize: number,
+  roadIndices?: { vertical: number[]; horizontal: number[] },
+): GridRoadCentres {
+  const centre = worldCentre(gridSize);
+  return {
+    x: (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2),
+    z: (roadIndices?.horizontal ?? roadsH(gridSize).map((_, index) => index))
+      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2),
+  };
+}
+
+export function pointOnGridAsphalt(x: number, z: number, roads: GridRoadCentres, edgePadding = 2) {
+  const halfWidth = ROAD_W / 2 - edgePadding;
+  return roads.x.some((roadX) => Math.abs(x - roadX) <= halfWidth)
+    || roads.z.some((roadZ) => Math.abs(z - roadZ) <= halfWidth);
+}
+
 // Pieces covering arc-length [sA, sB] of `loop` (0 ≤ sA < sB ≤ sA + L;
 // sB may run past L and wraps). A line keeps its signal gate only when
 // its real end — the junction — is still included.
@@ -903,6 +928,7 @@ export function Traffic({
 }) {
   const centre = worldCentre(gridSize);
   const rbX = roundabout?.[0] ?? null, rbZ = roundabout?.[1] ?? null;
+  const asphaltRoads = useMemo(() => gridRoadCentres(gridSize, roadIndices), [gridSize, roadIndices]);
 
   // read the live density in useFrame without re-rendering / rebuilding
   const levelRef = useRef(trafficLevel);
@@ -1064,6 +1090,10 @@ export function Traffic({
     const baseSpeed = CAR_BASE_SPEED * (1 - 0.62 * lv); // 78 → ~30 at full jam
     const bumperGap = THREE.MathUtils.lerp(CAR_GAP_LIGHT, CAR_GAP_PEAK, lv);
     let tailColorDirty = false;
+    // Each loop owns its following-distance queue, but an intersection is
+    // shared by several loops. Record accepted positions this frame so a
+    // car cannot enter an occupied crossing from another approach.
+    const crossingOccupancy: { loop: number; x: number; z: number; radius: number }[] = [];
 
     const parkOne = (ci: number) => {
       dummy.position.set(0, -1000, 0);
@@ -1168,6 +1198,16 @@ export function Traffic({
         let ns = c.s + c.speed * step;
         if (ns > gapHold) { ns = Math.max(c.s, gapHold); c.speed = 0; }
         if (ns > gateHold) { ns = Math.max(c.s, gateHold); c.speed = 0; }
+        const candidate = posAt(loop, ns);
+        const ownRadius = Math.max(9, Math.min(15, V_SPEC[c.kind].half * 0.8));
+        // Signals prevent conflicting streams in normal operation. This
+        // second, geometry-level guard covers the short amber/all-red
+        // transition and any two loops that reach a junction in one frame.
+        if (crossingOccupancy.some((other) => other.loop !== li
+          && Math.hypot(candidate[0] - other.x, candidate[1] - other.z) < ownRadius + other.radius + 3)) {
+          ns = c.s;
+          c.speed = 0;
+        }
         const braking = previousSpeed - c.speed > 0.35 || (c.speed < 0.25 && (gapHold < Infinity || gateHold < Infinity));
         if (braking !== c.braking) {
           c.braking = braking;
@@ -1182,8 +1222,16 @@ export function Traffic({
 
         // write transforms
         const [x, z] = posAt(loop, c.s);
+        // Do not render a vehicle during any invalid reroute/blend frame.
+        // The road may evolve independently from traffic; this keeps the
+        // visible fleet strictly on the asphalt rather than the green slab.
+        if (!pointOnGridAsphalt(x, z, asphaltRoads, 2)) {
+          parkOne(ci);
+          continue;
+        }
         const yLift = rbX !== null && rbZ !== null ? roundaboutLift(x, z, rbX, rbZ) : 0;
         const spec = V_SPEC[c.kind];
+        crossingOccupancy.push({ loop: li, x, z, radius: ownRadius });
         // Use a rear-to-front chord scaled to the vehicle wheelbase. It
         // gives vans, lorries and buses a stable, gradual yaw through the
         // line/arc join instead of pivoting their long body at its centre.
@@ -1653,6 +1701,13 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
           <boxGeometry args={[16, 4, 1]} />
           <meshBasicMaterial color="#2f6bff" toneMapped={false} />
         </mesh>
+        {/* Named station marker makes this a recognisable destination rather
+            than an anonymous centre-platform when viewed at city scale. */}
+        <Text position={[0, 14.15, 32.62]} fontSize={1.55} maxWidth={14.2}
+          anchorX="center" anchorY="middle" color="#f8fbff" letterSpacing={0.06}
+          outlineWidth={0.035} outlineColor="#102036">
+          LRT BUKIT BINTANG
+        </Text>
         {[-26, 26].flatMap((x) => [-26, 26].map((z) => (
           <mesh key={`${x}_${z}`} position={[x, 10, z]}>
             <boxGeometry args={[2.4, 20, 2.4]} />

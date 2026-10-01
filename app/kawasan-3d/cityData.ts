@@ -604,8 +604,8 @@ export const MODEL_VARIANT_COUNT: Partial<Record<BType, number>> = {
   shophouse: 2,
   shop: 2,
   stall: 2,
-  tower: 2,
-  skyscraper: 2,
+  tower: 4,
+  skyscraper: 4,
 };
 
 function variantPaths(type: BType, count: number): string[] {
@@ -636,6 +636,7 @@ export const MODEL_MAP: Partial<Record<BType, string[]>> = Object.fromEntries(
 // dense grid, so they never pop in mid-pan.
 export const COMMON_MODEL_TYPES: BType[] = [
   "house", "terrace", "shop", "stall", "kampung", "shophouse", "tower",
+  "skyscraper",
 ];
 
 // ── BType -> flat box colour ──────────────────────────────────────────
@@ -651,13 +652,13 @@ export const COMMON_MODEL_TYPES: BType[] = [
 // Near-greyscale — nothing above ~0.06 chroma. The one warm accent
 // (terracotta tile) lives on the gable roofs, applied in procedural.tsx.
 export const BUILDING_COLOR: Record<BType, string> = {
-  tower: "#7f97a3", skyscraper: "#56707e", antenna: "#aeb4b8",
-  shop: "#dcd2be", stall: "#ded7c6", house: "#e0d3b6",
-  factory: "#9aa0a6", warehouse: "#7f858b", school: "#c4cfc2",
-  clinic: "#d8dcd9", masjid: "#dcd2be", mall: "#9fb1bb",
-  stadium: "#c2b8a6", terminal: "#9b9182", sawah: "#8b9b53",
-  pond: "#5d7c84", field: "#78895a", plaza: "#a8a49a",
-  kampung: "#b89a7c", shophouse: "#d8bfae", terrace: "#c9b79c",
+  tower: "#466b79", skyscraper: "#294d5e", antenna: "#7d9198",
+  shop: "#a5a59b", stall: "#aaa89e", house: "#aeb5ad",
+  factory: "#737e84", warehouse: "#626e75", school: "#9eaaa4",
+  clinic: "#b2b9b5", masjid: "#b8b4a8", mall: "#718d98",
+  stadium: "#9f9b91", terminal: "#827c73", sawah: "#708344",
+  pond: "#426877", field: "#64764c", plaza: "#7e837d",
+  kampung: "#947e69", shophouse: "#aa9485", terrace: "#9d9381",
   // civic / special — a bit more colour-coded so they read at a glance
   hall: "#d6c6a4", police: "#5c6b86", fire: "#a83f34", hospital: "#e4ebe6",
   library: "#c3b48f", museum: "#cabfa4", powerplant: "#6b6f78",
@@ -829,11 +830,11 @@ export const TOD_ENV: Record<Tod, TodEnv> = {
   // deep blue night, moon mid-high; lamps + windows full on, stars out.
   // REAL_OVERRIDE.night: a touch more sky/hemi lift so massing stays read.
   night: {
-    skyTop: "#050a16", skyBottom: "#1d2c48",
-    sun: [0.3, 0.78, -0.4], sunColor: "#aec4e6", sunIntensity: 0.7,
-    ambientColor: "#2a3b57", ambientIntensity: 0.5,
-    hemiSky: "#3d557d", hemiGround: "#1a231c", hemiIntensity: 0.65,
-    fog: "#243553", ground: "#22261c", lamp: 0.9, winLit: 1, stars: 1,
+    skyTop: "#020617", skyBottom: "#0b1f43",
+    sun: [0.3, 0.78, -0.4], sunColor: "#9cc8ff", sunIntensity: 0.62,
+    ambientColor: "#142b52", ambientIntensity: 0.42,
+    hemiSky: "#173b70", hemiGround: "#06101d", hemiIntensity: 0.5,
+    fog: "#0d2853", ground: "#061426", lamp: 1, winLit: 1, stars: 1,
   },
 };
 

@@ -51,7 +51,7 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   // A road should be noticeably darker than concrete paving.  The former
   // pale base made the network read like one broad grey sidewalk under the
   // overhead camera instead of weathered asphalt.
-  ctx.fillStyle = "#707981";
+  ctx.fillStyle = "#30373d";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   // Coarse aggregate and soft, irregular tone variation give the asphalt a
   // lived-in surface. Everything remains baked into the one shared texture:
@@ -135,6 +135,13 @@ function buildRoadCanvas(laneCount: number, medianIndex: number): HTMLCanvasElem
   if (laneCount > 0) {
     const usableL = curbW + 4;
     const usableR = CANVAS_W - curbW - 4;
+    // KL-style boulevard edge lines: the warm double yellow keeps the
+    // carriageway readable beside pale tiled sidewalks, even at city zoom.
+    ctx.fillStyle = "rgba(238,184,48,0.92)";
+    ctx.fillRect(usableL, 0, 1.45, CANVAS_H);
+    ctx.fillRect(usableL + 2.5, 0, 1.05, CANVAS_H);
+    ctx.fillRect(usableR - 1.45, 0, 1.45, CANVAS_H);
+    ctx.fillRect(usableR - 3.55, 0, 1.05, CANVAS_H);
     const dash = 26, gap = 20, period = dash + gap;
     for (let i = 0; i < laneCount; i++) {
       const x = usableL + ((i + 1) / (laneCount + 1)) * (usableR - usableL);

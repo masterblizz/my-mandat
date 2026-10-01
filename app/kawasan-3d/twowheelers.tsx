@@ -17,7 +17,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import {
   roadsV, roadsH, worldCentre, PLOT, ROAD_GAP, type CellPlacement, type ZoneKind,
 } from "./cityData";
-import { blockLoop, detourRoundabout, posAt, signalStateFor, type Loop } from "./scenery";
+import { blockLoop, detourRoundabout, gridRoadCentres, pointOnGridAsphalt, posAt, signalStateFor, type Loop } from "./scenery";
 import { R_IN as RB_R_IN, R_OUT as RB_R_OUT, roundaboutLift } from "./roundabout";
 
 const ROAD_W = ROAD_GAP - PLOT;
@@ -83,6 +83,7 @@ export function Motorcyclists({
 }) {
   const centre = worldCentre(gridSize);
   const rbX = roundabout?.[0] ?? null, rbZ = roundabout?.[1] ?? null;
+  const asphaltRoads = useMemo(() => gridRoadCentres(gridSize, roadIndices), [gridSize, roadIndices]);
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
@@ -267,6 +268,13 @@ export function Motorcyclists({
         c.lean = THREE.MathUtils.lerp(c.lean, cornerLean(loop, c.s, c.speed, 0.32), 1 - Math.exp(-8 * step));
 
         const [x, z] = posAt(loop, c.s);
+        // A motorcycle is small enough that an off-road transform is very
+        // noticeable. Hide it rather than letting it cross a green block
+        // whenever a future route/roundabout configuration is inconsistent.
+        if (!pointOnGridAsphalt(x, z, asphaltRoads, 1.5)) {
+          park(ci);
+          continue;
+        }
         const heading = tangent(loop, c.s);
         const cos = Math.cos(heading), sin = Math.sin(heading);
         const local = (fwd: number, side: number) => [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;

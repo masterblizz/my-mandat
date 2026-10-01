@@ -23,11 +23,14 @@ import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 export function PostFX({ tod, quality }: { tod: Tod; quality: QualityTier }) {
   const gl = useThree((state) => state.gl);
   const settings = QUALITY_SETTINGS[quality];
-  const exposure = tod === "night" ? 0.72 : tod === "dusk" ? 0.9 : 1;
-  const bloomIntensity = tod === "night" ? 0.2 : tod === "dusk" ? 0.14 : 0.05;
-  const bloomThreshold = tod === "night" ? 1.08 : tod === "dusk" ? 1.05 : 1.15;
-  const saturation = tod === "day" ? 0.045 : tod === "dusk" ? 0.02 : 0;
-  const contrast = tod === "day" ? 0.06 : tod === "dusk" ? 0.025 : 0;
+  const exposure = tod === "night" ? 0.82 : tod === "dusk" ? 0.9 : 1;
+  // Digital-twin night needs clear light trails and data markers, not a
+  // washed-out haze. Threshold stays high so only intentional emissive
+  // surfaces bloom; ordinary facade texture remains crisp.
+  const bloomIntensity = tod === "night" ? 0.48 : tod === "dusk" ? 0.14 : 0.05;
+  const bloomThreshold = tod === "night" ? 1.22 : tod === "dusk" ? 1.05 : 1.15;
+  const saturation = tod === "night" ? 0.14 : tod === "day" ? 0.045 : tod === "dusk" ? 0.02 : 0;
+  const contrast = tod === "night" ? 0.1 : tod === "day" ? 0.06 : tod === "dusk" ? 0.025 : 0;
   const brightness = tod === "day" ? -0.01 : 0;
 
   useEffect(() => {

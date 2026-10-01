@@ -207,6 +207,23 @@ export function InstancedModel({
   const norm = useNormalizedModel(url);
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  // Kenney's source kit is deliberately bright neutral white. That works in
+  // isolation but overwhelms the darker KLCC / Menara KL / Merdeka landmark
+  // palette when repeated across a whole city. Keep any source texture, but
+  // multiply it into the building family's muted local palette so ordinary
+  // buildings recede and real skyline landmarks retain visual priority.
+  const material = useMemo(() => {
+    if (!norm) return null;
+    const copy = norm.material.clone();
+    const withColor = copy as THREE.MeshStandardMaterial;
+    if (withColor.color) {
+      withColor.color.lerp(new THREE.Color(fallbackColor), 0.86);
+      withColor.roughness = Math.max(withColor.roughness ?? 0.5, 0.42);
+      withColor.metalness = Math.min(withColor.metalness ?? 0, 0.48);
+    }
+    return copy;
+  }, [norm, fallbackColor]);
+  useEffect(() => () => { material?.dispose(); }, [material]);
 
   const writeMatrix = (i: number, h: number) => {
     const mesh = ref.current;
@@ -235,12 +252,12 @@ export function InstancedModel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [norm, items]);
 
-  if (!norm) return <InstancedBoxes items={items} groundY={groundY} color={fallbackColor} />;
+  if (!norm || !material) return <InstancedBoxes items={items} groundY={groundY} color={fallbackColor} />;
   return (
     <instancedMesh
       ref={ref}
       key={`model-${items.length}`}
-      args={[norm.geometry, norm.material, items.length]}
+      args={[norm.geometry, material, items.length]}
       castShadow
       receiveShadow
       frustumCulled={false}

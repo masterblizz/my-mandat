@@ -14,6 +14,12 @@ import { vehicleBox, makePaintMaterial, makeGlassMaterial } from "./vehicleLook"
 
 type Route = { width: number; points: Array<[number, number]> };
 
+// The route centre-lines used to end at ±0.98 of the world span. Once the
+// carriageway width and lane offset were added, their geometry could spill
+// beyond the playable city footprint. Keep a generous clear margin for the
+// widest road (78 units) plus buses and lorries.
+const ROUTE_EDGE_INSET = 62;
+
 // West/east is X; north/south is Z. Routes represent, respectively, the
 // Sultan Ismail/Ampang arc, P. Ramlee, Raja Chulan, Bukit Bintang, Imbi,
 // Tun Razak and the short Jalan Kia Peng/KLCC connectors.
@@ -28,7 +34,11 @@ const ROUTES: Route[] = [
 ];
 
 function routePoints(route: Route, halfSpan: number) {
-  return route.points.map(([x, z]) => new THREE.Vector2(x * halfSpan, z * halfSpan));
+  const innerEdge = Math.max(0, halfSpan - ROUTE_EDGE_INSET);
+  return route.points.map(([x, z]) => new THREE.Vector2(
+    THREE.MathUtils.clamp(x * halfSpan, -innerEdge, innerEdge),
+    THREE.MathUtils.clamp(z * halfSpan, -innerEdge, innerEdge),
+  ));
 }
 
 function roadGeometry(gridSize: number) {
@@ -201,7 +211,10 @@ function pointOnRoute(route: Route, halfSpan: number, progress: number) {
   const points = routePoints(route, halfSpan);
   const lengths = points.slice(0, -1).map((point, i) => point.distanceTo(points[i + 1]));
   const total = lengths.reduce((sum, length) => sum + length, 0);
-  let travel = (progress % 1) * total;
+  // Reverse-direction cars pass `1 - travel`, which goes negative over time;
+  // JS `%` keeps the sign, so wrap into [0, 1) or the lerp below extrapolates
+  // backwards off the start of the route and onto plots/grass.
+  let travel = (((progress % 1) + 1) % 1) * total;
   for (let i = 0; i < lengths.length; i++) {
     if (travel <= lengths[i]) {
       const t = travel / Math.max(lengths[i], 1);
@@ -275,6 +288,7 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     const tailLights = tailLightRef.current;
     if (!body || !cabin || !cargo || !rider || !helmet || !wheels || !headlights || !tailLights) return;
     const halfSpan = (gridSize * 280 + 40) / 2;
+    const vehicleEdge = Math.max(0, halfSpan - ROUTE_EDGE_INSET + 6);
     const carRoot = new THREE.Object3D();
     const part = new THREE.Object3D();
     const put = (
@@ -298,7 +312,14 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       // of buses and lorries onto adjacent pavements at the tactical angle.
       const laneOffset = car.kind === "motorcycle" ? 6.5 : 9.5;
       const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * laneOffset);
-      carRoot.position.set(state.point.x + side.x, 7.1, state.point.y + side.y);
+      // This is a final safety guard for the rendered vehicle itself, not
+      // merely its route centre-line. It prevents a wide bus/truck body from
+      // being visible on the empty terrain if a route is changed later.
+      carRoot.position.set(
+        THREE.MathUtils.clamp(state.point.x + side.x, -vehicleEdge, vehicleEdge),
+        7.1,
+        THREE.MathUtils.clamp(state.point.y + side.y, -vehicleEdge, vehicleEdge),
+      );
       carRoot.rotation.set(0, -heading, 0);
       carRoot.scale.set(1, 1, 1);
       carRoot.updateMatrix();

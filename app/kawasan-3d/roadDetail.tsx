@@ -108,7 +108,10 @@ export function Sidewalks({
   const eastRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const CURB_H = 2;
-  const CURB_W = 7;
+  // Wider pale paving turns the road edge into a walkable sidewalk rather
+  // than a thin decorative stripe. It remains inside the tile footprint,
+  // so the 40-unit asphalt corridor stays intact for traffic.
+  const CURB_W = 11;
 
   const tiles = useMemo(
     () => (claimed ? placed.filter((p) => !claimed.has(`${p.col},${p.row}`)) : placed),
@@ -148,11 +151,11 @@ export function Sidewalks({
     <>
       <instancedMesh ref={southRef} key={`sw-s-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#aeb6bd" roughness={0.86} metalness={0.02} />
+      <meshStandardMaterial color="#c2c6c2" roughness={0.9} metalness={0.01} />
       </instancedMesh>
       <instancedMesh ref={eastRef} key={`sw-e-${tiles.length}`} args={[undefined, undefined, tiles.length]} receiveShadow castShadow>
         <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#aeb6bd" roughness={0.86} metalness={0.02} />
+      <meshStandardMaterial color="#c2c6c2" roughness={0.9} metalness={0.01} />
       </instancedMesh>
     </>
   );

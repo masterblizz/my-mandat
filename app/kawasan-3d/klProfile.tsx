@@ -327,16 +327,16 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   // mullions + floor bands + inset glass, so the twins match the
   // procedural skyscrapers' level of detail); at night the window
   // emissiveMap lights the whole shaft. Metalness / sky reflection are
-  // dialled back after dusk so the silhouette holds. `color` is left near-
-  // white so the facade map's own tones read true.
+  // dialled back after dusk so the silhouette holds. The base is a cool
+  // blue-silver rather than white: only occupied window strips should glow.
   const mat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: "#eef2f6", map: getTowerFacadeTexture(),
-      roughness: 0.32, metalness: 0.42, envMapIntensity: 1.15,
-      emissive: new THREE.Color("#e9f4ff"), emissiveMap: getTwinTowerNightTexture(), emissiveIntensity: 0,
+      color: "#78909c", map: getTowerFacadeTexture(),
+      roughness: 0.42, metalness: 0.5, envMapIntensity: 0.82,
+      emissive: new THREE.Color("#316477"), emissiveMap: getTwinTowerNightTexture(), emissiveIntensity: 0,
     });
-    m.userData.baseMetalness = 0.42;
-    m.userData.baseEnv = 1.15;
+    m.userData.baseMetalness = 0.5;
+    m.userData.baseEnv = 0.82;
     // Height-based architectural accents, independent of the repeating
     // window UVs: narrow red/white rings, a blue crown and a gold tip.
     // They add to the occupied-window map rather than replacing it.
@@ -372,12 +372,12 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   }, []);
   const steel = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: "#e5ded0",
-      roughness: 0.62, metalness: 0.18, envMapIntensity: 1.05,
-      emissive: new THREE.Color("#9b805b"), emissiveIntensity: 0,
+      color: "#8b979b",
+      roughness: 0.68, metalness: 0.24, envMapIntensity: 0.72,
+      emissive: new THREE.Color("#4f6269"), emissiveIntensity: 0,
     });
-    m.userData.baseMetalness = 0.18;
-    m.userData.baseEnv = 1.05;
+    m.userData.baseMetalness = 0.24;
+    m.userData.baseEnv = 0.72;
     return m;
   }, []);
   // Dedicated physical glass for Merdeka 118; it deliberately does not share
@@ -404,14 +404,13 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   useEffect(() => {
     mat.userData.national.value = nationalLighting ? 1 : 0;
     for (const m of [mat, steel]) {
-      // KLCC's facade lighting is intentionally landmark-bright at night:
-      // its silver-white silhouette needs to rise above the surrounding
-      // office towers, like the real illuminated twin towers.
-      m.emissiveIntensity = m === mat ? winLit * 1.72 : winLit * 0.82;
+      // KLCC remains a night landmark, but its facade must read as steel
+      // with selective cyan windows—not a flat white emissive silhouette.
+      m.emissiveIntensity = m === mat ? winLit * 0.44 : winLit * 0.12;
       m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
       m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
     }
-    steel.emissiveIntensity = winLit * 0.18;
+    steel.emissiveIntensity = winLit * 0.1;
     merdekaGlass.emissiveIntensity = 0.12 + winLit * 0.62;
     merdekaGlass.metalness = (merdekaGlass.userData.baseMetalness as number) * (1 - winLit * 0.4);
     merdekaGlass.envMapIntensity = (merdekaGlass.userData.baseEnv as number) * (1 - winLit * 0.34);
