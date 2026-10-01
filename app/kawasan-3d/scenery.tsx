@@ -536,7 +536,7 @@ export function TrafficLights({
 // on amber, and accelerates on green. Cars also keep a gap to the car
 // ahead on the same loop, so they queue at a red instead of stacking.
 
-const CAR_COLORS = ["#f8fafc", "#e53935", "#1677d2", "#f5b21a", "#16a36a", "#8b5cf6", "#111827", "#ec6c20"];
+const CAR_COLORS = ["#f8fafc", "#e53935", "#1677d2", "#f5b21a", "#16a36a", "#8b5cf6", "#ec6c20", "#ef5da8"];
 const TAIL_RUNNING = new THREE.Color("#791014");
 const TAIL_BRAKING = new THREE.Color("#ff332e");
 
@@ -905,7 +905,10 @@ export function Traffic({
     if (!body || !cabin || !taillights || !emergencyLights) return;
     cars.forEach((c, i) => {
       body.setColorAt(i, c.color);
-      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#172033"), V_SPEC[c.kind].tint));
+      // From the tactical camera the cabin/roof is most of a vehicle's
+      // visible surface. Keep it glassy but light enough that red, blue and
+      // other paint colours still read instead of collapsing into black.
+      cabin.setColorAt(i, c.color.clone().lerp(new THREE.Color("#78a6c2"), 0.28));
       taillights.setColorAt(i * 2, TAIL_RUNNING);
       taillights.setColorAt(i * 2 + 1, TAIL_RUNNING);
       const fire = c.kind === "fire";

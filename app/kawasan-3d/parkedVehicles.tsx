@@ -13,8 +13,8 @@ import * as THREE from "three";
 import { PLOT, type CellPlacement, type ZoneKind } from "./cityData";
 
 const TILE_H = 4;
-const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#111827", "#a855f7"];
-const MC_COLORS = ["#e2382a", "#1c9dd6", "#1a1c22", "#f2b705"];
+const CAR_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#3b82f6", "#22c55e", "#ec6c20", "#a855f7"];
+const MC_COLORS = ["#e2382a", "#1c9dd6", "#7c3aed", "#f2b705"];
 const MARGIN = PLOT / 2 - 22;
 
 function hash(key: string): number {
@@ -101,7 +101,7 @@ export function ParkedVehicles({
         dummy.position.set(s.x, TILE_H + 5.7, s.z);
         dummy.updateMatrix();
         cabin.setMatrixAt(i, dummy.matrix);
-        cabin.setColorAt(i, s.color.clone().lerp(new THREE.Color("#172033"), 0.64));
+        cabin.setColorAt(i, s.color.clone().lerp(new THREE.Color("#78a6c2"), 0.28));
 
         const cos = Math.cos(s.heading), sin = Math.sin(s.heading);
         ([[-5.7, -4.1], [-5.7, 4.1], [5.7, -4.1], [5.7, 4.1]] as const).forEach(([f, side], n) => {

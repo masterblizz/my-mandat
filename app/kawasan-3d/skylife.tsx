@@ -16,7 +16,10 @@ import type { Tod } from "./cityData";
 // ── birds ───────────────────────────────────────────────────────────
 function Birds({ span, count, y }: { span: number; count: number; y: number }) {
   const ref = useRef<THREE.InstancedMesh>(null);
-  const flock = useRef({ x: -span * 0.8, z: -span * 0.3, dir: 1 });
+  // Keep the flock above the actual city footprint. The old ±0.8 × span
+  // flight range extended well beyond the square map and its dark chevrons
+  // looked like cars driving across the empty background at a high tilt.
+  const flock = useRef({ x: -span * 0.45, z: -span * 0.22, dir: 1 });
   const dummy = useMemo(() => new THREE.Object3D(), []);
   // loose V: leader at 0, pairs trailing back and out
   const offs = useMemo(() => {
@@ -34,8 +37,8 @@ function Birds({ span, count, y }: { span: number; count: number; y: number }) {
     const f = flock.current;
     f.x += f.dir * span * 0.05 * dt;
     f.z += Math.sin(performance.now() / 4000) * span * 0.006 * dt * 60;
-    if (f.x > span * 0.85) { f.x = span * 0.85; f.dir = -1; }
-    else if (f.x < -span * 0.85) { f.x = -span * 0.85; f.dir = 1; }
+    if (f.x > span * 0.45) { f.x = span * 0.45; f.dir = -1; }
+    else if (f.x < -span * 0.45) { f.x = -span * 0.45; f.dir = 1; }
     const t = performance.now() / 1000;
     for (let i = 0; i < offs.length; i++) {
       const flap = Math.sin(t * 9 + i * 1.3) * 0.5;
@@ -52,7 +55,7 @@ function Birds({ span, count, y }: { span: number; count: number; y: number }) {
     <instancedMesh ref={ref} args={[undefined, undefined, count]} frustumCulled={false} key={`birds-${count}`}>
       {/* a shallow chevron */}
       <coneGeometry args={[5, 1.4, 3]} />
-      <meshBasicMaterial color="#2b3038" toneMapped={false} />
+      <meshBasicMaterial color="#d9e6ee" toneMapped={false} />
     </instancedMesh>
   );
 }

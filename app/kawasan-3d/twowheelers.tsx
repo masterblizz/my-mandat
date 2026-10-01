@@ -58,7 +58,7 @@ function rng(seed: number) {
 }
 
 // ── motorcyclists ───────────────────────────────────────────────────
-const MC_COLORS = ["#e2382a", "#1c9dd6", "#1a1c22", "#f2b705", "#e7ecf2", "#22c55e"];
+const MC_COLORS = ["#e2382a", "#1c9dd6", "#7c3aed", "#f2b705", "#e7ecf2", "#22c55e"];
 const MC_BASE_SPEED = 84;
 const MC_ACCEL = 160;
 const MC_BRAKE = 300;
