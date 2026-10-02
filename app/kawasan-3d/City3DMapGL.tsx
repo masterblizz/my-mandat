@@ -21,7 +21,7 @@ import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
   worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
-  TOD_ENV, TOD_ICON, TOD_SEQUENCE, trafficProfile,
+  TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
   type Zone, type SeatTraits, type Tod,
 } from "./cityData";
 import { PostFX } from "./postfx";
@@ -75,17 +75,26 @@ export default function City3DMapGL({
   const camRef = useRef<CamState>({ ...CAM_DEFAULT });
   const movedRef = useRef(false);
 
-  // The city is presented as an operations digital twin first: a night
-  // control-room view makes the live network, beacons and city hierarchy
-  // visible the moment the scene opens. Players can still cycle to the
-  // real-clock daylight/dusk views with the existing control.
-  const [tod, setTod] = useState<Tod>("night");
-  // Fast Refresh deliberately preserves component state. Re-assert the
-  // presentation mode on mount so a previously selected daylight state does
-  // not make the upgraded smart-city view appear unchanged during local dev.
-  useEffect(() => { setTod("night"); }, []);
+  // The city follows the player's local clock by default. This keeps the
+  // tactical map honest: a morning visit is daylight, after sunset it is
+  // dusk/night. Initialising with a stable value avoids an SSR mismatch;
+  // the effect synchronises immediately on the client.
+  const [tod, setTod] = useState<Tod>("day");
+  const [timeMode, setTimeMode] = useState<"auto" | "manual">("auto");
+  useEffect(() => {
+    if (timeMode !== "auto") return;
+    const sync = () => setTod(todFromClientHour(new Date().getHours()));
+    sync();
+    const timer = window.setInterval(sync, 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") sync(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [timeMode]);
   const cycleTod = useCallback(
-    () => setTod((c) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(c) + 1) % TOD_SEQUENCE.length]),
+    () => {
+      setTimeMode("manual");
+      setTod((c) => TOD_SEQUENCE[(TOD_SEQUENCE.indexOf(c) + 1) % TOD_SEQUENCE.length]);
+    },
     [],
   );
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
@@ -339,8 +348,8 @@ export default function City3DMapGL({
         <button type="button" aria-label="Zoom in" style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_IN)}>+</button>
         <button type="button" aria-label="Zoom out" style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_OUT)}>−</button>
         <button type="button" aria-label="Reset camera" style={compact ? css.btnSm : css.btn} onClick={resetCam}>R</button>
-        <button type="button" aria-label="Cycle time of day" style={compact ? css.btnSm : css.btnWide} onClick={cycleTod}>
-          {TOD_ICON[tod]}{compact ? "" : ` ${t(lang, `kawasan_page.tod_${tod}`)}`}
+        <button type="button" aria-label={timeMode === "auto" ? "City time follows local clock" : "Cycle time of day"} style={compact ? css.btnSm : css.btnWide} onClick={cycleTod}>
+          {TOD_ICON[tod]}{compact ? "" : ` ${t(lang, `kawasan_page.tod_${tod}`)}${timeMode === "auto" ? " · AUTO" : ""}`}
         </button>
         <button type="button" aria-label="Toggle weather" style={compact ? css.btnSm : css.btnWide} onClick={() => setWeather((w) => (w === "rain" ? "clear" : "rain"))}>
           {weather === "rain" ? "🌧" : "☀"}{compact ? "" : ` ${weather === "rain" ? t(lang, "kawasan_page.rain") : t(lang, "kawasan_page.clear")}`}

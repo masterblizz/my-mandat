@@ -405,6 +405,67 @@ export function MasjidComplexes({ items, groundY }: { items: BuildingInstance[];
   return <group>{items.map((item) => <MasjidComplex key={`masjid-${item.key}`} item={item} groundY={groundY} />)}</group>;
 }
 
+// Civic service buildings are seen repeatedly in every city profile. These
+// kits turn their simple institutional shells into identifiable Malaysian
+// facilities without asking for a separate GLB (or a draw-call-heavy model)
+// for every district.
+function HospitalFacade({ item, groundY }: { item: BuildingInstance; groundY: number }) {
+  const frontZ = item.d * 0.535;
+  const rows = 5;
+  return <group>
+    {/* Pale horizontal bands and blue glazing give the wide ward block its
+        recognisable hospital rhythm. */}
+    {Array.from({ length: rows }, (_, i) => {
+      const y = groundY + item.h * (0.2 + i * 0.13);
+      return <group key={i}>
+        <mesh position={[0, y, frontZ]}><boxGeometry args={[item.w * 0.78, 2.6, 0.52]} /><meshStandardMaterial color="#3e83a1" metalness={0.28} roughness={0.3} /></mesh>
+        <mesh position={[0, y - 2.1, frontZ + 0.05]}><boxGeometry args={[item.w * 0.86, 0.72, 0.72]} /><meshStandardMaterial color="#f4f1e9" roughness={0.58} /></mesh>
+      </group>;
+    })}
+    <mesh position={[0, groundY + 5.5, frontZ + 0.52]} castShadow><boxGeometry args={[item.w * 0.31, 10, 1.1]} /><meshStandardMaterial color="#153a52" metalness={0.3} roughness={0.28} /></mesh>
+    <mesh position={[-item.w * 0.42, groundY + item.h * 0.54, frontZ + 0.32]}><boxGeometry args={[2.4, item.h * 0.68, 0.9]} /><meshStandardMaterial color="#d95b52" roughness={0.48} /></mesh>
+    <group position={[item.w * 0.32, groundY + item.h + 4, frontZ * 0.78]}>
+      <mesh><boxGeometry args={[2.2, 9, 1.05]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+      <mesh><boxGeometry args={[9, 2.2, 1.1]} /><meshBasicMaterial color="#f8fafc" /></mesh>
+    </group>
+  </group>;
+}
+
+function PoliceFacade({ item, groundY }: { item: BuildingInstance; groundY: number }) {
+  const frontZ = item.d * 0.54;
+  const colY = groundY + 9;
+  return <group>
+    <mesh position={[0, groundY + item.h + 1.1, 0]} castShadow><boxGeometry args={[item.w * 0.9, 2.2, item.d * 0.86]} /><meshStandardMaterial color="#e4e4dd" roughness={0.55} /></mesh>
+    <mesh position={[0, groundY + item.h * 0.5, frontZ + 0.2]}><boxGeometry args={[item.w * 0.64, item.h * 0.48, 0.58]} /><meshStandardMaterial color="#37647f" metalness={0.22} roughness={0.35} /></mesh>
+    {[-0.28, 0, 0.28].map((ratio) => <mesh key={ratio} position={[item.w * ratio, colY, frontZ + 0.72]} castShadow><boxGeometry args={[2.3, 17, 2.1]} /><meshStandardMaterial color="#eeece5" roughness={0.55} /></mesh>)}
+    <mesh position={[0, groundY + 5.8, frontZ + 0.86]}><boxGeometry args={[item.w * 0.2, 9, 1]} /><meshStandardMaterial color="#17324a" metalness={0.36} roughness={0.26} /></mesh>
+    <group position={[0, groundY + item.h + 3, frontZ + 0.42]}>
+      <mesh><boxGeometry args={[14, 2.8, 1]} /><meshBasicMaterial color="#214d75" /></mesh>
+      <mesh position={[0, 0, 0.62]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[2.1, 2.1, 0.38, 16]} /><meshBasicMaterial color="#eabf43" /></mesh>
+    </group>
+  </group>;
+}
+
+function FireBrigadeFacade({ item, groundY }: { item: BuildingInstance; groundY: number }) {
+  const frontZ = item.d * 0.54;
+  const bayY = groundY + 8;
+  return <group>
+    <mesh position={[0, groundY + item.h + 1.1, 0]} castShadow><boxGeometry args={[item.w * 0.93, 2.1, item.d * 0.9]} /><meshStandardMaterial color="#313943" roughness={0.52} /></mesh>
+    <mesh position={[0, groundY + 16.5, frontZ + 0.2]}><boxGeometry args={[item.w * 0.9, 4.4, 0.9]} /><meshStandardMaterial color="#c83d32" roughness={0.43} /></mesh>
+    {[-0.27, 0, 0.27].map((ratio, i) => <group key={ratio} position={[item.w * ratio, bayY, frontZ + 0.72]}>
+      <mesh><boxGeometry args={[item.w * 0.2, 14, 0.75]} /><meshStandardMaterial color="#6b1e22" metalness={0.15} roughness={0.38} /></mesh>
+      {[-0.24, 0.24].map((y) => <mesh key={y} position={[0, y * 23, 0.43]}><boxGeometry args={[item.w * 0.165, 0.55, 0.22]} /><meshBasicMaterial color="#f4ede2" /></mesh>)}
+      {i === 1 && <mesh position={[0, -4.3, 0.75]}><boxGeometry args={[item.w * 0.15, 2.3, 1.1]} /><meshStandardMaterial color="#df4939" roughness={0.36} /></mesh>}
+    </group>)}
+    {/* Compact drill tower: a clear emergency-services silhouette, kept
+        within the plot so it cannot float into a neighbour. */}
+    <group position={[item.w * 0.34, groundY + 12, -item.d * 0.22]}>
+      <mesh castShadow><boxGeometry args={[4.4, 24, 4.4]} /><meshStandardMaterial color="#d8d1c4" roughness={0.58} /></mesh>
+      <mesh position={[0, 12.8, 0]}><boxGeometry args={[7, 2.2, 7]} /><meshStandardMaterial color="#c83d32" roughness={0.43} /></mesh>
+    </group>
+  </group>;
+}
+
 function FunctionalBuilding({ type, item, groundY }: { type: BType; item: BuildingInstance; groundY: number }) {
   const label = FUNCTIONAL_LABEL[type];
   if (!label) return null;
@@ -430,10 +491,11 @@ function FunctionalBuilding({ type, item, groundY }: { type: BType; item: Buildi
       <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.18} roughness={0.38} />
     </mesh>
 
-    {(type === "clinic" || type === "hospital") && <group position={[0, roofY + 3.3, 0]}>
+    {type === "clinic" && <group position={[0, roofY + 3.3, 0]}>
       <mesh><boxGeometry args={[3.4, 13, 1.35]} /><meshBasicMaterial color="#f8fafc" /></mesh>
       <mesh><boxGeometry args={[13, 3.4, 1.4]} /><meshBasicMaterial color="#f8fafc" /></mesh>
     </group>}
+    {type === "hospital" && <HospitalFacade item={item} groundY={groundY} />}
     {type === "hall" && <group>
       {/* A wide covered porch and stage-like gable distinguish a dewan from a clinic. */}
       <mesh position={[0, groundY + 7, frontZ * 1.12]} castShadow><boxGeometry args={[item.w * 0.78, 1.5, item.d * 0.22]} /><meshStandardMaterial color="#8b6e4d" roughness={0.65} /></mesh>
@@ -443,8 +505,8 @@ function FunctionalBuilding({ type, item, groundY }: { type: BType; item: Buildi
       <mesh position={[-item.w * 0.34, groundY + 16, frontZ * 0.72]} castShadow><cylinderGeometry args={[0.45, 0.6, 30, 8]} /><meshStandardMaterial color="#94a3b8" metalness={0.65} /></mesh>
       <mesh position={[-item.w * 0.27, groundY + 24, frontZ * 0.72]}><boxGeometry args={[10, 5, 0.4]} /><meshBasicMaterial color="#2563eb" /></mesh>
     </group>}
-    {type === "police" && <mesh position={[0, roofY + 2.2, 0]}><cylinderGeometry args={[2.4, 2.4, 1.4, 16]} /><meshBasicMaterial color="#2563eb" /></mesh>}
-    {type === "fire" && <group position={[item.w * 0.28, roofY + 8, 0]}><mesh castShadow><boxGeometry args={[6, 18, 6]} /><meshStandardMaterial color="#c9372c" roughness={0.5} /></mesh><mesh position={[0, 10, 0]}><boxGeometry args={[8, 2, 2]} /><meshBasicMaterial color="#f8fafc" /></mesh></group>}
+    {type === "police" && <PoliceFacade item={item} groundY={groundY} />}
+    {type === "fire" && <FireBrigadeFacade item={item} groundY={groundY} />}
     {type === "library" && <group position={[0, roofY + 3, 0]}>{[-1, 0, 1].map((x, i) => <mesh key={x} position={[x * 5, 0, 0]}><boxGeometry args={[3.4, 7 + i * 2, 4.4]} /><meshStandardMaterial color={["#a16207", "#0f766e", "#7c2d12"][i]} /></mesh>)}</group>}
     {type === "museum" && <group position={[0, roofY + 4, 0]}>{[-0.24, 0, 0.24].map((x) => <mesh key={x} position={[item.w * x, 0, 0]}><cylinderGeometry args={[1.3, 1.5, 9, 8]} /><meshStandardMaterial color="#ded2b5" roughness={0.6} /></mesh>)}<mesh position={[0, 7, 0]}><coneGeometry args={[item.w * 0.29, 10, 4]} /><meshStandardMaterial color="#c8b18a" /></mesh></group>}
     {type === "terminal" && <group position={[0, groundY + 6, frontZ * 0.72]}><mesh castShadow><boxGeometry args={[item.w * 0.86, 1.3, item.d * 0.32]} /><meshStandardMaterial color="#f8fafc" metalness={0.25} /></mesh><mesh position={[0, -2.8, 0]}><boxGeometry args={[item.w * 0.5, 5, 6]} /><meshStandardMaterial color="#f6c51c" roughness={0.45} /></mesh></group>}

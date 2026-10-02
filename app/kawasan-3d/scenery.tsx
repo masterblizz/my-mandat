@@ -967,13 +967,14 @@ export function Traffic({
 // Z); "x" = runs E-W. Geometry is authored along +Z then the whole
 // <group> is yaw-rotated for the E-W line, so there is one code path.
 //
-// SERVICE FREQUENCY tracks `trafficLevel` (levelRef): a second train
-// enters service above ~0.5 (peak), and both run faster — so at rush hour
-// a train passes the interchange roughly 3× as often as off-peak.
+// SERVICE FREQUENCY tracks `trafficLevel` (levelRef): the protected set
+// accelerates for peak service instead of spawning a second train onto the
+// same guideway, so head-on overlaps cannot occur.
 const TRAIN_CARS = [-30, 0, 30];
 const CAR_LEN = 26;
-function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
+function LrtTrain({ tref, deckY, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
   tref: RefObject<THREE.Group>;
+  deckY: number;
   /** Line-coded livery accent (see LrtLine — each crossing line gets its
    * own colour, same idea as KL's real multi-line rail network). */
   livery?: string;
@@ -986,7 +987,7 @@ function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
   const backZ = TRAIN_CARS[0] - CAR_LEN / 2 - 0.4;
   const side = [-1, 1] as const;
   return (
-    <group ref={tref} position={[0, DECK_Y + 8, 0]}>
+    <group ref={tref} position={[0, deckY + 8, 0]}>
       {TRAIN_CARS.map((z) => (
         <group key={z} position={[0, 0, z]}>
           {/* Brushed-metal car shell. The window band is intentionally
@@ -1079,10 +1080,10 @@ function LrtTrain({ tref, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
 // short of centre on both sides so the two lines never overlap there.
 const INTERCHANGE_GAP = 19;
 
-function LrtTerminus({ z, livery }: { z: number; livery: string }) {
+function LrtTerminus({ z, livery, deckY }: { z: number; livery: string; deckY: number }) {
   const end = Math.sign(z) || 1;
   return (
-    <group position={[0, DECK_Y + 2, z]}>
+    <group position={[0, deckY + 2, z]}>
       {/* A real end station prevents the viaduct from reading as a beam that
           simply stops in mid-air at the city boundary. */}
       <mesh castShadow receiveShadow>
@@ -1123,16 +1124,14 @@ function LrtTerminus({ z, livery }: { z: number; livery: string }) {
   );
 }
 
-function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number> }) {
+function LrtLine({ axis, span, levelRef, deckY }: { axis: "x" | "z"; span: number; levelRef: MutableRefObject<number>; deckY: number }) {
   // Line-coded livery — the N-S and E-W lines read as two distinct
   // services where they cross at the interchange, the same way KL's
   // real multi-line rail network colour-codes each line.
   const livery = axis === "z" ? "#177fc5" : "#e8792a";
   const liveryDark = axis === "z" ? "#0e5d9a" : "#a85a1a";
   const t1 = useRef<THREE.Group>(null);
-  const t2 = useRef<THREE.Group>(null);
   const d1 = useRef(axis === "x" ? -1 : 1);
-  const d2 = useRef(axis === "x" ? 1 : -1);
   const piers = useMemo(() => {
     const out: number[] = [];
     // 280 units is one city block: support every block rather than leaving
@@ -1146,7 +1145,6 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
   useFrame((_, dt) => {
     const lv = Math.max(0, Math.min(1, levelRef.current));
     const speed = 58 + 78 * lv;      // 58 off-peak → 136 at peak
-    const twoTrains = lv >= 0.5;
     const lim = span / 2 - 60;
     const advance = (g: THREE.Group | null, dr: MutableRefObject<number>) => {
       if (!g) return;
@@ -1155,8 +1153,8 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
       else if (g.position.z < -lim) { g.position.z = -lim; dr.current = 1; g.rotation.y = 0; }
     };
     advance(t1.current, d1);
-    if (twoTrains) advance(t2.current, d2);
-    if (t2.current) t2.current.visible = twoTrains;
+    // One protected train block per guideway. Peak service raises speed;
+    // it never adds a second set to the same single track.
   });
   // The N-S and E-W lines both pass through world origin at the same
   // DECK_Y — rendered as one continuous span each, their deck/rail/
@@ -1173,19 +1171,19 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
     <group rotation={[0, axis === "x" ? Math.PI / 2 : 0, 0]}>
       {([-1, 1] as const).map((side) => (
         <group key={side}>
-          <mesh position={[0, DECK_Y, side * segCentre]} castShadow receiveShadow>
+          <mesh position={[0, deckY, side * segCentre]} castShadow receiveShadow>
             <boxGeometry args={[14, 4, segLen]} />
             <meshStandardMaterial color="#3b4557" />
           </mesh>
           {/* running rails on top of the deck */}
           {[-3.2, 3.2].map((x) => (
-            <mesh key={`rail${x}`} position={[x, DECK_Y + 2.3, side * segCentre]}>
+            <mesh key={`rail${x}`} position={[x, deckY + 2.3, side * segCentre]}>
               <boxGeometry args={[0.6, 0.7, segLen]} />
               <meshStandardMaterial color="#8b97aa" roughness={0.35} metalness={0.65} />
             </mesh>
           ))}
           {[-7.4, 7.4].map((x) => (
-            <mesh key={x} position={[x, DECK_Y + 3, side * segCentre]}>
+            <mesh key={x} position={[x, deckY + 3, side * segCentre]}>
               <boxGeometry args={[1.6, 3, segLen]} />
               <meshStandardMaterial color="#5b6a80" emissive="#7dd3fc" emissiveIntensity={0.12} />
             </mesh>
@@ -1194,21 +1192,20 @@ function LrtLine({ axis, span, levelRef }: { axis: "x" | "z"; span: number; leve
       ))}
       {piers.map((z, i) => (
         <group key={i}>
-          <mesh position={[0, DECK_Y / 2, z]} castShadow>
-            <boxGeometry args={[8, DECK_Y, 8]} />
+          <mesh position={[0, deckY / 2, z]} castShadow>
+            <boxGeometry args={[8, deckY, 8]} />
             <meshStandardMaterial color="#2f3846" />
           </mesh>
           {/* hammerhead cap, widened under the deck like a real viaduct pier */}
-          <mesh position={[0, DECK_Y - 3, z]} castShadow>
+          <mesh position={[0, deckY - 3, z]} castShadow>
             <boxGeometry args={[16, 4, 10]} />
             <meshStandardMaterial color="#2f3846" />
           </mesh>
         </group>
       ))}
-      <LrtTerminus z={-span / 2 + 29} livery={livery} />
-      <LrtTerminus z={span / 2 - 29} livery={livery} />
-      <LrtTrain tref={t1} livery={livery} liveryDark={liveryDark} />
-      <LrtTrain tref={t2} livery={livery} liveryDark={liveryDark} />
+      <LrtTerminus z={-span / 2 + 29} livery={livery} deckY={deckY} />
+      <LrtTerminus z={span / 2 - 29} livery={livery} deckY={deckY} />
+      <LrtTrain tref={t1} deckY={deckY} livery={livery} liveryDark={liveryDark} />
     </group>
   );
 }
@@ -1224,8 +1221,11 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
   if (!show) return null;
   return (
     <group>
-      <LrtLine axis="z" span={span} levelRef={levelRef} />
-      <LrtLine axis="x" span={span} levelRef={levelRef} />
+      {/* Grade-separated lines: blue N-S stays at the station platform;
+          orange E-W crosses above it, so the services can never occupy the
+          same physical segment. */}
+      <LrtLine axis="z" span={span} levelRef={levelRef} deckY={DECK_Y} />
+      <LrtLine axis="x" span={span} levelRef={levelRef} deckY={DECK_Y + 18} />
       {/* central interchange: two crossed platforms + a vaulted canopy on columns */}
       <group position={[0, DECK_Y + 2, 0]}>
         <mesh receiveShadow>
@@ -1275,6 +1275,18 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
             <meshStandardMaterial color="#8b97aa" />
           </mesh>
         )))}
+      </group>
+      {/* Upper orange-line platform/skybridge. The offset creates a real
+          transfer station rather than two guideways clipped through one
+          another at the same height. */}
+      <group position={[0, DECK_Y + 18, 0]}>
+        <mesh receiveShadow><boxGeometry args={[150, 4, 18]} /><meshStandardMaterial color="#3b4557" /></mesh>
+        {[-3.2, 3.2].map((z) => <mesh key={z} position={[0, 2.3, z]}><boxGeometry args={[150, 0.7, 0.6]} /><meshStandardMaterial color="#a7b2c0" metalness={0.65} roughness={0.3} /></mesh>)}
+        {[-9.2, 9.2].map((z) => <mesh key={z} position={[0, 3.3, z]}><boxGeometry args={[150, 3, 1.4]} /><meshStandardMaterial color="#5b6a80" emissive="#e8792a" emissiveIntensity={0.12} /></mesh>)}
+        <mesh position={[0, 13, 0]} castShadow><boxGeometry args={[58, 1.5, 28]} /><meshStandardMaterial color="#d7dde5" metalness={0.18} roughness={0.48} /></mesh>
+        {[-22, 22].flatMap((x) => [-7, 7].map((z) => <mesh key={`${x}:${z}`} position={[x, 7, z]}><boxGeometry args={[2.3, 14, 2.3]} /><meshStandardMaterial color="#76869a" roughness={0.62} /></mesh>))}
+        <mesh position={[0, 7.2, 10]}><boxGeometry args={[19, 3.4, 0.9]} /><meshBasicMaterial color="#e8792a" toneMapped={false} /></mesh>
+        <Text position={[0, 7.2, 10.52]} fontSize={1.45} anchorX="center" anchorY="middle" color="#fff8ed">BUKIT BINTANG · LRT</Text>
       </group>
     </group>
   );
