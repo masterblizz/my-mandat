@@ -248,49 +248,6 @@ function buildSetbackTemplate(
   return merged;
 }
 
-// Four offset volumes form a terraced slab. The stepped centre of gravity
-// breaks up a skyline dominated by symmetric two-box setbacks while staying
-// inside the same unit footprint and instancing contract.
-function buildTerracedTowerTemplate(): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = [];
-  const add = (w: number, h: number, d: number, y: number, x = 0, z = 0) => {
-    const box = new THREE.BoxGeometry(w, h, d);
-    box.translate(x, y, z);
-    parts.push(box);
-  };
-  add(1, 0.18, 1, 0.09);
-  add(0.84, 0.32, 0.86, 0.34, -0.05, 0.02);
-  add(0.68, 0.28, 0.7, 0.64, 0.06, -0.04);
-  add(0.46, 0.22, 0.5, 0.89, 0.12, -0.07);
-  for (const y of [0.5, 0.78]) add(0.88 - y * 0.25, 0.014, 0.9 - y * 0.25, y, 0.03, -0.02);
-  const merged = mergeGeometries(parts.map(stripToPositionNormalUv), false);
-  if (!merged) return parts[0];
-  merged.clearGroups();
-  return merged;
-}
-
-// An octagonal glass shaft gives the fifth profile a different highlight
-// roll-off from the box families. Low-poly rings keep its floors legible.
-function buildOctagonalTowerTemplate(): THREE.BufferGeometry {
-  const podium = new THREE.BoxGeometry(1, 0.2, 1);
-  podium.translate(0, 0.1, 0);
-  const shaft = new THREE.CylinderGeometry(0.42, 0.5, 0.66, 8, 1, false);
-  shaft.translate(0, 0.53, 0);
-  const crown = new THREE.CylinderGeometry(0.25, 0.36, 0.14, 8, 1, false);
-  crown.translate(0, 0.93, 0);
-  const rings = [0.36, 0.56, 0.76].map((y) => {
-    const ring = new THREE.CylinderGeometry(0.48 - y * 0.08, 0.48 - y * 0.08, 0.014, 8);
-    ring.translate(0, y, 0);
-    return ring;
-  });
-  const merged = mergeGeometries(
-    [podium, shaft, crown, ...rings].map(stripToPositionNormalUv), false,
-  );
-  if (!merged) return podium;
-  merged.clearGroups();
-  return merged;
-}
-
 // Variation 2: older KL commercial office. A pale, strongly ribbed shaft,
 // deep window bays and a small street-level podium echo the compact offices
 // around Bukit Bintang without copying any one real building.
