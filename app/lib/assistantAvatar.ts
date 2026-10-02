@@ -1,32 +1,40 @@
-// Campaign-scoped PA portraits. Candidate portraits provide a mixed pool of
-// faces, while the stored index makes one assistant feel consistent for the
-// duration of an individual campaign.
-export const ASSISTANT_AVATAR_COUNT = 132;
-// Portrait v3 is authored as two contiguous casts: the first 61 are male
-// advisers and the remaining portraits are female advisers. Keep this
-// mapping in one place so every in-world presentation matches the campaign.
-const FEMALE_ASSISTANT_START = 61;
+// Each campaign PA is a paired identity: the video/headshot and the office
+// full-body asset are authored from the very same person.  Keep the pair in
+// one record so a location can never accidentally show a different face.
+const ASSISTANT_PROFILES = [
+  {
+    portrait: "/candidate-portraits/v3/v3-001.png",
+    standing: "/personal-assistant-01-standing.png",
+    gender: "male",
+  },
+  {
+    portrait: "/candidate-portraits/v3/v3-062.png",
+    standing: "/personal-assistant-02-standing.png",
+    gender: "female",
+  },
+] as const;
+
+export const ASSISTANT_AVATAR_COUNT = ASSISTANT_PROFILES.length;
 
 export type AssistantGender = "male" | "female";
 
-export function assistantAvatarSrc(index: number | undefined) {
+function assistantProfile(index: number | undefined) {
   const safeIndex = Number.isInteger(index) && (index as number) >= 0
     ? (index as number) % ASSISTANT_AVATAR_COUNT
     : 0;
-  return `/candidate-portraits/v3/v3-${String(safeIndex + 1).padStart(3, "0")}.png`;
+  return ASSISTANT_PROFILES[safeIndex];
+}
+
+export function assistantAvatarSrc(index: number | undefined) {
+  return assistantProfile(index).portrait;
 }
 
 export function assistantGender(index: number | undefined): AssistantGender {
-  const safeIndex = Number.isInteger(index) && (index as number) >= 0
-    ? (index as number) % ASSISTANT_AVATAR_COUNT
-    : 0;
-  return safeIndex < FEMALE_ASSISTANT_START ? "male" : "female";
+  return assistantProfile(index).gender;
 }
 
 export function assistantStandingSrc(index: number | undefined) {
-  return assistantGender(index) === "male"
-    ? "/personal-assistant-standing-male.png"
-    : "/personal-assistant-standing.png";
+  return assistantProfile(index).standing;
 }
 
 export function nextAssistantAvatar(previous?: number) {

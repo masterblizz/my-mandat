@@ -8,7 +8,7 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
-import { assistantAvatarSrc, assistantStandingSrc } from "../lib/assistantAvatar";
+import { assistantStandingSrc } from "../lib/assistantAvatar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
@@ -176,7 +176,6 @@ export default function PoliticalOfficePage() {
     markOfficeMailRead,
     assistantAvatar,
   } = useGameStore();
-  const assistantPortraitSrc = assistantAvatarSrc(assistantAvatar);
   const standingAssistantSrc = assistantStandingSrc(assistantAvatar);
   const [active, setActive] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(true);
@@ -444,12 +443,6 @@ export default function PoliticalOfficePage() {
             sizes="(max-width: 768px) 275px, 470px"
             className="origin-bottom scale-[1.18] object-contain object-bottom drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"
           />
-          {/* The full-body scene stays intact, but the campaign portrait is
-              overlaid at the head position so the assistant's actual face
-              never changes between city, office and location views. */}
-          <span className="absolute left-[37%] top-[10%] h-[17%] w-[27%] overflow-hidden rounded-[48%] shadow-[0_3px_8px_rgba(0,0,0,.42)]">
-            <Image src={assistantPortraitSrc} alt="" fill sizes="128px" className="object-cover object-[center_30%]" />
-          </span>
           <span
             className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl"
             style={{

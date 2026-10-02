@@ -12,7 +12,7 @@ import {
   currentLocalTimeIsNight,
   homeSeatProfile,
 } from "../../lib/seatProfile";
-import { assistantAvatarSrc, assistantStandingSrc } from "../../lib/assistantAvatar";
+import { assistantStandingSrc } from "../../lib/assistantAvatar";
 import {
   getLiveNewsForDay,
   newsMatchesElectionScope,
@@ -975,7 +975,6 @@ export default function LocationPage() {
   const hostAsset = assistantHost
     ? assistantStandingSrc(assistantAvatar)
     : host.asset;
-  const assistantPortraitSrc = assistantAvatarSrc(assistantAvatar);
   const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
   const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
@@ -1338,7 +1337,6 @@ export default function LocationPage() {
             sizes="(max-width: 768px) 275px, 470px"
             className="origin-bottom scale-[1.18] object-contain object-bottom"
           />
-          {assistantHost && <span className="absolute left-[37%] top-[10%] h-[17%] w-[27%] overflow-hidden rounded-[48%] shadow-[0_3px_8px_rgba(0,0,0,.42)]"><Image src={assistantPortraitSrc} alt="" fill sizes="128px" className="object-cover object-[center_30%]" /></span>}
           <span
             className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
             style={{
