@@ -101,15 +101,18 @@ const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
   // variety costs one bucket per silhouette, not a variant × colour grid.
   // Three Malaysian office families: blue-glass boutique, pale ribbed
   // commercial block, and blue-silver corporate slab.
-  tower: ["#3d6377", "#aab7b8", "#507786"],
-  skyscraper: ["#294f64", "#a2afb1", "#3b6575"],
-  hotel: ["#466d7d", "#adbabc", "#557d89"],
-  kampung: ["#b89a7c", "#c9ac8c", "#a9c2a0", "#b6c6d2", "#d2b6a4"],
-  house: ["#e0d3b6", "#d8c4a8", "#c9d4c0", "#d2c8d8", "#e0c8b8"],
-  terrace: ["#c9b79c", "#bfa98c", "#a9b8a0", "#b2b9c8", "#c9b0a0"],
-  shophouse: ["#d8bfae", "#c9a882", "#a9bfa0", "#b2c4d0", "#d4a8a0", "#e0d0a0"],
-  shop: ["#dcd2be", "#d2c8a8", "#c8d4c8", "#d8c8d0"],
-  stall: ["#ded7c6", "#d4c8a8", "#c8d0c0"],
+  // Lighter glass than the original near-navy, so the few high-rises left
+  // in a core don't read as black blocks against the brighter street.
+  tower: ["#6f97ab", "#c4cfd0", "#7fa9b6"],
+  skyscraper: ["#5d88a0", "#c0cacc", "#73a0b0"],
+  hotel: ["#79a0b0", "#c8d2d3", "#86adb8"],
+  kampung: ["#c9a47c", "#d8b88c", "#a9cfa0", "#b6d2e2", "#e2b6a4"],
+  house: ["#f2e2b8", "#f0cfb0", "#cfe6c4", "#d8d0ec", "#f4cfc0", "#bfe0e8"],
+  terrace: ["#e6cf9c", "#e8b99a", "#b6d8a8", "#b8c8e6", "#ecc0b0"],
+  // Malaysian shophouse rows: mint, salmon, butter, sky, peach, lilac.
+  shophouse: ["#f0c9a8", "#f2d98c", "#a8dcc0", "#a8cfe8", "#f2aca0", "#d4c0ec", "#f6e2b0"],
+  shop: ["#f2e6c4", "#f0d4a0", "#c4e6cc", "#e8c8d8", "#bcdcec"],
+  stall: ["#f4e8c8", "#f2d0a0", "#c8e4c0"],
 };
 const VARIANT_LINKED_PALETTES = new Set<BType>(["tower", "skyscraper", "hotel"]);
 // Same well-tested hash as pickVariantIndex, keyed with a suffix so the

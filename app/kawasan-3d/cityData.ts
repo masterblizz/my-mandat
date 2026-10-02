@@ -486,9 +486,13 @@ export function zoneBuildings(
   // monoculture of towers.
   const upgrade = (type: BType, slot: number): BType => {
     if (!metroCore || !CORE_LOWRISE.has(type)) return type;
+    // Towers stay a minority even dead-centre; most upgraded lots become
+    // brightly painted shophouses / shop rows, so the core reads as a
+    // colourful street rather than a block of dark glass.
     const r = ((zseed + slot * 53) % 100) / 100; // stable 0..1
-    if (r < hi * 0.68) return "tower";
-    if (r < 0.32 + hi * 0.3) return "shophouse";
+    if (r < hi * 0.3) return "tower";
+    if (r < 0.34 + hi * 0.34) return "shophouse";
+    if (r < 0.5 + hi * 0.2) return "shop";
     return type;
   };
   // Height lift for the vertical types, strongest at the centre — gentle
@@ -546,13 +550,13 @@ export function zoneBuildings(
     ? (zone.kind === "urban"
         ? Math.max(0, Math.min(2, Math.round((density - 0.5) * 4)))
         : zone.kind === "commercial" && density >= 0.8 ? 1 : 0)
+    // Kept to a few landmark masts per zone — the rest of the lots go to
+    // the brighter low/mid-rise fillers below.
     : zone.kind === "urban"
-      ? Math.min(6, 2 + Math.round(hi * 3 + (density - METRO_DENSITY) * 5))
+      ? Math.min(3, 1 + Math.round(hi * 1.5 + (density - METRO_DENSITY) * 2))
       : zone.kind === "commercial" || zone.kind === "market"
-        ? (hi > 0.4 ? 3 : 1)
-        : zone.kind === "industry" || zone.kind === "education" || zone.kind === "community" || zone.kind === "village" || zone.kind === "river"
-          ? 0
-          : Math.round(hi * 0.8); // dense housing can still have a modest apartment edge
+        ? (hi > 0.6 ? 1 : 0)
+        : 0;
   // `reserve` is the count of free slots held back after skyscrapers +
   // extras. Non-metro keeps the ported original's 2; metro cores keep 0
   // (fill everything) or 1 when the zone has a facility to place.
@@ -654,7 +658,7 @@ export const COMMON_MODEL_TYPES: BType[] = [
 // Near-greyscale — nothing above ~0.06 chroma. The one warm accent
 // (terracotta tile) lives on the gable roofs, applied in procedural.tsx.
 export const BUILDING_COLOR: Record<BType, string> = {
-  tower: "#466b79", skyscraper: "#294d5e", antenna: "#7d9198",
+  tower: "#6f97ab", skyscraper: "#5d88a0", antenna: "#7d9198",
   shop: "#a5a59b", stall: "#aaa89e", house: "#aeb5ad",
   factory: "#737e84", warehouse: "#626e75", school: "#9eaaa4",
   clinic: "#b2b9b5", masjid: "#b8b4a8", mall: "#718d98",
