@@ -1,5 +1,5 @@
 // Grid-city traffic simulation — pure maths, no React / three.js, so the
-// collision guarantees can be checked headlessly (scripts/traffic-check).
+// collision guarantees can be checked headlessly (scripts/traffic-check.ts).
 // scenery.tsx's <Traffic> owns the instanced meshes and just renders the
 // poses this module writes onto each car.
 //

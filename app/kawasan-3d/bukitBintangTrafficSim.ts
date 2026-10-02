@@ -1,6 +1,7 @@
 // Bukit Bintang traffic simulation — pure maths (no React / three.js), so
-// the no-collision guarantee is checkable headlessly. bukitBintangRoads.tsx
-// draws the roads from ROUTES and renders the poses written here.
+// the no-collision guarantee is checkable headlessly (scripts/traffic-check.ts).
+// bukitBintangRoads.tsx draws the roads from ROUTES and renders the poses
+// written here.
 //
 // Every route carries two LANES (Malaysian left-hand traffic: each
 // direction keeps to the driver's left of the centre-line). A lane is a
