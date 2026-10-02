@@ -133,7 +133,9 @@ export const V_SPEC: Record<VKind, {
            cabS: [1, 1, 1],           cabDX: 0,     cabY: 7.4,  half: 9,    wheel: 1,    tint: 0.64 },
   van:   { bodyS: [1.18, 1.7, 1.02],  bodyDX: -0.5, bodyY: 5.7,
            cabS: [0.62, 0.62, 0.98],  cabDX: 6.4,   cabY: 7.6,  half: 10.5, wheel: 1,    tint: 0.72 },
-  lorry: { bodyS: [1.3, 1.45, 1.0],   bodyDX: -3.4, bodyY: 5.3,
+  // Cargo box is set back behind a distinct cab; this leaves a visible
+  // cab step instead of rendering a long coloured van.
+  lorry: { bodyS: [1.05, 1.45, 1.0],  bodyDX: -5.3, bodyY: 5.3,
            cabS: [0.72, 1.42, 1.0],   cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
   bus:   { bodyS: [1.95, 2.02, 1.05], bodyDX: 0,    bodyY: 6.8,
            cabS: [1.86, 0.5, 1.06],   cabDX: 0,     cabY: 10.6, half: 16,   wheel: 1.12, tint: 0.82 },

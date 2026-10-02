@@ -739,7 +739,10 @@ export function Traffic({
       material.needsUpdate = true;
     });
     cars.forEach((c, i) => {
-      body.setColorAt(i, colors[i]);
+      // A lorry needs a distinct cargo box, not one long car-colour body.
+      // Its cab keeps the dark blue glass unit below while the rear box
+      // reads as a neutral freight container from the city camera.
+      body.setColorAt(i, c.kind === "lorry" ? new THREE.Color("#c8c6b8") : colors[i]);
       // Keep the greenhouse noticeably darker than the paint. This makes a
       // proper roof/window silhouette from the overhead city camera instead
       // of reading as one flat coloured brick.
