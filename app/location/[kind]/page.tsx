@@ -12,7 +12,7 @@ import {
   currentLocalTimeIsNight,
   homeSeatProfile,
 } from "../../lib/seatProfile";
-import { assistantStandingSrc } from "../../lib/assistantAvatar";
+import { assistantAvatarSrc } from "../../lib/assistantAvatar";
 import {
   getLiveNewsForDay,
   newsMatchesElectionScope,
@@ -971,8 +971,9 @@ export default function LocationPage() {
     ? (RURAL_SCENE_ASSETS[kind] ?? "/political-office-rural.png")
     : scene.asset;
   const host = LOCATION_HOSTS[kind] ?? LOCATION_HOSTS.party;
-  const hostAsset = host.asset === "/personal-assistant-standing.png"
-    ? assistantStandingSrc(assistantAvatar)
+  const assistantHost = host.asset === "/personal-assistant-standing.png";
+  const hostAsset = assistantHost
+    ? assistantAvatarSrc(assistantAvatar)
     : host.asset;
   const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
@@ -1322,7 +1323,7 @@ export default function LocationPage() {
         <button
           type="button"
           onClick={() => setHostGuideOpen(true)}
-          className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] text-left drop-shadow-[0_20px_22px_rgba(0,0,0,.62)] transition-transform hover:scale-[1.015] focus:outline-none"
+          className={`absolute bottom-7 left-[13%] z-[15] text-left transition-transform hover:scale-[1.015] focus:outline-none ${assistantHost ? "h-[min(52vh,520px)] w-[min(29vw,330px)] min-w-[230px] overflow-hidden border-2 shadow-2xl" : "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"}`}
           aria-label={
             lang === "ms"
               ? `Berbincang dengan ${host.roleMs}`
@@ -1333,8 +1334,8 @@ export default function LocationPage() {
             src={hostAsset}
             alt={lang === "ms" ? host.roleMs : host.roleEn}
             fill
-            sizes="(max-width: 768px) 275px, 470px"
-            className="origin-bottom scale-[1.18] object-contain object-bottom"
+            sizes={assistantHost ? "(max-width: 768px) 230px, 330px" : "(max-width: 768px) 275px, 470px"}
+            className={assistantHost ? "object-contain object-bottom bg-slate-100" : "origin-bottom scale-[1.18] object-contain object-bottom"}
           />
           <span
             className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
