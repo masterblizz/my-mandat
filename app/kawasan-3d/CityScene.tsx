@@ -286,8 +286,8 @@ function PaddyFields({ items, groundY }: { items: BuildingInstance[]; groundY: n
         <meshStandardMaterial color="#80613c" roughness={0.98} />
       </mesh>
       {[-1, 1].flatMap((side) => [
-        <mesh key={`x-${side}`} position={[side * (halfW - 1.5), y + 0.65, 0]}><boxGeometry args={[3.4, 1.35, item.d]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
-        <mesh key={`z-${side}`} position={[0, y + 0.65, side * (halfD - 1.5)]}><boxGeometry args={[item.w, 1.35, 3.4]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
+        <mesh key={`x-${side}`} position={[side * (halfW - 1.1), y + 0.4, 0]}><boxGeometry args={[2.2, 0.8, item.d]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
+        <mesh key={`z-${side}`} position={[0, y + 0.4, side * (halfD - 1.1)]}><boxGeometry args={[item.w, 0.8, 2.2]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
       ])}
       {[-0.25, 0, 0.25].map((offset) => <mesh key={offset} position={[0, y + 0.2, offset * item.d]}><boxGeometry args={[item.w - 9, 0.14, 1]} /><meshStandardMaterial color="#5f452d" roughness={1} /></mesh>)}
     </group>;

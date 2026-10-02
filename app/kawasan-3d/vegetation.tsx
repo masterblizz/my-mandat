@@ -24,8 +24,8 @@ import type { BuildingInstance } from "./models";
 import { SWAY_VERT, SWAY_FRAG } from "./sway";
 
 const BLADES_PER_TILE = 14;
-const PADDY_ROWS = 6;
-const PADDY_COLUMNS = 8;
+const PADDY_ROWS = 10;
+const PADDY_COLUMNS = 14;
 const BLADE_W = 3.2;
 const BLADE_H = 9;
 
@@ -92,14 +92,14 @@ export function Vegetation({
         const row = Math.floor(b / PADDY_COLUMNS);
         const paddy = type === "sawah";
         const px = paddy
-          ? it.x + ((col + 0.5) / PADDY_COLUMNS - 0.5) * Math.max(it.w - 11, 4)
+          ? it.x + ((col + 0.5) / PADDY_COLUMNS - 0.5) * Math.max(it.w - 9, 4)
           : it.x + (rnd() - 0.5) * Math.max(it.w - 6, 4);
         const pz = paddy
-          ? it.z + ((row + 0.5) / PADDY_ROWS - 0.5) * Math.max(it.d - 11, 4)
+          ? it.z + ((row + 0.5) / PADDY_ROWS - 0.5) * Math.max(it.d - 9, 4)
           : it.z + (rnd() - 0.5) * Math.max(it.d - 6, 4);
         const rotY = paddy ? 0.14 : (rnd() - 0.5) * ROT_JITTER;
-        const wScale = paddy ? 1.7 : BLADE_W * (0.7 + rnd() * 0.6);
-        const hScale = paddy ? 5.4 + ((row + col) % 3) * 0.45 : BLADE_H * (0.7 + rnd() * 0.7);
+        const wScale = paddy ? 0.75 : BLADE_W * (0.7 + rnd() * 0.6);
+        const hScale = paddy ? 2.4 + ((row * 3 + col) % 4) * 0.22 : BLADE_H * (0.7 + rnd() * 0.7);
         dummy.position.set(px, groundY + hScale / 2, pz);
         dummy.rotation.set(0, rotY, 0);
         dummy.scale.set(wScale, hScale, 1);
