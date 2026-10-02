@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client";
 import TacticalAuthShell, { plexMono, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, ERROR_TEXT } from "../components/auth/TacticalAuthShell";
@@ -193,9 +194,17 @@ export default function LoginPage() {
           {googleLoading ? t(lang, "login_page.connecting") : t(lang, "login_page.signInWithGoogle")}
         </button>
 
+        <Link
+          href="/kawasan-3d"
+          className={plexMono.className}
+          style={{ display: "block", width: "100%", marginTop: 10, border: `1px solid ${CYAN}`, color: CYAN, padding: 10, textAlign: "center", fontSize: 11, letterSpacing: 1 }}
+        >
+          {t(lang, "login_page.tryCityDemo")}
+        </Link>
+
         <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
           {t(lang, "login_page.noAccount")}
-          <a href="/register" style={{ color: CYAN }}>{t(lang, "login_page.registerNow")}</a>
+          <Link href="/register" style={{ color: CYAN }}>{t(lang, "login_page.registerNow")}</Link>
         </div>
       </form>
     </TacticalAuthShell>

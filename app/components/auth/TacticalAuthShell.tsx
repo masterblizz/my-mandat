@@ -34,6 +34,8 @@ function LangToggle() {
             key={code}
             type="button"
             onClick={() => setLanguage(code)}
+            aria-label={code === "ms" ? "Tukar bahasa ke Bahasa Melayu" : "Switch language to English"}
+            aria-pressed={active}
             className={plexMono.className}
             style={{
               padding: "3px 8px",
@@ -206,7 +208,7 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
           alt="My Mandat"
           width={26}
           height={26}
-          style={{ filter: "drop-shadow(0 0 8px rgb(var(--auth-wash-rgb) / 0.5))" }}
+          style={{ height: "auto", filter: "drop-shadow(0 0 8px rgb(var(--auth-wash-rgb) / 0.5))" }}
         />
         <div style={{ fontSize: 15, fontWeight: 800 }}>
           <span style={{ color: CYAN }}>MY </span>

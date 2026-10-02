@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Pages reachable without a session — everything else requires one.
 const PUBLIC_AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password']
 
+// A read-only WebGL city sandbox is intentionally public. It gives a
+// prospective player a truthful preview without creating an account or
+// exposing a saved campaign.
+const PUBLIC_DEMO_PATHS = ['/kawasan-3d']
+
 // Must run unauthenticated and do its own thing regardless of session
 // state — the OAuth callback exchanges Google's redirect `code` for the
 // session ITSELF (see app/auth/callback/route.ts). Redirecting it to
@@ -58,6 +63,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthPage = PUBLIC_AUTH_PATHS.some((p) => path === p || path.startsWith(`${p}/`))
+  const isPublicDemo = PUBLIC_DEMO_PATHS.some((p) => path === p || path.startsWith(`${p}/`))
 
   // Already has a session: skip straight past login/register into the
   // normal opening-video / main-menu entry flow.
@@ -66,7 +72,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // No session yet: log in first before reaching any game screen.
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isPublicDemo) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

@@ -29,7 +29,6 @@ export default function AmbientMusic() {
 
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const [trackIdx, setTrackIdx]   = useState(0);
-  const [ready, setReady]         = useState(false);
   const [error, setError]         = useState(false);
   const gesturedRef = useRef(false);
 
@@ -44,8 +43,13 @@ export default function AmbientMusic() {
     audio.loop = true;
     audio.volume = Math.max(0, Math.min(1, musicVolume / 100));
     audio.preload = "auto";
-    audio.oncanplaythrough = () => { setReady(true); setError(false); };
-    audio.onerror = () => { setError(true); setReady(false); };
+    // `canplaythrough` is deliberately conservative and often never fires
+    // for a streamed MP3, even though the first frame is already playable.
+    // Either event below means the player can now start the track.
+    const markReady = () => setError(false);
+    audio.onloadeddata = markReady;
+    audio.oncanplay = markReady;
+    audio.onerror = () => setError(true);
     audioRef.current = audio;
 
     // If already enabled + user has gestured, start playing immediately
@@ -103,17 +107,13 @@ export default function AmbientMusic() {
 
   const prevTrack = () => {
     setTrackIdx((i) => (i - 1 + TRACKS.length) % TRACKS.length);
-    setReady(false);
   };
   const nextTrack = () => {
     setTrackIdx((i) => (i + 1) % TRACKS.length);
-    setReady(false);
   };
 
   const statusLabel = error
     ? t(lang, "components_layout_AmbientMusic.noFile")
-    : !ready
-    ? t(lang, "components_layout_AmbientMusic.loading")
     : musicEnabled ? t(lang, "components_layout_AmbientMusic.on") : t(lang, "components_layout_AmbientMusic.off");
 
   // Hidden on /kawasan — the city's own soundscape (horns/LRT/traffic)

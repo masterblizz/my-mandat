@@ -97,6 +97,7 @@ function StateFlag({ stateId }: { stateId: string }) {
       width={384}
       height={240}
       unoptimized
+      priority={stateId === AUTO_CYCLE_ORDER[0]}
       onLoad={() => setStatus("loaded")}
       onError={() => setStatus("error")}
       style={{

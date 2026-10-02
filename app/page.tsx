@@ -27,12 +27,16 @@ export default function Home() {
   if (!showOpening) {
     return (
       <main
-        className="min-h-screen"
+        className="flex min-h-screen flex-col items-center justify-center gap-4"
         style={{
           background: "#04060b",
           color: "var(--text-primary)",
+          fontFamily: "'Space Mono', monospace",
         }}
-      />
+      >
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan/20 border-t-cyan" />
+        <p className="text-[10px] font-bold tracking-[0.26em] text-cyan">MENYEDIAKAN PUSAT ARAHAN…</p>
+      </main>
     );
   }
 

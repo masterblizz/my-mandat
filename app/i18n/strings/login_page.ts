@@ -13,6 +13,7 @@ const login_page = {
   or: { ms: "ATAU", en: "OR" },
   connecting: { ms: "MENYAMBUNG…", en: "CONNECTING…" },
   signInWithGoogle: { ms: "MASUK DENGAN GOOGLE", en: "SIGN IN WITH GOOGLE" },
+  tryCityDemo: { ms: "CUBA DEMO BANDAR 3D", en: "TRY THE 3D CITY DEMO" },
   noAccount: { ms: "TIADA AKAUN? ", en: "NO ACCOUNT? " },
   registerNow: { ms: "DAFTAR SEKARANG", en: "REGISTER NOW" },
 };
