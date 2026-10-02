@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useGameStore } from "../../store/gameStore";
 import { resumeRoute } from "../../store/journey";
 import { useLang, t } from "../../i18n/useLang";
+import { assistantAvatarSrc } from "../../lib/assistantAvatar";
 
 type Guidance = { title: string; message: string; action: string; route: string };
 type CityContext = { selectedName: string; selectedSentiment: number; overall: number };
@@ -17,6 +18,7 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
   const [open, setOpen] = useState(false);
   const [briefVisible, setBriefVisible] = useState(embedded);
   const journey = state.journey;
+  const assistantSrc = assistantAvatarSrc(state.assistantAvatar);
 
   // A compact, state-aware briefing makes the assistant feel present in the
   // city without forcing an intrusive card over the map. A new selection or
@@ -64,11 +66,11 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
       <button
         type="button"
         onClick={() => { setOpen((value) => !value); setBriefVisible(false); }}
-        className="group relative h-[132px] w-[min(220px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
+        className="group relative h-[164px] w-[min(246px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
         style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 32px rgb(var(--cyan-rgb) / .5)" }}
         aria-label={t(lang, "Buka panggilan video pembantu peribadi", "Open Personal Assistant video call")}
       >
-        <Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="220px" className="object-cover object-[center_18%] transition duration-500 group-hover:scale-105" />
+        <Image src={assistantSrc} alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="246px" className="object-cover object-[center_42%] transition duration-500 group-hover:scale-105" />
         <span className="absolute inset-0 bg-gradient-to-t from-[#020814]/95 via-transparent to-[#020814]/20" />
         <span className="absolute left-2 top-2 flex items-center gap-1.5 bg-emerald-400 px-2 py-1 text-[8px] font-black tracking-[.16em] text-[#021018] shadow"><span className="h-1.5 w-1.5 rounded-full bg-[#021018] animate-pulse" />{t(lang, "LANGSUNG", "LIVE")}</span>
         <span className="absolute right-2 top-2 border border-white/50 bg-[#020814]/80 px-1.5 py-1 text-[8px] font-black tracking-widest text-white">HD</span>
@@ -85,7 +87,7 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
         <button type="button" onClick={() => { setOpen(false); router.push(guidance.route); }} className="mt-3 w-full border px-3 py-2 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .56)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{guidance.action} →</button>
       </section>}
       <button type="button" onClick={() => setOpen((value) => !value)} className={`relative overflow-hidden rounded-full border shadow-lg transition hover:scale-105 ${prominent ? "h-28 w-28 ring-2 ring-cyan/35" : "h-14 w-14"}`} style={{ borderColor: "rgb(var(--gold-rgb) / .72)", background: "var(--bg)", boxShadow: prominent ? "0 0 28px rgb(var(--cyan-rgb) / .46)" : "0 0 20px rgb(var(--cyan-rgb) / .24)" }} aria-label={t(lang, "Buka pembantu peribadi", "Open Personal Assistant")}>
-        <Image src="/personal-assistant.png" alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes={prominent ? "112px" : "56px"} className="object-cover" />
+        <Image src={assistantSrc} alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes={prominent ? "112px" : "56px"} className="object-cover object-[center_36%]" />
         {prominent && <span className="absolute inset-1 rounded-full border border-cyan/50 animate-pulse" />}
         <span className={`absolute bottom-0 left-0 right-0 bg-black/75 font-black tracking-widest text-cyan ${prominent ? "py-1 text-[9px]" : "py-0.5 text-[7px]"}`}>{prominent ? t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT") : "PA"}</span>
       </button>

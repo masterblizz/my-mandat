@@ -18,6 +18,7 @@ import { getCampaignEvent, getCampaignTone, isCampaignEventUnlocked, previewCamp
 import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates";
 import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
 import { getRankPerks, playerXp } from "../lib/playerRank";
+import { nextAssistantAvatar } from "../lib/assistantAvatar";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -115,6 +116,9 @@ export interface GameState {
   // doesn't have; these are plain LiveNewsItem-shaped like the static
   // liveNewsByDay pool, just freshly written per day.
   aiNews: LiveNewsItem[];
+  // A campaign keeps one PA, while resetGame() draws a different face for
+  // the next run. This is persisted in save slots with the rest of the run.
+  assistantAvatar: number;
   // True once the player's own seat (leader.homeConstituencyId) has been
   // won under whichever electionScope they played (pru or prn) — set from
   // /elected, which only ever renders on that exact win. Gates the
@@ -275,6 +279,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   opponentLog: [],
   politicalReactions: [],
   aiNews: [],
+  assistantAvatar: 0,
   hasWonElection: false,
   careerProgress: { completed: [], term: 1, month: 1, playedMinutes: 0 },
   governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
@@ -549,6 +554,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem(AI_NEWS_KEY);
     }
     const prologue = get().journey;
+    const previousAssistantAvatar = get().assistantAvatar;
     const lifetimePlayedMinutes = get().careerProgress.playedMinutes ?? 0;
     const freshJourney = newJourney();
     const retainedJourney = prologue.personalOffice && prologue.originIssue && prologue.leadershipApproach
@@ -584,6 +590,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       opponentLog: [],
       politicalReactions: [],
       aiNews: [],
+      assistantAvatar: nextAssistantAvatar(previousAssistantAvatar),
       hasWonElection: false,
       careerProgress: { completed: [], term: 1, month: 1, playedMinutes: lifetimePlayedMinutes },
       governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },

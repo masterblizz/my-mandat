@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useLang, t } from "../i18n/useLang";
+import { useGameStore } from "../store/gameStore";
+import { assistantAvatarSrc } from "../lib/assistantAvatar";
 
 export type OfficeInteriorKind = "office" | "party" | "operations" | "calendar" | "media" | "commission" | "cabinet" | "administration" | "national";
 
@@ -23,6 +25,7 @@ const INTERIORS: Record<OfficeInteriorKind, Interior> = {
 export default function OfficeInterior({ kind, onClose }: { kind: OfficeInteriorKind; onClose: () => void }) {
   const router = useRouter();
   const lang = useLang();
+  const assistantSrc = assistantAvatarSrc(useGameStore((state) => state.assistantAvatar));
   const interior = INTERIORS[kind];
   const label = lang === "ms" ? interior.ms : interior.en;
   const action = lang === "ms" ? interior.msAction : interior.enAction;
@@ -45,7 +48,7 @@ export default function OfficeInterior({ kind, onClose }: { kind: OfficeInterior
       <div className="absolute right-[7%] top-[31%] w-[23%] border p-2 shadow-xl" style={{ borderColor: `${interior.accent}88`, background: "rgba(3,12,22,.86)" }}><div className="text-[8px] font-black tracking-[.2em]" style={{ color: interior.accent }}>{t(lang, "JADUAL POLITIK", "POLITICAL SCHEDULE")}</div>{schedule.map((item) => <div key={item} className="border-t py-1.5 text-[9px] text-slate-200" style={{ borderColor: "rgba(148,163,184,.18)" }}>{item}</div>)}</div>
       <div className="absolute right-[7%] top-[62%] w-[23%] border p-2" style={{ borderColor: "rgba(255,255,255,.24)", background: "rgba(16,25,36,.88)" }}><div className="text-[8px] font-black tracking-[.2em] text-gold">{t(lang, "BERITA BANDAR", "CITY NEWS")}</div>{headlines.map((item) => <div key={item} className="mt-1 border-l-2 pl-2 text-[8px] leading-relaxed text-text-muted" style={{ borderColor: interior.accent }}>{item}</div>)}</div>
       <div className="absolute bottom-[13%] left-[16%] h-20 w-24 rounded-t-[45%] bg-[#1c2631] shadow-xl" style={{ border: "6px solid #0b1119" }} /><div className="absolute bottom-[13%] right-[16%] h-20 w-24 rounded-t-[45%] bg-[#1c2631] shadow-xl" style={{ border: "6px solid #0b1119" }} />
-      <div className="absolute bottom-[8%] left-[6%] w-48 border p-3" style={{ borderColor: `${interior.accent}55`, background: "rgba(3, 12, 22, .88)" }}><div className="flex gap-2"><div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: interior.accent }}><Image src="/personal-assistant.png" alt="Personal Assistant" fill sizes="40px" className="object-cover" /></div><div><div className="text-[9px] font-black tracking-widest" style={{ color: interior.accent }}>PERSONAL ASSISTANT</div><p className="mt-1 text-[10px] text-text-muted">{t(lang, "Anda sudah berada di dalam bangunan. Gunakan meja strategi untuk mula bekerja.", "You are inside the building. Use the strategy desk to start working.")}</p></div></div></div>
+      <div className="absolute bottom-[8%] left-[6%] w-48 border p-3" style={{ borderColor: `${interior.accent}55`, background: "rgba(3, 12, 22, .88)" }}><div className="flex gap-2"><div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: interior.accent }}><Image src={assistantSrc} alt="Personal Assistant" fill sizes="40px" className="object-cover object-[center_36%]" /></div><div><div className="text-[9px] font-black tracking-widest" style={{ color: interior.accent }}>PERSONAL ASSISTANT</div><p className="mt-1 text-[10px] text-text-muted">{t(lang, "Anda sudah berada di dalam bangunan. Gunakan meja strategi untuk mula bekerja.", "You are inside the building. Use the strategy desk to start working.")}</p></div></div></div>
       <button type="button" onClick={() => router.push(`${interior.route}?from=city&place=${kind}`)} className="absolute bottom-[8%] right-[6%] border px-4 py-3 text-[10px] font-black tracking-widest" style={{ borderColor: interior.accent, color: interior.accent, background: "rgba(3, 12, 22, .88)" }}>{action} →</button>
     </section>
   </div>;

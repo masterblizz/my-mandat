@@ -7,6 +7,7 @@ import { useLang, t } from "../i18n/useLang";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
+import { assistantAvatarSrc } from "../lib/assistantAvatar";
 
 // Day-1 campaign briefing from the Personal Assistant. Opens by itself on a
 // fresh campaign (day 1, full energy, nothing done yet) unless the player
@@ -18,7 +19,8 @@ import CampaignTimeline from "../components/campaign/CampaignTimeline";
 export default function CampaignBriefing() {
   const lang = useLang();
   const router = useRouter();
-  const { journey, day, totalDays, leader, settings } = useGameStore();
+  const { journey, day, totalDays, leader, settings, assistantAvatar } = useGameStore();
+  const assistantSrc = assistantAvatarSrc(assistantAvatar);
   const showOnStart = useUIStore((s) => s.showCampaignBriefing);
   const setShowOnStart = useUIStore((s) => s.setShowCampaignBriefing);
   const [dismissed, setDismissed] = useState(false);
@@ -73,7 +75,7 @@ export default function CampaignBriefing() {
             style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .95)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}>
             <div className="flex gap-3">
               <div className="relative hidden h-16 w-16 shrink-0 overflow-hidden border sm:block" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>
-                <Image src="/personal-assistant.png" alt="Personal Assistant" fill sizes="64px" className="object-cover" />
+                <Image src={assistantSrc} alt="Personal Assistant" fill sizes="64px" className="object-cover object-[center_36%]" />
               </div>
               <div>
                 <div className="text-[9px] font-black tracking-[.22em] text-gold">

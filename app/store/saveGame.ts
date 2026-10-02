@@ -12,6 +12,7 @@ export type SavedGameSnapshot = Pick<
   | "opponentLog"
   | "politicalReactions"
   | "aiNews"
+  | "assistantAvatar"
   | "nationalSupportDelta"
   | "phase"
   | "dataset"
@@ -53,6 +54,7 @@ export function createSaveSnapshot(state: GameState): SavedGameSnapshot {
     opponentLog: state.opponentLog,
     politicalReactions: state.politicalReactions,
     aiNews: state.aiNews,
+    assistantAvatar: state.assistantAvatar,
     nationalSupportDelta: state.nationalSupportDelta,
     phase: state.phase,
     dataset: state.dataset,
