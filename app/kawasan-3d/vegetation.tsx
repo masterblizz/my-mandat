@@ -24,6 +24,8 @@ import type { BuildingInstance } from "./models";
 import { SWAY_VERT, SWAY_FRAG } from "./sway";
 
 const BLADES_PER_TILE = 14;
+const PADDY_ROWS = 6;
+const PADDY_COLUMNS = 8;
 const BLADE_W = 3.2;
 const BLADE_H = 9;
 
@@ -59,7 +61,11 @@ export function Vegetation({
 }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const bladesPerTile = Math.max(1, Math.round(BLADES_PER_TILE * density));
+  // Sawah is planted in visibly ordered rows; random oversized blades made
+  // it read as a patch of yellow posts rather than a rice field.
+  const bladesPerTile = type === "sawah"
+    ? PADDY_ROWS * PADDY_COLUMNS
+    : Math.max(1, Math.round(BLADES_PER_TILE * density));
   const count = items.length * bladesPerTile;
   const colors = COLORS[type];
 
@@ -82,11 +88,18 @@ export function Vegetation({
     for (const it of items) {
       const rnd = rngFrom(hashSeed(it.key));
       for (let b = 0; b < bladesPerTile; b++) {
-        const px = it.x + (rnd() - 0.5) * Math.max(it.w - 6, 4);
-        const pz = it.z + (rnd() - 0.5) * Math.max(it.d - 6, 4);
-        const rotY = (rnd() - 0.5) * ROT_JITTER;
-        const wScale = BLADE_W * (0.7 + rnd() * 0.6);
-        const hScale = BLADE_H * (0.7 + rnd() * 0.7);
+        const col = b % PADDY_COLUMNS;
+        const row = Math.floor(b / PADDY_COLUMNS);
+        const paddy = type === "sawah";
+        const px = paddy
+          ? it.x + ((col + 0.5) / PADDY_COLUMNS - 0.5) * Math.max(it.w - 11, 4)
+          : it.x + (rnd() - 0.5) * Math.max(it.w - 6, 4);
+        const pz = paddy
+          ? it.z + ((row + 0.5) / PADDY_ROWS - 0.5) * Math.max(it.d - 11, 4)
+          : it.z + (rnd() - 0.5) * Math.max(it.d - 6, 4);
+        const rotY = paddy ? 0.14 : (rnd() - 0.5) * ROT_JITTER;
+        const wScale = paddy ? 1.7 : BLADE_W * (0.7 + rnd() * 0.6);
+        const hScale = paddy ? 5.4 + ((row + col) % 3) * 0.45 : BLADE_H * (0.7 + rnd() * 0.7);
         dummy.position.set(px, groundY + hScale / 2, pz);
         dummy.rotation.set(0, rotY, 0);
         dummy.scale.set(wScale, hScale, 1);

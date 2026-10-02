@@ -12,6 +12,7 @@ import {
   currentLocalTimeIsNight,
   homeSeatProfile,
 } from "../../lib/seatProfile";
+import { assistantStandingSrc } from "../../lib/assistantAvatar";
 import {
   getLiveNewsForDay,
   newsMatchesElectionScope,
@@ -947,6 +948,7 @@ export default function LocationPage() {
     runLocationActivity,
     politicalReactions,
     aiNews,
+    assistantAvatar,
   } = useGameStore();
   const [activityOpen, setActivityOpen] = useState(false);
   const [operationsDeskOpen, setOperationsDeskOpen] = useState(
@@ -969,6 +971,9 @@ export default function LocationPage() {
     ? (RURAL_SCENE_ASSETS[kind] ?? "/political-office-rural.png")
     : scene.asset;
   const host = LOCATION_HOSTS[kind] ?? LOCATION_HOSTS.party;
+  const hostAsset = host.asset === "/personal-assistant-standing.png"
+    ? assistantStandingSrc(assistantAvatar)
+    : host.asset;
   const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
   const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
@@ -1325,7 +1330,7 @@ export default function LocationPage() {
           }
         >
           <Image
-            src={host.asset}
+            src={hostAsset}
             alt={lang === "ms" ? host.roleMs : host.roleEn}
             fill
             sizes="(max-width: 768px) 275px, 470px"

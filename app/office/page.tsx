@@ -8,6 +8,7 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
+import { assistantStandingSrc } from "../lib/assistantAvatar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
@@ -173,7 +174,9 @@ export default function PoliticalOfficePage() {
     advanceDay,
     runLocationActivity,
     markOfficeMailRead,
+    assistantAvatar,
   } = useGameStore();
+  const standingAssistantSrc = assistantStandingSrc(assistantAvatar);
   const [active, setActive] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(true);
   const [openedMail, setOpenedMail] = useState<number | null>(null);
@@ -434,7 +437,7 @@ export default function PoliticalOfficePage() {
           )}
         >
           <Image
-            src="/personal-assistant-standing.png"
+            src={standingAssistantSrc}
             alt="Personal Assistant standing beside the desk"
             fill
             sizes="(max-width: 768px) 275px, 470px"

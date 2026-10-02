@@ -274,24 +274,22 @@ function PaddyFields({ items, groundY }: { items: BuildingInstance[]; groundY: n
     const halfW = item.w / 2;
     const halfD = item.d / 2;
     return <group key={`${item.key}:paddy`} position={[item.x, 0, item.z]}>
-      {/* Flooded bed with four planted compartments. The raised bunds stop
-          these from reading as anonymous green squares at the city camera. */}
+      {/* A single cultivated soil bed with a raised bund. The tightly spaced,
+          parallel crop rows above match a real paddy rather than a garden
+          divided into four boxy water tanks. */}
       <mesh position={[0, groundY + FLAT_BOX_H / 2, 0]} receiveShadow>
         <boxGeometry args={[item.w, FLAT_BOX_H, item.d]} />
-        <meshStandardMaterial color="#5f7652" roughness={1} />
+        <meshStandardMaterial color="#725538" roughness={1} />
       </mesh>
-      {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => (
-        <mesh key={[sx, sz].join("-")} position={[sx * item.w * 0.245, y + 0.08, sz * item.d * 0.245]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[item.w * 0.43, item.d * 0.43]} />
-          <meshStandardMaterial color={(sx + sz + item.key.length) % 2 ? "#6e9b7d" : "#64968c"} roughness={0.32} metalness={0.1} />
-        </mesh>
-      )))}
+      <mesh position={[0, y + 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[item.w - 7, item.d - 7]} />
+        <meshStandardMaterial color="#80613c" roughness={0.98} />
+      </mesh>
       {[-1, 1].flatMap((side) => [
-        <mesh key={`x-${side}`} position={[side * (halfW - 1.5), y + 0.65, 0]}><boxGeometry args={[3.4, 1.35, item.d]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>,
-        <mesh key={`z-${side}`} position={[0, y + 0.65, side * (halfD - 1.5)]}><boxGeometry args={[item.w, 1.35, 3.4]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>,
+        <mesh key={`x-${side}`} position={[side * (halfW - 1.5), y + 0.65, 0]}><boxGeometry args={[3.4, 1.35, item.d]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
+        <mesh key={`z-${side}`} position={[0, y + 0.65, side * (halfD - 1.5)]}><boxGeometry args={[item.w, 1.35, 3.4]} /><meshStandardMaterial color="#a49a3b" roughness={0.94} /></mesh>,
       ])}
-      <mesh position={[0, y + 0.64, 0]}><boxGeometry args={[3, 1.25, item.d - 5]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>
-      <mesh position={[0, y + 0.64, 0]}><boxGeometry args={[item.w - 5, 1.25, 3]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>
+      {[-0.25, 0, 0.25].map((offset) => <mesh key={offset} position={[0, y + 0.2, offset * item.d]}><boxGeometry args={[item.w - 9, 0.14, 1]} /><meshStandardMaterial color="#5f452d" roughness={1} /></mesh>)}
     </group>;
   })}</group>;
 }
