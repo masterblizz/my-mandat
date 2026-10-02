@@ -62,7 +62,7 @@ const SETBACK_TYPES = new Set<BType>(["tower", "skyscraper", "shophouse", "hotel
 const HIGH_RISE_OFFICE_TYPES = new Set<BType>(["tower", "skyscraper", "hotel"]);
 // Bump whenever the office profiles change. Fast Refresh otherwise retains
 // an old module-level geometry cache and makes a live city look unchanged.
-const OFFICE_TEMPLATE_REV = "office-kit-v4";
+const OFFICE_TEMPLATE_REV = "office-kit-v5";
 // Everything else that used to render as a bare InstancedBox now gets a
 // composed silhouette too: a flat-roof wall + a parapet rim + a small
 // rooftop plant unit. `masjid` gets a dome instead. `skyscraper` /
@@ -366,14 +366,6 @@ function buildDomeTemplate(variant: number): THREE.BufferGeometry {
   return merged;
 }
 
-// A thin mast merged onto an already-built template (skyscraper / antenna).
-function withMast(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  const mast = new THREE.BoxGeometry(0.05, 0.24, 0.05);
-  mast.translate(0, 1.06, 0);
-  const merged = mergeGeometries([geo, stripToPositionNormalUv(mast)], false);
-  return merged ?? geo;
-}
-
 // variant 0/1/2 -> shallow/medium/steep pitch (gable) or subtle/medium/
 // pronounced setback — cached so switching density presets (which
 // re-mounts Buildings but reuses the same BType set) doesn't rebuild.
@@ -394,7 +386,6 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
     geo = buildDomeTemplate(variant);
   } else if (BOXCAP_TYPES.has(type)) {
     geo = buildBoxCapTemplate(variant, type === "factory" || type === "warehouse");
-    if (type === "antenna" || type === "fire") geo = withMast(geo);
   } else {
     // tower/skyscraper: three Malaysian office families; shophouse keeps a
     // subtle setback + five-foot-way awning.
@@ -418,7 +409,6 @@ function getTemplate(type: BType, variant: number): THREE.BufferGeometry {
         isShop ? 0.16 : 0,
       );
     }
-    if (type === "skyscraper") geo = withMast(geo);
   }
   if (CAPPED_TYPES.has(type)) {
     // Keep horizontal roof/canopy faces free of windows. Reorder triangles
