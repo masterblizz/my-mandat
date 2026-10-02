@@ -29,6 +29,14 @@ import {
 import { junctionInsideLarge } from "./largeBuildings";
 import { vehicleBox, makePaintMaterial, makeGlassMaterial, makeTyreMaterial } from "./vehicleLook";
 import { R_IN as RB_R_IN, R_OUT as RB_R_OUT, roundaboutLift } from "./roundabout";
+import {
+  signalStateFor, createTrafficSim, stepTraffic, V_SPEC, type VKind, type Junction,
+} from "./trafficSim";
+// Loop geometry moved to trafficSim.ts; re-exported for twowheelers.tsx.
+export {
+  signalStateFor, blockLoop, detourRoundabout, gridRoadCentres, pointOnGridAsphalt, posAt,
+  type Loop, type GridRoadCentres,
+} from "./trafficSim";
 
 const ROAD_W = ROAD_GAP - PLOT;
 const DECK_Y = 58; // matches TRACK_DECK_Z in app/kawasan/page.tsx
@@ -319,7 +327,8 @@ export function StreetLamps({
     const corner = ROAD_W / 2 - LAMP_KERB_IN;
     for (let i = 0; i < xs.length; i++) {
       for (let j = 0; j < zs.length; j++) {
-        // TrafficLights use the (-,-) and (+,+) corners; take one of the others.
+        // Signal heads stand just behind every corner (ROAD_W/2 + 2); the
+        // lamp sits on the kerb line in front of one of them.
         const sx = (i + j) % 2 ? 1 : -1;
         const sz = -sx;
         const px = xs[i] + sx * corner, pz = zs[j] + sz * corner;
@@ -499,66 +508,27 @@ export function StreetLamps({
 }
 
 // ── traffic lights ─────────────────────────────────────────────────
-// A signal at every 4-way junction that borders a developed zone (T- and
-// edge-junctions skipped, thinned further by the quality tier). Two poles
-// per junction on opposite corners running OPPOSITE phases, so cross
-// traffic alternates. The red / amber / green lenses are three
-// InstancedMeshes; the cycle is driven by throttled `setColorAt` on the
-// instanceColor buffer (a first cut animated it with an onBeforeCompile
+// One signal head per approach, standing on the driver's near-left kerb
+// corner and facing the oncoming queue. The red / amber / green lenses are
+// three InstancedMeshes; the cycle is driven by throttled `setColorAt` on
+// the instanceColor buffer (a first cut animated it with an onBeforeCompile
 // shader, which tripped an EffectComposer depth-stencil blit error on the
 // medium tier — plain instanced colour has no pipeline risk).
 const TL_POLE_H = 20;
 const TL_HEAD_Y = TL_POLE_H + 4;
-const TL_CYCLE = 9; // seconds for a full green -> amber -> red loop
 const TL_LIT = [new THREE.Color("#ff3b30"), new THREE.Color("#ffb020"), new THREE.Color("#2fd15a")];
 const TL_DIM = new THREE.Color("#15171c");
 // row index in TL_LIT: 0 = red, 1 = amber, 2 = green.
 
-// Single source of truth for the signal phase — both the lit lens (below)
-// and the car behaviour (Traffic) read this so what you see and what the
-// cars do can never drift. `axisIsX` = the car/approach travels along
-// world X (an E-W movement); the crossing Z movement runs the opposite
-// half-cycle. Returns 0 green / 1 amber / 2 red. Green ~55% of the cycle,
-// amber a short ~7%, red the rest — with a small all-red overlap so
-// cross streams never both show green.
-export function signalStateFor(axisIsX: boolean, timeSec: number): 0 | 1 | 2 {
-  const local = (timeSec / TL_CYCLE + (axisIsX ? 0 : 0.5)) % 1;
-  if (local < 0.46) return 0; // green
-  if (local < 0.53) return 1; // amber
-  return 2;                    // red
-}
+export type SignalPole = {
+  x: number; z: number;
+  /** unit direction the lenses face (toward the approaching traffic) */
+  fx: number; fz: number;
+  /** 0 green / 1 amber / 2 red at time t (seconds) */
+  state: (t: number) => 0 | 1 | 2;
+};
 
-export function TrafficLights({
-  gridSize, developed, detail = 1, claimed,
-}: {
-  gridSize: number;
-  /** "col,row" of developed cells — a junction needs at least one to qualify */
-  developed: Set<string>;
-  detail?: number;
-  claimed?: Set<string>;
-}) {
-  const centre = worldCentre(gridSize);
-
-  const poles = useMemo(() => {
-    const xs = roadsV(gridSize).map((x) => x - centre + ROAD_W / 2);
-    const zs = roadsH(gridSize).map((z) => z - centre + ROAD_W / 2);
-    const out: { x: number; z: number; phase: number }[] = [];
-    const inB = (c: number, r: number) => c >= 0 && c < gridSize && r >= 0 && r < gridSize;
-    for (let i = 1; i < xs.length; i++) {
-      for (let j = 1; j < zs.length; j++) {
-        const quad: [number, number][] = [[i - 1, j - 1], [i, j - 1], [i - 1, j], [i, j]];
-        if (!quad.every(([c, r]) => inB(c, r))) continue;
-        if (!quad.some(([c, r]) => developed.has(`${c},${r}`))) continue;
-        if (claimed && quad.every(([c, r]) => claimed.has(`${c},${r}`))) continue;
-        if (((i * 97 + j * 41) % 100) >= detail * 100) continue;
-        const d = ROAD_W * 0.42;
-        out.push({ x: xs[i] - d, z: zs[j] - d, phase: 0 });
-        out.push({ x: xs[i] + d, z: zs[j] + d, phase: 0.5 });
-      }
-    }
-    return out;
-  }, [gridSize, centre, developed, detail, claimed]);
-
+export function SignalPoles({ poles, scale = 1 }: { poles: SignalPole[]; scale?: number }) {
   const poleRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
   const lensRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
@@ -571,13 +541,15 @@ export function TrafficLights({
     if (!pole || !head) return;
     const m = new THREE.Object3D();
     poles.forEach((p, i) => {
-      m.position.set(p.x, TL_POLE_H / 2, p.z);
-      m.scale.set(1, TL_POLE_H, 1);
-      m.rotation.set(0, 0, 0);
+      // Local +Z of the head faces the approach: Ry(θ) maps +Z to (sinθ, cosθ).
+      const yaw = Math.atan2(p.fx, p.fz);
+      m.rotation.set(0, yaw, 0);
+      m.position.set(p.x, (TL_POLE_H / 2) * scale, p.z);
+      m.scale.set(scale, TL_POLE_H * scale, scale);
       m.updateMatrix();
       pole.setMatrixAt(i, m.matrix);
-      m.position.set(p.x, TL_HEAD_Y, p.z);
-      m.scale.set(1, 1, 1);
+      m.position.set(p.x, TL_HEAD_Y * scale, p.z);
+      m.scale.set(scale, scale, scale);
       m.updateMatrix();
       head.setMatrixAt(i, m.matrix);
     });
@@ -589,8 +561,9 @@ export function TrafficLights({
       if (!lens) return;
       const dy = [3.4, 0, -3.4][row];
       poles.forEach((p, i) => {
-        m.position.set(p.x, TL_HEAD_Y + dy, p.z + 2.4);
-        m.scale.set(1, 1, 1);
+        m.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
+        m.position.set(p.x + p.fx * 2.4 * scale, (TL_HEAD_Y + dy) * scale, p.z + p.fz * 2.4 * scale);
+        m.scale.set(scale, scale, scale);
         m.updateMatrix();
         lens.setMatrixAt(i, m.matrix);
         lens.setColorAt(i, TL_DIM);
@@ -600,11 +573,9 @@ export function TrafficLights({
       lens.computeBoundingSphere();
     });
     lastState.current = new Int8Array(poles.length).fill(-1);
-  }, [poles]);
+  }, [poles, scale]);
 
-  // Throttled: recolour only the lenses whose lit-row changed. The pole
-  // with phase 0 governs E-W (X-axis) movement, phase 0.5 the crossing
-  // N-S movement — signalStateFor() encodes the half-cycle offset.
+  // Throttled: recolour only the lenses whose lit row changed.
   useFrame((_, dt) => {
     acc.current += dt;
     if (acc.current < 0.12) return;
@@ -612,7 +583,7 @@ export function TrafficLights({
     const now = performance.now() / 1000;
     const dirty = [false, false, false];
     poles.forEach((p, i) => {
-      const state = signalStateFor(p.phase === 0, now); // 0 green 1 amber 2 red
+      const state = p.state(now); // 0 green 1 amber 2 red
       const row = state === 0 ? 2 : state === 1 ? 1 : 0; // -> TL_LIT index
       if (lastState.current[i] === row) return;
       for (let r = 0; r < 3; r++) {
@@ -655,58 +626,34 @@ export function TrafficLights({
   );
 }
 
+// Every signalised 4-way junction (trafficSim.signalJunctions — the same
+// list the cars obey) gets four heads, one per approach, on the near-left
+// kerb corner (left-hand traffic):
+//   (+,+) westbound  · (−,−) eastbound  → E-W phase
+//   (−,+) northbound · (+,−) southbound → N-S phase
+const isX = (t: number) => signalStateFor(true, t);
+const isZ = (t: number) => signalStateFor(false, t);
+export function TrafficLights({ junctions }: { junctions: Junction[] }) {
+  const poles = useMemo(() => {
+    const d = ROAD_W / 2 + 2;
+    return junctions.flatMap(({ x, z }): SignalPole[] => [
+      { x: x + d, z: z + d, fx: 1, fz: 0, state: isX },
+      { x: x - d, z: z - d, fx: -1, fz: 0, state: isX },
+      { x: x - d, z: z + d, fx: 0, fz: 1, state: isZ },
+      { x: x + d, z: z - d, fx: 0, fz: -1, state: isZ },
+    ]);
+  }, [junctions]);
+  return <SignalPoles poles={poles} />;
+}
+
 // ── traffic ─────────────────────────────────────────────────────────
-// Cars no longer slide along a single infinite lane. Each car is bound to
-// a closed LOOP made of straight segments joined by quarter-circle arcs,
-// so it actually corners at every junction. Loops that cross the central
-// roundabout are rerouted around its ring (detourRoundabout). Every
-// loop carries GATES at the
-// grid junctions it crosses — a car reads signalStateFor() for the
-// direction it is travelling and brakes to the stop line on red, crawls
-// on amber, and accelerates on green. Cars also keep a gap to the car
-// ahead on the same loop, so they queue at a red instead of stacking.
+// The simulation (loops, signals, junction-box mutex, following distance)
+// lives in trafficSim.ts so its no-collision guarantee is testable without
+// a GPU; this component only renders the poses it writes onto each car.
 
 const CAR_COLORS = ["#f8fafc", "#e53935", "#1677d2", "#f5b21a", "#16a36a", "#8b5cf6", "#ec6c20", "#ef5da8"];
 const TAIL_RUNNING = new THREE.Color("#791014");
 const TAIL_BRAKING = new THREE.Color("#ff332e");
-
-// Vehicle variety. Every kind rides the same loops / signal / gap logic;
-// they differ only in how the shared body+cabin+wheel+light instances are
-// scaled and offset per car. `body` + `cabin` are reinterpreted per kind:
-//   car   — hull + greenhouse (unchanged)
-//   van   — one tall boxy hull + a short glassy nose section
-//   lorry — `body` is the tall cargo box (shifted back), `cabin` the cab up front
-//   bus   — one long tall hull + a thin dark window band for `cabin`
-type VKind = "car" | "van" | "lorry" | "bus" | "police" | "ambulance" | "fire";
-const V_MIX: { k: VKind; p: number }[] = [
-  { k: "car", p: 0.635 }, { k: "van", p: 0.12 }, { k: "lorry", p: 0.10 }, { k: "bus", p: 0.08 },
-  { k: "police", p: 0.025 }, { k: "ambulance", p: 0.025 }, { k: "fire", p: 0.015 },
-];
-function pickKind(r: number): VKind {
-  let a = 0;
-  for (const m of V_MIX) { a += m.p; if (r < a) return m.k; }
-  return "car";
-}
-const V_SPEC: Record<VKind, {
-  bodyS: [number, number, number]; bodyDX: number; bodyY: number;
-  cabS: [number, number, number]; cabDX: number; cabY: number;
-  half: number; wheel: number; tint: number;
-}> = {
-  car:   { bodyS: [1, 1, 1],          bodyDX: 0,    bodyY: 4,
-           cabS: [1, 1, 1],           cabDX: 0,     cabY: 7.4,  half: 9,    wheel: 1,    tint: 0.64 },
-  van:   { bodyS: [1.18, 1.7, 1.02],  bodyDX: -0.5, bodyY: 5.7,
-           cabS: [0.62, 0.62, 0.98],  cabDX: 6.4,   cabY: 7.6,  half: 10.5, wheel: 1,    tint: 0.72 },
-  lorry: { bodyS: [1.3, 1.45, 1.0],   bodyDX: -3.4, bodyY: 5.3,
-           cabS: [0.72, 1.42, 1.0],   cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
-  bus:   { bodyS: [1.95, 2.02, 1.05], bodyDX: 0,    bodyY: 6.8,
-           cabS: [1.86, 0.5, 1.06],   cabDX: 0,     cabY: 10.6, half: 16,   wheel: 1.12, tint: 0.82 },
-  police:{ bodyS: [1, 1, 1],           bodyDX: 0,    bodyY: 4,
-           cabS: [1, 1, 1],            cabDX: 0,     cabY: 7.4,  half: 9,    wheel: 1,    tint: 0.64 },
-  ambulance: { bodyS: [1.18, 1.7, 1.02], bodyDX: -0.5, bodyY: 5.7,
-           cabS: [0.62, 0.62, 0.98],   cabDX: 6.4,   cabY: 7.6,  half: 10.5, wheel: 1,    tint: 0.72 },
-  fire:  { bodyS: [1.3, 1.45, 1.0],   bodyDX: -3.4, bodyY: 5.3,
-           cabS: [0.72, 1.42, 1.0],    cabDX: 9.2,   cabY: 4.6,  half: 13,   wheel: 1.16, tint: 0.5  },
-};
 
 const emergencyVehicle = (kind: VKind) => kind === "police" || kind === "ambulance" || kind === "fire";
 function vehicleColor(kind: VKind, rnd: () => number) {
@@ -715,236 +662,8 @@ function vehicleColor(kind: VKind, rnd: () => number) {
   return new THREE.Color(CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)]);
 }
 
-const CAR_BASE_SPEED = 78;   // world units / sec on a clear straight
-const CAR_ACCEL = 130;
-const CAR_BRAKE = 240;
-const CAR_ARC_SPEED = 34;     // cornering / roundabout speed cap
-const CAR_GAP_LIGHT = 18;     // clear-road bumper gap
-const CAR_GAP_PEAK = 7;       // compact but still visibly separated in a jam
-const STOP_MARGIN = 12;       // how far back from the junction to hold on red
-const BRAKE_LOOKAHEAD = 150;  // start reacting to a gate this far out
-
-type Piece = {
-  kind: "line" | "arc";
-  s0: number;
-  len: number;
-  // line
-  ax?: number; az?: number; bx?: number; bz?: number;
-  // arc
-  cx?: number; cz?: number; r?: number; a0?: number; a1?: number;
-  // gate at the END of this piece (a grid junction the loop crosses)
-  gateAxisIsX?: boolean;
-};
-export type Loop = { pieces: Piece[]; L: number; gates: { s: number; axisIsX: boolean }[] };
-type Car = {
-  loop: number;
-  s: number;        // arc-length position around the loop
-  speed: number;
-  wheelSpin: number;
-  braking: boolean;
-  color: THREE.Color;
-  kind: VKind;
-};
-
-function lineP(ax: number, az: number, bx: number, bz: number, gateAxisIsX?: boolean): Piece {
-  return { kind: "line", s0: 0, len: Math.hypot(bx - ax, bz - az), ax, az, bx, bz, gateAxisIsX };
-}
-function arcP(cx: number, cz: number, r: number, a0: number, a1: number): Piece {
-  return { kind: "arc", s0: 0, len: Math.abs(a1 - a0) * r, cx, cz, r, a0, a1 };
-}
-function finishLoop(pieces: Piece[]): Loop {
-  let acc = 0;
-  const gates: { s: number; axisIsX: boolean }[] = [];
-  for (const p of pieces) {
-    p.s0 = acc;
-    acc += p.len;
-    if (p.kind === "line" && p.gateAxisIsX !== undefined) {
-      gates.push({ s: acc, axisIsX: p.gateAxisIsX }); // gate sits at the piece end
-    }
-  }
-  return { pieces, L: acc, gates };
-}
-export function posAt(loop: Loop, s: number): [number, number] {
-  let ss = s % loop.L;
-  if (ss < 0) ss += loop.L;
-  const pcs = loop.pieces;
-  let p = pcs[pcs.length - 1];
-  for (const q of pcs) { if (ss < q.s0 + q.len || q === pcs[pcs.length - 1]) { p = q; break; } }
-  const t = p.len > 0 ? (ss - p.s0) / p.len : 0;
-  if (p.kind === "line") {
-    return [p.ax! + (p.bx! - p.ax!) * t, p.az! + (p.bz! - p.az!) * t];
-  }
-  const a = p.a0! + (p.a1! - p.a0!) * t;
-  return [p.cx! + Math.cos(a) * p.r!, p.cz! + Math.sin(a) * p.r!];
-}
-
-// One Malaysian left-hand-traffic loop around the plot bounded by
-// x0<x1, z0<z1. The carriageway runs counter-clockwise with the plot on
-// the driver's left: westbound on the top road, southbound on the left,
-// eastbound on the bottom and northbound on the right. Each corner is
-// therefore a protected left turn around its own quadrant of the junction,
-// rather than the old wide right turn that crossed the junction centre and
-// overlapped the neighbouring block's path.
-export function blockLoop(x0: number, x1: number, z0: number, z1: number, laneOff: number, turnR: number): Loop {
-  const L = laneOff, R = turnR;
-  const tx0 = x0 + L, tx1 = x1 - L, tz0 = z0 + L, tz1 = z1 - L; // lane centreline box
-  const pieces: Piece[] = [
-    // top edge, travelling west -> gate for the NW junction (E-W movement)
-    lineP(tx1 - R, tz0, tx0 + R, tz0, true),
-    arcP(tx0 + R, tz0 + R, R, -Math.PI / 2, -Math.PI),
-    // left edge, travelling south -> gate for the SW junction (N-S movement)
-    lineP(tx0, tz0 + R, tx0, tz1 - R, false),
-    arcP(tx0 + R, tz1 - R, R, Math.PI, Math.PI / 2),
-    // bottom edge, travelling east -> gate for the SE junction
-    lineP(tx0 + R, tz1, tx1 - R, tz1, true),
-    arcP(tx1 - R, tz1 - R, R, Math.PI / 2, 0),
-    // right edge, travelling north -> gate for the NE junction
-    lineP(tx1, tz1 - R, tx1, tz0 + R, false),
-    arcP(tx1 - R, tz0 + R, R, 0, -Math.PI / 2),
-  ];
-  return finishLoop(pieces);
-}
-
-export type GridRoadCentres = { x: number[]; z: number[] };
-
-// The rendered road planes use the same grid centres. Keep this check next
-// to the route code so every dynamic road user can reject a bad transform
-// instead of ever placing a vehicle on a neighbourhood ground slab.
-export function gridRoadCentres(
-  gridSize: number,
-  roadIndices?: { vertical: number[]; horizontal: number[] },
-): GridRoadCentres {
-  const centre = worldCentre(gridSize);
-  return {
-    x: (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
-      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2),
-    z: (roadIndices?.horizontal ?? roadsH(gridSize).map((_, index) => index))
-      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2),
-  };
-}
-
-export function pointOnGridAsphalt(x: number, z: number, roads: GridRoadCentres, edgePadding = 2) {
-  const halfWidth = ROAD_W / 2 - edgePadding;
-  return roads.x.some((roadX) => Math.abs(x - roadX) <= halfWidth)
-    || roads.z.some((roadZ) => Math.abs(z - roadZ) <= halfWidth);
-}
-
-// Pieces covering arc-length [sA, sB] of `loop` (0 ≤ sA < sB ≤ sA + L;
-// sB may run past L and wraps). A line keeps its signal gate only when
-// its real end — the junction — is still included.
-function slicePieces(loop: Loop, sA: number, sB: number): Piece[] {
-  const out: Piece[] = [];
-  for (let lap = 0; lap <= 1; lap++) {
-    const off = lap * loop.L;
-    for (const p of loop.pieces) {
-      const p0 = p.s0 + off, p1 = p.s0 + p.len + off;
-      const a = Math.max(sA, p0), b = Math.min(sB, p1);
-      if (b - a < 1e-6) continue;
-      const ta = (a - p0) / p.len, tb = (b - p0) / p.len;
-      if (p.kind === "line") {
-        const dx = p.bx! - p.ax!, dz = p.bz! - p.az!;
-        out.push(lineP(p.ax! + dx * ta, p.az! + dz * ta, p.ax! + dx * tb, p.az! + dz * tb,
-          b >= p1 - 1e-6 ? p.gateAxisIsX : undefined));
-      } else {
-        const da = p.a1! - p.a0!;
-        out.push(arcP(p.cx!, p.cz!, p.r!, p.a0! + da * ta, p.a0! + da * tb));
-      }
-    }
-  }
-  return out;
-}
-
-function headingAt(loop: Loop, s: number): [number, number] {
-  const [ax, az] = posAt(loop, s - 0.5), [bx, bz] = posAt(loop, s + 0.5);
-  const l = Math.hypot(bx - ax, bz - az) || 1;
-  return [(bx - ax) / l, (bz - az) / l];
-}
-
-// Cubic Hermite blend from (p0, t0) to (p1, t1) as short line pieces, so
-// the swing onto and off the ring has no heading snap.
-function blendPieces(p0: [number, number], t0: [number, number], p1: [number, number], t1: [number, number]): Piece[] {
-  const k = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 1.1;
-  const at = (t: number): [number, number] => {
-    const t2 = t * t, t3 = t2 * t;
-    const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
-    return [
-      h00 * p0[0] + h10 * k * t0[0] + h01 * p1[0] + h11 * k * t1[0],
-      h00 * p0[1] + h10 * k * t0[1] + h01 * p1[1] + h11 * k * t1[1],
-    ];
-  };
-  const out: Piece[] = [];
-  let prev = p0;
-  for (let i = 1; i <= 10; i++) {
-    const q = at(i / 10);
-    out.push(lineP(prev[0], prev[1], q[0], q[1]));
-    prev = q;
-  }
-  return out;
-}
-
-// Reroute a loop through the roundabout at (cx, cz). Wherever its lane
-// would cross the ring (and so the landscaped island), the vehicle
-// instead blends onto a circulating lane of radius `laneR`, runs
-// clockwise on screen (Malaysian left-hand traffic: increasing
-// atan2(z, x) goes east → south) and blends back onto its own route on
-// the far side. Signal gates inside the cut section are dropped —
-// roundabouts run free.
-export function detourRoundabout(loop: Loop, cx: number, cz: number, laneR: number, blend = 28): Loop {
-  const dist = (s: number) => {
-    const [x, z] = posAt(loop, s);
-    return Math.hypot(x - cx, z - cz);
-  };
-  const inside = (s: number) => dist(s) < laneR;
-  const step = 2;
-  const n = Math.ceil(loop.L / step);
-  // Walk from the point farthest from the ring, so no crossing (and its
-  // entry/exit blend) straddles the lap seam.
-  let start = 0, far = -1;
-  for (let i = 0; i < n; i++) { const d = dist(i * step); if (d > far) { far = d; start = i * step; } }
-  if (far < laneR) return loop;
-  // Crossing intervals [in, out], relative to `start`, refined by bisection.
-  const refine = (lo: number, hi: number) => {
-    const from = inside(start + lo);
-    for (let k = 0; k < 20; k++) {
-      const m = (lo + hi) / 2;
-      if (inside(start + m) === from) lo = m; else hi = m;
-    }
-    return (lo + hi) / 2;
-  };
-  const spans: [number, number][] = [];
-  let enter = -1;
-  for (let i = 1; i <= n; i++) {
-    const u0 = (i - 1) * step, u1 = Math.min(i * step, loop.L);
-    const was = inside(start + u0), now = inside(start + u1);
-    if (!was && now) enter = refine(u0, u1);
-    else if (was && !now && enter >= 0) { spans.push([enter, refine(u0, u1)]); enter = -1; }
-  }
-  if (!spans.length) return loop;
-
-  const ringPt = (a: number): [number, number] => [cx + Math.cos(a) * laneR, cz + Math.sin(a) * laneR];
-  const ringTan = (a: number): [number, number] => [-Math.sin(a), Math.cos(a)];
-  const dAng = blend / laneR;
-  const pieces: Piece[] = [];
-  let cursor = 0;
-  for (const [uIn, uOut] of spans) {
-    const sIn = Math.max(cursor, uIn - blend), sOut = Math.min(loop.L, uOut + blend);
-    if (sIn > cursor) pieces.push(...slicePieces(loop, start + cursor, start + sIn));
-    const [ex, ez] = posAt(loop, start + uIn);
-    const [xx, xz] = posAt(loop, start + uOut);
-    const a0 = Math.atan2(ez - cz, ex - cx) + dAng;
-    let a1 = Math.atan2(xz - cz, xx - cx) - dAng;
-    while (a1 <= a0 + 0.2) a1 += Math.PI * 2;
-    pieces.push(...blendPieces(posAt(loop, start + sIn), headingAt(loop, start + sIn), ringPt(a0), ringTan(a0)));
-    pieces.push(arcP(cx, cz, laneR, a0, a1));
-    pieces.push(...blendPieces(ringPt(a1), ringTan(a1), posAt(loop, start + sOut), headingAt(loop, start + sOut)));
-    cursor = sOut;
-  }
-  if (cursor < loop.L) pieces.push(...slicePieces(loop, start + cursor, start + loop.L));
-  return finishLoop(pieces);
-}
-
 export function Traffic({
-  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices, roundabout = null,
+  gridSize, trafficLevel = 0.5, riverRoadIndex = null, roadIndices, roundabout = null, signals,
 }: {
   gridSize: number;
   trafficLevel?: number;
@@ -954,80 +673,28 @@ export function Traffic({
   roadIndices?: { vertical: number[]; horizontal: number[] };
   /** Central roundabout (world x, z); loops crossing it are routed around the ring. */
   roundabout?: [number, number] | null;
+  /** Signalised junctions — must be the list <TrafficLights> draws. */
+  signals: Junction[];
 }) {
-  const centre = worldCentre(gridSize);
   const rbX = roundabout?.[0] ?? null, rbZ = roundabout?.[1] ?? null;
-  const asphaltRoads = useMemo(() => gridRoadCentres(gridSize, roadIndices), [gridSize, roadIndices]);
 
   // read the live density in useFrame without re-rendering / rebuilding
   const levelRef = useRef(trafficLevel);
   levelRef.current = trafficLevel;
 
-  const { loops, cars } = useMemo(() => {
-    let seed = gridSize * 911 + 7;
+  const sim = useMemo(() => createTrafficSim({
+    gridSize, roadIndices, riverRoadIndex,
+    roundabout: rbX !== null && rbZ !== null ? [rbX, rbZ] : null,
+    roundaboutLaneR: RB_R_IN + (RB_R_OUT - RB_R_IN) * 0.42,
+    signals,
+  }), [gridSize, roadIndices, riverRoadIndex, rbX, rbZ, signals]);
+  const cars = sim.cars;
+  const colors = useMemo(() => {
+    let seed = gridSize * 577 + 3;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-    const xs = (roadIndices?.vertical ?? roadsV(gridSize).map((_, index) => index))
-      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
-    const zs = (roadIndices?.horizontal ?? roadsH(gridSize).map((_, index) => index))
-      .map((index) => index * ROAD_GAP - centre + ROAD_W / 2);
-    const laneOff = ROAD_W * 0.2;
-    // The lane and arc meet at the plot corner (20 u from the road centre),
-    // keeping the whole turn on asphalt instead of cutting into the plot.
-    const turnR = ROAD_W / 2 - laneOff;
-
-    const loops: Loop[] = [];
-    const cars: Car[] = [];
-    const addCarsTo = (loopIdx: number, n: number, forceKind?: VKind) => {
-      const L = loops[loopIdx].L;
-      const phase = rnd();
-      for (let k = 0; k < n; k++) {
-        cars.push({
-          loop: loopIdx,
-          // A shared phase keeps the fleet evenly spaced on first paint.
-          // Per-car jitter could place two long vehicles almost nose-to-tail
-          // before the following-distance solver had run its first frame.
-          s: ((k + phase) / n) * L,
-          speed: CAR_BASE_SPEED * (0.7 + rnd() * 0.3),
-          wheelSpin: rnd() * Math.PI * 2,
-          braking: false,
-          kind: forceKind ?? pickKind(rnd()),
-          color: new THREE.Color(),
-        });
-        const car = cars[cars.length - 1];
-        car.color = vehicleColor(car.kind, rnd);
-      }
-    };
-
-    // One loop per plot, ~55% of plots. Each loop is stocked to its
-    // PEAK-HOUR (bumper-to-bumper) capacity; <Traffic>'s useFrame then
-    // activates a `trafficLevel` fraction of each loop's cars + a fraction
-    // of the (centre-outward) loops, and slows / packs them — so off-peak
-    // is far cheaper while PEAK genuinely gridlocks. A block loop is
-    // ~730 world units; at jam spacing (~30 u/car) that's ~24 cars, so
-    // these caps fill most of the ring.
-    const maxLoops = gridSize >= 22 ? 175 : gridSize >= 14 ? 230 : 9999;
-    const peakPerLoop = gridSize >= 22 ? 16 : gridSize >= 14 ? 12 : gridSize <= 6 ? 9 : 16;
-    const mid = (xs.length - 1) / 2;
-    const order: [number, number][] = [];
-    for (let a = 0; a < xs.length - 1; a++)
-      for (let b = 0; b < zs.length - 1; b++) order.push([a, b]);
-    order.sort((p, q) => (Math.hypot(p[0] - mid, p[1] - mid) - Math.hypot(q[0] - mid, q[1] - mid)));
-    for (const [a, b] of order) {
-      if (loops.length >= maxLoops) break;
-      const leftRoad = roadIndices?.vertical?.[a] ?? a;
-      const rightRoad = roadIndices?.vertical?.[a + 1] ?? a + 1;
-      if (riverRoadIndex !== null && (leftRoad === riverRoadIndex || rightRoad === riverRoadIndex)) continue;
-      if (((a * 73 + b * 31 + gridSize) % 100) >= 55) continue;
-      // A loop whose lane crosses the central junction would cut straight
-      // through the roundabout island; route it around the ring instead
-      // (cars on the inner half of the circulating carriageway).
-      let loop = blockLoop(xs[a], xs[a + 1], zs[b], zs[b + 1], laneOff, turnR);
-      if (rbX !== null && rbZ !== null) loop = detourRoundabout(loop, rbX, rbZ, RB_R_IN + (RB_R_OUT - RB_R_IN) * 0.42);
-      loops.push(loop);
-      addCarsTo(loops.length - 1, peakPerLoop);
-    }
-    return { loops, cars };
-  }, [gridSize, centre, riverRoadIndex, roadIndices, rbX, rbZ]);
+    return cars.map((c) => vehicleColor(c.kind, rnd));
+  }, [cars, gridSize]);
+  const tailBraking = useRef<boolean[]>([]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const cabinRef = useRef<THREE.InstancedMesh>(null);
@@ -1047,16 +714,6 @@ export function Traffic({
   const wheelMount = useMemo(() => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), []);
   const wheelRoll = useMemo(() => new THREE.Quaternion(), []);
   const wheelAxisY = useMemo(() => new THREE.Vector3(0, 1, 0), []);
-  const activeCountsRef = useRef<number[]>([]);
-
-  // Car indices grouped per loop and ordered by position, so each frame a
-  // car only has to look at the single car immediately ahead of it.
-  const perLoop = useMemo(() => {
-    const g: number[][] = loops.map(() => []);
-    cars.forEach((c, i) => g[c.loop].push(i));
-    g.forEach((arr) => arr.sort((p, q) => cars[p].s - cars[q].s));
-    return g;
-  }, [loops, cars]);
 
   useLayoutEffect(() => {
     const body = bodyRef.current;
@@ -1076,7 +733,7 @@ export function Traffic({
       material.needsUpdate = true;
     });
     cars.forEach((c, i) => {
-      body.setColorAt(i, c.color);
+      body.setColorAt(i, colors[i]);
       // Keep the greenhouse noticeably darker than the paint. This makes a
       // proper roof/window silhouette from the overhead city camera instead
       // of reading as one flat coloured brick.
@@ -1088,12 +745,13 @@ export function Traffic({
       emergencyLights.setColorAt(i * 2, fire ? new THREE.Color("#ff3b30") : new THREE.Color("#248cff"));
       emergencyLights.setColorAt(i * 2 + 1, fire ? new THREE.Color("#ffbd2e") : new THREE.Color("#ff3b30"));
     });
+    tailBraking.current = cars.map(() => false);
     if (body.instanceColor) body.instanceColor.needsUpdate = true;
     if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
     if (windscreens.instanceColor) windscreens.instanceColor.needsUpdate = true;
     if (taillights.instanceColor) taillights.instanceColor.needsUpdate = true;
     if (emergencyLights.instanceColor) emergencyLights.instanceColor.needsUpdate = true;
-  }, [cars]);
+  }, [cars, colors]);
 
   useFrame((_, dt) => {
     const body = bodyRef.current;
@@ -1107,267 +765,141 @@ export function Traffic({
     const indicators = indicatorRef.current;
     const emergencyLights = emergencyLightRef.current;
     if (!body || !cabin || !windscreens || !bumpers || !shadows || !wheels || !headlights || !taillights || !indicators || !emergencyLights) return;
-    const step = Math.min(dt, 0.05); // clamp a hitched frame so nobody jumps a red
     const now = performance.now() / 1000;
-
-    // time-of-day density: activate a fraction of the (centre-outward)
-    // loops, and at peak slow every car right down + pack the bumper gaps
-    // so the queues at the lights read as a jam, not just "more cars".
-    const lv = Math.max(0, Math.min(1, levelRef.current));
-    const activeLoops = Math.max(1, Math.ceil(loops.length * (0.32 + 0.68 * lv)));
-    const perLoopFrac = 0.16 + 0.84 * lv;               // how full each active loop is
-    const baseSpeed = CAR_BASE_SPEED * (1 - 0.62 * lv); // 78 → ~30 at full jam
-    const bumperGap = THREE.MathUtils.lerp(CAR_GAP_LIGHT, CAR_GAP_PEAK, lv);
+    // clamp a hitched frame so nobody jumps a red
+    stepTraffic(sim, Math.min(dt, 0.05), now, levelRef.current);
     let tailColorDirty = false;
-    // Each loop owns its following-distance queue, but an intersection is
-    // shared by several loops. Record accepted positions this frame so a
-    // car cannot enter an occupied crossing from another approach.
-    const crossingOccupancy: { loop: number; x: number; z: number; radius: number }[] = [];
 
-    const parkOne = (ci: number) => {
-      dummy.position.set(0, -1000, 0);
-      dummy.scale.set(0, 0, 0);
-      dummy.rotation.set(0, 0, 0);
-      dummy.updateMatrix();
-      body.setMatrixAt(ci, dummy.matrix);
-      cabin.setMatrixAt(ci, dummy.matrix);
-      windscreens.setMatrixAt(ci, dummy.matrix);
-      shadows.setMatrixAt(ci, dummy.matrix);
-      bumpers.setMatrixAt(ci * 2, dummy.matrix);
-      bumpers.setMatrixAt(ci * 2 + 1, dummy.matrix);
-      for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
-      for (let n = 0; n < 2; n++) { headlights.setMatrixAt(ci * 2 + n, dummy.matrix); taillights.setMatrixAt(ci * 2 + n, dummy.matrix); }
-      for (let n = 0; n < 2; n++) indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
-      for (let n = 0; n < 2; n++) emergencyLights.setMatrixAt(ci * 2 + n, dummy.matrix);
-    };
-
-    for (let li = 0; li < loops.length; li++) {
-      const loop = loops[li];
-      const ring = perLoop[li];
-      if (li >= activeLoops) {
-        for (const ci of ring) parkOne(ci);
-        continue;
-      }
-      // `nActive` of the ring's cars run this frame — EVENLY SAMPLED
-      // around the ring (not the first N, which would bunch on one arc),
-      // the rest parked. nActive == ring.length at PEAK → bumper-to-bumper.
-      const nActive = Math.max(1, Math.min(ring.length, Math.round(ring.length * perLoopFrac)));
-      // A traffic-mode change can bring previously parked cars back into
-      // service. Re-space the stocked fleet once at that transition so a
-      // stale hidden car never materialises inside a moving vehicle.
-      if (activeCountsRef.current[li] !== nActive) {
-        const anchor = cars[ring[0]].s;
-        ring.forEach((ci, k) => {
-          cars[ci].s = anchor + (k * loop.L) / ring.length;
-          cars[ci].speed = Math.min(cars[ci].speed, baseSpeed);
-        });
-        activeCountsRef.current[li] = nActive;
-      }
-      const activeIdx: number[] = [];
-      const used = new Set<number>();
-      for (let j = 0; j < nActive; j++) {
-        const ki = Math.min(ring.length - 1, Math.floor((j * ring.length) / nActive));
-        activeIdx.push(ki);
-        used.add(ki);
-      }
-      for (let k = 0; k < ring.length; k++) if (!used.has(k)) parkOne(ring[k]);
-
-      // process lead car first so followers clamp against an updated gap
-      for (let ai = activeIdx.length - 1; ai >= 0; ai--) {
-        const k = activeIdx[ai];
-        const ci = ring[k];
-        const c = cars[ci];
-
-        // Desired speed from the road, the next corner and the next signal.
-        let target = baseSpeed;
-        let turnDistance = Infinity;
-        let sMod = c.s % loop.L; if (sMod < 0) sMod += loop.L;
-        // Brake before the turn rather than reaching an arc at straight-line
-        // speed and snapping down to the corner limit in a single frame.
-        for (const p of loop.pieces) {
-          if (p.kind !== "arc") continue;
-          const inside = sMod >= p.s0 && sMod < p.s0 + p.len;
-          const distance = inside ? 0 : (p.s0 - sMod + loop.L) % loop.L;
-          turnDistance = Math.min(turnDistance, distance);
-          target = Math.min(target, Math.sqrt(CAR_ARC_SPEED ** 2 + 2 * CAR_BRAKE * distance));
-        }
-        // nearest gate ahead
-        let gateHold = Infinity;
-        for (const gate of loop.gates) {
-          let d = gate.s - sMod;
-          if (d <= 0.01) d += loop.L;            // gate already passed: use its next lap
-          if (d > BRAKE_LOOKAHEAD) continue;
-          const st = signalStateFor(gate.axisIsX, now); // 0 green 1 amber 2 red
-          const canStopOnAmber = d > STOP_MARGIN + c.speed ** 2 / (2 * CAR_BRAKE);
-          if (st === 2 || (st === 1 && canStopOnAmber)) {
-            gateHold = Math.min(gateHold, c.s + d - STOP_MARGIN);
-            target = Math.min(target, Math.sqrt(2 * CAR_BRAKE * Math.max(0, d - STOP_MARGIN)));
-          }
-        }
-
-        // Centre-to-centre spacing must include BOTH body half-lengths plus
-        // a real bumper gap. The previous rule treated the bumper gap as the
-        // whole spacing, so long vehicles overlapped in peak-hour queues.
-        const ahead = nActive > 1 ? cars[ring[activeIdx[(ai + 1) % nActive]]] : null;
-        let gapHold = Infinity;
-        if (ahead) {
-          let as = ahead.s;
-          while (as <= c.s) as += loop.L;
-          const safeCentreGap = V_SPEC[c.kind].half + V_SPEC[ahead.kind].half + bumperGap;
-          gapHold = as - safeCentreGap;
-          target = Math.min(target, Math.sqrt(ahead.speed ** 2 + 2 * CAR_BRAKE * Math.max(0, gapHold - c.s)));
-        }
-
-        // integrate speed toward target, then advance, then clamp to holds
-        const previousSpeed = c.speed;
-        const accel = target >= c.speed ? CAR_ACCEL : CAR_BRAKE;
-        c.speed += THREE.MathUtils.clamp(target - c.speed, -accel * step, accel * step);
-        if (c.speed < 0) c.speed = 0;
-        if (c.speed > baseSpeed) c.speed = baseSpeed;
-        let ns = c.s + c.speed * step;
-        if (ns > gapHold) { ns = Math.max(c.s, gapHold); c.speed = 0; }
-        if (ns > gateHold) { ns = Math.max(c.s, gateHold); c.speed = 0; }
-        const candidate = posAt(loop, ns);
-        const ownRadius = Math.max(9, Math.min(15, V_SPEC[c.kind].half * 0.8));
-        // Signals prevent conflicting streams in normal operation. This
-        // second, geometry-level guard covers the short amber/all-red
-        // transition and any two loops that reach a junction in one frame.
-        if (crossingOccupancy.some((other) => other.loop !== li
-          && Math.hypot(candidate[0] - other.x, candidate[1] - other.z) < ownRadius + other.radius + 3)) {
-          ns = c.s;
-          c.speed = 0;
-        }
-        const braking = previousSpeed - c.speed > 0.35 || (c.speed < 0.25 && (gapHold < Infinity || gateHold < Infinity));
-        if (braking !== c.braking) {
-          c.braking = braking;
-          const tailColor = braking ? TAIL_BRAKING : TAIL_RUNNING;
-          taillights.setColorAt(ci * 2, tailColor);
-          taillights.setColorAt(ci * 2 + 1, tailColor);
-          tailColorDirty = true;
-        }
-        const travelled = Math.max(0, ns - c.s);
-        c.wheelSpin = (c.wheelSpin + travelled / (2.05 * V_SPEC[c.kind].wheel)) % (Math.PI * 2);
-        c.s = ns;
-
-        // write transforms
-        const [x, z] = posAt(loop, c.s);
-        // Do not render a vehicle during any invalid reroute/blend frame.
-        // The road may evolve independently from traffic; this keeps the
-        // visible fleet strictly on the asphalt rather than the green slab.
-        if (!pointOnGridAsphalt(x, z, asphaltRoads, 2)) {
-          parkOne(ci);
-          continue;
-        }
-        const yLift = rbX !== null && rbZ !== null ? roundaboutLift(x, z, rbX, rbZ) : 0;
-        const spec = V_SPEC[c.kind];
-        crossingOccupancy.push({ loop: li, x, z, radius: ownRadius });
-        // Use a rear-to-front chord scaled to the vehicle wheelbase. It
-        // gives vans, lorries and buses a stable, gradual yaw through the
-        // line/arc join instead of pivoting their long body at its centre.
-        const poseSpan = Math.min(8, Math.max(3, spec.half * 0.55));
-        const [rx, rz] = posAt(loop, c.s - poseSpan);
-        const [fx, fz] = posAt(loop, c.s + poseSpan);
-        const heading = Math.atan2(fz - rz, fx - rx);
-        const cos = Math.cos(heading), sin = Math.sin(heading);
-        const local = (fwd: number, side: number) =>
-          [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
-
-        const [bx, bz] = local(spec.bodyDX, 0);
-        dummy.position.set(bx, spec.bodyY + yLift, bz);
-        // Three.js positive Y rotation turns local +X toward -Z, while our
-        // path heading uses atan2(+Z, +X). Negate it so the rendered nose,
-        // cabin and lights point along the direction of travel on a turn.
-        dummy.rotation.set(0, -heading, 0);
-        dummy.scale.set(spec.bodyS[0], spec.bodyS[1], spec.bodyS[2]);
+    cars.forEach((c, ci) => {
+      if (!c.visible) {
+        dummy.position.set(0, -1000, 0);
+        dummy.scale.set(0, 0, 0);
+        dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
         body.setMatrixAt(ci, dummy.matrix);
-
-        const [cbx, cbz] = local(spec.cabDX, 0);
-        dummy.position.set(cbx, spec.cabY + yLift, cbz);
-        dummy.scale.set(spec.cabS[0], spec.cabS[1], spec.cabS[2]);
-        dummy.updateMatrix();
         cabin.setMatrixAt(ci, dummy.matrix);
-
-        // A pale windscreen inset gives every vehicle a readable front
-        // face, while the dark greenhouse remains visible around it.
-        const cabFront = spec.cabDX + spec.cabS[0] * 4.72;
-        const [wsx, wsz] = local(cabFront, 0);
-        dummy.position.set(wsx, spec.cabY + 0.1 + yLift, wsz);
-        dummy.rotation.set(0, -heading, 0);
-        dummy.scale.set(Math.max(0.58, spec.cabS[0] * 0.72), spec.cabS[1] * 0.68, spec.cabS[2] * 0.78);
-        dummy.updateMatrix();
         windscreens.setMatrixAt(ci, dummy.matrix);
-
-        // Soft ground contact and slim bumpers stop the cars from looking
-        // like floating toy blocks, especially on the pale daytime roads.
-        dummy.position.set(x, 0.24 + yLift, z);
-        dummy.rotation.set(-Math.PI / 2, 0, heading);
-        dummy.scale.set(spec.half * 0.96, 4.25 * spec.bodyS[2], 1);
-        dummy.updateMatrix();
         shadows.setMatrixAt(ci, dummy.matrix);
-        [-1, 1].forEach((end, n) => {
-          const [px, pz] = local(end * spec.half * 1.04, 0);
-          dummy.position.set(px, 2.65 + yLift, pz);
-          dummy.rotation.set(0, -heading, 0);
-          dummy.scale.set(1, 1, spec.bodyS[2]);
-          dummy.updateMatrix();
+        for (let n = 0; n < 2; n++) {
           bumpers.setMatrixAt(ci * 2 + n, dummy.matrix);
-        });
-
-        const wf = spec.half * 0.62;
-        const wy = 2.25 + (spec.wheel - 1) * 2.05 + yLift;
-        [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
-          const [wx, wz] = local(f, s);
-          dummy.position.set(wx, wy, wz);
-          // Cylinder geometry rolls around its original local Y axis. Mount
-          // that axle across the car, apply the travelled-distance roll, then
-          // yaw the complete wheel to match the current road tangent.
-          wheelYaw.setFromAxisAngle(wheelAxisY, -heading);
-          wheelRoll.setFromAxisAngle(wheelAxisY, c.wheelSpin);
-          dummy.quaternion.copy(wheelYaw).multiply(wheelMount).multiply(wheelRoll);
-          dummy.scale.set(spec.wheel, spec.wheel, spec.wheel);
-          dummy.updateMatrix();
-          wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
-        });
-        dummy.rotation.set(0, -heading, 0);
-        dummy.scale.set(1, 1, 1);
-        const lf = spec.half * 1.02;
-        const ly = 2.4 + spec.bodyY * 0.4 + yLift;
-        [-2.6, 2.6].forEach((side, n) => {
-          const [hx, hz] = local(lf, side);
-          dummy.position.set(hx, ly, hz);
-          dummy.updateMatrix();
           headlights.setMatrixAt(ci * 2 + n, dummy.matrix);
-          const [tx, tz] = local(-lf, side);
-          dummy.position.set(tx, ly, tz);
-          dummy.updateMatrix();
           taillights.setMatrixAt(ci * 2 + n, dummy.matrix);
-        });
-
-        // Every block route uses protected left turns. Signal intent before
-        // reaching the arc and through the manoeuvre; roundabout circulation
-        // stays unlit because these loops do not model an exit choice.
-        const indicatorOn = turnDistance < 62 && Math.floor(now * 2.2) % 2 === 0;
-        dummy.scale.set(indicatorOn ? 1 : 0, indicatorOn ? 1 : 0, indicatorOn ? 1 : 0);
-        const indicatorSide = -3.45 * spec.bodyS[2];
-        [lf, -lf].forEach((fwd, n) => {
-          const [ix, iz] = local(fwd, indicatorSide);
-          dummy.position.set(ix, ly + 0.45, iz);
-          dummy.updateMatrix();
           indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
-        });
-
-        const emergencyOn = emergencyVehicle(c.kind) && Math.floor(now * 5.5 + ci) % 2 === 0;
-        const roofY = spec.bodyY + spec.bodyS[1] * 3.4 + yLift;
-        [-2.25, 2.25].forEach((side, n) => {
-          const [lx, lz] = local(spec.cabDX, side);
-          dummy.position.set(lx, roofY, lz);
-          dummy.scale.set(emergencyOn ? 1 : 0, emergencyOn ? 1 : 0, emergencyOn ? 1 : 0);
-          dummy.updateMatrix();
           emergencyLights.setMatrixAt(ci * 2 + n, dummy.matrix);
-        });
+        }
+        for (let n = 0; n < 4; n++) wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
+        return;
       }
-    }
+      if (c.braking !== tailBraking.current[ci]) {
+        tailBraking.current[ci] = c.braking;
+        const tailColor = c.braking ? TAIL_BRAKING : TAIL_RUNNING;
+        taillights.setColorAt(ci * 2, tailColor);
+        taillights.setColorAt(ci * 2 + 1, tailColor);
+        tailColorDirty = true;
+      }
+
+      const { x, z, heading } = c;
+      const yLift = rbX !== null && rbZ !== null ? roundaboutLift(x, z, rbX, rbZ) : 0;
+      const spec = V_SPEC[c.kind];
+      const cos = Math.cos(heading), sin = Math.sin(heading);
+      const local = (fwd: number, side: number) =>
+        [x + cos * fwd - sin * side, z + sin * fwd + cos * side] as const;
+
+      const [bx, bz] = local(spec.bodyDX, 0);
+      dummy.position.set(bx, spec.bodyY + yLift, bz);
+      // Three.js positive Y rotation turns local +X toward -Z, while our
+      // path heading uses atan2(+Z, +X). Negate it so the rendered nose,
+      // cabin and lights point along the direction of travel on a turn.
+      dummy.rotation.set(0, -heading, 0);
+      dummy.scale.set(spec.bodyS[0], spec.bodyS[1], spec.bodyS[2]);
+      dummy.updateMatrix();
+      body.setMatrixAt(ci, dummy.matrix);
+
+      const [cbx, cbz] = local(spec.cabDX, 0);
+      dummy.position.set(cbx, spec.cabY + yLift, cbz);
+      dummy.scale.set(spec.cabS[0], spec.cabS[1], spec.cabS[2]);
+      dummy.updateMatrix();
+      cabin.setMatrixAt(ci, dummy.matrix);
+
+      // A pale windscreen inset gives every vehicle a readable front
+      // face, while the dark greenhouse remains visible around it.
+      const cabFront = spec.cabDX + spec.cabS[0] * 4.72;
+      const [wsx, wsz] = local(cabFront, 0);
+      dummy.position.set(wsx, spec.cabY + 0.1 + yLift, wsz);
+      dummy.rotation.set(0, -heading, 0);
+      dummy.scale.set(Math.max(0.58, spec.cabS[0] * 0.72), spec.cabS[1] * 0.68, spec.cabS[2] * 0.78);
+      dummy.updateMatrix();
+      windscreens.setMatrixAt(ci, dummy.matrix);
+
+      // Soft ground contact and slim bumpers stop the cars from looking
+      // like floating toy blocks, especially on the pale daytime roads.
+      dummy.position.set(x, 0.24 + yLift, z);
+      dummy.rotation.set(-Math.PI / 2, 0, heading);
+      dummy.scale.set(spec.half * 0.96, 4.25 * spec.bodyS[2], 1);
+      dummy.updateMatrix();
+      shadows.setMatrixAt(ci, dummy.matrix);
+      [-1, 1].forEach((end, n) => {
+        const [px, pz] = local(end * spec.half * 1.04, 0);
+        dummy.position.set(px, 2.65 + yLift, pz);
+        dummy.rotation.set(0, -heading, 0);
+        dummy.scale.set(1, 1, spec.bodyS[2]);
+        dummy.updateMatrix();
+        bumpers.setMatrixAt(ci * 2 + n, dummy.matrix);
+      });
+
+      const wf = spec.half * 0.62;
+      const wy = 2.25 + (spec.wheel - 1) * 2.05 + yLift;
+      [[-wf, -4.1], [-wf, 4.1], [wf, -4.1], [wf, 4.1]].forEach(([f, s], n) => {
+        const [wx, wz] = local(f, s);
+        dummy.position.set(wx, wy, wz);
+        // Cylinder geometry rolls around its original local Y axis. Mount
+        // that axle across the car, apply the travelled-distance roll, then
+        // yaw the complete wheel to match the current road tangent.
+        wheelYaw.setFromAxisAngle(wheelAxisY, -heading);
+        wheelRoll.setFromAxisAngle(wheelAxisY, c.wheelSpin);
+        dummy.quaternion.copy(wheelYaw).multiply(wheelMount).multiply(wheelRoll);
+        dummy.scale.set(spec.wheel, spec.wheel, spec.wheel);
+        dummy.updateMatrix();
+        wheels.setMatrixAt(ci * 4 + n, dummy.matrix);
+      });
+      dummy.rotation.set(0, -heading, 0);
+      dummy.scale.set(1, 1, 1);
+      const lf = spec.half * 1.02;
+      const ly = 2.4 + spec.bodyY * 0.4 + yLift;
+      [-2.6, 2.6].forEach((side, n) => {
+        const [hx, hz] = local(lf, side);
+        dummy.position.set(hx, ly, hz);
+        dummy.updateMatrix();
+        headlights.setMatrixAt(ci * 2 + n, dummy.matrix);
+        const [tx, tz] = local(-lf, side);
+        dummy.position.set(tx, ly, tz);
+        dummy.updateMatrix();
+        taillights.setMatrixAt(ci * 2 + n, dummy.matrix);
+      });
+
+      // Every block route uses protected left turns. Signal intent before
+      // reaching the arc and through the manoeuvre; roundabout circulation
+      // stays unlit because these loops do not model an exit choice.
+      const indicatorOn = c.turnDistance < 62 && Math.floor(now * 2.2) % 2 === 0;
+      dummy.scale.set(indicatorOn ? 1 : 0, indicatorOn ? 1 : 0, indicatorOn ? 1 : 0);
+      const indicatorSide = -3.45 * spec.bodyS[2];
+      [lf, -lf].forEach((fwd, n) => {
+        const [ix, iz] = local(fwd, indicatorSide);
+        dummy.position.set(ix, ly + 0.45, iz);
+        dummy.updateMatrix();
+        indicators.setMatrixAt(ci * 2 + n, dummy.matrix);
+      });
+
+      const emergencyOn = emergencyVehicle(c.kind) && Math.floor(now * 5.5 + ci) % 2 === 0;
+      const roofY = spec.bodyY + spec.bodyS[1] * 3.4 + yLift;
+      [-2.25, 2.25].forEach((side, n) => {
+        const [lx, lz] = local(spec.cabDX, side);
+        dummy.position.set(lx, roofY, lz);
+        dummy.scale.set(emergencyOn ? 1 : 0, emergencyOn ? 1 : 0, emergencyOn ? 1 : 0);
+        dummy.updateMatrix();
+        emergencyLights.setMatrixAt(ci * 2 + n, dummy.matrix);
+      });
+    });
     body.instanceMatrix.needsUpdate = true;
     cabin.instanceMatrix.needsUpdate = true;
     windscreens.instanceMatrix.needsUpdate = true;

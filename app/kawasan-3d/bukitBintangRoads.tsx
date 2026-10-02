@@ -11,27 +11,12 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PLOT, worldCentre, plotXY } from "./cityData";
 import { vehicleBox, makePaintMaterial, makeGlassMaterial } from "./vehicleLook";
+import { SignalPoles, type SignalPole } from "./scenery";
+import {
+  ROUTES, ROUTE_EDGE_INSET, createBBSim, stepBBSim, bbSignalState, bbSignalPoles, type BBRoute,
+} from "./bukitBintangTrafficSim";
 
-type Route = { width: number; points: Array<[number, number]> };
-
-// The route centre-lines used to end at ±0.98 of the world span. Once the
-// carriageway width and lane offset were added, their geometry could spill
-// beyond the playable city footprint. Keep a generous clear margin for the
-// widest road (78 units) plus buses and lorries.
-const ROUTE_EDGE_INSET = 62;
-
-// West/east is X; north/south is Z. Routes represent, respectively, the
-// Sultan Ismail/Ampang arc, P. Ramlee, Raja Chulan, Bukit Bintang, Imbi,
-// Tun Razak and the short Jalan Kia Peng/KLCC connectors.
-const ROUTES: Route[] = [
-  { width: 76, points: [[-0.98, -0.42], [-0.62, -0.34], [-0.28, -0.30], [0.10, -0.34], [0.52, -0.48], [0.98, -0.58]] },
-  { width: 58, points: [[0.12, -0.98], [0.08, -0.52], [0.02, -0.18], [-0.04, 0.15], [-0.08, 0.54], [-0.15, 0.98]] },
-  { width: 64, points: [[-0.50, 0.96], [-0.34, 0.60], [-0.16, 0.30], [0.02, -0.02], [0.14, -0.34]] },
-  { width: 70, points: [[-0.70, 0.46], [-0.35, 0.34], [0.02, 0.25], [0.36, 0.20], [0.78, 0.30], [0.98, 0.38]] },
-  { width: 54, points: [[0.58, 0.96], [0.50, 0.66], [0.40, 0.36], [0.30, 0.12], [0.14, -0.34]] },
-  { width: 78, points: [[0.98, -0.92], [0.78, -0.64], [0.64, -0.40], [0.54, -0.12], [0.48, 0.18], [0.46, 0.52], [0.44, 0.98]] },
-  { width: 44, points: [[-0.04, -0.14], [0.20, -0.10], [0.42, -0.08], [0.68, -0.16], [0.90, -0.32]] },
-];
+type Route = BBRoute;
 
 function routePoints(route: Route, halfSpan: number) {
   const innerEdge = Math.max(0, halfSpan - ROUTE_EDGE_INSET);
@@ -95,54 +80,15 @@ function laneMarkingGeometry(gridSize: number) {
   return geometry;
 }
 
-function segmentIntersection(a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2, d: THREE.Vector2) {
-  const r = b.clone().sub(a);
-  const s = d.clone().sub(c);
-  const cross = r.x * s.y - r.y * s.x;
-  if (Math.abs(cross) < 0.001) return null;
-  const q = c.clone().sub(a);
-  const t = (q.x * s.y - q.y * s.x) / cross;
-  const u = (q.x * r.y - q.y * r.x) / cross;
-  // Avoid treating shared end-points as a separate junction. The extended
-  // arterial lines still meet at the city boundary, but only real crossings
-  // receive signal equipment.
-  if (t < 0.08 || t > 0.92 || u < 0.08 || u > 0.92) return null;
-  return a.clone().addScaledVector(r, t);
-}
-
-function roadIntersections(gridSize: number) {
-  const halfSpan = (gridSize * 280 + 40) / 2;
-  const intersections: THREE.Vector2[] = [];
-  ROUTES.forEach((route, ri) => {
-    const points = routePoints(route, halfSpan);
-    ROUTES.slice(ri + 1).forEach((other) => {
-      const otherPoints = routePoints(other, halfSpan);
-      points.slice(0, -1).forEach((a, ai) => otherPoints.slice(0, -1).forEach((c, ci) => {
-        const hit = segmentIntersection(a, points[ai + 1], c, otherPoints[ci + 1]);
-        if (hit && !intersections.some((known) => known.distanceTo(hit) < 92)) intersections.push(hit);
-      }));
-    });
-  });
-  return intersections.slice(0, 10);
-}
-
-function BukitBintangTrafficLights({ intersections, night }: { intersections: THREE.Vector2[]; night: number }) {
-  const active = night > 0.25;
-  return <group>
-    {intersections.map((at, i) => (
-      <group key={`${Math.round(at.x)}-${Math.round(at.y)}`} position={[at.x, 0, at.y]}>
-        {([-1, 1] as const).flatMap((x) => ([-1, 1] as const).map((z) => [x, z] as const)).map(([x, z], signal) => {
-          const green = (signal + i) % 3 !== 0;
-          return <group key={`${x}-${z}`} position={[x * 29, 0, z * 29]} rotation={[0, Math.atan2(z, x), 0]}>
-            <mesh position={[0, 17, 0]} castShadow><boxGeometry args={[2.8, 28, 2.8]} /><meshStandardMaterial color="#28323a" roughness={0.72} metalness={0.35} /></mesh>
-            <mesh position={[0, 30, 0]} castShadow><boxGeometry args={[7.5, 12, 5.5]} /><meshStandardMaterial color="#10171d" roughness={0.65} metalness={0.45} /></mesh>
-            <mesh position={[0, 33.2, 2.9]}><sphereGeometry args={[1.45, 8, 8]} /><meshBasicMaterial color={green ? "#ef4444" : "#ffcf4a"} toneMapped={false} /></mesh>
-            <mesh position={[0, 29.1, 2.9]}><sphereGeometry args={[1.45, 8, 8]} /><meshBasicMaterial color={green ? "#2be680" : "#9f2f2f"} toneMapped={false} transparent opacity={active ? 1 : 0.72} /></mesh>
-          </group>;
-        })}
-      </group>
-    ))}
-  </group>;
+// One signal head per approach at every real crossing, on the driver's
+// near-left kerb at the edge of the conflict zone. Each lens reads the same
+// bbSignalState() the cars stop for, so a car never runs a lit red.
+function BukitBintangTrafficLights({ gridSize }: { gridSize: number }) {
+  const poles = useMemo<SignalPole[]>(() => bbSignalPoles(createBBSim(gridSize, 0)).map((p) => ({
+    x: p.x, z: p.z, fx: p.fx, fz: p.fz,
+    state: (t: number) => bbSignalState(p.crossing, p.route, t),
+  })), [gridSize]);
+  return <SignalPoles poles={poles} scale={1.25} />;
 }
 
 export function bukitBintangRoadClaims(gridSize: number): Set<string> {
@@ -188,7 +134,6 @@ export function bukitBintangRoadIntersects(gridSize: number, x: number, z: numbe
 export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: number; night?: number }) {
   const geometry = useMemo(() => roadGeometry(gridSize), [gridSize]);
   const markings = useMemo(() => laneMarkingGeometry(gridSize), [gridSize]);
-  const intersections = useMemo(() => roadIntersections(gridSize), [gridSize]);
   const span = gridSize * 280 + 40;
   return <group>
     {/* A continuous city paving bed removes the old green 40-unit grid gaps. */}
@@ -203,28 +148,8 @@ export function BukitBintangRoadNetwork({ gridSize, night = 0 }: { gridSize: num
     <mesh geometry={markings} renderOrder={2}>
       <meshBasicMaterial color="#e7eef2" toneMapped={false} transparent opacity={night > 0.25 ? 0.88 : 0.72} />
     </mesh>
-    <BukitBintangTrafficLights intersections={intersections} night={night} />
+    <BukitBintangTrafficLights gridSize={gridSize} />
   </group>;
-}
-
-function pointOnRoute(route: Route, halfSpan: number, progress: number) {
-  const points = routePoints(route, halfSpan);
-  const lengths = points.slice(0, -1).map((point, i) => point.distanceTo(points[i + 1]));
-  const total = lengths.reduce((sum, length) => sum + length, 0);
-  // Reverse-direction cars pass `1 - travel`, which goes negative over time;
-  // JS `%` keeps the sign, so wrap into [0, 1) or the lerp below extrapolates
-  // backwards off the start of the route and onto plots/grass.
-  let travel = (((progress % 1) + 1) % 1) * total;
-  for (let i = 0; i < lengths.length; i++) {
-    if (travel <= lengths[i]) {
-      const t = travel / Math.max(lengths[i], 1);
-      const a = points[i], b = points[i + 1];
-      return { point: a.clone().lerp(b, t), angle: Math.atan2(b.y - a.y, b.x - a.x) };
-    }
-    travel -= lengths[i];
-  }
-  const a = points[points.length - 2], b = points[points.length - 1];
-  return { point: b, angle: Math.atan2(b.y - a.y, b.x - a.x) };
 }
 
 // Low-poly city traffic. Each part is instanced, so the moving cars read as
@@ -246,17 +171,12 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
   const tailLightRef = useRef<THREE.InstancedMesh>(null);
   const paint = useMemo(() => makePaintMaterial(), []);
   const glass = useMemo(() => makeGlassMaterial(), []);
-  const cars = useMemo(() => {
-    const kinds = ["car", "car", "suv", "van", "car", "motorcycle", "bus", "car", "truck", "motorcycle"] as const;
-    return Array.from({ length: count }, (_, i) => ({
-      kind: kinds[i % kinds.length],
-      route: i % ROUTES.length,
-      progress: ((i * 0.173) % 1),
-      speed: 0.012 + (i % 5) * 0.0025,
-      lane: i % 2 ? 1 : -1,
-      direction: i % 3 === 0 ? -1 : 1,
-    }));
-  }, [count]);
+  // Lanes, signals and conflict zones: see bukitBintangTrafficSim.ts.
+  // Kinds follow BB_KINDS (in the sim) by index, so cars[i] keeps instance i's paint.
+  const sim = useMemo(() => createBBSim(gridSize, count), [gridSize, count]);
+  const cars = sim.cars;
+  const levelRef = useRef(trafficLevel);
+  levelRef.current = trafficLevel;
   useLayoutEffect(() => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
@@ -277,7 +197,7 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     (body.material as THREE.Material).needsUpdate = true;
     (cabin.material as THREE.Material).needsUpdate = true;
   }, [cars]);
-  useFrame(({ clock }) => {
+  useFrame((_, dt) => {
     const body = bodyRef.current;
     const cabin = cabinRef.current;
     const cargo = cargoRef.current;
@@ -287,6 +207,8 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
     const headlights = headlightRef.current;
     const tailLights = tailLightRef.current;
     if (!body || !cabin || !cargo || !rider || !helmet || !wheels || !headlights || !tailLights) return;
+    // clamp a hitched frame so nobody jumps a red
+    stepBBSim(sim, Math.min(dt, 0.05), performance.now() / 1000, levelRef.current);
     const halfSpan = (gridSize * 280 + 40) / 2;
     const vehicleEdge = Math.max(0, halfSpan - ROUTE_EDGE_INSET + 6);
     const carRoot = new THREE.Object3D();
@@ -304,24 +226,21 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       mesh.setMatrixAt(index, part.matrix);
     };
     cars.forEach((car, i) => {
-      const travel = car.progress + clock.getElapsedTime() * car.speed;
-      const state = pointOnRoute(ROUTES[car.route], halfSpan, car.direction > 0 ? travel : 1 - travel);
-      const heading = state.angle + (car.direction > 0 ? 0 : Math.PI);
-      // Keep every vehicle comfortably inside even the narrowest (44-unit)
-      // Jalan Kia Peng connector. The old 14-unit offset put the outer edge
-      // of buses and lorries onto adjacent pavements at the tactical angle.
-      const laneOffset = car.kind === "motorcycle" ? 6.5 : 9.5;
-      const side = new THREE.Vector2(-Math.sin(state.angle), Math.cos(state.angle)).multiplyScalar(car.lane * laneOffset);
+      // Lane offsets (6.5 bikes / 9.5 everything else) keep every vehicle
+      // inside even the narrowest (44-unit) Jalan Kia Peng connector.
+      const heading = car.heading;
       // This is a final safety guard for the rendered vehicle itself, not
       // merely its route centre-line. It prevents a wide bus/truck body from
       // being visible on the empty terrain if a route is changed later.
       carRoot.position.set(
-        THREE.MathUtils.clamp(state.point.x + side.x, -vehicleEdge, vehicleEdge),
+        THREE.MathUtils.clamp(car.x, -vehicleEdge, vehicleEdge),
         7.1,
-        THREE.MathUtils.clamp(state.point.y + side.y, -vehicleEdge, vehicleEdge),
+        THREE.MathUtils.clamp(car.z, -vehicleEdge, vehicleEdge),
       );
       carRoot.rotation.set(0, -heading, 0);
-      carRoot.scale.set(1, 1, 1);
+      // Cars still waiting for a free slot in their lane stay hidden.
+      const shown = car.active ? 1 : 0;
+      carRoot.scale.set(shown, shown, shown);
       carRoot.updateMatrix();
 
       const spec = car.kind === "bus" ? { body: [26, 4.8, 8.8], cabin: [-1, 3.5, 22, 3.1, 7.9], cargo: [0, 0, 0, 0.001, 0.001, 0.001], axle: 9.2, wheelZ: 4.3 }

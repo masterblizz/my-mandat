@@ -50,6 +50,7 @@ import {
 } from "./roundabout";
 import { QUALITY_SETTINGS, type QualityTier } from "./quality";
 import { SceneEnvironment } from "./environment";
+import { neighbourhoodSpans, superblockTrafficRoads, signalJunctions } from "./trafficSim";
 import { BukitBintangRoadNetwork, BukitBintangTraffic, bukitBintangRoadIntersects } from "./bukitBintangRoads";
 import { BukitBintangDistricts, bukitBintangDistrictClaims } from "./bukitBintangDistricts";
 import { LandmarkModels, type LandmarkModelPlacement } from "./landmarkModels";
@@ -205,54 +206,6 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
       </group>}
     </group>
   );
-}
-
-function neighbourhoodSpans(gridSize: number, density: number) {
-  // Vary both directions: the city should have recognisable superblocks,
-  // not a repeating chessboard. Rural keeps its two 3×6 town blocks while
-  // metro/dense maps get irregular 3–6 cell neighbourhoods.
-  const partition = (length: number, pattern: number[]) => {
-    const spans: number[] = [];
-    let used = 0;
-    let index = 0;
-    while (used < length) {
-      const size = Math.min(pattern[index % pattern.length], length - used);
-      spans.push(size);
-      used += size;
-      index += 1;
-    }
-    return spans;
-  };
-  const colSpans = density < 0.3
-    ? [3, 3]
-    : density < 0.62
-    ? partition(gridSize, [3, 5])
-    : density < 0.85
-    ? partition(gridSize, [4, 3, 5, 4])
-    : partition(gridSize, [4, 5, 3, 6]);
-  const rowSpans = density < 0.3
-    ? [gridSize]
-    : density < 0.62
-    ? partition(gridSize, [3, 5])
-    : density < 0.85
-    ? partition(gridSize, [3, 5, 4, 4])
-    : partition(gridSize, [5, 3, 4, 6]);
-  return { colSpans, rowSpans };
-}
-
-// Traffic uses the same major-road boundaries that remain visible around the
-// superblocks. Internal grid gaps are now continuous neighbourhood ground,
-// so routing vehicles through them would make cars appear to drive on grass.
-function superblockTrafficRoads(gridSize: number, density: number) {
-  const { colSpans, rowSpans } = neighbourhoodSpans(gridSize, density);
-  const starts = (spans: number[]) => spans.reduce<number[]>((items, span) => {
-    items.push(items[items.length - 1] + span);
-    return items;
-  }, [0]);
-  return {
-    vertical: starts(colSpans).filter((index) => index < gridSize),
-    horizontal: starts(rowSpans),
-  };
 }
 
 // Every seat reads as neighbourhoods, not a spreadsheet of isolated lots.
@@ -844,10 +797,6 @@ export function CityScene({
   const riverRoadIndex = urbanRiverRoadIndex(gridSize);
   const trafficRoads = useMemo(() => superblockTrafficRoads(gridSize, density), [gridSize, density]);
   const placed = useMemo(() => placeZones(zones, gridSize, traits), [zones, gridSize, traits]);
-  const developedCells = useMemo(
-    () => new Set(placed.map((p) => `${p.col},${p.row}`)),
-    [placed],
-  );
   // A few fixed public-realm parcels turn the KL landmarks into recognisable
   // districts (park, hill, pedestrian retail court), rather than placing a
   // generic procedural tower on every available cell.
@@ -923,6 +872,12 @@ export function CityScene({
     }
     return { notchByCell: m, roundaboutAt: m.size > 0 ? roundaboutCentre(gridSize) : null };
   }, [placed, gridSize, trafficRoads, riverRoadIndex]);
+  // Every visible 4-way junction is signalised — the cars obey exactly
+  // this list, so a light is never missing where they queue.
+  const signalJunctionList = useMemo(
+    () => signalJunctions(gridSize, trafficRoads, { riverRoadIndex, roundabout: roundaboutAt, claimed }),
+    [gridSize, trafficRoads, riverRoadIndex, roundaboutAt, claimed],
+  );
   const byId = useMemo(() => {
     const m = new Map<string, CellPlacement>();
     placed.forEach((p) => m.set(p.zone.id, p));
@@ -972,9 +927,9 @@ export function CityScene({
       />
       {!traits.bukitBintang && <>
         <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />
-        {!ruralRoadNetwork && gridSize >= 8 && <TrafficLights gridSize={gridSize} developed={developedCells} detail={qs.streetDetail} claimed={claimed} />}
+        <TrafficLights junctions={signalJunctionList} />
         <UtilityLines gridSize={gridSize} />
-        <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} />
+        <Traffic gridSize={gridSize} trafficLevel={ruralRoadNetwork ? trafficLevel * 0.38 : trafficLevel} riverRoadIndex={riverRoadIndex} roadIndices={trafficRoads} roundabout={roundaboutAt} signals={signalJunctionList} />
         {/* Two-wheelers will return once they share the same junction
             reservation as cars; until then they are excluded so no vehicle
             can visually pass through another at an intersection. */}
