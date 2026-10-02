@@ -66,15 +66,19 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
       <button
         type="button"
         onClick={() => { setOpen((value) => !value); setBriefVisible(false); }}
-        className="group relative h-[164px] w-[min(246px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
+        className="group relative h-[214px] w-[min(260px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
         style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 32px rgb(var(--cyan-rgb) / .5)" }}
         aria-label={t(lang, "Buka panggilan video pembantu peribadi", "Open Personal Assistant video call")}
       >
-        <Image src={assistantSrc} alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="246px" className="object-cover object-[center_42%] transition duration-500 group-hover:scale-105" />
-        <span className="absolute inset-0 bg-gradient-to-t from-[#020814]/95 via-transparent to-[#020814]/20" />
+        {/* Portrait is contained, not cover-cropped: every PA's full face
+            remains visible regardless of the source photo's composition. */}
+        <span className="absolute inset-x-0 top-0 bottom-[42px] block bg-[#142333]">
+          <Image src={assistantSrc} alt={t(lang, "Pembantu Peribadi", "Personal Assistant")} fill sizes="260px" className="object-contain object-center transition duration-500 group-hover:scale-105" />
+          <span className="absolute inset-0 bg-gradient-to-b from-[#020814]/18 via-transparent to-transparent" />
+        </span>
         <span className="absolute left-2 top-2 flex items-center gap-1.5 bg-emerald-400 px-2 py-1 text-[8px] font-black tracking-[.16em] text-[#021018] shadow"><span className="h-1.5 w-1.5 rounded-full bg-[#021018] animate-pulse" />{t(lang, "LANGSUNG", "LIVE")}</span>
         <span className="absolute right-2 top-2 border border-white/50 bg-[#020814]/80 px-1.5 py-1 text-[8px] font-black tracking-widest text-white">HD</span>
-        <span className="absolute bottom-0 left-0 right-0 border-t border-cyan/35 bg-[#020814]/80 px-3 py-2 backdrop-blur-sm"><span className="block text-[9px] font-black tracking-[.16em] text-white">{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</span><span className="mt-0.5 block text-[8px] font-black tracking-[.12em] text-cyan">{t(lang, "PANGGILAN VIDEO · TEKAN UNTUK BUKA", "VIDEO CALL · TAP TO OPEN")}</span></span>
+        <span className="absolute bottom-0 left-0 right-0 h-[42px] border-t border-cyan/35 bg-[#020814] px-3 py-2"><span className="block text-[9px] font-black tracking-[.16em] text-white">{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</span><span className="mt-0.5 block text-[8px] font-black tracking-[.12em] text-cyan">{t(lang, "PANGGILAN VIDEO · TEKAN UNTUK BUKA", "VIDEO CALL · TAP TO OPEN")}</span></span>
       </button>
     </div>;
   }
