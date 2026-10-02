@@ -1256,14 +1256,29 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
             <meshBasicMaterial color="#ffc93f" toneMapped={false} />
           </mesh>
         ))}
-        {/* Canopies sit over the passenger platforms only. The 14-unit gap
-            between them stays entirely open for the 12-unit train set. */}
-        {[-1, 1].map((s) => (
-          <mesh key={s} position={[s * 13, 22, 0]} rotation={[0, 0, s * -0.08]} castShadow>
-            <boxGeometry args={[12, 1.6, 66]} />
-            <meshStandardMaterial color="#cdd6e2" roughness={0.5} metalness={0.2} />
+        {/* Enclosed elevated station hall: the roof sits well above the
+            train envelope, while glass end walls keep a full portal open
+            for the tracks. */}
+        <mesh position={[0, 32, 0]} castShadow>
+          <boxGeometry args={[66, 3, 108]} />
+          <meshStandardMaterial color="#263441" roughness={0.42} metalness={0.55} />
+        </mesh>
+        <mesh position={[0, 30.2, 0]}>
+          <boxGeometry args={[58, 0.7, 96]} />
+          <meshStandardMaterial color="#b5c2cc" roughness={0.46} metalness={0.36} />
+        </mesh>
+        {[-1, 1].flatMap((end) => [-21, 21].map((x) => (
+          <mesh key={[end, x].join("-")} position={[x, 19, end * 49]} castShadow>
+            <boxGeometry args={[18, 20, 1.2]} />
+            <meshStandardMaterial color="#1e4960" emissive="#0b2230" emissiveIntensity={0.24} roughness={0.2} metalness={0.62} />
           </mesh>
-        ))}
+        )))}
+        {[-30, 30].flatMap((x) => [-42, 42].map((z) => (
+          <mesh key={[x, z].join("-")} position={[x, 15, z]} castShadow>
+            <boxGeometry args={[2.6, 30, 2.6]} />
+            <meshStandardMaterial color="#596b78" roughness={0.5} metalness={0.5} />
+          </mesh>
+        )))}
         {/* illuminated interchange signage */}
         <mesh position={[13, 15, 32]}>
           <boxGeometry args={[16, 4, 1]} />
@@ -1290,9 +1305,16 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
         <mesh receiveShadow><boxGeometry args={[150, 4, 18]} /><meshStandardMaterial color="#3b4557" /></mesh>
         {[-3.2, 3.2].map((z) => <mesh key={z} position={[0, 2.3, z]}><boxGeometry args={[150, 0.7, 0.6]} /><meshStandardMaterial color="#a7b2c0" metalness={0.65} roughness={0.3} /></mesh>)}
         {[-9.2, 9.2].map((z) => <mesh key={z} position={[0, 3.3, z]}><boxGeometry args={[150, 3, 1.4]} /><meshStandardMaterial color="#5b6a80" emissive="#e8792a" emissiveIntensity={0.12} /></mesh>)}
-        {/* Same platform-side canopy logic on the flyover: no roof slab
-            crosses the orange train's clearance envelope. */}
-        {[-1, 1].map((side) => <mesh key={side} position={[0, 22, side * 13]} rotation={[side * -0.08, 0, 0]} castShadow><boxGeometry args={[66, 1.5, 10]} /><meshStandardMaterial color="#d7dde5" metalness={0.18} roughness={0.48} /></mesh>)}
+        {/* Upper platform uses the same full station hall; its roof is high
+            enough to preserve the orange train's clearance envelope. */}
+        <mesh position={[0, 32, 0]} castShadow><boxGeometry args={[108, 3, 66]} /><meshStandardMaterial color="#263441" roughness={0.42} metalness={0.55} /></mesh>
+        <mesh position={[0, 30.2, 0]}><boxGeometry args={[96, 0.7, 58]} /><meshStandardMaterial color="#b5c2cc" roughness={0.46} metalness={0.36} /></mesh>
+        {[-1, 1].flatMap((end) => [-21, 21].map((z) => (
+          <mesh key={[end, z].join("-")} position={[end * 49, 19, z]} castShadow>
+            <boxGeometry args={[1.2, 20, 18]} />
+            <meshStandardMaterial color="#1e4960" emissive="#0b2230" emissiveIntensity={0.24} roughness={0.2} metalness={0.62} />
+          </mesh>
+        )))}
         {[-22, 22].flatMap((x) => [-13, 13].map((z) => <mesh key={`${x}:${z}`} position={[x, 11, z]}><boxGeometry args={[2.3, 22, 2.3]} /><meshStandardMaterial color="#76869a" roughness={0.62} /></mesh>))}
         <mesh position={[0, 8.6, 13]}><boxGeometry args={[19, 3.4, 0.9]} /><meshBasicMaterial color="#e8792a" toneMapped={false} /></mesh>
         <Text position={[0, 8.6, 13.52]} fontSize={1.45} anchorX="center" anchorY="middle" color="#fff8ed">BUKIT BINTANG · LRT</Text>
