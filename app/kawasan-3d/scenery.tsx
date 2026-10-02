@@ -1273,6 +1273,21 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
             <meshStandardMaterial color="#1e4960" emissive="#0b2230" emissiveIntensity={0.24} roughness={0.2} metalness={0.62} />
           </mesh>
         )))}
+        {/* Solid side walls turn the platform into a proper enclosed station.
+            Only the two track portals remain open, so a train is concealed
+            while it is stopped inside the hall. */}
+        {[-32, 32].map((x) => (
+          <mesh key={x} position={[x, 15, 0]} castShadow receiveShadow>
+            <boxGeometry args={[2, 30, 108]} />
+            <meshStandardMaterial color="#17232c" roughness={0.48} metalness={0.42} />
+          </mesh>
+        ))}
+        {[-1, 1].map((end) => (
+          <mesh key={end} position={[0, 27.2, end * 49]} castShadow>
+            <boxGeometry args={[66, 6, 1.6]} />
+            <meshStandardMaterial color="#17232c" roughness={0.48} metalness={0.42} />
+          </mesh>
+        ))}
         {[-30, 30].flatMap((x) => [-42, 42].map((z) => (
           <mesh key={[x, z].join("-")} position={[x, 15, z]} castShadow>
             <boxGeometry args={[2.6, 30, 2.6]} />
@@ -1315,6 +1330,20 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
             <meshStandardMaterial color="#1e4960" emissive="#0b2230" emissiveIntensity={0.24} roughness={0.2} metalness={0.62} />
           </mesh>
         )))}
+        {/* The upper line has the same sealed station shell, with portals
+            aligned to the east-west track direction. */}
+        {[-32, 32].map((z) => (
+          <mesh key={z} position={[0, 15, z]} castShadow receiveShadow>
+            <boxGeometry args={[108, 30, 2]} />
+            <meshStandardMaterial color="#17232c" roughness={0.48} metalness={0.42} />
+          </mesh>
+        ))}
+        {[-1, 1].map((end) => (
+          <mesh key={end} position={[end * 49, 27.2, 0]} castShadow>
+            <boxGeometry args={[1.6, 6, 66]} />
+            <meshStandardMaterial color="#17232c" roughness={0.48} metalness={0.42} />
+          </mesh>
+        ))}
         {[-22, 22].flatMap((x) => [-13, 13].map((z) => <mesh key={`${x}:${z}`} position={[x, 11, z]}><boxGeometry args={[2.3, 22, 2.3]} /><meshStandardMaterial color="#76869a" roughness={0.62} /></mesh>))}
         <mesh position={[0, 8.6, 13]}><boxGeometry args={[19, 3.4, 0.9]} /><meshBasicMaterial color="#e8792a" toneMapped={false} /></mesh>
         <Text position={[0, 8.6, 13.52]} fontSize={1.45} anchorX="center" anchorY="middle" color="#fff8ed">BUKIT BINTANG · LRT</Text>

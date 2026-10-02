@@ -264,6 +264,16 @@ function SportsFields({ items, groundY }: { items: BuildingInstance[]; groundY: 
         <mesh key={`end:${s}`} position={[0, y, s * d / 2]}><boxGeometry args={[w, 0.16, line]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>,
       ])}
       <mesh position={[0, y, 0]}><boxGeometry args={[line, 0.16, d]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>
+      {/* Centre circle and penalty boxes make this an actual football pitch. */}
+      <mesh position={[0, y + 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[Math.min(w, d) * 0.115, line * 0.52, 6, 20]} />
+        <meshBasicMaterial color="#e8f2d9" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, y + 0.1, 0]}><cylinderGeometry args={[1.15, 1.15, 0.18, 10]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>
+      {[-1, 1].map((s) => <group key={s} position={[0, y, s * d * 0.34]}>
+        {[-1, 1].map((x) => <mesh key={x} position={[x * w * 0.27, 0, 0]}><boxGeometry args={[line, 0.16, d * 0.22]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>)}
+        <mesh position={[0, 0, -s * d * 0.11]}><boxGeometry args={[w * 0.54, 0.16, line]} /><meshBasicMaterial color="#e8f2d9" toneMapped={false} /></mesh>
+      </group>)}
       {/* Small open goal frames make the pitch identifiable at city zoom. */}
       {[-1, 1].map((s) => <group key={`goal:${s}`} position={[0, y + 2.4, s * (d / 2 - 1.5)]}>
         {[-1, 1].map((x) => <mesh key={x} position={[x * w * 0.16, 0, 0]}><boxGeometry args={[0.55, 4.8, 0.55]} /><meshStandardMaterial color="#f1f5e9" roughness={0.55} /></mesh>)}
