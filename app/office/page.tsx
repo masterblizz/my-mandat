@@ -8,7 +8,7 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
-import { assistantAvatarSrc } from "../lib/assistantAvatar";
+import { assistantAvatarSrc, assistantStandingSrc } from "../lib/assistantAvatar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
@@ -177,6 +177,7 @@ export default function PoliticalOfficePage() {
     assistantAvatar,
   } = useGameStore();
   const assistantPortraitSrc = assistantAvatarSrc(assistantAvatar);
+  const standingAssistantSrc = assistantStandingSrc(assistantAvatar);
   const [active, setActive] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(true);
   const [openedMail, setOpenedMail] = useState<number | null>(null);
@@ -429,7 +430,7 @@ export default function PoliticalOfficePage() {
             "Buka panduan Personal Assistant",
             "Open Personal Assistant guidance",
           )}
-          className="absolute bottom-7 left-[13%] z-[15] h-[min(52vh,520px)] w-[min(29vw,330px)] min-w-[230px] overflow-hidden border-2 text-left shadow-2xl transition-transform hover:scale-[1.015] focus:outline-none"
+          className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] overflow-visible text-left transition-transform hover:scale-[1.015] focus:outline-none"
           title={t(
             lang,
             "Personal Assistant · klik untuk berbincang",
@@ -437,12 +438,18 @@ export default function PoliticalOfficePage() {
           )}
         >
           <Image
-            src={assistantPortraitSrc}
-            alt="Personal Assistant campaign portrait"
+            src={standingAssistantSrc}
+            alt="Personal Assistant standing beside the desk"
             fill
-            sizes="(max-width: 768px) 230px, 330px"
-            className="object-contain object-bottom bg-slate-100"
+            sizes="(max-width: 768px) 275px, 470px"
+            className="origin-bottom scale-[1.18] object-contain object-bottom drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"
           />
+          {/* The full-body scene stays intact, but the campaign portrait is
+              overlaid at the head position so the assistant's actual face
+              never changes between city, office and location views. */}
+          <span className="absolute left-[37%] top-[10%] h-[17%] w-[27%] overflow-hidden rounded-[48%] shadow-[0_3px_8px_rgba(0,0,0,.42)]">
+            <Image src={assistantPortraitSrc} alt="" fill sizes="128px" className="object-cover object-[center_30%]" />
+          </span>
           <span
             className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl"
             style={{

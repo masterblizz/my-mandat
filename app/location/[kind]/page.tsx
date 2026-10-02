@@ -12,7 +12,7 @@ import {
   currentLocalTimeIsNight,
   homeSeatProfile,
 } from "../../lib/seatProfile";
-import { assistantAvatarSrc } from "../../lib/assistantAvatar";
+import { assistantAvatarSrc, assistantStandingSrc } from "../../lib/assistantAvatar";
 import {
   getLiveNewsForDay,
   newsMatchesElectionScope,
@@ -973,8 +973,9 @@ export default function LocationPage() {
   const host = LOCATION_HOSTS[kind] ?? LOCATION_HOSTS.party;
   const assistantHost = host.asset === "/personal-assistant-standing.png";
   const hostAsset = assistantHost
-    ? assistantAvatarSrc(assistantAvatar)
+    ? assistantStandingSrc(assistantAvatar)
     : host.asset;
+  const assistantPortraitSrc = assistantAvatarSrc(assistantAvatar);
   const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
   const label = lang === "ms" ? scene.ms : scene.en;
   const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
@@ -1323,7 +1324,7 @@ export default function LocationPage() {
         <button
           type="button"
           onClick={() => setHostGuideOpen(true)}
-          className={`absolute bottom-7 left-[13%] z-[15] text-left transition-transform hover:scale-[1.015] focus:outline-none ${assistantHost ? "h-[min(52vh,520px)] w-[min(29vw,330px)] min-w-[230px] overflow-hidden border-2 shadow-2xl" : "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"}`}
+          className={`absolute bottom-7 left-[13%] z-[15] text-left transition-transform hover:scale-[1.015] focus:outline-none ${assistantHost ? "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] overflow-visible" : "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"}`}
           aria-label={
             lang === "ms"
               ? `Berbincang dengan ${host.roleMs}`
@@ -1334,9 +1335,10 @@ export default function LocationPage() {
             src={hostAsset}
             alt={lang === "ms" ? host.roleMs : host.roleEn}
             fill
-            sizes={assistantHost ? "(max-width: 768px) 230px, 330px" : "(max-width: 768px) 275px, 470px"}
-            className={assistantHost ? "object-contain object-bottom bg-slate-100" : "origin-bottom scale-[1.18] object-contain object-bottom"}
+            sizes="(max-width: 768px) 275px, 470px"
+            className="origin-bottom scale-[1.18] object-contain object-bottom"
           />
+          {assistantHost && <span className="absolute left-[37%] top-[10%] h-[17%] w-[27%] overflow-hidden rounded-[48%] shadow-[0_3px_8px_rgba(0,0,0,.42)]"><Image src={assistantPortraitSrc} alt="" fill sizes="128px" className="object-cover object-[center_30%]" /></span>}
           <span
             className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
             style={{
