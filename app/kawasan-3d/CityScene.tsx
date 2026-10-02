@@ -173,15 +173,18 @@ function ZoneTile({
 
 // Undeveloped cell: drier scrub grass instead of the old flat navy plane,
 // same one-shared-texture-cloned-per-tile treatment as the grass ZoneTiles.
-function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; seed: number; rural?: boolean }) {
+function EmptyCell({ cx, cz, seed, rural = false, paddy = false }: { cx: number; cz: number; seed: number; rural?: boolean; paddy?: boolean }) {
   const tex = useMemo(() => grassTextureFor(seed), [seed]);
   useEffect(() => () => tex.dispose(), [tex]);
-  const construction = !rural && seed % 3 === 0;
+  // Rice-bowl seats use surplus land for irrigated paddies rather than a
+  // mysterious generic construction plot. Other towns retain the clearly
+  // signed construction site as an occasional development cue.
+  const construction = !rural && !paddy && seed % 3 === 0;
   return (
     <group position={[cx, 0, cz]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.4, 0]} receiveShadow>
         <planeGeometry args={[PLOT - 16, PLOT - 16]} />
-        <meshStandardMaterial color={undevelopedGrassColor(seed)} map={tex} roughness={1} />
+        <meshStandardMaterial color={paddy ? "#667c41" : undevelopedGrassColor(seed)} map={tex} roughness={1} />
       </mesh>
       {rural && Array.from({ length: 6 }, (_, index) => (
         <mesh key={index} position={[0, 0.72, -PLOT / 2 + 26 + index * 20]} receiveShadow>
@@ -189,6 +192,24 @@ function EmptyCell({ cx, cz, seed, rural = false }: { cx: number; cz: number; se
           <meshStandardMaterial color={index % 2 ? "#2d5d31" : "#476f2b"} roughness={1} />
         </mesh>
       ))}
+      {paddy && <group position={[0, 1.05, 0]}>
+        {/* A clearly cultivated 3×3 rice paddy, with blue-green water,
+            raised earth bunds and bright crop rows. */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[PLOT - 38, PLOT - 38]} />
+          <meshStandardMaterial color="#5f9d91" roughness={0.38} metalness={0.08} />
+        </mesh>
+        {[-1, 0, 1].flatMap((column) => [-1, 0, 1].map((row) => (
+          <mesh key={[column, row].join("-")} position={[column * 63, 0.24, row * 63]}>
+            <boxGeometry args={[52, 0.34, 52]} />
+            <meshStandardMaterial color={(column + row + seed) % 2 ? "#759f38" : "#8dac42"} roughness={0.94} />
+          </mesh>
+        )))}
+        {[-94, -31, 31, 94].flatMap((offset) => [
+          <mesh key={`v-${offset}`} position={[offset, 0.68, 0]}><boxGeometry args={[3.8, 1.15, PLOT - 36]} /><meshStandardMaterial color="#725c39" roughness={1} /></mesh>,
+          <mesh key={`h-${offset}`} position={[0, 0.68, offset]}><boxGeometry args={[PLOT - 36, 1.15, 3.8]} /><meshStandardMaterial color="#725c39" roughness={1} /></mesh>,
+        ])}
+      </group>}
       {construction && <group position={[0, TILE_H + 0.9, 0]}>
         {/* Deterministic compact construction site: fence, foundations,
             materials and a small crane read as an active project without
@@ -247,6 +268,34 @@ function NeighbourhoodBlocks({ gridSize, density }: { gridSize: number; density:
 
 /** Flat "field" footprints are school/community football pitches, not
     raised green slabs with a few oversized grass blades. */
+function PaddyFields({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
+  return <group>{items.map((item) => {
+    const y = groundY + FLAT_BOX_H;
+    const halfW = item.w / 2;
+    const halfD = item.d / 2;
+    return <group key={`${item.key}:paddy`} position={[item.x, 0, item.z]}>
+      {/* Flooded bed with four planted compartments. The raised bunds stop
+          these from reading as anonymous green squares at the city camera. */}
+      <mesh position={[0, groundY + FLAT_BOX_H / 2, 0]} receiveShadow>
+        <boxGeometry args={[item.w, FLAT_BOX_H, item.d]} />
+        <meshStandardMaterial color="#5f7652" roughness={1} />
+      </mesh>
+      {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => (
+        <mesh key={[sx, sz].join("-")} position={[sx * item.w * 0.245, y + 0.08, sz * item.d * 0.245]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[item.w * 0.43, item.d * 0.43]} />
+          <meshStandardMaterial color={(sx + sz + item.key.length) % 2 ? "#6e9b7d" : "#64968c"} roughness={0.32} metalness={0.1} />
+        </mesh>
+      )))}
+      {[-1, 1].flatMap((side) => [
+        <mesh key={`x-${side}`} position={[side * (halfW - 1.5), y + 0.65, 0]}><boxGeometry args={[3.4, 1.35, item.d]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>,
+        <mesh key={`z-${side}`} position={[0, y + 0.65, side * (halfD - 1.5)]}><boxGeometry args={[item.w, 1.35, 3.4]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>,
+      ])}
+      <mesh position={[0, y + 0.64, 0]}><boxGeometry args={[3, 1.25, item.d - 5]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>
+      <mesh position={[0, y + 0.64, 0]}><boxGeometry args={[item.w - 5, 1.25, 3]} /><meshStandardMaterial color="#76603d" roughness={1} /></mesh>
+    </group>;
+  })}</group>;
+}
+
 function SportsFields({ items, groundY }: { items: BuildingInstance[]; groundY: number }) {
   return <group>{items.map((item) => {
     const w = item.w * 0.78;
@@ -417,11 +466,11 @@ function Buildings({
             );
           }
           if (type === "sawah") {
-            // Paddy blades sit on top of their irrigated ground box. A
-            // field, by contrast, is rendered above as a real marked pitch.
+            // Every sawah is a flooded, bundled set of rice plots beneath
+            // the animated crop blades — not a generic green slab.
             return (
               <group key={`${type}-group`}>
-                <InstancedBoxes items={items} groundY={GROUND_Y} color={color} winLit={winLit} />
+                <PaddyFields items={items} groundY={GROUND_Y} />
                 <Vegetation items={items} groundY={GROUND_Y + FLAT_BOX_H} type={type} density={foliageDensity} />
               </group>
             );
@@ -562,7 +611,7 @@ function Grid({
           has hundreds and they are just flat planes, so drop them there
           and let the perimeter ground sheet show through. */}
       {gridSize < 22 && empties.map(({ col, row, cx, cz }) => (
-        <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} rural={density < 0.3} />
+        <EmptyCell key={`e${col}-${row}`} cx={cx} cz={cz} seed={col * 1000 + row + 1} rural={density < 0.3} paddy={traits.paddy} />
       ))}
       {!irregularRoads && vRoads.map((x, i) => i === riverRoadIndex ? null : (
         <mesh key={`v${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.8, 0]} receiveShadow>
