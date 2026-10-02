@@ -462,7 +462,9 @@ export function stepBBSim(sim: BBSim, step: number, now: number, level: number) 
 }
 
 // Signal heads for every crossing: one per route direction, on the
-// driver's near-left kerb just before its conflict zone, facing the queue.
+// driver's near-left verge just before its conflict zone, facing the queue.
+// The generous lateral margin accommodates the full pole footing and keeps
+// all street furniture outside the moving-car asphalt envelope.
 export function bbSignalPoles(sim: BBSim) {
   const out: { x: number; z: number; fx: number; fz: number; crossing: BBCrossing; route: number }[] = [];
   for (const c of sim.crossings) {
@@ -477,7 +479,7 @@ export function bbSignalPoles(sim: BBSim) {
         }
         const iv = lane.intervals.find((v) => mod(best - v.a, g.L) <= v.len);
         const stopS = iv ? iv.a + 6 : best - 50;
-        const [px, pz] = lanePoint(g, lane.dir, stopS, g.width / 2 + 5);
+        const [px, pz] = lanePoint(g, lane.dir, stopS, g.width / 2 + 18);
         const [ax, az] = lanePoint(g, lane.dir, stopS - 4, 0), [bx, bz] = lanePoint(g, lane.dir, stopS + 4, 0);
         const l = Math.hypot(bx - ax, bz - az) || 1;
         out.push({ x: px, z: pz, fx: -(bx - ax) / l, fz: -(bz - az) / l, crossing: c, route: r });

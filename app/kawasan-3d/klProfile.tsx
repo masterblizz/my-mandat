@@ -404,13 +404,15 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   useEffect(() => {
     mat.userData.national.value = nationalLighting ? 1 : 0;
     for (const m of [mat, steel]) {
-      // KLCC remains a night landmark, but its facade must read as steel
-      // with selective cyan windows—not a flat white emissive silhouette.
-      m.emissiveIntensity = m === mat ? winLit * 0.44 : winLit * 0.12;
-      m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.72);
-      m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.5);
+      // KLCC remains steel-blue at night, but it must not disappear into
+      // the city. Its window texture + fins get a restrained cool glow;
+      // this is deliberately below white so it stays distinct from the
+      // prior over-bright all-white night version.
+      m.emissiveIntensity = m === mat ? winLit * 0.82 : winLit * 0.3;
+      m.metalness = (m.userData.baseMetalness as number) * (1 - winLit * 0.38);
+      m.envMapIntensity = (m.userData.baseEnv as number) * (1 - winLit * 0.2);
     }
-    steel.emissiveIntensity = winLit * 0.1;
+    steel.emissiveIntensity = winLit * 0.3;
     merdekaGlass.emissiveIntensity = 0.12 + winLit * 0.62;
     merdekaGlass.metalness = (merdekaGlass.userData.baseMetalness as number) * (1 - winLit * 0.4);
     merdekaGlass.envMapIntensity = (merdekaGlass.userData.baseEnv as number) * (1 - winLit * 0.34);
@@ -459,6 +461,11 @@ export function KLProfile({ gridSize, enabled = false, winLit = 0, nationalLight
   return (
     <group>
       <mesh geometry={built.twins} material={mat} position={[built.twinAt[0], 0, built.twinAt[1]]} castShadow receiveShadow />
+      {/* Soft architectural uplights preserve the twins' silver silhouette
+          at night without making the whole landmark a white emissive blob. */}
+      {[-1, 1].map((side) => <pointLight key={side}
+        position={[built.twinAt[0] + side * TWIN_GAP / 2, 118, built.twinAt[1] + 26]}
+        color="#a8d8ee" intensity={winLit * 7} distance={210} decay={2} />)}
       <mesh geometry={built.spire} material={steel} position={[built.spireAt[0], 0, built.spireAt[1]]} castShadow receiveShadow />
       {/* A compact landscaped apron stops the landmark reading as a tower
           dropped straight onto a road tile, while keeping the asset to one

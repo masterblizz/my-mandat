@@ -517,7 +517,10 @@ export function StreetLamps({
 const TL_POLE_H = 20;
 const TL_HEAD_Y = TL_POLE_H + 4;
 const TL_LIT = [new THREE.Color("#ff3b30"), new THREE.Color("#ffb020"), new THREE.Color("#2fd15a")];
-const TL_DIM = new THREE.Color("#15171c");
+// Keep the inactive lenses visibly red / amber / green rather than turning
+// them into anonymous black squares. The active lens is still the only one
+// that emits a bright colour.
+const TL_DIM = [new THREE.Color("#541a1a"), new THREE.Color("#55421a"), new THREE.Color("#174927")];
 // row index in TL_LIT: 0 = red, 1 = amber, 2 = green.
 
 export type SignalPole = {
@@ -566,7 +569,7 @@ export function SignalPoles({ poles, scale = 1 }: { poles: SignalPole[]; scale?:
         m.scale.set(scale, scale, scale);
         m.updateMatrix();
         lens.setMatrixAt(i, m.matrix);
-        lens.setColorAt(i, TL_DIM);
+        lens.setColorAt(i, TL_DIM[row]);
       });
       lens.instanceMatrix.needsUpdate = true;
       if (lens.instanceColor) lens.instanceColor.needsUpdate = true;
@@ -589,7 +592,7 @@ export function SignalPoles({ poles, scale = 1 }: { poles: SignalPole[]; scale?:
       for (let r = 0; r < 3; r++) {
         const lens = lensRefs.current[r];
         if (!lens) continue;
-        lens.setColorAt(i, r === row ? TL_LIT[r] : TL_DIM);
+        lens.setColorAt(i, r === row ? TL_LIT[r] : TL_DIM[r]);
         dirty[r] = true;
       }
       lastState.current[i] = row;
@@ -618,7 +621,7 @@ export function SignalPoles({ poles, scale = 1 }: { poles: SignalPole[]; scale?:
           args={[undefined, undefined, poles.length]}
           frustumCulled={false}
         >
-          <boxGeometry args={[2.4, 2.4, 1.4]} />
+          <sphereGeometry args={[1.25, 16, 10]} />
           <meshBasicMaterial toneMapped={false} />
         </instancedMesh>
       ))}
@@ -635,7 +638,10 @@ const isX = (t: number) => signalStateFor(true, t);
 const isZ = (t: number) => signalStateFor(false, t);
 export function TrafficLights({ junctions }: { junctions: Junction[] }) {
   const poles = useMemo(() => {
-    const d = ROAD_W / 2 + 2;
+    // Keep the physical pole, its wider footing and the signal housing on
+    // the pavement/grass verge. +12 clears the asphalt instead of merely
+    // placing the pole centre just outside its edge.
+    const d = ROAD_W / 2 + 12;
     return junctions.flatMap(({ x, z }): SignalPole[] => [
       { x: x + d, z: z + d, fx: 1, fz: 0, state: isX },
       { x: x - d, z: z - d, fx: -1, fz: 0, state: isX },
@@ -1232,44 +1238,34 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
           <boxGeometry args={[38, 3, 150]} />
           <meshStandardMaterial color="#46536a" />
         </mesh>
-        <mesh receiveShadow>
-          <boxGeometry args={[150, 3, 38]} />
-          <meshStandardMaterial color="#46536a" />
-        </mesh>
-        {/* platform-edge safety strip, both crossed platforms */}
+        {/* Two side platforms leave a clear central train envelope. */}
         {[-19, 19].map((x) => (
           <mesh key={`edgex${x}`} position={[x, 1.6, 0]}>
             <boxGeometry args={[1.2, 0.3, 150]} />
             <meshBasicMaterial color="#ffc93f" toneMapped={false} />
           </mesh>
         ))}
-        {[-19, 19].map((z) => (
-          <mesh key={`edgez${z}`} position={[0, 1.6, z]}>
-            <boxGeometry args={[150, 0.3, 1.2]} />
-            <meshBasicMaterial color="#ffc93f" toneMapped={false} />
-          </mesh>
-        ))}
-        {/* shallow vaulted canopy — two tilted halves meeting at a ridge,
-            not a flat slab */}
+        {/* Canopies sit over the passenger platforms only. The 14-unit gap
+            between them stays entirely open for the 12-unit train set. */}
         {[-1, 1].map((s) => (
-          <mesh key={s} position={[0, 21.5, s * 8]} rotation={[s * -0.14, 0, 0]} castShadow>
-            <boxGeometry args={[64, 1.6, 34]} />
+          <mesh key={s} position={[s * 13, 22, 0]} rotation={[0, 0, s * -0.08]} castShadow>
+            <boxGeometry args={[12, 1.6, 66]} />
             <meshStandardMaterial color="#cdd6e2" roughness={0.5} metalness={0.2} />
           </mesh>
         ))}
         {/* illuminated interchange signage */}
-        <mesh position={[0, 15, 32]}>
+        <mesh position={[13, 15, 32]}>
           <boxGeometry args={[16, 4, 1]} />
           <meshBasicMaterial color="#2f6bff" toneMapped={false} />
         </mesh>
         {/* Named station marker makes this a recognisable destination rather
             than an anonymous centre-platform when viewed at city scale. */}
-        <Text position={[0, 14.15, 32.62]} fontSize={1.55} maxWidth={14.2}
+        <Text position={[13, 14.15, 32.62]} fontSize={1.55} maxWidth={14.2}
           anchorX="center" anchorY="middle" color="#f8fbff" letterSpacing={0.06}
           outlineWidth={0.035} outlineColor="#102036">
           LRT BUKIT BINTANG
         </Text>
-        {[-26, 26].flatMap((x) => [-26, 26].map((z) => (
+        {[-19, 19].flatMap((x) => [-26, 26].map((z) => (
           <mesh key={`${x}_${z}`} position={[x, 10, z]}>
             <boxGeometry args={[2.4, 20, 2.4]} />
             <meshStandardMaterial color="#8b97aa" />
@@ -1283,10 +1279,12 @@ export function Lrt({ gridSize, trafficLevel = 0.5 }: { gridSize: number; traffi
         <mesh receiveShadow><boxGeometry args={[150, 4, 18]} /><meshStandardMaterial color="#3b4557" /></mesh>
         {[-3.2, 3.2].map((z) => <mesh key={z} position={[0, 2.3, z]}><boxGeometry args={[150, 0.7, 0.6]} /><meshStandardMaterial color="#a7b2c0" metalness={0.65} roughness={0.3} /></mesh>)}
         {[-9.2, 9.2].map((z) => <mesh key={z} position={[0, 3.3, z]}><boxGeometry args={[150, 3, 1.4]} /><meshStandardMaterial color="#5b6a80" emissive="#e8792a" emissiveIntensity={0.12} /></mesh>)}
-        <mesh position={[0, 13, 0]} castShadow><boxGeometry args={[58, 1.5, 28]} /><meshStandardMaterial color="#d7dde5" metalness={0.18} roughness={0.48} /></mesh>
-        {[-22, 22].flatMap((x) => [-7, 7].map((z) => <mesh key={`${x}:${z}`} position={[x, 7, z]}><boxGeometry args={[2.3, 14, 2.3]} /><meshStandardMaterial color="#76869a" roughness={0.62} /></mesh>))}
-        <mesh position={[0, 7.2, 10]}><boxGeometry args={[19, 3.4, 0.9]} /><meshBasicMaterial color="#e8792a" toneMapped={false} /></mesh>
-        <Text position={[0, 7.2, 10.52]} fontSize={1.45} anchorX="center" anchorY="middle" color="#fff8ed">BUKIT BINTANG · LRT</Text>
+        {/* Same platform-side canopy logic on the flyover: no roof slab
+            crosses the orange train's clearance envelope. */}
+        {[-1, 1].map((side) => <mesh key={side} position={[0, 22, side * 13]} rotation={[side * -0.08, 0, 0]} castShadow><boxGeometry args={[66, 1.5, 10]} /><meshStandardMaterial color="#d7dde5" metalness={0.18} roughness={0.48} /></mesh>)}
+        {[-22, 22].flatMap((x) => [-13, 13].map((z) => <mesh key={`${x}:${z}`} position={[x, 11, z]}><boxGeometry args={[2.3, 22, 2.3]} /><meshStandardMaterial color="#76869a" roughness={0.62} /></mesh>))}
+        <mesh position={[0, 8.6, 13]}><boxGeometry args={[19, 3.4, 0.9]} /><meshBasicMaterial color="#e8792a" toneMapped={false} /></mesh>
+        <Text position={[0, 8.6, 13.52]} fontSize={1.45} anchorX="center" anchorY="middle" color="#fff8ed">BUKIT BINTANG · LRT</Text>
       </group>
     </group>
   );
