@@ -291,8 +291,10 @@ export function BukitBintangTraffic({ gridSize, trafficLevel = 0.55 }: { gridSiz
       <primitive object={glass} attach="material" />
     </instancedMesh>
     <instancedMesh ref={cargoRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#bcc7cd" roughness={0.52} metalness={0.35} />
+      {/* Rounded cargo bodies read as a proper box lorry rather than a
+          separate raw cube placed behind the cab. */}
+      <primitive object={vehicleBox(1, 1, 1, 0.14)} attach="geometry" />
+      <meshStandardMaterial color="#d4dde2" roughness={0.42} metalness={0.28} />
     </instancedMesh>
     <instancedMesh ref={riderRef} args={[undefined, undefined, count]} castShadow frustumCulled={false}>
       <cylinderGeometry args={[0.5, 0.62, 1, 8]} />

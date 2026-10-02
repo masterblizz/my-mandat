@@ -289,6 +289,11 @@ function Buildings({
 
   const groups = useMemo(() => {
     const byType = new Map<BType, BuildingInstance[]>();
+    // Mosques are civic landmarks, not repeated filler. A city has one
+    // masjid precinct per 5x5 neighbourhood; smaller out-of-town maps use
+    // the wider 7x7 catchment instead.
+    const mosqueCells = new Set<string>();
+    const mosqueSpan = gridSize >= 10 ? 5 : 7;
     // 1 dead-centre, 0 at a corner — drives the metro core's height taper
     // (zoneBuildings). Below METRO_DENSITY it's ignored.
     const mid = (gridSize - 1) / 2;
@@ -336,6 +341,11 @@ function Buildings({
           const dx = notchSign[0] > 0 ? PLOT - fx : fx;
           const dz = notchSign[1] > 0 ? PLOT - fz : fz;
           if (dx + dz < CLEAR_R) continue;
+        }
+        if (spec.type === "masjid") {
+          const catchment = Math.floor(col / mosqueSpan) + "," + Math.floor(row / mosqueSpan);
+          if (mosqueCells.has(catchment)) continue;
+          mosqueCells.add(catchment);
         }
         const flat = FLAT_TYPES.includes(spec.type);
         // SILUET KL (item 21): at metro grid sizes, vertical BTypes taper

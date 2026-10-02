@@ -1085,6 +1085,10 @@ function LrtTrain({ tref, deckY, livery = "#177fc5", liveryDark = "#0e5d9a" }: {
 // Lrt's ±19 platform-edge strips) — each line's raw track stops this far
 // short of centre on both sides so the two lines never overlap there.
 const INTERCHANGE_GAP = 19;
+// Viaduct legs sit beyond even Bukit Bintang's widest carriageway. A
+// hammerhead spans back over the guideway, so no LRT pillar occupies a live
+// road lane below.
+const LRT_PIER_VERGE = 58;
 
 function LrtTerminus({ z, livery, deckY }: { z: number; livery: string; deckY: number }) {
   const end = Math.sign(z) || 1;
@@ -1198,13 +1202,17 @@ function LrtLine({ axis, span, levelRef, deckY }: { axis: "x" | "z"; span: numbe
       ))}
       {piers.map((z, i) => (
         <group key={i}>
-          <mesh position={[0, deckY / 2, z]} castShadow>
-            <boxGeometry args={[8, deckY, 8]} />
-            <meshStandardMaterial color="#2f3846" />
-          </mesh>
-          {/* hammerhead cap, widened under the deck like a real viaduct pier */}
+          {/* Portal legs stay on the outer verge instead of in the traffic
+              carriageway; this matters at broad Bukit Bintang avenues. */}
+          {[-LRT_PIER_VERGE, LRT_PIER_VERGE].map((x) => (
+            <mesh key={x} position={[x, deckY / 2, z]} castShadow>
+              <boxGeometry args={[8, deckY, 8]} />
+              <meshStandardMaterial color="#2f3846" />
+            </mesh>
+          ))}
+          {/* Wide hammerhead connects the verge legs under the deck. */}
           <mesh position={[0, deckY - 3, z]} castShadow>
-            <boxGeometry args={[16, 4, 10]} />
+            <boxGeometry args={[LRT_PIER_VERGE * 2 + 14, 4, 10]} />
             <meshStandardMaterial color="#2f3846" />
           </mesh>
         </group>
