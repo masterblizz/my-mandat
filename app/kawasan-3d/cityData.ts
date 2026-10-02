@@ -477,6 +477,9 @@ export function zoneBuildings(
   zone: Zone, density: number, traits: SeatTraits, coreness = 0,
 ): BSpec[] {
   const metroCore = density >= METRO_DENSITY;
+  // Bukit Bintang is an already-built KL core: its street walls are denser
+  // than a generic metro and more low-rise lots redevelop as offices.
+  const bukitCore = metroCore && traits.bukitBintang;
   const hi = metroCore ? Math.min(1, Math.max(0, coreness) * 1.15) : 0;
   const zseed = seedFrom(zone.id);
 
@@ -490,6 +493,11 @@ export function zoneBuildings(
     // brightly painted shophouses / shop rows, so the core reads as a
     // colourful street rather than a block of dark glass.
     const r = ((zseed + slot * 53) % 100) / 100; // stable 0..1
+    if (bukitCore) {
+      if (r < 0.38 + hi * 0.38) return "tower";
+      if (r < 0.72 + hi * 0.16) return "shophouse";
+      return "shop";
+    }
     if (r < hi * 0.3) return "tower";
     if (r < 0.34 + hi * 0.34) return "shophouse";
     if (r < 0.5 + hi * 0.2) return "shop";
@@ -552,6 +560,8 @@ export function zoneBuildings(
         : zone.kind === "commercial" && density >= 0.8 ? 1 : 0)
     // Kept to a few landmark masts per zone — the rest of the lots go to
     // the brighter low/mid-rise fillers below.
+    : bukitCore && (zone.kind === "urban" || zone.kind === "commercial" || zone.kind === "market")
+      ? Math.min(3, 1 + (hi > 0.35 ? 1 : 0) + (hi > 0.72 ? 1 : 0))
     : zone.kind === "urban"
       ? Math.min(3, 1 + Math.round(hi * 1.5 + (density - METRO_DENSITY) * 2))
       : zone.kind === "commercial" || zone.kind === "market"

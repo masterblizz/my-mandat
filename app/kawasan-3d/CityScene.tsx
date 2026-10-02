@@ -299,9 +299,13 @@ function Buildings({
     const mid = (gridSize - 1) / 2;
     const maxD = Math.hypot(mid, mid) || 1;
     const twinPresentation = density >= METRO_DENSITY && gridSize >= 10;
+    const denseBukitBintang = twinPresentation && traits.bukitBintang;
     // Deterministic thinning for the low quality tier — never touches the
     // zone's defining `flag` structure or a glowing facility.
     const keep = (key: string): boolean => {
+      // Bukit Bintang is deliberately a continuous high-density district;
+      // quality-tier thinning must not turn valid lots into empty parcels.
+      if (denseBukitBintang) return true;
       if (buildingBudget >= 1) return true;
       let h = 2166136261;
       for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
@@ -325,7 +329,7 @@ function Buildings({
         // vertical stack. A digital-twin city needs readable streets and
         // recognisable precincts, so outer districts deliberately retain
         // open plots while the centre keeps a concentrated skyline.
-        if (twinPresentation && !spec.flag && !spec.glow && !spec.anchor) {
+        if (twinPresentation && !denseBukitBintang && !spec.flag && !spec.glow && !spec.anchor) {
           let hash = 5381;
           const key = `${zone.id}:${spec.slot}:${spec.type}`;
           for (let i = 0; i < key.length; i++) hash = Math.imul(hash * 33, 1) ^ key.charCodeAt(i);
