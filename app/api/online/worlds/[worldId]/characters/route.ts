@@ -8,7 +8,8 @@ export async function GET(_: Request, { params }: { params: { worldId: string } 
   if (!membership) return NextResponse.json({ error: "You do not have access to this world." }, { status: 403 });
   const [{ data: world, error: worldError }, { data: characters, error: characterError }] = await Promise.all([
     supabase.from("worlds").select("id,name,slug,description,geography_template,visibility,lifecycle_status,capacity,character_slot_limit").eq("id", params.worldId).maybeSingle(),
-    supabase.from("characters").select("id,world_id,name,avatar_ref,biography,home_constituency_id,lifecycle_status,created_at").eq("world_id", params.worldId).eq("account_id", user.id).order("created_at"),
+    // Owner-scoped RPC: account_id is not client-readable on characters.
+    supabase.rpc("list_my_world_characters", { p_world_id: params.worldId }),
   ]);
   if (worldError || characterError || !world) return NextResponse.json({ error: "Unable to load this world." }, { status: 500 });
   return NextResponse.json({ world, characters: characters ?? [] });

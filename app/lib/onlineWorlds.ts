@@ -43,7 +43,7 @@ export function validateWorldInput(input: unknown): { name: string; slug: string
   if (!input || typeof input !== "object") return { error: "Invalid world request." };
   const value = input as Record<string, unknown>;
   const name = typeof value.name === "string" ? value.name.trim() : "";
-  const slug = normaliseSlug(typeof value.slug === "string" ? value.slug : name);
+  const slug = normaliseSlug(typeof value.slug === "string" && value.slug.trim() ? value.slug : name);
   const description = typeof value.description === "string" ? value.description.trim() : "";
   const visibility = value.visibility === "private" ? "private" : value.visibility === "public" ? "public" : null;
   if (name.length < 3 || name.length > MAX_WORLD_NAME_LENGTH) return { error: "World name must be 3–60 characters." };

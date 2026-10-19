@@ -12,6 +12,8 @@ create table if not exists public.world_political_offices (
  status text not null default 'vacant' check(status in ('vacant','appointed','ended')), term_number integer not null default 1, unique(world_id,office_key,term_number)
 );
 alter table public.world_coalitions enable row level security; alter table public.world_coalition_parties enable row level security; alter table public.world_political_offices enable row level security;
+drop policy if exists "coalitions: member read" on public.world_coalitions;
 create policy "coalitions: member read" on public.world_coalitions for select using(public.is_active_world_member(world_id));
+drop policy if exists "offices: member read" on public.world_political_offices;
 create policy "offices: member read" on public.world_political_offices for select using(public.is_active_world_member(world_id));
 -- No appointment functions: only the future official election/formation resolver may create offices.

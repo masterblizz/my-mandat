@@ -9,6 +9,8 @@ assert.equal(isValidMalaysiaConstituency("not-a-seat"), false);
 assert.equal(normaliseSlug("  Malaysia: New Dawn! "), "malaysia-new-dawn");
 assert.equal("error" in validateWorldInput({ name: "World", slug: "world", description: "", visibility: "public" }), false);
 assert.equal("error" in validateWorldInput({ name: "x", visibility: "public" }), true);
+// The create form sends an empty slug when the field is left blank.
+assert.deepEqual(validateWorldInput({ name: "Dunia Baru", slug: "  ", description: "", visibility: "public" }), { name: "Dunia Baru", slug: "dunia-baru", description: "", visibility: "public" });
 assert.equal("error" in validateCharacterInput({ name: "Alya Rahman", avatarRef: "player-standing-01.png", biography: "", homeConstituencyId: "johor-0" }), false);
 assert.equal("error" in validateCharacterInput({ name: "A", avatarRef: "bad.png", biography: "", homeConstituencyId: "johor-26" }), true);
 assert.equal("error" in validatePartyInput({ name: "Parti Masa Depan", abbreviation: "pmd", colour: "#00d4ff" }), false);
