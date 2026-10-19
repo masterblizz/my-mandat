@@ -245,6 +245,8 @@ button, a, input, select, textarea {
   .city-destination-overlay .grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .city-onboarding { left: 10px !important; right: 10px !important; bottom: calc(76px + env(safe-area-inset-bottom)) !important; max-height: min(63dvh, 520px); overflow-y: auto; padding: 12px !important; }
   .city-onboarding .grid { grid-template-columns: 1fr !important; }
+  .city-briefing-button { right: auto !important; left: 10px; top: 112px !important; }
+  .city-hud-toggle { top: 112px !important; right: 10px !important; }
   .personal-assistant--floating { bottom: calc(76px + env(safe-area-inset-bottom)) !important; left: 10px !important; }
   .personal-assistant--floating > section { max-height: calc(100dvh - 176px); overflow-y: auto; }
   .city3d-controls { top: 8px !important; left: 8px !important; right: 8px !important; gap: 4px !important; }
@@ -254,6 +256,11 @@ button, a, input, select, textarea {
   .city-embedded-assistant__button > span:first-child { bottom: 0 !important; }
   .city-embedded-assistant__button > span:last-child { display: none; }
 }
+
+/* "View city" toggle on /kawasan: hides every HUD box (briefing, onboarding,
+   destinations, assistant, zone card) so the 3D city is visible, then
+   restores them with their open/closed state intact. */
+.city-hud-hidden .city-hud-box { display: none !important; }
 
 /* Force text-white to use themed color in light mode */
 [data-theme="light"] .text-white,

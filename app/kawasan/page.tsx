@@ -2612,6 +2612,10 @@ export default function KawasanDevelopmentPage() {
   const [focusedDestination, setFocusedDestination] = useState<string | null>(null);
   const [activityMarkersVisible, setActivityMarkersVisible] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
+  // Phone screens are mostly covered by the HUD boxes; the player can hide
+  // every overlay box at once to see the city, or close the zone card alone.
+  const [hudHidden, setHudHidden] = useState(false);
+  const [zonePanelOpen, setZonePanelOpen] = useState(true);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
@@ -2826,6 +2830,8 @@ export default function KawasanDevelopmentPage() {
     setFocusedDestination(null);
     setFocusZoneId(null);
     setBuildMenuOpen(false);
+    setZonePanelOpen(true);
+    setHudHidden(false);
     if (pendingProject) runProject(pendingProject, zoneId);
   }
 
@@ -2898,7 +2904,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   return (
-    <div className="kw-page-shell min-h-screen">
+    <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""}`}>
       <Header />
       <CityOnboarding />
       {notice && (
@@ -2916,22 +2922,28 @@ export default function KawasanDevelopmentPage() {
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
-              <div className="city-seat-status pointer-events-none absolute left-4 top-3 z-20 max-w-[min(360px,calc(100%-112px))]" style={{ fontFamily: "'Space Mono', monospace" }}>
+              <div className="city-seat-status city-hud-box pointer-events-none absolute left-4 top-3 z-20 max-w-[min(360px,calc(100%-112px))]" style={{ fontFamily: "'Space Mono', monospace" }}>
                 <div className="inline-block border px-3 py-2 shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .4)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(12px)" }}>
                   <div className="text-[8px] font-black tracking-[.2em] text-cyan">{seatKindMS} {ownSeat.code} · {t(lang, "BANDAR 3D AKTIF", "3D CITY ACTIVE")}</div>
                   <div className="mt-1 text-sm font-black tracking-wider text-white">{ownSeat.name} <span className="text-gold">· {overall}%</span></div>
                 </div>
               </div>
-              {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
+              {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
+              <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
+                className="city-hud-toggle absolute right-4 top-14 z-[140] border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
+                style={{ borderColor: hudHidden ? "rgb(var(--gold-rgb) / .7)" : "rgb(var(--cyan-rgb) / .5)", color: hudHidden ? "var(--gold)" : "var(--cyan)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
+                {hudHidden ? `▣ ${t(lang, "TUNJUK PANEL", "SHOW PANELS")}` : `◫ ${t(lang, "LIHAT BANDAR", "VIEW CITY")}`}
+              </button>
               <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded cityContext={selectedZone ? { selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall } : undefined} />
               <CampaignBriefing />
-              {selectedZone && <div className="absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
-                <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div></div>
+              {selectedZone && !zonePanelOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
+              {selectedZone && zonePanelOpen && <div className="city-hud-box absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
+                <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div><button type="button" onClick={() => { setZonePanelOpen(false); setBuildMenuOpen(false); }} className="shrink-0 px-1 text-sm leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup panel zon", "Close zone panel")}>×</button></div>
                 <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setBuildMenuOpen((open) => !open)} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>BINA</button>}</div>
               </div>}
-              {buildMenuOpen && selectedZone && <div className="absolute bottom-20 left-4 z-30 w-[min(470px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}><div className="mb-2 flex items-center justify-between"><b className="text-[10px] tracking-widest text-gold">{t(lang, "PILIH PROJEK UNTUK ZON", "CHOOSE A PROJECT FOR ZONE")}</b><button type="button" onClick={() => setBuildMenuOpen(false)} className="text-text-muted">×</button></div><div className="grid grid-cols-3 gap-1 sm:grid-cols-4">{PROJECTS.filter((project) => !selectedZone.projects.includes(project.id)).slice(0, 12).map((project) => <button key={project.id} type="button" onClick={() => { setPendingProjectId(project.id); setBuildMenuOpen(false); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} className="border p-2 text-left" style={{ borderColor: "rgb(var(--cyan-rgb) / .2)", background: "rgb(var(--bg-rgb) / .7)" }}><span>{project.icon}</span><span className="mt-1 block text-[8px] font-black text-white">{t(lang, `kawasan_page.projectTitle_${project.id}`)}</span><span className="mt-1 block text-[8px] text-gold">RM {formatNumber(project.cost)}</span></button>)}</div></div>}
+              {buildMenuOpen && selectedZone && <div className="city-hud-box absolute bottom-20 left-4 z-30 w-[min(470px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}><div className="mb-2 flex items-center justify-between"><b className="text-[10px] tracking-widest text-gold">{t(lang, "PILIH PROJEK UNTUK ZON", "CHOOSE A PROJECT FOR ZONE")}</b><button type="button" onClick={() => setBuildMenuOpen(false)} className="text-text-muted">×</button></div><div className="grid grid-cols-3 gap-1 sm:grid-cols-4">{PROJECTS.filter((project) => !selectedZone.projects.includes(project.id)).slice(0, 12).map((project) => <button key={project.id} type="button" onClick={() => { setPendingProjectId(project.id); setBuildMenuOpen(false); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} className="border p-2 text-left" style={{ borderColor: "rgb(var(--cyan-rgb) / .2)", background: "rgb(var(--bg-rgb) / .7)" }}><span>{project.icon}</span><span className="mt-1 block text-[8px] font-black text-white">{t(lang, `kawasan_page.projectTitle_${project.id}`)}</span><span className="mt-1 block text-[8px] text-gold">RM {formatNumber(project.cost)}</span></button>)}</div></div>}
             </div>
           </TacticalPanel>
 

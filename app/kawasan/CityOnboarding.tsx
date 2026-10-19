@@ -34,6 +34,7 @@ export default function CityOnboarding() {
   const [office, setOffice] = useState<PersonalOfficeId | null>(journey.personalOffice);
   const [issue, setIssue] = useState<Issue | null>(journey.originIssue);
   const [approach, setApproach] = useState<LeadershipApproach | null>(journey.leadershipApproach);
+  const [collapsed, setCollapsed] = useState(false);
   if (phase !== "menu" || journey.characterStage !== "member") return null;
   const sets = [offices, issues, approaches] as const;
   const selected = step === 0 ? office : step === 1 ? issue : approach;
@@ -47,9 +48,11 @@ export default function CityOnboarding() {
     completeCharacterPrologue(issue!, approach!); router.push("/setup");
   };
   const pick = (id: string) => { if (step === 0) setOffice(id as PersonalOfficeId); else if (step === 1) setIssue(id as Issue); else setApproach(id as LeadershipApproach); };
-  return <section className="city-onboarding fixed bottom-5 left-5 right-5 z-[70] max-w-[760px] border p-4 shadow-2xl md:left-8" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .92)", backdropFilter: "blur(12px)" }}>
-    <div className="flex gap-3"><div className="relative hidden h-16 w-16 shrink-0 overflow-hidden border sm:block" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}><Image src={assistantSrc} alt="Personal Assistant" fill sizes="64px" className="object-cover object-[center_36%]" priority /></div><div><div className="text-[9px] font-black tracking-[.22em] text-gold">{labels[step][0]} · {lang === "ms" ? "PERSONAL ASSISTANT" : "PERSONAL ASSISTANT"}</div><h2 className="mt-1 text-sm font-black text-white">{labels[step][1]}</h2><p className="mt-1 text-[11px] text-text-muted">{labels[step][2]}</p></div></div>
+  return <section className="city-onboarding city-hud-box fixed bottom-5 left-5 right-5 z-[70] max-w-[760px] border p-4 shadow-2xl md:left-8" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .92)", backdropFilter: "blur(12px)" }}>
+    <div className="flex gap-3"><div className="relative hidden h-16 w-16 shrink-0 overflow-hidden border sm:block" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}><Image src={assistantSrc} alt="Personal Assistant" fill sizes="64px" className="object-cover object-[center_36%]" priority /></div><div><div className="text-[9px] font-black tracking-[.22em] text-gold">{labels[step][0]} · {lang === "ms" ? "PERSONAL ASSISTANT" : "PERSONAL ASSISTANT"}</div><h2 className="mt-1 text-sm font-black text-white">{labels[step][1]}</h2>{!collapsed && <p className="mt-1 text-[11px] text-text-muted">{labels[step][2]}</p>}</div><button type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} className="ml-auto shrink-0 self-start border px-2 py-1 text-[9px] font-black tracking-widest text-text-muted hover:text-white" style={{ borderColor: "rgb(var(--cyan-rgb) / .35)" }}>{collapsed ? (lang === "ms" ? "BUKA ▴" : "OPEN ▴") : (lang === "ms" ? "TUTUP ▾" : "CLOSE ▾")}</button></div>
+    {!collapsed && <>
     <div className="mt-3 grid gap-2 md:grid-cols-3">{sets[step].map((choice) => { const active = selected === choice.id; const text = choice[lang]; return <button key={choice.id} onClick={() => pick(choice.id)} className="border p-3 text-left" style={{ borderColor: active ? "var(--gold)" : "rgb(var(--cyan-rgb) / .22)", background: active ? "rgb(var(--gold-rgb) / .12)" : "rgb(var(--bg-rgb) / .5)" }}><div className="text-lg">{choice.icon}</div><b className="text-[11px]" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>{text.title}</b><p className="mt-1 text-[10px] text-text-muted">{text.detail}</p><span className="mt-2 block text-[9px] font-bold text-cyan">{text.effect}</span></button>; })}</div>
     <div className="mt-3 flex justify-end"><button onClick={next} disabled={!selected} className="border px-4 py-2 text-[10px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--gold-rgb) / .7)", color: "var(--gold)" }}>{step === 2 ? (lang === "ms" ? "MASUK SETUP CALON" : "ENTER CANDIDATE SETUP") : (lang === "ms" ? "TERUSKAN" : "CONTINUE")} →</button></div>
+    </>}
   </section>;
 }

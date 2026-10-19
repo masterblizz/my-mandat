@@ -61,7 +61,7 @@ export default function CampaignBriefing() {
   return (
     <>
       <button type="button" onClick={() => setReopened(true)}
-        className="absolute right-[172px] top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-cyan shadow-xl"
+        className="city-briefing-button city-hud-box absolute right-[172px] top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-cyan shadow-xl"
         style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>
         ? {t(lang, "PANDUAN", "GUIDE")} · {objectiveDone
           ? t(lang, "OBJEKTIF ✓", "OBJECTIVE ✓")
@@ -69,11 +69,16 @@ export default function CampaignBriefing() {
       </button>
       {open && (
         // z above the 3D map's <Html> location labels (zIndexRange up to 100 in CityScene)
-        <div className="absolute inset-0 z-[150] flex items-center justify-center p-4" style={{ background: "rgb(0 0 0 / .45)" }} onClick={close}>
+        // overflow-y-auto + my-auto: on a short phone screen the dialog scrolls
+        // from its top instead of being centred with its header clipped off.
+        <div className="city-hud-box absolute inset-0 z-[150] flex justify-center overflow-y-auto overscroll-contain p-4 pb-16" style={{ background: "rgb(0 0 0 / .45)" }} onClick={close}>
           <section role="dialog" aria-modal="true" aria-labelledby="campaign-briefing-title" onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[720px] border p-5 shadow-2xl"
+            className="relative my-auto h-fit w-full max-w-[720px] border p-5 shadow-2xl"
             style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .95)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}>
-            <div className="flex gap-3">
+            <button type="button" onClick={close} autoFocus aria-label={t(lang, "Tutup taklimat", "Close briefing")}
+              className="absolute right-2 top-2 border px-2 py-1 text-[11px] font-black leading-none text-text-muted hover:text-white"
+              style={{ borderColor: "rgb(var(--cyan-rgb) / .35)", background: "rgb(var(--bg-rgb) / .8)" }}>×</button>
+            <div className="flex gap-3 pr-8">
               <div className="relative hidden h-16 w-16 shrink-0 overflow-hidden border sm:block" style={{ borderColor: "rgb(var(--gold-rgb) / .55)" }}>
                 <Image src={assistantSrc} alt="Personal Assistant" fill sizes="64px" className="object-cover object-[center_36%]" />
               </div>
@@ -118,7 +123,7 @@ export default function CampaignBriefing() {
                 style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--cyan-rgb) / .06)" }}>
                 {t(lang, "BUKA PUSAT OPERASI", "OPEN OPERATIONS CENTRE")}
               </button>
-              <button type="button" onClick={close} autoFocus
+              <button type="button" onClick={close}
                 className="border px-4 py-2 text-[10px] font-black tracking-widest text-gold"
                 style={{ borderColor: "rgb(var(--gold-rgb) / .7)", background: "rgb(var(--gold-rgb) / .1)" }}>
                 {day === 1 ? t(lang, "MULAKAN HARI 1", "START DAY 1") : t(lang, "TUTUP", "CLOSE")} →
