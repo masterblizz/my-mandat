@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,16 +20,20 @@ type MenuItemConfig = {
   id: string;
   href: string | null;
   danger?: boolean;
+  /** Items in a group render indented beneath that group's heading. */
+  group?: "solo";
 };
 
 type MenuItem = MenuItemConfig & { label: string; sub: string; disabled?: boolean };
 
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
-  { id: "01", href: "/setup" },
-  { id: "02", href: "/warroom" },
-  { id: "03", href: "/load-game" },
-  { id: "04", href: "/settings" },
-  { id: "05", href: "/stats" },
+  { id: "01", href: "/setup", group: "solo" },
+  { id: "02", href: "/warroom", group: "solo" },
+  { id: "03", href: "/load-game", group: "solo" },
+  { id: "04", href: "/settings", group: "solo" },
+  { id: "05", href: "/stats", group: "solo" },
+  // Shared persistent worlds; separate from solo saves.
+  { id: "online", href: "/online" },
   { id: "06", href: null },
   { id: "07", href: null, danger: true },
 ];
@@ -328,12 +332,19 @@ export default function MainMenuPage() {
             {menuItems.map((item, index) => {
               const isSelected = index === selected && !item.disabled;
               const color = item.danger ? "var(--neon-red)" : isSelected ? "#05080e" : "var(--text-primary)";
+              const startsGroup = item.group && menuItems[index - 1]?.group !== item.group;
               return (
+                <Fragment key={item.id}>
+                {startsGroup && (
+                  <div className="mt-0.5 border-l-2 pl-2 text-[10px] font-black tracking-[0.24em]" style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}>
+                    {t(lang, `menu_page.group_${item.group}`)}
+                  </div>
+                )}
                 <button
-                  key={item.id}
+                  data-group={item.group}
                   disabled={item.disabled}
                   title={item.disabled ? item.sub : undefined}
-                  className="group flex h-8 items-center justify-between border px-5 text-left transition-all duration-150 disabled:cursor-not-allowed"
+                  className={`group flex h-8 items-center justify-between border px-5 text-left ${item.group ? "ml-3" : ""} transition-all duration-150 disabled:cursor-not-allowed`}
                   style={{
                     borderColor: item.danger ? "rgb(var(--neon-red-rgb) / 0.24)" : isSelected ? "rgb(var(--gold-rgb) / 0.92)" : "rgb(var(--cyan-rgb) / 0.16)",
                     background: isSelected ? "linear-gradient(90deg, var(--gold), rgb(var(--gold-rgb) / 0.82))" : item.danger ? "rgb(var(--neon-red-rgb) / 0.035)" : "rgb(var(--bg-rgb) / 0.66)",
@@ -349,12 +360,13 @@ export default function MainMenuPage() {
                   }}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="text-[11px] font-bold opacity-55">{item.id}</span>
+                    <span className="text-[11px] font-bold opacity-55">{String(index + 1).padStart(2, "0")}</span>
                     <span className="text-[15px] font-black tracking-[0.18em]">{item.label}</span>
                     {item.disabled && <span className="text-[9px] font-bold tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.noSave")}</span>}
                   </span>
                   {isSelected && <span className="text-[18px] font-black">»</span>}
                 </button>
+                </Fragment>
               );
             })}
           </nav>
