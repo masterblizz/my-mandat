@@ -54,7 +54,7 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
     : [t(lang, "1. Klik Bangunan Kabinet untuk membuat keputusan penggal.", "1. Click the Cabinet Building to make term decisions."), t(lang, "2. Semak bajet dan had tindakan sebelum sahkan arahan.", "2. Check budget and the action limit before confirming a directive."), t(lang, "3. Gunakan Pusat Pentadbiran untuk melaksanakan dasar selepas keputusan dibuat.", "3. Use the Administration Centre to deliver policy after a decision.")];
 
   if (embedded) {
-    return <div className={`absolute bottom-[186px] right-4 ${open ? "z-[120]" : "z-30"} flex items-end justify-end`} style={{ fontFamily: "'Space Mono', monospace" }}>
+    return <div className={`city-embedded-assistant absolute bottom-[186px] right-4 ${open ? "z-[120]" : "z-30"} flex items-end justify-end`} style={{ fontFamily: "'Space Mono', monospace" }}>
       {briefVisible && !open && <button type="button" onClick={() => { setOpen(true); setBriefVisible(false); }} className="absolute bottom-[calc(100%+10px)] right-0 w-[min(280px,calc(100vw-48px))] border px-3 py-2 text-left shadow-xl transition hover:border-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }} aria-label={t(lang, "Buka nasihat pembantu", "Open assistant advice")}><div className="flex items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full bg-cyan animate-pulse" /><span className="text-[8px] font-black tracking-[.16em] text-cyan">{t(lang, "PA // ANALISIS LANGSUNG", "PA // LIVE ANALYSIS")}</span></div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{proactive}</p></button>}
       {open && <section className="absolute bottom-[calc(100%+14px)] right-0 z-10 max-h-[min(590px,calc(100vh-230px))] w-[min(480px,calc(100vw-40px))] overflow-y-auto border p-4 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PEMBANTU PERIBADI · AI AKTIF", "PERSONAL ASSISTANT · AI ACTIVE")}</div><h2 className="mt-1 text-sm font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="border px-2 py-1 text-[9px] font-black tracking-widest text-text-muted hover:text-white" style={{ borderColor: "rgb(var(--cyan-rgb) / .35)" }} aria-label={t(lang, "Minimumkan pembantu", "Minimise assistant")}>{t(lang, "MINIMUM", "MINIMISE")}</button></div>
@@ -66,7 +66,7 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
       <button
         type="button"
         onClick={() => { setOpen((value) => !value); setBriefVisible(false); }}
-        className="group relative h-[214px] w-[min(260px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
+        className="city-embedded-assistant__button group relative h-[214px] w-[min(260px,calc(100vw-48px))] overflow-hidden border-2 text-left shadow-2xl transition hover:scale-[1.025] focus:outline-none"
         style={{ borderColor: "rgb(var(--gold-rgb) / .82)", background: "rgb(2 8 20 / .96)", boxShadow: "0 0 32px rgb(var(--cyan-rgb) / .5)" }}
         aria-label={t(lang, "Buka panggilan video pembantu peribadi", "Open Personal Assistant video call")}
       >
@@ -84,7 +84,7 @@ export default function PersonalAssistant({ embedded = false, prominent = false,
   }
 
   return (
-    <div className={`${embedded ? "absolute bottom-4 left-4 z-30" : "fixed bottom-12 left-4 z-[65]"} flex items-end gap-2`} style={{ fontFamily: "'Space Mono', monospace" }}>
+    <div className={`personal-assistant ${embedded ? "personal-assistant--embedded absolute bottom-4 left-4 z-30" : "personal-assistant--floating fixed bottom-12 left-4 z-[65]"} flex items-end gap-2`} style={{ fontFamily: "'Space Mono', monospace" }}>
       {open && <section className={`${prominent ? "w-[min(390px,calc(100vw-156px))]" : "w-[min(330px,calc(100vw-88px))]"} border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .94)", backdropFilter: "blur(12px)" }}>
         <div className="flex items-start justify-between gap-3"><div><div className="text-[9px] font-black tracking-[.2em] text-gold">{t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")}</div><h2 className="mt-1 text-xs font-black text-white">{guidance.title}</h2></div><button type="button" onClick={() => setOpen(false)} className="text-xs text-text-muted" aria-label={t(lang, "Tutup pembantu", "Close assistant")}>×</button></div>
         <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{guidance.message}</p>

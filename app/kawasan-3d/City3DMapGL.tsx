@@ -248,6 +248,7 @@ export default function City3DMapGL({
 
   return (
     <div
+      className="city3d-map"
       ref={hudRef}
       onPointerDown={noteMapInteraction}
       onWheel={noteMapInteraction}
@@ -342,6 +343,7 @@ export default function City3DMapGL({
 
       {/* control cluster (top-right; a single wrapping row when compact) */}
       <div
+        className="city3d-controls"
         style={{ ...css.controls, ...(compact ? css.controlsCompact : null) }}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -397,6 +399,7 @@ export default function City3DMapGL({
 
       {/* minimap (bottom-right) — compact thumbnail, ⤢ to enlarge */}
       <div
+        className="city3d-minimap"
         style={{
           ...css.minimap,
           zIndex: 5,

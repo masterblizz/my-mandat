@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": ".multiplayer-test-build"
+  },
+  "include": ["app/multiplayer/**/*.ts", "app/lib/onlineWorlds.ts", "app/data/states.ts", "app/data/constituencies.ts", "tests/multiplayer-engine.test.ts", "tests/online-worlds.test.ts"]
+}

@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:journey": "node scripts/test-journey.cjs",
+    "test:multiplayer": "node scripts/test-multiplayer-engine.cjs",
     "test:qa": "node qa-test.mjs"
   },
   "dependencies": {
