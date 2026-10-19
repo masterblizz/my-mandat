@@ -249,6 +249,10 @@ button, a, input, select, textarea {
   .personal-assistant--floating > section { max-height: calc(100dvh - 176px); overflow-y: auto; }
   .city3d-controls { top: 8px !important; left: 8px !important; right: 8px !important; gap: 4px !important; }
   .city3d-minimap { right: 8px !important; bottom: 10px !important; }
+  .city-embedded-assistant { right: 10px !important; bottom: 12px !important; }
+  .city-embedded-assistant__button { height: 54px !important; width: 54px !important; border-radius: 999px; }
+  .city-embedded-assistant__button > span:first-child { bottom: 0 !important; }
+  .city-embedded-assistant__button > span:last-child { display: none; }
 }
 
 /* Force text-white to use themed color in light mode */
