@@ -1,6 +1,6 @@
 # Online Worlds — Supabase migration runbook
 
-Scope: `supabase/migrations/20261019_worlds_and_characters.sql` → `20261030_online_worlds_hardening.sql` (12 files).
+Scope: `supabase/migrations/20261019_worlds_and_characters.sql` → `20261031_system_managed_worlds.sql` (13 files).
 Never apply to Production first. Apply to a staging project, run the verification below, then repeat on Production.
 
 ## 0. Preconditions
@@ -24,7 +24,7 @@ Never apply to Production first. Apply to a staging project, run the verificatio
 supabase login
 supabase link --project-ref <STAGING_REF>
 supabase migration list            # confirm which versions are already recorded remotely
-supabase db push --dry-run         # must list exactly 20261019 … 20261030
+supabase db push --dry-run         # must list exactly 20261019 … 20261031
 supabase db push
 ```
 
@@ -47,11 +47,12 @@ Paste and run each file **in this exact order**, one at a time, confirming "Succ
 10. 20261028_public_character_identity_and_nomination_safety.sql
 11. 20261029_coalition_commands.sql
 12. **20261030_online_worlds_hardening.sql** (mandatory — fixes private-world creation, first turns, a nomination authorization bypass, and account-ID exposure)
+13. **20261031_system_managed_worlds.sql** (players can no longer create worlds; seeds "Malaysia 1" and "Malaysia 2", caps each at 100 players, and auto-creates the next world when all open worlds are full)
 
 ### Re-running
 
 Every file is re-runnable. Re-running 20261019 / 20261020 / 20261026 restores their original (unsafe) function bodies,
-so **always finish by re-running 20261030**.
+so **always finish by re-running 20261030 and then 20261031**.
 
 ## 2. Verification queries (run as `postgres` in SQL Editor)
 
@@ -115,7 +116,7 @@ drop function if exists public.create_world(text,text,text,text), public.list_pu
 commit;
 ```
 
-If using the CLI, also remove the versions from history: `supabase migration repair --status reverted 20261019 … 20261030`.
+If using the CLI, also remove the versions from history: `supabase migration repair --status reverted 20261019 … 20261031`.
 Rollback does not touch `profiles` or any solo-game data (solo saves are browser-local).
 
 ## 4. Vercel configuration
