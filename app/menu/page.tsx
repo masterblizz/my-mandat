@@ -236,7 +236,7 @@ export default function MainMenuPage() {
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden"
+      className="main-menu-screen relative min-h-screen overflow-hidden"
       style={{
         background:
           "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.035), transparent 26%), var(--bg)",
@@ -290,13 +290,16 @@ export default function MainMenuPage() {
             : t(lang, "menu_page.generalElectionCommandSimulator")}
         </div>
         <div className="flex items-center gap-3">
-          <span className="font-bold tracking-[0.15em] text-white tabular-nums">{clock}</span>
-          <span className="flex items-center gap-1 font-bold" style={{ color: "var(--neon-green)" }}><span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "var(--neon-green)" }} />{t(lang, "menu_page.sysOnline")}</span>
+          <Link href="/online" className="main-menu-online-link border px-2 py-1 text-[9px] font-bold tracking-[0.12em]" style={{ borderColor: "rgb(var(--gold-rgb) / 0.55)", color: "var(--gold)" }}>
+            {t(lang, "DUNIA ONLINE", "ONLINE WORLDS")}
+          </Link>
+          <span className="main-menu-clock font-bold tracking-[0.15em] text-white tabular-nums">{clock}</span>
+          <span className="main-menu-presence flex items-center gap-1 font-bold" style={{ color: "var(--neon-green)" }}><span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "var(--neon-green)" }} />{t(lang, "menu_page.sysOnline")}</span>
           <LangThemeToggle />
         </div>
       </header>
 
-      <section className="relative z-10 grid overflow-hidden" style={{ height: "calc(100vh - 54px)", gridTemplateColumns: "480px minmax(0, 1fr)" }}>
+      <section className="main-menu-layout relative z-10 grid overflow-hidden" style={{ height: "calc(100vh - 54px)", gridTemplateColumns: "480px minmax(0, 1fr)" }}>
         <div className="absolute inset-0 z-[2] flex items-center justify-center pl-[300px] pr-10">
           <div className="w-full max-w-[1180px] scale-[1.28] opacity-[0.58]" style={{ filter: "drop-shadow(0 0 36px rgb(var(--cyan-rgb) / 0.55)) saturate(1.45)" }}>
             <MalaysiaMap states={highlightedStates} compact showLabels={false} showHotspots tooltipPlacement="menu-static" onStateClick={() => undefined} />
@@ -304,7 +307,7 @@ export default function MainMenuPage() {
         </div>
         <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "radial-gradient(circle at 57% 45%, transparent 0%, rgb(var(--bg-rgb) / 0.24) 42%, rgb(var(--bg-rgb) / 0.78) 100%)" }} />
         <div className="mm-particles z-[1]" />
-        <aside className="relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgb(var(--bg-rgb) / 0.96), rgb(var(--bg-rgb) / 0.88) 72%, rgb(var(--bg-rgb) / 0.62))" }}>
+        <aside className="main-menu-sidebar relative z-20 flex flex-col border-r px-9 pb-5 pt-7" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "linear-gradient(90deg, rgb(var(--bg-rgb) / 0.96), rgb(var(--bg-rgb) / 0.88) 72%, rgb(var(--bg-rgb) / 0.62))" }}>
           <div className="mb-3 flex items-center gap-3">
             <Image src="/logo-peti-undi.png" alt="My Mandat Logo" width={56} height={56} style={{ flexShrink: 0, filter: "drop-shadow(0 0 8px rgb(var(--cyan-rgb) / 0.4))" }} />
             <div>
@@ -460,7 +463,7 @@ export default function MainMenuPage() {
           </div>
         </aside>
 
-        <div className="pointer-events-none relative z-10 min-w-0 overflow-hidden">
+        <div className="main-menu-intel pointer-events-none relative z-10 min-w-0 overflow-hidden">
           <CornerFrame />
           <div className="absolute left-4 top-3 z-10 text-[10px] tracking-[0.34em]" style={{ color: "var(--text-muted)" }}>
             ↳ {isPrn

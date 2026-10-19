@@ -48,7 +48,7 @@ export default function CityDestinations({ onFocus, variant = "panel", onActivit
   const visible = chapterDestination ? [chapterDestination, ...destinations] : destinations;
 
   if (variant === "overlay") return (
-    <div className="absolute left-1/2 top-3 z-20 w-[min(720px,calc(100%-104px))] -translate-x-1/2" style={{ fontFamily: "'Space Mono', monospace" }}>
+    <div className="city-destination-overlay absolute left-1/2 top-3 z-20 w-[min(720px,calc(100%-104px))] -translate-x-1/2" style={{ fontFamily: "'Space Mono', monospace" }}>
       <button type="button" onClick={() => setOpen((value) => { const next = !value; onActivityMarkersChange?.(next); return next; })} className="mx-auto flex items-center gap-2 border px-3 py-2 text-[9px] font-black tracking-[.18em] text-cyan shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .88)", backdropFilter: "blur(12px)" }}>
         🏙️ {t(lang, "LOKASI AKTIVITI", "ACTIVITY LOCATIONS")} <span className="text-gold">{open ? "×" : "↓"}</span>
       </button>
