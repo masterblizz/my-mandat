@@ -109,7 +109,7 @@ export function Vegetation({
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
-  }, [items, groundY, bladesPerTile, dummy]);
+  }, [items, groundY, bladesPerTile, dummy, type]);
 
   useFrame((_, dt) => {
     uniforms.uTime.value += dt;

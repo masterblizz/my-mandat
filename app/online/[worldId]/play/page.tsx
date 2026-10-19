@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLang, t } from "../../../i18n/useLang";
 import { MALAYSIA_HOME_CONSTITUENCIES, type OnlineCharacter, type OnlineWorld } from "../../../lib/onlineWorlds";
 import { restoreOnlineSession, useOnlineSessionStore } from "../../../store/onlineSessionStore";
@@ -54,7 +54,7 @@ export default function WorldOverviewPage() {
     }).catch(reason => setError(reason.message ?? "Unable to load world."));
   }, [worldId, router]);
 
-  const loadPoliticalData = async () => {
+  const loadPoliticalData = useCallback(async () => {
     const [partyResponse, nominationResponse, coalitionResponse, governmentResponse] = await Promise.all([
       fetch(`/api/online/worlds/${worldId}/parties`), fetch(`/api/online/worlds/${worldId}/nominations`), fetch(`/api/online/worlds/${worldId}/coalitions`), fetch(`/api/online/worlds/${worldId}/government`),
     ]);
@@ -64,8 +64,8 @@ export default function WorldOverviewPage() {
     if (!coalitionResponse.ok) throw new Error(coalitionData.error ?? "Unable to load coalitions.");
     if (!governmentResponse.ok) throw new Error(governmentData.error ?? "Unable to load government records.");
     setParties(partyData.parties ?? []); setPartyMembership(partyData.membership ?? null); setNominations(nominationData.nominations ?? []); setCoalitions(coalitionData.coalitions ?? []); setOffices(governmentData.offices ?? []);
-  };
-  useEffect(() => { loadPoliticalData().catch(reason => setError(reason.message ?? "Unable to load political data.")); }, [worldId]);
+  }, [worldId]);
+  useEffect(() => { loadPoliticalData().catch(reason => setError(reason.message ?? "Unable to load political data.")); }, [loadPoliticalData]);
 
   async function submitActivity() {
     if (!character) return;
@@ -105,7 +105,7 @@ export default function WorldOverviewPage() {
   const ownParty = partyMembership ? parties.find((party) => party.id === partyMembership.party_id) ?? null : null;
   const mayNominate = partyMembership?.role === "founder" || partyMembership?.role === "officer";
   return <main className="min-h-screen p-5 text-white" style={{ background: "var(--bg)" }}><div className="mx-auto max-w-4xl">
-    <p className="text-[10px] tracking-[.28em] text-cyan-300">{world.name.toUpperCase()} // WORLD OVERVIEW</p>
+    <p className="text-[10px] tracking-[.28em] text-cyan-300">{world.name.toUpperCase()}{" · "}WORLD OVERVIEW</p>
     <section className="mt-4 flex gap-4 border border-cyan-900 bg-slate-950/60 p-5"><Image src={`/avatars/${character.avatar_ref}`} alt="" width={90} height={120}/><div><h1 className="text-3xl font-black">{character.name}</h1><p className="mt-2 text-sm">{t(lang, "Kawasan asal", "Home seat")}: {home?.code} · {home?.name}</p><p className="mt-2 text-cyan-200">{t(lang, "Reputasi dunia", "World reputation")}: {reputation}</p></div></section>
     <OnlineWorldCity worldName={world.name} characterName={character.name} partyCount={parties.length} lang={lang} />
     <section className="mt-4 border border-gold/40 p-4"><p className="text-[10px] tracking-[.2em] text-gold">{t(lang, "AKTIVITI KOMUNITI", "COMMUNITY ACTIVITY")}</p><h2 className="mt-1 font-bold">{turn ? t(lang, `Giliran dunia ${turn.turn_number}`, `World turn ${turn.turn_number}`) : t(lang, "Tiada giliran aktif", "No active turn")}</h2><div className="mt-3 grid gap-2">{ACTIVITY_OPTIONS.map(option => <label key={option.id} className="border border-slate-700 p-2 text-sm"><input type="radio" disabled={acted} checked={activityType === option.id} onChange={() => setActivityType(option.id)} className="mr-2"/><strong>{lang === "ms" ? option.ms : option.en}</strong><span className="ml-2 text-xs text-text-muted">{lang === "ms" ? option.detailMS : option.detailEN}</span></label>)}</div><button disabled={!turn || acted} onClick={submitActivity} className="mt-3 border border-gold px-3 py-2 text-xs font-bold text-gold disabled:opacity-40">{acted ? t(lang, "AKTIVITI DIREKOD", "ACTIVITY RECORDED") : t(lang, "HANTAR TINDAKAN", "SUBMIT ACTION")}</button></section>
