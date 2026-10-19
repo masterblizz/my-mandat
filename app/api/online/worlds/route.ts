@@ -3,7 +3,7 @@ import { authenticatedSupabase, rpcError } from "../_shared";
 import { validateWorldInput } from "../../../lib/onlineWorlds";
 
 export async function GET() {
-  const { supabase } = await authenticatedSupabase();
+  const { supabase, user } = await authenticatedSupabase(); if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
   const { data, error } = await supabase.rpc("list_public_worlds");
   if (error) return NextResponse.json({ error: "Unable to load worlds." }, { status: 500 });
   return NextResponse.json({ worlds: data ?? [] });
