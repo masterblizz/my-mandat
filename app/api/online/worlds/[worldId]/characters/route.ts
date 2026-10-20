@@ -6,8 +6,14 @@ export async function GET(_: Request, { params }: { params: { worldId: string } 
   const { supabase, user } = await authenticatedSupabase(); if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
   const { data: membership } = await supabase.from("world_memberships").select("world_id").eq("world_id", params.worldId).eq("account_id", user.id).eq("status", "active").maybeSingle();
   if (!membership) return NextResponse.json({ error: "You do not have access to this world." }, { status: 403 });
+  const columns = "id,name,slug,description,geography_template,visibility,lifecycle_status,capacity,character_slot_limit";
+  const loadWorld = async () => {
+    const withRegion = await supabase.from("worlds").select(`${columns},region_id`).eq("id", params.worldId).maybeSingle();
+    // 42703: database not yet migrated to regional worlds (20261102); fall back to the all-Malaysia shape.
+    return withRegion.error?.code === "42703" ? supabase.from("worlds").select(columns).eq("id", params.worldId).maybeSingle() : withRegion;
+  };
   const [{ data: world, error: worldError }, { data: characters, error: characterError }] = await Promise.all([
-    supabase.from("worlds").select("id,name,slug,description,geography_template,visibility,lifecycle_status,capacity,character_slot_limit").eq("id", params.worldId).maybeSingle(),
+    loadWorld(),
     // Owner-scoped RPC: account_id is not client-readable on characters.
     supabase.rpc("list_my_world_characters", { p_world_id: params.worldId }),
   ]);

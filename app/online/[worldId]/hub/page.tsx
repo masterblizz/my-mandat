@@ -117,6 +117,7 @@ function Hub() {
         <span className="h-2 w-2 rounded-full" style={{ background: status === "live" ? "var(--neon-green)" : status === "connecting" ? "var(--gold)" : "var(--neon-red)" }} />
         {status === "offline" ? t(lang, "LUAR TALIAN", "OFFLINE") : `${onlineCount} ${t(lang, "ONLINE", "ONLINE")}`}
       </button>
+      <Link href={`/online/${worldId}/election`} className="border border-gold bg-gold px-2 py-1 text-[10px] font-black text-[#05080e]">PRU</Link>
       <Link href={`/online/${worldId}/play`} className="border border-gold px-2 py-1 text-[10px] font-bold text-gold">{t(lang, "PEJABAT", "OFFICE")}</Link>
     </header>
 

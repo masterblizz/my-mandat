@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { t, useLang } from "../../../i18n/useLang";
 import {
   MALAYSIA_HOME_CONSTITUENCIES,
@@ -11,6 +11,7 @@ import {
   type OnlineWorld,
 } from "../../../lib/onlineWorlds";
 import { useOnlineSessionStore } from "../../../store/onlineSessionStore";
+import { findRegion, regionSeats } from "../../../lib/onlineRegions";
 
 export default function CharactersPage() {
   const params = useParams<{ worldId: string }>();
@@ -25,7 +26,7 @@ export default function CharactersPage() {
   const [name, setName] = useState("");
   const [avatarRef, setAvatarRef] = useState<string>(ONLINE_AVATARS[0]);
   const [biography, setBiography] = useState("");
-  const [homeConstituencyId, setHome] = useState(MALAYSIA_HOME_CONSTITUENCIES[0]?.id ?? "");
+  const [homeConstituencyId, setHome] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -39,6 +40,8 @@ export default function CharactersPage() {
     }
     setWorld(data.world);
     setCharacters(data.characters);
+    const seats = regionSeats(data.world.region_id);
+    setHome((current) => current || (seats[0]?.id ?? MALAYSIA_HOME_CONSTITUENCIES[0]?.id ?? ""));
     setLoading(false);
   }, [worldId]);
 
@@ -70,6 +73,12 @@ export default function CharactersPage() {
     setName("");
     setBiography("");
   }
+
+  // Regional worlds only offer that region's seats; legacy worlds keep the full Malaysia list.
+  const seatOptions = useMemo(() => {
+    const seats = regionSeats(world?.region_id);
+    return seats.length ? seats.map((seat) => ({ ...seat, state: findRegion(world?.region_id)?.nameMs ?? "" })) : MALAYSIA_HOME_CONSTITUENCIES;
+  }, [world?.region_id]);
 
   if (loading) return <main className="min-h-screen p-8 text-white">{t(lang, "Memuatkan watak…", "Loading characters…")}</main>;
   if (!world) return <main className="min-h-screen p-8 text-white">{error || t(lang, "Dunia tidak ditemui.", "World not found.")}</main>;
@@ -112,7 +121,7 @@ export default function CharactersPage() {
               ))}
             </div>
             <label className="mt-3 block text-xs">{t(lang, "Biografi", "Biography")}<textarea value={biography} maxLength={280} onChange={(event) => setBiography(event.target.value)} className="mt-1 w-full border border-slate-600 bg-black p-2" /></label>
-            <label className="mt-3 block text-xs">{t(lang, "Kawasan asal", "Home constituency")}<select value={homeConstituencyId} onChange={(event) => setHome(event.target.value)} className="mt-1 w-full border border-slate-600 bg-black p-2">{MALAYSIA_HOME_CONSTITUENCIES.map((seat) => <option key={seat.id} value={seat.id}>{seat.code} · {seat.name} ({seat.state})</option>)}</select></label>
+            <label className="mt-3 block text-xs">{t(lang, "Kawasan asal", "Home constituency")}<select value={homeConstituencyId} onChange={(event) => setHome(event.target.value)} className="mt-1 w-full border border-slate-600 bg-black p-2">{seatOptions.map((seat) => <option key={seat.id} value={seat.id}>{seat.code} · {seat.name} ({seat.state})</option>)}</select></label>
             <p className="mt-3 text-[11px] text-text-muted">{t(lang, "Maksimum tiga watak per akaun bagi setiap dunia. Watak tambahan tidak memberikan undi, pencalonan atau bajet tambahan.", "Up to three characters per account in each world. Extra characters do not grant extra votes, candidacies, or action budgets.")}</p>
             <button disabled={saving} className="mt-4 border border-gold px-3 py-2 text-xs font-bold text-gold">{saving ? t(lang, "MENCIPTA…", "CREATING…") : t(lang, "CIPTA WATAK", "CREATE CHARACTER")}</button>
           </form>

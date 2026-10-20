@@ -11,6 +11,8 @@ export type OnlineWorld = {
   id: string; name: string; slug: string; description: string; geography_template: "malaysia-v1";
   visibility: "public" | "private"; lifecycle_status: "open" | "locked" | "archived"; capacity: number; character_slot_limit: number;
   creator_id?: string; created_at?: string; member_count?: number; is_member?: boolean;
+  /** Region the world covers (null for legacy all-Malaysia worlds). */
+  region_id?: string | null; region_name_ms?: string | null; region_name_en?: string | null; seat_count?: number | null;
 };
 export type OnlineCharacter = { id: string; world_id: string; name: string; avatar_ref: string; biography: string; home_constituency_id: string; lifecycle_status: "active" | "retired"; created_at: string };
 

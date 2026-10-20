@@ -19,13 +19,22 @@ export function rpcError(error: { message?: string } | null, fallback = "Unable 
     world_not_available: [404, "This world is not available for public joining."], world_not_open: [409, "This world is not accepting members."],
     world_full: [409, "This world is full."], invalid_invitation: [404, "This invitation is invalid or expired."],
     world_access_denied: [403, "You do not have access to this world."], character_limit: [409, "All character slots in this world are occupied."],
-    invalid_home_constituency: [400, "Choose a valid Malaysian parliamentary constituency."],
+    invalid_home_constituency: [400, "Choose a parliamentary seat in this world's region."],
     character_access_denied: [403, "You do not control that character."], no_open_turn: [409, "No world turn is currently open."],
     turn_action_limit: [409, "Your account has already acted this turn."],
     already_in_party: [409, "Your account already belongs to a party in this world."],
     party_permission_denied: [403, "Only party founders and officers can nominate candidates."],
     invalid_nominee: [400, "Choose an active character in this world."],
     coalition_unavailable: [409, "This coalition is no longer available."],
+    already_in_coalition: [409, "Your party is already in a coalition."],
+    nomination_closed: [409, "Nomination is closed for this election."],
+    already_standing: [409, "Your account already has a candidate in this election."],
+    party_seat_taken: [409, "Your party already has a candidate in that seat."],
+    campaign_closed: [409, "Campaigning is not open right now."],
+    campaign_action_limit: [429, "You have used both campaign actions for today."],
+    invalid_campaign_target: [400, "Choose a rival standing in your seat."],
+    invalid_campaign_action: [400, "Choose a valid campaign action."],
+    candidacy_not_found: [404, "That candidacy no longer exists."],
   };
   const [status, safe] = known[message] ?? [400, fallback];
   return NextResponse.json({ error: safe }, { status });

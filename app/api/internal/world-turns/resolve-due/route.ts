@@ -16,7 +16,17 @@ async function resolveDue(request: NextRequest) {
     const result = await supabase.rpc("resolve_world_turn", { p_world_id: turn.world_id, p_turn_id: turn.id });
     results.push({ worldId: turn.world_id, turnId: turn.id, ok: !result.error, resolution: result.data ?? null });
   }
-  return NextResponse.json({ resolved: results.filter((result) => result.ok).length, attempted: results.length, results });
+  // Elections also advance lazily when members open them; this keeps idle worlds on schedule.
+  const now = new Date().toISOString();
+  const { data: dueElections } = await supabase.from("world_elections").select("world_id")
+    .or(`and(status.eq.nomination,campaign_opens_at.lte.${now}),and(status.eq.campaign,polling_opens_at.lte.${now}),and(status.eq.polling,results_at.lte.${now})`)
+    .limit(50);
+  const elections = [];
+  for (const { world_id: worldId } of dueElections ?? []) {
+    const result = await supabase.rpc("advance_world_election", { p_world_id: worldId });
+    elections.push({ worldId, ok: !result.error, status: result.data?.status ?? null });
+  }
+  return NextResponse.json({ resolved: results.filter((result) => result.ok).length, attempted: results.length, results, elections });
 }
 
 // Vercel Cron invokes GET; manual/external schedulers may POST.
