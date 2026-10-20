@@ -20,7 +20,8 @@ const DOCK_ITEMS: DockItem[] = [
   { href: "/menu", icon: "☰", labelMs: "Menu", labelEn: "Menu", match: (path) => path === "/menu" },
 ];
 
-const HIDDEN_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/purchase-confirmation", "/trailer"];
+// Online worlds have their own navigation; the solo campaign dock links into the solo save.
+const HIDDEN_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/purchase-confirmation", "/trailer", "/online"];
 const HIDDEN_ROUTES = new Set(["/", "/menu", "/setup", "/load-game", "/kawasan-3d"]);
 
 /**

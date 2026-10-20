@@ -11,7 +11,7 @@
 // release.
 
 import {
-  useCallback, useEffect, useMemo, useRef, useState, type CSSProperties,
+  useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode,
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
@@ -49,6 +49,14 @@ export type City3DMapGLProps = {
   /** Activity Locations panel deliberately reveals every label; otherwise the map stays decluttered. */
   showAllDestinationTags?: boolean;
   onEnterDestination?: (destinationId: string, originLabel?: string) => void;
+  /** Extra 3D content rendered inside the city canvas (e.g. multiplayer avatars). */
+  children?: ReactNode;
+  /** Externally driven camera look point [worldX, worldZ]; lets a host make the camera follow something. */
+  cameraTargetRef?: MutableRefObject<[number, number]>;
+  /** Start the camera at this orbit distance (world units) instead of the whole-city framing. */
+  initialCameraDistance?: number;
+  /** Start the camera at this pitch (degrees from straight down; clamped like a drag). */
+  initialCameraPitch?: number;
 };
 
 
@@ -70,9 +78,10 @@ function scoreTint(value: number): string {
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
   gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, showAllDestinationTags = false, onEnterDestination,
+  children, cameraTargetRef, initialCameraDistance, initialCameraPitch,
 }: City3DMapGLProps) {
   const hudRef = useRef<HTMLDivElement | null>(null);
-  const camRef = useRef<CamState>({ ...CAM_DEFAULT });
+  const camRef = useRef<CamState>(clampCam({ ...CAM_DEFAULT, rx: initialCameraPitch ?? CAM_DEFAULT.rx }));
   const movedRef = useRef(false);
 
   // The city follows the player's local clock by default. This keeps the
@@ -173,9 +182,10 @@ export default function City3DMapGL({
   const quality = defaultQualityForGridSize(gridSize);
 
   const applyFitZoom = useCallback(() => {
+    if (initialCameraDistance) { camRef.current.zoom = distance / initialCameraDistance; return; }
     const w = hudRef.current?.clientWidth ?? 900;
     camRef.current.zoom = fitZoom(w);
-  }, []);
+  }, [initialCameraDistance, distance]);
   useEffect(() => { applyFitZoom(); }, [applyFitZoom, gridSize]);
 
   const zoomBy = useCallback((f: number) => {
@@ -183,19 +193,20 @@ export default function City3DMapGL({
     clampCam(camRef.current);
   }, []);
   // [worldX, worldZ] the camera orbits / looks at — the minimap sets it.
-  const camTargetRef = useRef<[number, number]>([0, 0]);
+  const ownCamTargetRef = useRef<[number, number]>([0, 0]);
+  const camTargetRef = cameraTargetRef ?? ownCamTargetRef;
   const resetCam = useCallback(() => {
     const w = hudRef.current?.clientWidth ?? 900;
-    camRef.current = { ...CAM_DEFAULT, zoom: fitZoom(w) };
+    camRef.current = clampCam({ ...CAM_DEFAULT, rx: initialCameraPitch ?? CAM_DEFAULT.rx, zoom: initialCameraDistance ? distance / initialCameraDistance : fitZoom(w) });
     camTargetRef.current = [0, 0];
-  }, []);
+  }, [camTargetRef, initialCameraDistance, initialCameraPitch, distance]);
   // Recentre the 3D view on a grid cell (minimap click / building click).
   // Same world-space formula as placeZones() in cityData.ts.
   const panToCell = useCallback((col: number, row: number) => {
     const XY = plotXY(gridSize);
     const c = worldCentre(gridSize);
     camTargetRef.current = [XY[col] + PLOT / 2 - c, XY[row] + PLOT / 2 - c];
-  }, [gridSize]);
+  }, [gridSize, camTargetRef]);
 
   const zoneByCell = useMemo(() => {
     const m = new Map<string, Zone>();
@@ -322,6 +333,7 @@ export default function City3DMapGL({
           showAllDestinationTags={showAllDestinationTags}
           onEnterDestination={onEnterDestination}
         />
+        {children}
         <PostFX tod={tod} quality={quality} />
       </Canvas>
 

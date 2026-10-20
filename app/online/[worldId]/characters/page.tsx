@@ -48,7 +48,7 @@ export default function CharactersPage() {
 
   function enter(character: OnlineCharacter) {
     select(worldId, character.id);
-    router.push(`/online/${worldId}/play`);
+    router.push(`/online/${worldId}/hub`);
   }
 
   async function create(event: FormEvent) {

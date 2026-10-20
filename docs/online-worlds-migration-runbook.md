@@ -1,6 +1,6 @@
 # Online Worlds — Supabase migration runbook
 
-Scope: `supabase/migrations/20261019_worlds_and_characters.sql` → `20261031_system_managed_worlds.sql` (13 files).
+Scope: `supabase/migrations/20261019_worlds_and_characters.sql` → `20261101_world_hub_realtime.sql` (14 files).
 Never apply to Production first. Apply to a staging project, run the verification below, then repeat on Production.
 
 ## 0. Preconditions
@@ -48,6 +48,7 @@ Paste and run each file **in this exact order**, one at a time, confirming "Succ
 11. 20261029_coalition_commands.sql
 12. **20261030_online_worlds_hardening.sql** (mandatory — fixes private-world creation, first turns, a nomination authorization bypass, and account-ID exposure)
 13. **20261031_system_managed_worlds.sql** (players can no longer create worlds; seeds "Malaysia 1" and "Malaysia 2", caps each at 100 players, and auto-creates the next world when all open worlds are full)
+14. **20261101_world_hub_realtime.sql** (Realtime policies for the 3D city hub: only active members of a world can join its private `world-hub:<world id>` channel to see who is online and send avatar movement)
 
 ### Re-running
 

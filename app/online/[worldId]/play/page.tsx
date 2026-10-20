@@ -2,14 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useLang, t } from "../../../i18n/useLang";
 import { MALAYSIA_HOME_CONSTITUENCIES, type OnlineCharacter, type OnlineWorld } from "../../../lib/onlineWorlds";
 import { restoreOnlineSession, useOnlineSessionStore } from "../../../store/onlineSessionStore";
 
-const OnlineWorldCity = dynamic(() => import("../../components/OnlineWorldCity"), { ssr: false, loading: () => <div className="mt-4 min-h-[250px] border border-cyan-900 p-4 text-xs text-cyan">LOADING WORLD CITY…</div> });
 
 type ActivityType = "community_outreach" | "town_hall" | "volunteer_drive";
 type WorldEvent = { id: string; public_summary: string; reputation_delta: number };
@@ -107,7 +105,10 @@ export default function WorldOverviewPage() {
   return <main className="min-h-screen p-5 text-white" style={{ background: "var(--bg)" }}><div className="mx-auto max-w-4xl">
     <p className="text-[10px] tracking-[.28em] text-cyan-300">{world.name.toUpperCase()}{" · "}WORLD OVERVIEW</p>
     <section className="mt-4 flex gap-4 border border-cyan-900 bg-slate-950/60 p-5"><Image src={`/avatars/${character.avatar_ref}`} alt="" width={90} height={120}/><div><h1 className="text-3xl font-black">{character.name}</h1><p className="mt-2 text-sm">{t(lang, "Kawasan asal", "Home seat")}: {home?.code} · {home?.name}</p><p className="mt-2 text-cyan-200">{t(lang, "Reputasi dunia", "World reputation")}: {reputation}</p></div></section>
-    <OnlineWorldCity worldName={world.name} characterName={character.name} partyCount={parties.length} lang={lang} />
+    <Link href={`/online/${worldId}/hub`} className="mt-4 flex items-center justify-between border border-cyan-500/70 bg-cyan-950/30 p-4 transition hover:bg-cyan-900/30">
+      <span><span className="block text-[10px] font-bold tracking-[.22em] text-cyan-300">{t(lang, "HAB BANDAR 3D", "3D CITY HUB")}</span><span className="mt-1 block text-sm font-black">{t(lang, "Masuk bandar dan jumpa pemain lain yang sedang online", "Enter the city and meet other players online")}</span></span>
+      <span className="text-xl font-black text-cyan-200">»</span>
+    </Link>
     <section className="mt-4 border border-gold/40 p-4"><p className="text-[10px] tracking-[.2em] text-gold">{t(lang, "AKTIVITI KOMUNITI", "COMMUNITY ACTIVITY")}</p><h2 className="mt-1 font-bold">{turn ? t(lang, `Giliran dunia ${turn.turn_number}`, `World turn ${turn.turn_number}`) : t(lang, "Tiada giliran aktif", "No active turn")}</h2><div className="mt-3 grid gap-2">{ACTIVITY_OPTIONS.map(option => <label key={option.id} className="border border-slate-700 p-2 text-sm"><input type="radio" disabled={acted} checked={activityType === option.id} onChange={() => setActivityType(option.id)} className="mr-2"/><strong>{lang === "ms" ? option.ms : option.en}</strong><span className="ml-2 text-xs text-text-muted">{lang === "ms" ? option.detailMS : option.detailEN}</span></label>)}</div><button disabled={!turn || acted} onClick={submitActivity} className="mt-3 border border-gold px-3 py-2 text-xs font-bold text-gold disabled:opacity-40">{acted ? t(lang, "AKTIVITI DIREKOD", "ACTIVITY RECORDED") : t(lang, "HANTAR TINDAKAN", "SUBMIT ACTION")}</button></section>
     <section className="mt-4 border border-cyan-900 p-4"><p className="text-[10px] tracking-[.2em] text-cyan-300">{t(lang, "LAPORAN DUNIA", "WORLD REPORTS")}</p>{events.length ? events.map(event => <p className="mt-2 text-sm text-text-muted" key={event.id}>{event.public_summary} <span className="text-cyan-200">+{event.reputation_delta}</span></p>) : <p className="mt-2 text-sm text-text-muted">{t(lang, "Belum ada laporan diselesaikan.", "No resolved reports yet.")}</p>}</section>
     <section className="mt-4 border border-cyan-900 p-4">
