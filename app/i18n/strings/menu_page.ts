@@ -69,6 +69,8 @@ const menu_page = {
   item_03_label: { ms: "MUAT PERMAINAN", en: "LOAD GAME" },
   item_03_sub: { ms: "Buka slot kempen tersimpan", en: "Open saved campaign slot" },
   group_solo: { ms: "KEMPEN SOLO", en: "SOLO CAMPAIGN" },
+  item_solo_label: { ms: "KEMPEN SOLO", en: "SOLO CAMPAIGN" },
+  item_solo_sub: { ms: "Kempen baharu, sambung atau muat", en: "New, continue or load a run" },
   item_online_label: { ms: "BERBILANG PEMAIN", en: "MULTIPLAYER" },
   item_online_sub: { ms: "Dunia politik berbilang pemain", en: "Multiplayer political worlds" },
   item_04_label: { ms: "TETAPAN", en: "SETTINGS" },

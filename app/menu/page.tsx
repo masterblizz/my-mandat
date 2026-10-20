@@ -20,20 +20,25 @@ type MenuItemConfig = {
   id: string;
   href: string | null;
   danger?: boolean;
-  /** Items in a group render indented beneath that group's heading. */
+  /** Items in a group render indented beneath their parent, only while it is expanded. */
   group?: "solo";
+  /** Parent row that expands/collapses this group instead of navigating. */
+  toggles?: "solo";
 };
 
 type MenuItem = MenuItemConfig & { label: string; sub: string; disabled?: boolean };
 
+// Top level: Solo Campaign · Multiplayer · Settings · Credits · Exit.
+// Solo Campaign expands to show its run-specific actions.
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
-  { id: "01", href: "/setup", group: "solo" },
+  { id: "solo", href: null, toggles: "solo" },
   { id: "02", href: "/warroom", group: "solo" },
+  { id: "01", href: "/setup", group: "solo" },
   { id: "03", href: "/load-game", group: "solo" },
-  { id: "04", href: "/settings", group: "solo" },
   { id: "05", href: "/stats", group: "solo" },
   // Shared persistent worlds; separate from solo saves.
   { id: "online", href: "/online" },
+  { id: "04", href: "/settings" },
   { id: "06", href: null },
   { id: "07", href: null, danger: true },
 ];
@@ -102,6 +107,7 @@ export default function MainMenuPage() {
   const router = useRouter();
   const lang = useLang();
   const [selected, setSelected] = useState(0);
+  const [soloOpen, setSoloOpen] = useState(false);
   const [clock, setClock] = useState("--:--:--");
   const [mounted, setMounted] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
@@ -128,12 +134,16 @@ export default function MainMenuPage() {
   const campaignProgress = Math.round((day / totalDays) * 100);
   const daysLeft = Math.max(0, totalDays - day + 1);
 
-  const menuItems: MenuItem[] = MENU_ITEMS_CONFIG.map((item) => ({
-    ...item,
-    label: t(lang, `menu_page.item_${item.id}_label`),
-    sub: item.id === "02" && !hasSave ? t(lang, "menu_page.noSavedCampaign") : t(lang, `menu_page.item_${item.id}_sub`),
-    disabled: item.id === "02" && !hasSave,
-  }));
+  // With a save, CONTINUE leads the solo list; without one, START NEW does and the disabled CONTINUE drops below it.
+  const menuItems: MenuItem[] = useMemo(() => MENU_ITEMS_CONFIG
+    .filter((item) => !item.group || soloOpen)
+    .map((item, _i, list) => (!hasSave && item.id === "02" ? list.find((entry) => entry.id === "01")! : !hasSave && item.id === "01" ? list.find((entry) => entry.id === "02")! : item))
+    .map((item) => ({
+      ...item,
+      label: t(lang, `menu_page.item_${item.id}_label`),
+      sub: item.id === "02" && !hasSave ? t(lang, "menu_page.noSavedCampaign") : t(lang, `menu_page.item_${item.id}_sub`),
+      disabled: item.id === "02" && !hasSave,
+    })), [lang, hasSave, soloOpen]);
 
   const statusRows = lang === "ms" ? STATUS_ROWS_MS : STATUS_ROWS_EN;
   const liveNewsItems = lang === "ms" ? LIVE_NEWS_MS : LIVE_NEWS_EN;
@@ -172,6 +182,11 @@ export default function MainMenuPage() {
   }, [router]);
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
+    if (item.toggles) {
+      setSoloOpen((open) => !open);
+      setSelected(0);
+      return;
+    }
     if (item.id === "01") {
       // A new career must always begin with the character creator. The 3D
       // city is the campaign hub only after the player confirms a candidate,
@@ -224,11 +239,13 @@ export default function MainMenuPage() {
         if (event.key === "Escape") setContinueSlot(null);
         return;
       }
-      if (event.key === "ArrowDown") setSelected((value) => Math.min(value + 1, MENU_ITEMS_CONFIG.length - 1));
+      if (event.key === "ArrowDown") setSelected((value) => Math.min(value + 1, menuItems.length - 1));
       if (event.key === "ArrowUp") setSelected((value) => Math.max(value - 1, 0));
+      if (event.key === "ArrowRight" && menuItems[selected]?.toggles && !soloOpen) setSoloOpen(true);
+      if (event.key === "ArrowLeft" && soloOpen && (menuItems[selected]?.toggles || menuItems[selected]?.group)) { setSoloOpen(false); setSelected(0); }
       if (event.key === "Enter") {
-        const item = MENU_ITEMS_CONFIG[selected];
-        navigateMenuItem(item as MenuItem);
+        const item = menuItems[selected];
+        if (item && !item.disabled) navigateMenuItem(item);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -236,7 +253,7 @@ export default function MainMenuPage() {
       clearInterval(timer);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [continueSlot, navigateMenuItem, selected]);
+  }, [continueSlot, navigateMenuItem, selected, menuItems, soloOpen]);
 
   return (
     <main
@@ -332,19 +349,18 @@ export default function MainMenuPage() {
             {menuItems.map((item, index) => {
               const isSelected = index === selected && !item.disabled;
               const color = item.danger ? "var(--neon-red)" : isSelected ? "#05080e" : "var(--text-primary)";
-              const startsGroup = item.group && menuItems[index - 1]?.group !== item.group;
+              // Top-level rows are numbered 01–05; expanded solo rows read 1.1, 1.2 …
+              const topNumber = menuItems.slice(0, index + 1).filter((entry) => !entry.group).length;
+              const childNumber = item.group ? menuItems.slice(0, index + 1).filter((entry) => entry.group === item.group).length : 0;
+              const number = item.group ? `${topNumber}.${childNumber}` : String(topNumber).padStart(2, "0");
               return (
                 <Fragment key={item.id}>
-                {startsGroup && (
-                  <div className="mt-0.5 border-l-2 pl-2 text-[10px] font-black tracking-[0.24em]" style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}>
-                    {t(lang, `menu_page.group_${item.group}`)}
-                  </div>
-                )}
                 <button
                   data-group={item.group}
+                  aria-expanded={item.toggles ? soloOpen : undefined}
                   disabled={item.disabled}
                   title={item.disabled ? item.sub : undefined}
-                  className={`group flex h-8 items-center justify-between border px-5 text-left ${item.group ? "ml-3" : ""} transition-all duration-150 disabled:cursor-not-allowed`}
+                  className={`group flex ${item.group ? "h-7 ml-4" : "h-8"} items-center justify-between border px-5 text-left transition-all duration-150 disabled:cursor-not-allowed`}
                   style={{
                     borderColor: item.danger ? "rgb(var(--neon-red-rgb) / 0.24)" : isSelected ? "rgb(var(--gold-rgb) / 0.92)" : "rgb(var(--cyan-rgb) / 0.16)",
                     background: isSelected ? "linear-gradient(90deg, var(--gold), rgb(var(--gold-rgb) / 0.82))" : item.danger ? "rgb(var(--neon-red-rgb) / 0.035)" : "rgb(var(--bg-rgb) / 0.66)",
@@ -360,11 +376,13 @@ export default function MainMenuPage() {
                   }}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="text-[11px] font-bold opacity-55">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="text-[15px] font-black tracking-[0.18em]">{item.label}</span>
+                    <span className="text-[11px] font-bold opacity-55">{number}</span>
+                    <span className={`${item.group ? "text-[13px]" : "text-[15px]"} font-black tracking-[0.18em]`}>{item.label}</span>
                     {item.disabled && <span className="text-[9px] font-bold tracking-[0.16em]" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.noSave")}</span>}
                   </span>
-                  {isSelected && <span className="text-[18px] font-black">»</span>}
+                  {item.toggles
+                    ? <span className="text-[13px] font-black transition-transform duration-150" style={{ transform: soloOpen ? "rotate(90deg)" : "none" }}>▸</span>
+                    : isSelected && <span className="text-[18px] font-black">»</span>}
                 </button>
                 </Fragment>
               );
