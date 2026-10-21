@@ -26,7 +26,7 @@ function winnerColor(winner: "mandat" | "lawan" | "others", partyColor: string) 
 export default function ElectedPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
-  const { states, leader, settings, setHasWonElection, journey } = useGameStore();
+  const { states, leader, settings, setHasWonElection, journey, careerProgress } = useGameStore();
   // Representative career: this page is the new game's day one.
   const side = repSide(journey);
   const [reveal, setReveal] = useState(false);
@@ -98,7 +98,7 @@ export default function ElectedPage() {
           <section className="mb-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.10), rgb(var(--bg-rgb) / 0.85))", fontFamily: "Space Mono, monospace" }}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-[10px] font-black tracking-[0.25em]" style={{ color: "var(--gold)" }}>◆ {t(lang, "HARI PERTAMA · PENGGAL 1", "DAY ONE · TERM 1")}</div>
+                <div className="text-[10px] font-black tracking-[0.25em]" style={{ color: "var(--gold)" }}>◆ {t(lang, `HARI PERTAMA · PENGGAL ${careerProgress.term}`, `DAY ONE · TERM ${careerProgress.term}`)}</div>
                 <h2 className="mt-1 text-lg font-black text-white">
                   {side === "government"
                     ? t(lang, `Anda kini ${officeTitle} blok kerajaan.`, `You are now a government-bench ${officeTitle}.`)

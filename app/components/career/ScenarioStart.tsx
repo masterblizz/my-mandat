@@ -35,6 +35,17 @@ export default function ScenarioStart() {
     store.setNomination(seat.id, { type: "leader" });
     store.applyScenarioPack(pack.id);
     if (pack.scope === "prn" && pack.prnCandidateId) useGameStore.getState().journeyAction({ type: "prn-candidate", id: pack.prnCandidateId });
+    // Every pack is a movement challenging for power: the player starts on
+    // day one as an opposition-bench representative in the scenario's
+    // climate, and the pack's objectives are judged at the election that
+    // ends this term.
+    store.updateSettings({ side: "opposition" });
+    useGameStore.getState().setPhase("playing");
+    if (useGameStore.getState().startAsRepresentative()) {
+      useGameStore.setState((state) => ({ journey: { ...state.journey, scenarioPackTerm: state.careerProgress.term + 1 } }));
+      router.push("/elected");
+      return;
+    }
     store.startCampaign();
     router.push("/kawasan");
   }
@@ -58,6 +69,7 @@ export default function ScenarioStart() {
       </div>
       <div className="space-y-3 border border-cyan/20 p-4"><label className="block text-xs text-text-muted">{t(lang, "Nama pemimpin", "Leader name")}<input aria-label={t(lang, "Nama pemimpin senario", "Scenario leader name")} value={name} onChange={event => setName(event.target.value)} maxLength={60} placeholder={parties.find(item => item.id === partyId)?.leader} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white" /></label><label className="block text-xs text-text-muted">{t(lang, "Parti rekaan", "Fictional party")}<select value={partyId} onChange={event => setPartyId(event.target.value)} className="mt-1 w-full border border-cyan/30 bg-[var(--bg)] p-2 text-white">{parties.map(party => <option key={party.id} value={party.id}>{party.name}</option>)}</select></label>
         {/* Sticky so the start button clears the setup page's fixed step footer on laptop-height screens. */}
+        <p className="text-[10px] leading-relaxed text-text-muted">{t(lang, "Anda bermula sebagai wakil rakyat pembangkang yang baru menang kerusi. Objektif senario dinilai pada pilihan raya di hujung penggal.", "You start as a newly elected opposition-bench representative. Scenario objectives are judged at the election that ends the term.")}</p>
         <div className="sticky bottom-[118px] z-[71]"><button onClick={start} className="w-full border px-5 py-3 font-bold" style={{ borderColor: pack.color, background: `${pack.color}12`, color: pack.color }}>{t(lang, "Mulakan senario →", "Start scenario →")}</button></div>
       </div>
     </div>

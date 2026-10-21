@@ -10,7 +10,7 @@ import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../da
 import { getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { buildTermReport, type TermReportRecord } from "../data/termReport";
 import type { ScenarioPackId } from "../data/scenarioPacks";
-import { repSide, REP_QUARTER_GRANT, type RepRank } from "./representative";
+import { electionPersonalVote, homeSeatWon, repSide, withPersonalVote, REP_QUARTER_GRANT, type RepRank } from "./representative";
 import { applyCompletedWorks, cityLedgerForSeats, CITY_COMPLAINT_SENTIMENT, CITY_COMPLAINT_TRUST, CITY_SUPPORT_PER_PROJECT } from "../data/cityEconomy";
 
 export type Chapter = "campaign" | "results" | "formation" | "government" | "opposition" | "rebuilding";
@@ -148,9 +148,8 @@ export function resumeRoute(s: { journey?: Journey; day: number; totalDays: numb
 export function finishElection(s: GameState): Partial<GameState> {
   if (s.day < s.totalDays || s.journey.chapter !== "campaign") return {};
   const outcome = computeElectionOutcome(s.states, s.settings);
-  const home = s.states.find(x => x.id === s.leader.homeState);
-  const seat = home && generateConstituencies(home, s.settings.electionScope === "prn" ? "dun" : "parliament").find(x => x.id === s.leader.homeConstituencyId);
-  const wonOwnSeat = !!seat && seat.mandat >= Math.max(seat.lawan, seat.others);
+  // PRN seats live in the selected negeri, not the leader's flavour home state.
+  const wonOwnSeat = homeSeatWon(s, s.states);
   return { hasWonElection: wonOwnSeat, journey: { ...s.journey, chapter: "results", characterStage: wonOwnSeat ? "representative" : "organiser", outcome, journal: journal(s.journey, wonOwnSeat ? "Anda dipilih sebagai wakil rakyat. Rekod khidmat kini menentukan pengaruh anda." : "Kekalahan tidak menamatkan perjalanan. Bina semula jentera dan kepercayaan di akar umbi.", wonOwnSeat ? "You are elected as a representative. Your service record now determines your influence." : "Defeat does not end the journey. Rebuild organisation and trust from the grassroots.") } };
 }
 export function shiftSupport(s: GameState, delta: number, homeOnly = false) {
@@ -360,7 +359,13 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const delivered = j.pledges.filter(p => p.status === "delivered" && p.term === s.careerProgress.term).length;
     const broken = j.pledges.filter(p => p.status !== "delivered").length;
     const record = Math.max(-10, Math.min(10, (j.trust - 50) / 10 + (j.organisation - 40) / 15 + delivered * 1.5 - broken * (j.chapter === "government" ? 2 : .5)));
-  return { phase: "playing", day: 1, hasWonElection: false, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: shiftSupport(s, record), resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1, playedMinutes: s.careerProgress.playedMinutes ?? 0 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.`, { chapter: "campaign", characterStage: s.careerProgress.term >= 2 ? "legacy" : "candidate", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0, streaks: {} }) };
+    // A representative's own seat is judged on the kawasan they built.
+    const incumbency = j.rank ? electionPersonalVote(s) : null;
+    const swungStates = shiftSupport(s, record);
+    const nextStates = incumbency ? withPersonalVote(swungStates, incumbency.seatState, incumbency.seatId, incumbency.next) : swungStates;
+    const incumbencyMs = incumbency ? ` Undi peribadi di kerusi anda: ${incumbency.next >= 0 ? "+" : ""}${incumbency.next} (prestasi kawasan ${incumbency.performance >= 0 ? "+" : ""}${incumbency.performance}).` : "";
+    const incumbencyEn = incumbency ? ` Personal vote in your seat: ${incumbency.next >= 0 ? "+" : ""}${incumbency.next} (constituency record ${incumbency.performance >= 0 ? "+" : ""}${incumbency.performance}).` : "";
+  return { phase: "playing", day: 1, hasWonElection: false, operations: [], lastEvent: null, opponentLog: [], politicalReactions: [], aiNews: [], alerts: [], states: nextStates, resources: { ...s.resources, funds: s.settings.startingFund, manpower: 400 + j.organisation * 4, mediaBuy: 540 }, careerProgress: { completed: [], month: 1, term: s.careerProgress.term + 1, playedMinutes: s.careerProgress.playedMinutes ?? 0 }, governmentProgress: { activePolicies: [], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } }, journey: log(`Pilihan raya baharu: rekod penggal mengubah sokongan ${record.toFixed(1)} mata. ${broken} janji belum selesai.${incumbencyMs}`, `New election: your term record changes support by ${record.toFixed(1)} points. ${broken} commitments remain unfinished.${incumbencyEn}`, { chapter: "campaign", characterStage: s.careerProgress.term >= 2 ? "legacy" : "candidate", decisions: 3, actionsToday: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, outcome: null, appointments: {}, policies: [], termActions: [], manifestoPackageId: null, resultRecorded: false, records: [...j.records, buildTermReport(s)], publicBudget: 0, streaks: {} }) };
   }
   return {};
 }

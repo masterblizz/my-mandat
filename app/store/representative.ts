@@ -1,6 +1,7 @@
 import type { GameState } from "./gameStore";
 import { generateConstituencies } from "../data/constituencies";
 import { computeElectionOutcome } from "../utils/electionOutcome";
+import { cityLedger } from "../data/cityEconomy";
 import { journal, shiftSupport, type Journey } from "./journey";
 
 // Representative career: a new game starts on the first day after the
@@ -26,11 +27,11 @@ export function repSide(journey: Pick<Journey, "rank" | "chapter">): StartingSid
 
 // In PRN the seat is an N.xxx in the selected negeri, which can differ from
 // the leader's flavour home state.
-function seatStateId(state: GameState) {
+export function seatStateId(state: Pick<GameState, "settings" | "leader">) {
   return state.settings.electionScope === "prn" ? state.settings.prnStateId : state.leader.homeState;
 }
 
-function homeSeatWon(state: GameState, states: GameState["states"]) {
+export function homeSeatWon(state: Pick<GameState, "settings" | "leader">, states: GameState["states"]) {
   const home = states.find((item) => item.id === seatStateId(state));
   const seat = home && generateConstituencies(home, state.settings.electionScope === "prn" ? "dun" : "parliament").find((item) => item.id === state.leader.homeConstituencyId);
   return !!seat && seat.mandat >= Math.max(seat.lawan, seat.others);
@@ -100,6 +101,74 @@ export function startAsRepresentative(state: GameState): Partial<GameState> {
       journal: journal(j,
         `Hari pertama sebagai ${office} ${state.leader.homeConstituencyName} (blok ${sideMs}). Peruntukan pembangunan RM${allocation.toLocaleString()}. Bangunkan kawasan dan pertahankan kerusi pada pilihan raya seterusnya.`,
         `Day one as ${officeEn} for ${state.leader.homeConstituencyName} (${side} bench). Development allocation RM${allocation.toLocaleString()}. Develop the constituency and defend the seat at the next election.`),
+    },
+  };
+}
+
+/**
+ * Incumbent personal vote carried into the next election: half of the
+ * existing incumbency plus a performance term from the kawasan the player
+ * actually built (sentiment, delivered facilities) and public trust. A
+ * neglected seat loses its cushion; a well-served one can survive a bad
+ * national swing.
+ */
+export function electionPersonalVote(state: GameState) {
+  const seatState = seatStateId(state);
+  const seatId = state.leader.homeConstituencyId;
+  const previous = state.states.find((item) => item.id === seatState)?.personalVote?.[seatId] ?? 0;
+  const zones = state.journey.cityZones[seatId] ?? [];
+  const ledger = cityLedger(zones);
+  // Out of office (rebuilding) there is no kawasan record to run on — only
+  // the grassroots organisation and trust rebuilt since losing the seat.
+  const outOfOffice = state.journey.chapter === "rebuilding";
+  const kawasanRecord = outOfOffice ? (state.journey.organisation - 40) * 0.15 : zones.length ? (ledger.avgSentiment - 50) * 0.4 + ledger.built * 0.6 : -4;
+  const performance = Math.max(-15, Math.min(20, kawasanRecord + (state.journey.trust - 50) * 0.1));
+  const next = Math.round((previous * 0.5 + performance) * 10) / 10;
+  return { seatState, seatId, previous, performance: Math.round(performance * 10) / 10, next };
+}
+
+export function withPersonalVote(states: GameState["states"], seatState: string, seatId: string, value: number) {
+  return states.map((item) => item.id === seatState ? { ...item, personalVote: { ...item.personalVote, [seatId]: value } } : item);
+}
+
+/**
+ * After the end-of-term election: a representative who held the seat opens
+ * a new term on day one (bench decided by the result, the kawasan carried
+ * over); one who lost it goes into the rebuilding chapter.
+ */
+export function continueRepresentativeCareer(state: GameState): { patch: Partial<GameState>; route: string } | null {
+  const j = state.journey;
+  if (!j.rank || j.chapter !== "results" || state.day < state.totalDays) return null;
+  const term = state.careerProgress.term;
+  if (!homeSeatWon(state, state.states)) {
+    return {
+      route: "/postmortem",
+      patch: {
+        hasWonElection: false,
+        journey: {
+          ...j, chapter: "rebuilding", characterStage: "organiser", publicBudget: 0, termActions: [],
+          journal: journal(j,
+            `Kerusi ${state.leader.homeConstituencyName} tewas. Bina semula jentera dan kepercayaan untuk merebut kembali kerusi.`,
+            `${state.leader.homeConstituencyName} is lost. Rebuild your organisation and trust to win the seat back.`),
+        },
+      },
+    };
+  }
+  const outcome = j.outcome ?? computeElectionOutcome(state.states, { electionScope: state.settings.electionScope, prnStateId: state.settings.prnStateId });
+  const side: StartingSide = outcome.status === "majority" ? "government" : "opposition";
+  const allocation = REP_OPENING_ALLOCATION[side];
+  return {
+    route: "/elected",
+    patch: {
+      hasWonElection: true,
+      careerProgress: { ...state.careerProgress, month: 1 },
+      journey: {
+        ...j, chapter: side, characterStage: "representative", publicBudget: j.publicBudget + allocation,
+        decisions: 3, actionsToday: [], termActions: [],
+        journal: journal(j,
+          `Dipilih semula di ${state.leader.homeConstituencyName} untuk penggal ${term} (blok ${side === "government" ? "kerajaan" : "pembangkang"}). Peruntukan baharu RM${allocation.toLocaleString()}; pembangunan kawasan diteruskan.`,
+          `Re-elected in ${state.leader.homeConstituencyName} for term ${term} (${side} bench). New allocation RM${allocation.toLocaleString()}; constituency development carries on.`),
+      },
     },
   };
 }

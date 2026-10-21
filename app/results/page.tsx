@@ -638,7 +638,12 @@ export default function ResultsPage() {
             {isPending ? t(lang, "results_page.loading") : t(lang, "results_page.returnToMenu")}
           </button>
           <button
-            onClick={() => navigate(wonOwnSeat ? "/elected" : "/mandate")}
+            onClick={() => {
+              // Representative career: the result opens the next term (seat
+              // held) or the rebuilding chapter (seat lost) — no cabinet talks.
+              const repRoute = useGameStore.getState().continueRepresentativeCareer();
+              navigate(repRoute ?? (wonOwnSeat ? "/elected" : "/mandate"));
+            }}
             disabled={isPending}
             className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
             style={{
@@ -649,7 +654,7 @@ export default function ResultsPage() {
               boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
             }}
           >
-            {isPending ? t(lang, "results_page.loading") : t(lang, "♛ SAHKAN MANDAT", "♛ CONFIRM MANDATE")}
+            {isPending ? t(lang, "results_page.loading") : journey.rank ? t(lang, "▶ PENGGAL SETERUSNYA", "▶ NEXT TERM") : t(lang, "♛ SAHKAN MANDAT", "♛ CONFIRM MANDATE")}
           </button>
           <button
             onClick={handleNewCampaign}

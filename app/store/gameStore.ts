@@ -19,7 +19,7 @@ import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates
 import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
 import { getRankPerks, playerXp } from "../lib/playerRank";
 import { nextAssistantAvatar } from "../lib/assistantAvatar";
-import { startAsRepresentative, type StartingSide } from "./representative";
+import { continueRepresentativeCareer, startAsRepresentative, type StartingSide } from "./representative";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -171,6 +171,8 @@ export interface GameState {
   startCampaign: () => void;
   /** New-game entry point: day one as the elected representative of the player's seat. */
   startAsRepresentative: () => boolean;
+  /** After an election result: new term (seat held) or rebuilding (seat lost). Returns the route, or null for leader runs. */
+  continueRepresentativeCareer: () => string | null;
   addOperation: (op: Operation) => void;
   removeOperation: (id: string) => void;
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
@@ -559,6 +561,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!patch.journey) return false;
     set(patch);
     return true;
+  },
+
+  continueRepresentativeCareer: () => {
+    const next = continueRepresentativeCareer(get());
+    if (!next) return null;
+    set(next.patch);
+    return next.route;
   },
 
   resetGame: () => {
