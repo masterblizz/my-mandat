@@ -37,7 +37,21 @@ export type Zone = {
   infra: number;
   sentiment: number;
   projects: string[];
+  /** Approved projects still under construction (render-only, never persisted). progress is 0..1. */
+  building?: { id: string; progress: number; label?: string }[];
 };
+
+/** Civitas-style data overlay: tints every zone tile by one of its stats. */
+export type CityOverlay = "none" | "sentiment" | "infra" | "welfare" | "economy";
+export const CITY_OVERLAYS: CityOverlay[] = ["none", "sentiment", "infra", "welfare", "economy"];
+
+/** Smooth red -> gold -> green ramp shared by the minimap and the overlay layer. */
+export function scoreTintRGB(value: number): [number, number, number] {
+  const red = [255, 68, 68], gold = [240, 165, 0], green = [0, 255, 136];
+  const v = Math.max(0, Math.min(100, value));
+  const [from, to, p] = v <= 54 ? [red, gold, v / 54] : [gold, green, (v - 54) / 46];
+  return [0, 1, 2].map((i) => Math.round(from[i] + (to[i] - from[i]) * p)) as [number, number, number];
+}
 
 // ── layout constants (ported verbatim from app/kawasan/page.tsx) ────────
 export const PLOT = 240;      // zone tile size
@@ -306,6 +320,9 @@ export type BSpec = {
    * receives its recognition kit (school flag, clinic cross, factory stack…). */
   anchor?: boolean;
   projectId?: string;
+  /** Set while the facility is a construction site (0..1); the site renders instead of the building. */
+  progress?: number;
+  siteLabel?: string;
 };
 
 export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean; bukitBintang: boolean };
@@ -573,7 +590,11 @@ export function zoneBuildings(
   // Reserve real lots for player-approved facilities before dense filler
   // buildings are generated, so an approved school or clinic visibly
   // replaces a site in the zone instead of being lost in a full grid.
-  const projectReserve = Math.min(zone.projects.length, free.length);
+  // Construction sites claim their future lot now, so the finished
+  // facility opens on exactly the site the player watched being built.
+  const pending = zone.building ?? [];
+  const facilityIds = [...zone.projects, ...pending.map((work) => work.id)];
+  const projectReserve = Math.min(facilityIds.length, free.length);
   const reserve = metroCore ? projectReserve : Math.max(2, projectReserve);
   const skyscrapers: BSpec[] = Array.from(
     { length: Math.min(skyscraperCount, Math.max(0, free.length - reserve)) },
@@ -587,12 +608,14 @@ export function zoneBuildings(
   const extras: BSpec[] = Array.from({ length: extraCount }, (_, index) =>
     spec(fillers[(seed + index) % fillers.length], free.pop() as number),
   );
-  const facilities: BSpec[] = zone.projects.map((projectId, index) => {
+  const facilities: BSpec[] = facilityIds.map((projectId, index) => {
     const type = PROJECT_BUILDING[projectId] ?? "plaza";
     const slot = free[index % Math.max(1, free.length)] ?? 4;
+    const work = index >= zone.projects.length ? pending[index - zone.projects.length] : undefined;
     return {
       type, slot, ...jitterFootprint(type, zone.id, slot, density), h: buildingHeight(type, zone),
       icon: PROJECT_ICON[projectId], glow: true, projectId,
+      ...(work ? { progress: work.progress, siteLabel: work.label } : null),
     };
   });
   return [...base, ...skyscrapers, ...extras, ...facilities];

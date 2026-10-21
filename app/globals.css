@@ -257,6 +257,11 @@ button, a, input, select, textarea {
   .city-embedded-assistant__button { height: 54px !important; width: 54px !important; border-radius: 999px; }
   .city-embedded-assistant__button > span:first-child { bottom: 0 !important; }
   .city-embedded-assistant__button > span:last-child { display: none; }
+  /* Government build dock: full-width thumb bar left of the minimap; the
+     zone card rides above it instead of underneath. */
+  .city-build-dock { left: 10px !important; right: 90px; width: auto !important; transform: none !important; bottom: 12px !important; }
+  .city-build-dock .city-build-dock__body { max-height: 34dvh; }
+  .kw-page-content .absolute.bottom-20.left-4.city-zone-card--raised { bottom: 70px; }
 }
 
 /* "View city" toggle on /kawasan: hides every HUD box (briefing, onboarding,

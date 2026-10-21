@@ -5,13 +5,15 @@
 // rig, and an optional dev perf probe. Shared by the /kawasan-3d sandbox
 // harness (Scene.tsx) and the drop-in City3DMapGL.
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { CameraRig, type CamState } from "./CameraRig";
 import {
   InstancedBoxes, InstancedModel, useModelAvailability, type BuildingInstance,
 } from "./models";
 import { FunctionalBuildingDetails, MasjidComplexes, ProjectLandmarks } from "./buildingDetails";
+import { ConstructionSites, type ConstructionSite } from "./construction";
 import { RoofDetails } from "./roofDetails";
 import { UtilityLines } from "./utilities";
 import {
@@ -71,8 +73,8 @@ const DESTINATION_LABEL_LAYOUT: Record<string, [number, number, number]> = {
 import {
   placeZones, emptyCells, roadsV, roadsH, worldCentre, worldSize,
   zoneGroundColor, zoneBuildings, slotPos, BUILDING_COLOR, FLAT_TYPES,
-  PLOT, ROAD_GAP, TOD_ENV, pickVariantIndex, METRO_DENSITY,
-  type Zone, type BType, type CellPlacement, type SeatTraits, type Tod,
+  PLOT, ROAD_GAP, TOD_ENV, pickVariantIndex, METRO_DENSITY, scoreTintRGB,
+  type Zone, type BType, type CellPlacement, type SeatTraits, type Tod, type CityOverlay,
 } from "./cityData";
 import type { MutableRefObject } from "react";
 
@@ -344,8 +346,9 @@ function Buildings({
 }) {
   const { available } = useModelAvailability();
 
-  const groups = useMemo(() => {
+  const { groups, sites } = useMemo(() => {
     const byType = new Map<BType, BuildingInstance[]>();
+    const sites: ConstructionSite[] = [];
     // Mosques are civic landmarks, not repeated filler. A city has one
     // masjid precinct per 5x5 neighbourhood; smaller out-of-town maps use
     // the wider 7x7 catchment instead.
@@ -408,6 +411,10 @@ function Buildings({
           if (mosqueCells.has(catchment)) continue;
           mosqueCells.add(catchment);
         }
+        if (spec.progress !== undefined) {
+          sites.push({ key: `${zone.id}:${spec.slot}:${spec.projectId}`, x: buildingX, z: buildingZ, w: spec.w, d: spec.d, h: Math.max(spec.h, 6), projectId: spec.projectId, progress: spec.progress, label: spec.siteLabel });
+          continue;
+        }
         const flat = FLAT_TYPES.includes(spec.type);
         // SILUET KL (item 21): at metro grid sizes, vertical BTypes taper
         // radially toward the edge so the skyline reads as one peak. No-op
@@ -431,7 +438,7 @@ function Buildings({
         else byType.set(spec.type, [inst]);
       }
     }
-    return Array.from(byType.entries());
+    return { groups: Array.from(byType.entries()), sites };
   }, [placed, gridSize, density, traits, buildingBudget, claimed, notchByCell]);
 
   return (
@@ -505,6 +512,7 @@ function Buildings({
       })}
       <FunctionalBuildingDetails groups={groups} groundY={GROUND_Y} />
       <ProjectLandmarks items={groups.flatMap(([, items]) => items.filter((item) => item.projectId))} groundY={GROUND_Y} />
+      <ConstructionSites sites={sites} groundY={GROUND_Y} winLit={winLit} />
       <RoofDetails
         items={groups.filter(([type]) => type === "house" || type === "terrace" || type === "kampung").flatMap(([, items]) => items)}
         groundY={GROUND_Y}
@@ -556,10 +564,41 @@ function PerfProbe({ onSample }: { onSample: (s: PerfSample) => void }) {
   return null;
 }
 
+// Data overlay: one instanced translucent slab per developed tile, raised
+// just above the ground so it reads between buildings from the city camera.
+// Colour = the chosen zone stat on the shared red→gold→green ramp.
+const OVERLAY_SLAB_H = 2.4;
+function OverlayLayer({ placed, overlay }: { placed: CellPlacement[]; overlay: Exclude<CityOverlay, "none"> }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const m = new THREE.Matrix4();
+    const c = new THREE.Color();
+    placed.forEach(({ zone, cx, cz }, i) => {
+      m.makeTranslation(cx, TILE_H + OVERLAY_SLAB_H / 2 + 0.3, cz);
+      mesh.setMatrixAt(i, m);
+      const [r, g, b] = scoreTintRGB(zone[overlay]);
+      mesh.setColorAt(i, c.setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace));
+    });
+    mesh.count = placed.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [placed, overlay]);
+  if (!placed.length) return null;
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, placed.length]} renderOrder={5} raycast={() => null}>
+      <boxGeometry args={[PLOT - 10, OVERLAY_SLAB_H, PLOT - 10]} />
+      <meshBasicMaterial transparent opacity={0.62} depthWrite={false} toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, landmarkModels, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination,
+  buildingBudget, larges, claimed, landmarkModels, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none",
 }: {
+  overlay?: CityOverlay;
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
   foliageDensity: number;
@@ -664,6 +703,7 @@ function Grid({
           onSelect={onSelect}
         />
       ))}
+      {overlay !== "none" && <OverlayLayer placed={placed} overlay={overlay} />}
       {irregularRoads && <BukitBintangDistricts gridSize={gridSize} night={winLit} />}
       <Buildings placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} tod={tod} foliageDensity={foliageDensity} buildingBudget={buildingBudget} claimed={claimed} notchByCell={notchByCell} />
       <LargeBuildings larges={larges} onSelect={onSelect} winLit={winLit} />
@@ -821,8 +861,10 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
-  soundEnabled = false, festivals = [], lang = "ms", destinationTags, showAllDestinationTags = false, onEnterDestination,
+  soundEnabled = false, festivals = [], lang = "ms", destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none",
 }: {
+  /** Civitas-style stat overlay tinting every zone tile. */
+  overlay?: CityOverlay;
   zones: Zone[];
   gridSize: number;
   density: number;
@@ -877,9 +919,16 @@ export function CityScene({
   // Task B: a few large buildings claim an N×M block; `claimed` holds
   // those cells so per-cell buildings / sidewalks / trees / lamps skip
   // them. Deterministic from `placed` — recomputed only on layout change.
+  // Zones the player has developed (built or building facilities) keep
+  // their own lots: a landmark or large complex claiming the cell would
+  // hide the facility the player paid for and is watching go up.
+  const playerCells = useMemo(
+    () => new Set(placed.filter((p) => p.zone.projects.length || p.zone.building?.length).map((p) => `${p.col},${p.row}`)),
+    [placed],
+  );
   const { larges, claimed: largeClaimed } = useMemo(
-    () => reserveLargeFootprints(placed, gridSize),
-    [placed, gridSize],
+    () => reserveLargeFootprints(placed, gridSize, playerCells),
+    [placed, gridSize, playerCells],
   );
   const visibleLarges = useMemo(
     () => traits.bukitBintang ? larges.filter((large) =>
@@ -902,7 +951,7 @@ export function CityScene({
     if (gridSize < 8 || traits.bukitBintang) return [];
     const mid = (gridSize - 1) / 2;
     const eligible = placed
-      .filter((p) => !baseClaimed.has(`${p.col},${p.row}`))
+      .filter((p) => !baseClaimed.has(`${p.col},${p.row}`) && !playerCells.has(`${p.col},${p.row}`))
       .sort((a, b) => Math.hypot(a.col - mid, a.row - mid) - Math.hypot(b.col - mid, b.row - mid));
     const picks = [eligible[0], eligible[Math.min(6, eligible.length - 1)], eligible[Math.min(18, eligible.length - 1)]];
     return picks.filter((p): p is CellPlacement => Boolean(p)).map((p, index) => ({
@@ -912,7 +961,7 @@ export function CityScene({
       z: p.cz,
       rotation: index === 2 ? Math.PI / 2 : index === 1 ? Math.PI : 0,
     }));
-  }, [placed, gridSize, traits.bukitBintang, baseClaimed]);
+  }, [placed, gridSize, traits.bukitBintang, baseClaimed, playerCells]);
   const claimed = useMemo(() => {
     const s = new Set(baseClaimed);
     const byId = new Map(placed.map((p) => [p.zone.id, p]));
@@ -994,6 +1043,7 @@ export function CityScene({
         destinationTags={destinationTags}
         showAllDestinationTags={showAllDestinationTags}
         onEnterDestination={onEnterDestination}
+        overlay={overlay}
       />
       {!traits.bukitBintang && <>
         <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />

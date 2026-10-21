@@ -22,7 +22,8 @@ import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
   worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
   TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
-  type Zone, type SeatTraits, type Tod,
+  CITY_OVERLAYS, scoreTintRGB,
+  type Zone, type SeatTraits, type Tod, type CityOverlay,
 } from "./cityData";
 import { PostFX } from "./postfx";
 import { activeFestivals, malaysiaDateKey } from "./festivals";
@@ -57,6 +58,19 @@ export type City3DMapGLProps = {
   initialCameraDistance?: number;
   /** Start the camera at this pitch (degrees from straight down; clamped like a drag). */
   initialCameraPitch?: number;
+  /** Stat overlay (controlled). Omit both to let the map own it via its ▦ button. */
+  overlay?: CityOverlay;
+  onOverlayChange?: (overlay: CityOverlay) => void;
+  /** Recentre the camera on a zone without the focus/enter semantics of focusZoneId. */
+  panToZone?: { id: string; at: number } | null;
+};
+
+const OVERLAY_LABEL: Record<CityOverlay, [string, string]> = {
+  none: ["TIADA", "OFF"],
+  sentiment: ["SENTIMEN", "SENTIMENT"],
+  infra: ["INFRA", "INFRA"],
+  welfare: ["RAKYAT", "WELFARE"],
+  economy: ["EKONOMI", "ECONOMY"],
 };
 
 
@@ -64,22 +78,21 @@ type TrafficMode = "auto" | "peak" | "normal" | "light";
 const TRAFFIC_MODES: TrafficMode[] = ["auto", "peak", "normal", "light"];
 const TRAFFIC_FIXED: Record<Exclude<TrafficMode, "auto">, number> = { peak: 1, normal: 0.5, light: 0.12 };
 
-// Ported from scoreTintRGB() in app/kawasan/page.tsx — smooth red->gold->green.
-const TINT_RED = [255, 68, 68] as const;
-const TINT_GOLD = [240, 165, 0] as const;
-const TINT_GREEN = [0, 255, 136] as const;
 function scoreTint(value: number): string {
-  const v = Math.max(0, Math.min(100, value));
-  const [from, to, p] = v <= 54 ? [TINT_RED, TINT_GOLD, v / 54] : [TINT_GOLD, TINT_GREEN, (v - 54) / 46];
-  const c = (i: number) => Math.round(from[i] + (to[i] - from[i]) * p);
-  return `${c(0)},${c(1)},${c(2)}`;
+  return scoreTintRGB(value).join(",");
 }
 
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
   gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, showAllDestinationTags = false, onEnterDestination,
-  children, cameraTargetRef, initialCameraDistance, initialCameraPitch,
+  children, cameraTargetRef, initialCameraDistance, initialCameraPitch, overlay: overlayProp, onOverlayChange, panToZone,
 }: City3DMapGLProps) {
+  const [ownOverlay, setOwnOverlay] = useState<CityOverlay>("none");
+  const overlay = overlayProp ?? ownOverlay;
+  const cycleOverlay = useCallback(() => {
+    const next = CITY_OVERLAYS[(CITY_OVERLAYS.indexOf(overlay) + 1) % CITY_OVERLAYS.length];
+    if (onOverlayChange) onOverlayChange(next); else setOwnOverlay(next);
+  }, [overlay, onOverlayChange]);
   const hudRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<CamState>(clampCam({ ...CAM_DEFAULT, rx: initialCameraPitch ?? CAM_DEFAULT.rx }));
   const movedRef = useRef(false);
@@ -252,6 +265,12 @@ export default function City3DMapGL({
     clampCam(camRef.current);
   }, [focusZoneId, cellByZoneId, panToCell]);
 
+  useEffect(() => {
+    if (!panToZone) return;
+    const cell = cellByZoneId.get(panToZone.id);
+    if (cell) panToCell(cell.col, cell.row);
+  }, [panToZone, cellByZoneId, panToCell]);
+
   // zone-0 is always the Pusat Bandar flagship in makeZones() — mark it
   // with a steady landmark beacon (mirrors the CSS isPrimary beacon).
   const landmarkZoneId = zones.some((z) => z.id === "zone-0") ? "zone-0" : zones[0]?.id;
@@ -332,13 +351,20 @@ export default function City3DMapGL({
           destinationTags={destinationTags}
           showAllDestinationTags={showAllDestinationTags}
           onEnterDestination={onEnterDestination}
+          overlay={overlay}
         />
         {children}
         <PostFX tod={tod} quality={quality} />
       </Canvas>
 
       {/* score legend (top-left) — hidden when the container is phone-narrow */}
-      {!compact && (
+      {overlay !== "none" ? (
+        <div style={{ ...css.legend, ...css.overlayLegend, ...(compact ? { top: 50, left: 8, width: 92 } : null) }}>
+          <span style={{ color: "#facc15" }}>▦ {t(lang, "LAPISAN", "OVERLAY")} · {t(lang, ...OVERLAY_LABEL[overlay])}</span>
+          <span style={css.overlayRamp} />
+          <span style={{ display: "flex", justifyContent: "space-between" }}><span>0</span><span>54</span><span>100</span></span>
+        </div>
+      ) : !compact && (
         <div style={css.legend}>
           {([
             ["#22c55e", "kawasan_page.scoreLegendGood"],
@@ -370,6 +396,9 @@ export default function City3DMapGL({
         </button>
         <button type="button" aria-label="Cycle traffic density" style={compact ? css.btnSm : css.btnWide} onClick={cycleTraffic}>
           🚗{compact ? "" : ` ${trafficMode === "auto" ? `AUTO·${trafficWord}` : trafficWord}`}
+        </button>
+        <button type="button" aria-label={t(lang, "Tukar lapisan data", "Cycle data overlay")} aria-pressed={overlay !== "none"} style={{ ...(compact ? css.btnSm : css.btnWide), ...(overlay !== "none" ? css.btnActive : null) }} onClick={cycleOverlay}>
+          ▦{compact ? "" : ` ${t(lang, ...OVERLAY_LABEL[overlay])}`}
         </button>
         <button type="button" aria-label="Toggle city sound" style={compact ? css.btnSm : css.btn} onClick={() => setSoundEnabled((v) => !v)}>
           {soundEnabled ? "🔊" : "🔇"}
@@ -492,6 +521,9 @@ const ctrlBox: CSSProperties = {
 };
 const css: Record<string, CSSProperties> = {
   legend: { position: "absolute", left: 12, top: 12, display: "flex", flexDirection: "column", gap: 3, font: "700 9px system-ui, sans-serif", letterSpacing: "0.12em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },
+  overlayLegend: { width: 150, padding: "6px 8px", background: "rgba(3,8,15,0.86)", border: "1px solid rgba(250,204,21,0.45)", color: "#cbd5e1" },
+  overlayRamp: { display: "block", height: 6, background: "linear-gradient(90deg, rgb(255,68,68), rgb(240,165,0) 54%, rgb(0,255,136))" },
+  btnActive: { borderColor: "rgba(250,204,21,0.8)", color: "#facc15", boxShadow: "0 0 12px rgba(250,204,21,0.25)" },
   legendRow: { display: "flex", alignItems: "center", gap: 5 },
   legendSwatch: { display: "block", width: 14, height: 6 },
   controls: { position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" },

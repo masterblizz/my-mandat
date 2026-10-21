@@ -10,6 +10,7 @@ import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../da
 import { getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { buildTermReport, type TermReportRecord } from "../data/termReport";
 import type { ScenarioPackId } from "../data/scenarioPacks";
+import { applyCompletedWorks, cityLedgerForSeats, CITY_COMPLAINT_SENTIMENT, CITY_COMPLAINT_TRUST, CITY_SUPPORT_PER_PROJECT } from "../data/cityEconomy";
 
 export type Chapter = "campaign" | "results" | "formation" | "government" | "opposition" | "rebuilding";
 export type Issue = "flood" | "clinic" | "jobs";
@@ -301,14 +302,17 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const month = Math.min(60, s.careerProgress.month + 3);
     const delivered = j.pledges.filter(p => p.status === "funded" && p.remaining === 1).length;
     const completedWorks = j.construction.filter(p => p.remaining === 1);
-    const cityZones = Object.fromEntries(Object.entries(j.cityZones).map(([seat, zones]) => [seat, zones.map(zone => {
-      let next = { ...zone, projects: [...zone.projects] };
-      for (const work of completedWorks.filter(w => w.seat === seat && w.zone === zone.id)) {
-        next = { ...next, [work.target]: Math.min(100, next[work.target] + work.boost), projects: [...next.projects, work.project] };
-      }
-      next.sentiment = Math.round((next.infra + next.welfare + next.economy) / 3);
-      return next;
-    })]));
+    const cityZones = Object.fromEntries(Object.entries(j.cityZones).map(([seat, zones]) => [seat, applyCompletedWorks(zones, j.construction, seat)]));
+    // City treasury: grant + local tax − facility upkeep, booked on the
+    // post-completion city so newly delivered facilities start costing now.
+    const governing = j.chapter === "government";
+    const ledger = cityLedgerForSeats(cityZones);
+    const hasCity = Object.keys(cityZones).length > 0;
+    const cityIncome = governing ? (hasCity ? ledger.net : ledger.grant) : 0;
+    const complaints = governing && hasCity && ledger.avgSentiment < CITY_COMPLAINT_SENTIMENT ? CITY_COMPLAINT_TRUST : 0;
+    const citySupport = governing ? Math.round(completedWorks.length * CITY_SUPPORT_PER_PROJECT * 100) / 100 : 0;
+    const cityMs = governing ? ` Perbendaharaan bandar ${cityIncome >= 0 ? "+" : "−"}RM${Math.abs(cityIncome).toLocaleString()} (geran RM${ledger.grant.toLocaleString()}, cukai RM${(hasCity ? ledger.tax : 0).toLocaleString()}, senggaraan −RM${(hasCity ? ledger.upkeep : 0).toLocaleString()}).${citySupport ? ` Kemudahan siap: sokongan tempatan +${citySupport}.` : ""}${complaints ? ` Rungutan penduduk: sentimen bandar ${ledger.avgSentiment}% (kepercayaan −${complaints}).` : ""}` : "";
+    const cityEn = governing ? ` City treasury ${cityIncome >= 0 ? "+" : "−"}RM${Math.abs(cityIncome).toLocaleString()} (grant RM${ledger.grant.toLocaleString()}, tax RM${(hasCity ? ledger.tax : 0).toLocaleString()}, upkeep −RM${(hasCity ? ledger.upkeep : 0).toLocaleString()}).${citySupport ? ` Facilities delivered: local support +${citySupport}.` : ""}${complaints ? ` Resident complaints: city sentiment ${ledger.avgSentiment}% (trust −${complaints}).` : ""}` : "";
     const policies = POLICY_DATA.filter(p => j.termActions.includes(`policy:${p.id}`));
     const instability = j.stability < 40 ? 3 : 0;
     const effectiveCabinetQuality = j.cabinetQuality - coalitionCabinetPenalty(s);
@@ -332,10 +336,10 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const representationTrust = j.chapter === "government" ? cabinetBalance.trustDelta : 0;
     const loyaltyStability = j.chapter === "government" ? cabinetBalance.stabilityDelta : 0;
     const expectations = expectationDrag(j);
-    const trust = Math.max(0, Math.min(100, j.trust - expectations + delivered * 6 + completedWorks.length * 2 + policies.reduce((n, p) => n + p.trust, 0) + appointedBonus + representationTrust - instability - relationshipPressure - defectionPenalty));
+    const trust = Math.max(0, Math.min(100, j.trust - expectations + delivered * 6 + completedWorks.length * 2 + policies.reduce((n, p) => n + p.trust, 0) + appointedBonus + representationTrust - instability - relationshipPressure - defectionPenalty - complaints));
     const defectorNames = defectors.map(id => PARTY_MEMBERS.find(member => member.id === id)?.name ?? id);
-    return { careerProgress: { ...s.careerProgress, month, completed: Array.from(new Set([...s.careerProgress.completed, ...(delivered ? ["shadow-or-govern"] : []), ...(j.organisation >= 65 ? ["prk-machine"] : [])])) },
-      journey: log(`Suku tahun selesai: ${delivered + completedWorks.length} projek siap. Kepercayaan ${j.trust} → ${trust}.${expectations ? ` Jangkaan rakyat meningkat (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} meninggalkan pentadbiran.` : ""}`, `Quarter complete: ${delivered + completedWorks.length} projects delivered. Trust ${j.trust} → ${trust}.${expectations ? ` Public expectations rise (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} left the administration.` : ""}`, { trust, cityZones, appointments, ministerLoyalty, ministerIncidents: [...j.ministerIncidents, ...defectorNames.map(name => `defection:${s.careerProgress.term}:${month}:${name}`)], construction: j.construction.filter(w => w.remaining > 1).map(w => ({ ...w, remaining: w.remaining - 1 })), publicBudget: j.publicBudget + (j.chapter === "government" ? 100000 : 0), streaks: rollStreaks(j.streaks, j.termActions, TERM_REPEATABLES), stability: Math.max(0, Math.min(100, j.stability + policies.reduce((n, p) => n + p.stability, 0) + loyaltyStability - relationshipPressure - defectors.length * 5)), termActions: [], pledges: j.pledges.map(p => p.status === "funded" ? { ...p, remaining: p.remaining - 1, status: p.remaining <= 1 ? "delivered" : "funded" } : p) }) };
+    return { ...(citySupport ? { states: shiftSupport(s, citySupport, true) } : {}), careerProgress: { ...s.careerProgress, month, completed: Array.from(new Set([...s.careerProgress.completed, ...(delivered ? ["shadow-or-govern"] : []), ...(j.organisation >= 65 ? ["prk-machine"] : [])])) },
+      journey: log(`Suku tahun selesai: ${delivered + completedWorks.length} projek siap. Kepercayaan ${j.trust} → ${trust}.${expectations ? ` Jangkaan rakyat meningkat (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} meninggalkan pentadbiran.` : ""}${cityMs}`, `Quarter complete: ${delivered + completedWorks.length} projects delivered. Trust ${j.trust} → ${trust}.${expectations ? ` Public expectations rise (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} left the administration.` : ""}${cityEn}`, { trust, cityZones, appointments, ministerLoyalty, ministerIncidents: [...j.ministerIncidents, ...defectorNames.map(name => `defection:${s.careerProgress.term}:${month}:${name}`)], construction: j.construction.filter(w => w.remaining > 1).map(w => ({ ...w, remaining: w.remaining - 1 })), publicBudget: Math.max(0, j.publicBudget + cityIncome), streaks: rollStreaks(j.streaks, j.termActions, TERM_REPEATABLES), stability: Math.max(0, Math.min(100, j.stability + policies.reduce((n, p) => n + p.stability, 0) + loyaltyStability - relationshipPressure - defectors.length * 5)), termActions: [], pledges: j.pledges.map(p => p.status === "funded" ? { ...p, remaining: p.remaining - 1, status: p.remaining <= 1 ? "delivered" : "funded" } : p) }) };
   }
   if (action.type === "next-election") {
     if (!term || s.careerProgress.month < 60) return {};

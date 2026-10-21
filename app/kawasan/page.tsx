@@ -18,6 +18,9 @@ import { useLang, t, type Lang } from "../i18n/useLang";
 import { generateConstituencies } from "../data/constituencies";
 import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
+import BuildDock, { type DockCard, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
+import { applyCompletedWorks, cityLedger } from "../data/cityEconomy";
+import type { CityOverlay } from "../kawasan-3d/cityData";
 
 
 // ── 3D city map: WebGL cutover ────────────────────────────────────────
@@ -84,6 +87,8 @@ type Zone = {
   infra: number;
   sentiment: number;
   projects: string[];
+  /** Render-only construction sites for the 3D map; never persisted. */
+  building?: { id: string; progress: number; label?: string }[];
 };
 
 type ZoneStat = "infra" | "welfare" | "economy";
@@ -2595,7 +2600,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
 export default function KawasanDevelopmentPage() {
   const router = useRouter();
   const lang = useLang();
-  const { states, leader, resources, settings, operations, addOperation, setLeader, journey, journeyAction, day, totalDays } = useGameStore();
+  const { states, leader, resources, settings, operations, addOperation, setLeader, journey, journeyAction, day, totalDays, careerProgress } = useGameStore();
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
   const [notice, setNotice] = useState<string | null>(null);
@@ -2616,6 +2621,9 @@ export default function KawasanDevelopmentPage() {
   // every overlay box at once to see the city, or close the zone card alone.
   const [hudHidden, setHudHidden] = useState(false);
   const [zonePanelOpen, setZonePanelOpen] = useState(true);
+  const [buildTab, setBuildTab] = useState<DockTab>("all");
+  const [overlay, setOverlay] = useState<CityOverlay>("none");
+  const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
@@ -2704,6 +2712,29 @@ export default function KawasanDevelopmentPage() {
     const timer = setTimeout(() => setCelebration(null), 2600);
     return () => clearTimeout(timer);
   }, [celebration]);
+
+  // The quarter reducer books treasury/upkeep against journey.cityZones, so
+  // persist the generated city as soon as the term starts — otherwise a
+  // player who never builds would see a tax forecast the quarter can't pay.
+  useEffect(() => {
+    if (journey.chapter !== "government" || !zones.length || journey.cityZones[seatId]) return;
+    useGameStore.setState((state) => state.journey.cityZones[seatId] ? {} : { journey: { ...state.journey, cityZones: { ...state.journey.cityZones, [seatId]: zones } } });
+  }, [journey.chapter, journey.cityZones, seatId, zones]);
+
+  const seatWorks = useMemo(() => journey.construction.filter((work) => work.seat === seatId), [journey.construction, seatId]);
+  const workProgress = (remaining: number) => Math.max(0.15, 1 - remaining / 2.5);
+  // Same zones plus live construction sites — passed only to the 3D map so
+  // the render-only `building` field can never leak into a save.
+  const mapZones = useMemo(() => zones.map((zone) => {
+    const works = seatWorks.filter((work) => work.zone === zone.id);
+    if (!works.length) return zone;
+    return { ...zone, building: works.map((work) => ({
+      id: work.project,
+      progress: workProgress(work.remaining),
+      label: `${t(lang, `kawasan_page.projectTitle_${work.project}`)} · ${t(lang, `${work.remaining} SUKU LAGI`, `${work.remaining}Q LEFT`)}`,
+    })) };
+  }), [zones, seatWorks, lang]);
+  const forecast = useMemo(() => cityLedger(applyCompletedWorks(zones, journey.construction, seatId)), [zones, journey.construction, seatId]);
 
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
   const cityDestinationTags = useMemo(() => {
@@ -2821,6 +2852,7 @@ export default function KawasanDevelopmentPage() {
     } }));
     setSelectedZoneId(targetZone.id);
     setPendingProjectId(null);
+    setOverlay("none");
 
     setNotice(t(lang, "Pembinaan bermula. Siap dalam dua suku tahun.", "Construction started. Completion in two quarters."));
   }
@@ -2829,7 +2861,6 @@ export default function KawasanDevelopmentPage() {
     setSelectedZoneId(zoneId);
     setFocusedDestination(null);
     setFocusZoneId(null);
-    setBuildMenuOpen(false);
     setZonePanelOpen(true);
     setHudHidden(false);
     if (pendingProject) runProject(pendingProject, zoneId);
@@ -2883,12 +2914,75 @@ export default function KawasanDevelopmentPage() {
     window.setTimeout(() => setLaunchedType((cur) => (cur === type ? null : cur)), 1100);
   }
 
+  function focusZone(zoneId: string) {
+    setSelectedZoneId(zoneId);
+    setPanToZone({ id: zoneId, at: Date.now() });
+  }
+
+  function pickProject(projectId: string) {
+    const project = PROJECTS.find((item) => item.id === projectId);
+    if (!project) return;
+    setPendingProjectId(project.id);
+    // Civitas-style: show where the city actually needs this kind of project.
+    setOverlay(project.target);
+    setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject"));
+  }
+
+  function advanceQuarter() {
+    const before = useGameStore.getState();
+    if (before.careerProgress.month >= 60) { router.push("/report-card"); return; }
+    const finishing = before.journey.construction.filter((work) => work.seat === seatId && work.remaining === 1);
+    journeyAction({ type: "quarter" });
+    const after = useGameStore.getState();
+    if (after.careerProgress.month === before.careerProgress.month) return;
+    const delta = after.journey.publicBudget - before.journey.publicBudget;
+    if (finishing[0]) {
+      setCelebration({ zoneId: finishing[0].zone, at: Date.now() });
+      focusZone(finishing[0].zone);
+    }
+    setNotice(t(lang,
+      `Suku tahun selesai · ${finishing.length} projek siap · bajet ${delta >= 0 ? "+" : "−"}RM ${formatNumber(Math.abs(delta))}`,
+      `Quarter complete · ${finishing.length} projects delivered · budget ${delta >= 0 ? "+" : "−"}RM ${formatNumber(Math.abs(delta))}`));
+  }
+
   function saveManifesto() {
     setLeader({ manifesto: manifestoDraft });
     setManifestoSaved(true);
     setJustSaved(true);
     window.setTimeout(() => setJustSaved(false), 1400);
   }
+
+  const termEnded = careerProgress.month >= 60;
+  const projectTitle = (id: string) => t(lang, `kawasan_page.projectTitle_${id}`);
+  const dockCards: DockCard[] = PROJECTS.map((project) => {
+    const built = selectedZone?.projects.includes(project.id) ?? false;
+    const building = seatWorks.some((work) => work.zone === selectedZone?.id && work.project === project.id);
+    const locked = built || building ? null : lockReason(project, selectedZone, lang);
+    const status: DockCard["status"] = built ? "built" : building ? "building" : journey.publicBudget < project.cost ? "budget" : locked ? "locked" : "ready";
+    const note = status === "built" ? t(lang, "Sudah dibina di zon ini", "Already built in this zone")
+      : status === "building" ? t(lang, "Sedang dibina di zon ini", "Under construction in this zone")
+      : status === "budget" ? t(lang, "kawasan_page.insufficientBudget")
+      : locked ?? t(lang, "Klik, kemudian pilih zon", "Click, then choose a zone");
+    return { id: project.id, icon: project.icon, title: projectTitle(project.id), cost: project.cost, target: project.target, targetLabel: statLabel(lang, project.target), boost: project.boost, status, note };
+  });
+  const dockProblems: DockProblem[] = zones
+    .map((zone) => ({ zone, stat: weakestStat(zone) }))
+    .filter(({ zone, stat }) => zone[stat] < 45)
+    .sort((a, b) => a.zone[a.stat] - b.zone[b.stat])
+    .slice(0, 6)
+    .map(({ zone, stat }) => {
+      const suggestion = PROJECTS.find((project) => project.target === stat && !zone.projects.includes(project.id)
+        && !seatWorks.some((work) => work.zone === zone.id && work.project === project.id) && !lockReason(project, zone, lang));
+      return {
+        zoneId: zone.id, zoneLabel: zoneName(lang, zone), zoneIcon: zoneIcon(zone.kind), stat, statLabel: statLabel(lang, stat), value: zone[stat],
+        suggestion: suggestion && { id: suggestion.id, icon: suggestion.icon, title: projectTitle(suggestion.id), cost: suggestion.cost, affordable: journey.publicBudget >= suggestion.cost },
+      };
+    });
+  const dockWorks: DockWork[] = seatWorks.map((work) => {
+    const zone = zones.find((item) => item.id === work.zone);
+    return { key: `${work.zone}:${work.project}`, zoneId: work.zone, zoneLabel: zone ? zoneName(lang, zone) : work.zone, icon: PROJECTS.find((p) => p.id === work.project)?.icon ?? "🏗", title: projectTitle(work.project), remaining: work.remaining, progress: workProgress(work.remaining) };
+  });
+  const dockOpen = unlocked && buildMenuOpen;
 
   if (!ownSeat) {
     return (
@@ -2918,7 +3012,7 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap ? (
-                <City3DMapGL zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
+                <City3DMapGL zones={mapZones} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}
@@ -2938,12 +3032,32 @@ export default function KawasanDevelopmentPage() {
               <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded cityContext={selectedZone ? { selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall } : undefined} />
               <CampaignBriefing />
-              {selectedZone && !zonePanelOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
-              {selectedZone && zonePanelOpen && <div className="city-hud-box absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
+              {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
+              {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box ${unlocked ? "city-zone-card--raised" : ""} absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div><button type="button" onClick={() => { setZonePanelOpen(false); setBuildMenuOpen(false); }} className="shrink-0 px-1 text-sm leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup panel zon", "Close zone panel")}>×</button></div>
-                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setBuildMenuOpen((open) => !open)} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>BINA</button>}</div>
+                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setBuildMenuOpen((open) => !open)} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{t(lang, "BINA", "BUILD")}</button>}</div>
               </div>}
-              {buildMenuOpen && selectedZone && <div className="city-hud-box absolute bottom-20 left-4 z-30 w-[min(470px,calc(100%-32px))] border p-3 shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .55)", background: "rgb(var(--bg-rgb) / .96)", backdropFilter: "blur(14px)", fontFamily: "'Space Mono', monospace" }}><div className="mb-2 flex items-center justify-between"><b className="text-[10px] tracking-widest text-gold">{t(lang, "PILIH PROJEK UNTUK ZON", "CHOOSE A PROJECT FOR ZONE")}</b><button type="button" onClick={() => setBuildMenuOpen(false)} className="text-text-muted">×</button></div><div className="grid grid-cols-3 gap-1 sm:grid-cols-4">{PROJECTS.filter((project) => !selectedZone.projects.includes(project.id)).slice(0, 12).map((project) => <button key={project.id} type="button" onClick={() => { setPendingProjectId(project.id); setBuildMenuOpen(false); setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject")); }} className="border p-2 text-left" style={{ borderColor: "rgb(var(--cyan-rgb) / .2)", background: "rgb(var(--bg-rgb) / .7)" }}><span>{project.icon}</span><span className="mt-1 block text-[8px] font-black text-white">{t(lang, `kawasan_page.projectTitle_${project.id}`)}</span><span className="mt-1 block text-[8px] text-gold">RM {formatNumber(project.cost)}</span></button>)}</div></div>}
+              {unlocked && <BuildDock
+                lang={lang}
+                open={buildMenuOpen}
+                onToggle={() => setBuildMenuOpen((value) => !value)}
+                tab={buildTab}
+                onTab={setBuildTab}
+                budget={journey.publicBudget}
+                forecast={forecast}
+                month={careerProgress.month}
+                termEnded={termEnded}
+                cards={dockCards}
+                problems={dockProblems}
+                works={dockWorks}
+                selectedZone={selectedZone ? { label: zoneName(lang, selectedZone), icon: zoneIcon(selectedZone.kind), sentiment: selectedZone.sentiment, stats: STAT_ORDER.map((key) => ({ key, label: statLabel(lang, key), value: selectedZone[key] })) } : null}
+                pending={pendingProject ? { icon: pendingProject.icon, title: projectTitle(pendingProject.id) } : null}
+                onPickProject={pickProject}
+                onCancelPlacement={() => setPendingProjectId(null)}
+                onBuildSuggested={(zoneId, projectId) => { const project = PROJECTS.find((item) => item.id === projectId); if (project) { runProject(project, zoneId); focusZone(zoneId); } }}
+                onFocusZone={focusZone}
+                onAdvanceQuarter={advanceQuarter}
+              />}
             </div>
           </TacticalPanel>
 

@@ -91,6 +91,8 @@ function tileCentre(index: number, gridSize: number): number {
 export function reserveLargeFootprints(
   placed: CellPlacement[],
   gridSize: number,
+  /** "col,row" cells a large complex must never swallow (player-developed zones). */
+  reserved: Set<string> = new Set(),
 ): { larges: LargePlacement[]; claimed: Set<string> } {
   const claimed = new Set<string>();
   const larges: LargePlacement[] = [];
@@ -114,7 +116,7 @@ export function reserveLargeFootprints(
     for (let dc = 0; ok && dc < cols; dc++) {
       for (let dr = 0; dr < rows; dr++) {
         const key = `${p.col + dc},${p.row + dr}`;
-        if (claimed.has(key)) { ok = false; break; }
+        if (claimed.has(key) || reserved.has(key)) { ok = false; break; }
         cells.push(key);
       }
     }
