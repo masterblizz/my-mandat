@@ -303,7 +303,7 @@ export default function SetupPage() {
           {notice}
         </div>
       )}
-      <main className="pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
+      <main className="setup-screen pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
         {step === 0 && <UltimatePlanCard hasUltimate={hasUltimate} isLoading={premiumLoading} />}
         {/* Scenario Archive is deliberately invisible unless Ultimate access
             is verified; standard Premium users continue to the custom builder. */}
@@ -317,12 +317,13 @@ export default function SetupPage() {
         )}
         <div className="w-full max-w-[1100px] mt-6">
           {/* Step Indicator */}
-          <div className="flex gap-0 mb-8">
+          <div className="flex gap-0 mb-2 sm:mb-8">
             {STEPS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => i < step && setStep(i)}
-                className="flex-1 py-3 text-center border-b-2 transition-all"
+                aria-current={i === step ? "step" : undefined}
+                className="flex-1 py-2 sm:py-3 text-center border-b-2 transition-all"
                 style={{
                   borderColor: i === step ? "var(--gold)" : "var(--bar-empty)",
                   cursor: i < step ? "pointer" : "default",
@@ -335,13 +336,16 @@ export default function SetupPage() {
                   {s.num}
                 </div>
                 <div
-                  className="text-[11px] tracking-wider mt-0.5"
+                  className="hidden text-[11px] tracking-wider mt-0.5 sm:block"
                   style={{ color: i === step ? "var(--gold)" : "var(--text-muted)" }}
                 >
                   {t(lang, `setup_page.step_${s.num}_label`)}
                 </div>
               </button>
             ))}
+          </div>
+          <div className="mb-5 text-center text-[11px] font-bold tracking-[0.2em] sm:hidden" style={{ color: "var(--gold)" }}>
+            {STEPS[step].num} · {t(lang, `setup_page.step_${STEPS[step].num}_label`)}
           </div>
 
           {/* Step 0: Data Mode */}
@@ -352,7 +356,7 @@ export default function SetupPage() {
                   {t(lang, "setup_page.chooseWhichPoliticalNamesPartiesAppear")}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {availableDatasets.map((ds) => {
                   const selected = selectedDataset === ds.id;
                   const isReal = ds.id === "real-malaysia";
@@ -418,12 +422,12 @@ export default function SetupPage() {
 
           {/* Step 1: Avatar & Party */}
           {step === 1 && (
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row">
               {/* Left: Avatar Selector */}
-              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-[260px] shrink-0">
+              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-full shrink-0 lg:w-[260px]">
                 <div className="flex flex-col items-center gap-3 mt-1">
                   <div
-                    className="relative flex items-center justify-center overflow-hidden"
+                    className="setup-avatar-preview relative flex items-center justify-center overflow-hidden"
                     style={{
                       width: "210px",
                       height: "310px",
@@ -439,7 +443,7 @@ export default function SetupPage() {
                       sizes="210px"
                       style={{ objectFit: "contain", objectPosition: "center bottom" }}
                     />
-                    <span className="absolute bottom-2 left-2 border px-2 py-1 text-[8px] font-black tracking-widest text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(2 8 20 / .86)" }}>AVATAR PENUH</span>
+                    <span className="absolute bottom-2 left-2 border px-2 py-1 text-[8px] font-black tracking-widest text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(2 8 20 / .86)" }}>{t(lang, "AVATAR PENUH", "FULL AVATAR")}</span>
                   </div>
 
                   <div className="text-center">
@@ -498,7 +502,7 @@ export default function SetupPage() {
               </TacticalPanel>
 
               {/* Center: Leader Details */}
-              <TacticalPanel title={t(lang, "setup_page.leaderDetails")} className="flex-1">
+              <TacticalPanel title={t(lang, "setup_page.leaderDetails")} className="min-w-0 flex-1">
                 <div className="space-y-3">
                   <div>
                     <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.name")}</div>
@@ -626,7 +630,7 @@ export default function SetupPage() {
               </TacticalPanel>
 
               {/* Right: Party Identity */}
-              <TacticalPanel title={t(lang, "setup_page.partyIdentity")} className="w-[200px] shrink-0">
+              <TacticalPanel title={t(lang, "setup_page.partyIdentity")} className="w-full shrink-0 lg:w-[200px]">
                 <div className="space-y-3">
                   <div>
                     <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.datasetParty")}</div>
@@ -690,7 +694,7 @@ export default function SetupPage() {
                     ? t(lang, "setup_page.asOfYouMustBeNominated", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", prnStateDataNamePrnStateId: prnStateData?.name ?? prnStateId.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })
                     : t(lang, "setup_page.asOfYouMustBeNominated2", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", homeStateDataNameHomeState: homeStateData?.name ?? homeState.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })}
                 </div>
-                <div className="grid grid-cols-3 gap-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
                   {homeConstituencies.map((c) => {
                     const active = contestConstituencyId === c.id;
                     const safetyColor = c.safety === "safe" ? "var(--neon-green)" : c.safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
@@ -710,7 +714,7 @@ export default function SetupPage() {
                           <span className="text-[13px] font-bold truncate" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>{c.name}</span>
                           <span className="text-[9px] shrink-0" style={{ color: "#4a5568" }}>{c.code}</span>
                         </div>
-                        <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 text-[11px]">
                           <span style={{ color: winColor }}>{c.mandat}% {t(lang, "setup_page.support")}</span>
                           <span className="uppercase font-bold" style={{ color: safetyColor }}>{t(lang, c.safety === "safe" ? "setup_page.safetySafe" : c.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")}</span>
                         </div>
@@ -769,7 +773,7 @@ export default function SetupPage() {
                               : t(lang, "Parti anda membentuk kerajaan persekutuan. Peruntukan besar, tetapi rakyat menuntut janji ditunaikan.", "Your party forms the federal government. Big allocation, but voters expect delivery."))
                             : t(lang, "Parti anda kalah tetapi anda menang kerusi. Peruntukan kecil — bina kawasan dengan bijak dan bina tekanan politik.", "Your party lost but you won your seat. Small allocation — build carefully and apply political pressure.")}
                         </p>
-                        <div className="mt-2 flex gap-4 text-[10px] font-bold tracking-wider">
+                        <div className="mt-2 flex flex-col gap-1 text-[10px] font-bold tracking-wider sm:flex-row sm:gap-4">
                           <span style={{ color: "var(--gold)" }}>{t(lang, "Peruntukan awal", "Opening allocation")}: RM {formatNumber(REP_OPENING_ALLOCATION[option])}</span>
                           <span style={{ color: "var(--cyan)" }}>{t(lang, "Geran/suku", "Grant/quarter")}: RM {formatNumber(REP_QUARTER_GRANT[option])}</span>
                         </div>
@@ -953,7 +957,7 @@ export default function SetupPage() {
           {/* Step 4: Difficulty */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {DIFFICULTIES.map((d) => {
                   const isNightmare = d.id === "nightmare";
                   const state = !isNightmare ? "unlocked" : premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked";
@@ -1058,7 +1062,7 @@ export default function SetupPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-8 pt-2">
+                  <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2">
                     <Toggle value={eventRandomness} onChange={setEventRandomness} label={t(lang, "setup_page.eventRandomness")} />
                     <Toggle value={permanentConsequences} onChange={setPermanentConsequences} label={t(lang, "setup_page.permanentConsequences")} />
                   </div>
@@ -1070,7 +1074,7 @@ export default function SetupPage() {
           {/* Step 5: Confirm */}
           {step === 5 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-4 md:grid-cols-3">
                 <TacticalPanel title={t(lang, "setup_page.leaderProfile")}>
                   <div className="space-y-2">
                     <div className="flex justify-center mb-3">
@@ -1119,7 +1123,7 @@ export default function SetupPage() {
               </div>
 
               <TacticalPanel title={t(lang, "setup_page.attributeSummary")}>
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
                   {[
                     { id: "influence", val: influence, color: "var(--cyan)" },
                     { id: "charisma", val: charisma, color: "var(--gold)" },
@@ -1153,18 +1157,18 @@ export default function SetupPage() {
 
           {/* Navigation — fixed above HUD so bottom controls are never hidden by the status/music overlays */}
           <div
-            className="fixed left-0 right-0 z-[70] px-4 py-3"
+            className="setup-nav fixed left-0 right-0 z-[70] px-4 py-3"
             style={{
               bottom: "36px",
               background: "linear-gradient(180deg, rgba(8,12,20,0.82), var(--bg))",
               borderTop: "1px solid rgb(var(--cyan-rgb) / 0.18)",
             }}
           >
-            <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between">
+            <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-2">
               <button
                 onClick={handleBack}
                 disabled={step === 0}
-                className="px-6 py-2 text-[13px] tracking-widest uppercase transition-all disabled:opacity-30"
+                className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:opacity-30 sm:px-6 sm:text-[13px] sm:tracking-widest"
                 style={{
                   border: "1px solid var(--gold)",
                   color: "var(--gold)",
@@ -1176,15 +1180,16 @@ export default function SetupPage() {
                 {t(lang, "setup_page.back")}
               </button>
 
-              <div className="text-[12px] text-text-muted tracking-wider">
-                {t(lang, "setup_page.step6", { step: step + 1 })}
+              <div className="whitespace-nowrap text-[11px] text-text-muted tracking-wider sm:text-[12px]">
+                <span className="sm:hidden">{step + 1}/6</span>
+                <span className="hidden sm:inline">{t(lang, "setup_page.step6", { step: step + 1 })}</span>
               </div>
 
               {step < 5 ? (
                 <button
                   onClick={handleNext}
                   disabled={(step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId)}
-                  className="px-6 py-2 text-[13px] tracking-widest uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                  className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40 sm:px-6 sm:text-[13px] sm:tracking-widest"
                   style={{
                     background: "var(--gold)",
                     color: "#000000",
@@ -1197,7 +1202,7 @@ export default function SetupPage() {
                 <button
                   onClick={handleLaunch}
                   disabled={isLaunching}
-                  className="px-6 py-2 text-[13px] font-bold tracking-widest uppercase transition-all disabled:opacity-60 disabled:cursor-wait"
+                  className="whitespace-nowrap px-3 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-60 disabled:cursor-wait sm:px-6 sm:text-[13px] sm:tracking-widest"
                   style={{
                     background: "var(--gold)",
                     color: "#000000",
@@ -1219,9 +1224,9 @@ export default function SetupPage() {
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-0.5 border-b border-white/5">
-      <span className="text-[12px] text-text-muted tracking-wider">{label}</span>
-      <span className="text-[12px] text-white font-bold">{value}</span>
+    <div className="flex items-baseline justify-between gap-3 py-0.5 border-b border-white/5">
+      <span className="shrink-0 text-[12px] text-text-muted tracking-wider">{label}</span>
+      <span className="min-w-0 break-words text-right text-[12px] text-white font-bold">{value}</span>
     </div>
   );
 }
