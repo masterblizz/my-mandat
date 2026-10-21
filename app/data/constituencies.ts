@@ -383,8 +383,10 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
 
   for (let i = 0; i < seatCount; i++) {
     const variation = (rand() - 0.5) * 36;
-    const baseMandat = Math.max(12, Math.min(78, state.mandatSupport + variation));
-    const baseLawan = Math.max(12, Math.min(78, state.lawanSupport - variation * 0.75));
+    const id = scope === "dun" ? `${state.id}-dun-${i}` : `${state.id}-${i}`;
+    const personal = state.personalVote?.[id] ?? 0;
+    const baseMandat = Math.max(12, Math.min(78, state.mandatSupport + variation + personal));
+    const baseLawan = Math.max(12, Math.min(78, state.lawanSupport - variation * 0.75 - personal * 0.75));
     const baseOthers = Math.max(5, 100 - baseMandat - baseLawan);
 
     const total = baseMandat + baseLawan + baseOthers;
@@ -409,7 +411,6 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
     const codePrefix = scope === "dun" ? "N" : "P";
     const name = names[i] || (scope === "dun" ? `DUN ${state.shortName} ${codeNum}` : `Kawasan ${codeNum}`);
     const code = `${codePrefix}.${String(codeNum).padStart(3, "0")}`;
-    const id = scope === "dun" ? `${state.id}-dun-${i}` : `${state.id}-${i}`;
 
     // Population is the real quantity — voters are a fixed ~52% share of it,
     // same deterministic per-seat spread (hash, not rand(), so the seeded

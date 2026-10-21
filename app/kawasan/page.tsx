@@ -20,6 +20,7 @@ import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { applyCompletedWorks, cityLedger } from "../data/cityEconomy";
+import { REP_QUARTER_GRANT, repSide } from "../store/representative";
 import type { CityOverlay } from "../kawasan-3d/cityData";
 
 
@@ -2624,6 +2625,9 @@ export default function KawasanDevelopmentPage() {
   const [buildTab, setBuildTab] = useState<DockTab>("all");
   const [overlay, setOverlay] = useState<CityOverlay>("none");
   const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
+  // Representative career: the term (either bench) is lived in the kawasan.
+  const repTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
+  const termBuilder = journey.chapter === "government" || repTerm;
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
@@ -2717,9 +2721,9 @@ export default function KawasanDevelopmentPage() {
   // persist the generated city as soon as the term starts — otherwise a
   // player who never builds would see a tax forecast the quarter can't pay.
   useEffect(() => {
-    if (journey.chapter !== "government" || !zones.length || journey.cityZones[seatId]) return;
+    if (!termBuilder || !zones.length || journey.cityZones[seatId]) return;
     useGameStore.setState((state) => state.journey.cityZones[seatId] ? {} : { journey: { ...state.journey, cityZones: { ...state.journey.cityZones, [seatId]: zones } } });
-  }, [journey.chapter, journey.cityZones, seatId, zones]);
+  }, [termBuilder, journey.cityZones, seatId, zones]);
 
   const seatWorks = useMemo(() => journey.construction.filter((work) => work.seat === seatId), [journey.construction, seatId]);
   const workProgress = (remaining: number) => Math.max(0.15, 1 - remaining / 2.5);
@@ -2734,7 +2738,11 @@ export default function KawasanDevelopmentPage() {
       label: `${t(lang, `kawasan_page.projectTitle_${work.project}`)} · ${t(lang, `${work.remaining} SUKU LAGI`, `${work.remaining}Q LEFT`)}`,
     })) };
   }), [zones, seatWorks, lang]);
-  const forecast = useMemo(() => cityLedger(applyCompletedWorks(zones, journey.construction, seatId)), [zones, journey.construction, seatId]);
+  const benchSide = repSide(journey);
+  const forecast = useMemo(
+    () => cityLedger(applyCompletedWorks(zones, journey.construction, seatId), benchSide ? REP_QUARTER_GRANT[benchSide] : undefined),
+    [zones, journey.construction, seatId, benchSide],
+  );
 
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
   const cityDestinationTags = useMemo(() => {
@@ -2745,6 +2753,12 @@ export default function KawasanDevelopmentPage() {
       ["education", "calendar", t(lang, "BILIK JADUAL", "CAMPAIGN CALENDAR")],
       ["housing", "media", t(lang, "PUSAT MEDIA", "MEDIA CENTRE")],
       ["river", "commission", t(lang, "PUSAT TINJAUAN", "POLLING CENTRE")],
+    ] as const;
+    const representative = [
+      ["urban", "office", t(lang, "PEJABAT WAKIL RAKYAT", "REPRESENTATIVE OFFICE")],
+      ["housing", "media", t(lang, "PUSAT MEDIA", "MEDIA CENTRE")],
+      ...(journey.chapter === "government" ? [["industry", "administration", t(lang, "PUSAT PENTADBIRAN", "ADMINISTRATION CENTRE")] as const] : []),
+      ["river", "national", t(lang, "ANALISIS NEGARA", "NATIONAL ANALYSIS")],
     ] as const;
     const government = [
       ["urban", "office", t(lang, "PEJABAT WAKIL RAKYAT", "REPRESENTATIVE OFFICE")],
@@ -2762,7 +2776,7 @@ export default function KawasanDevelopmentPage() {
     const used = new Set<number>();
     const gapFrom = (i: number) => chosen.reduce((min, c) => Math.min(min, Math.max(Math.abs(cells[i].col - c.col), Math.abs(cells[i].row - c.row))), Infinity);
     const tags: Record<string, { label: string; destinationId: string; originLabel: string }> = {};
-    (journey.chapter === "government" ? government : campaign).forEach(([kind, destinationId, label]) => {
+    (repTerm ? representative : journey.chapter === "government" ? government : campaign).forEach(([kind, destinationId, label]) => {
       const free = zones.map((_, i) => i).filter((i) => cells[i] && !used.has(i));
       if (!free.length) return;
       const spaced = free.filter((i) => gapFrom(i) >= MIN_DESTINATION_GAP);
@@ -2774,7 +2788,7 @@ export default function KawasanDevelopmentPage() {
       tags[zones[pick].id] = { label, destinationId, originLabel: label };
     });
     return tags;
-  }, [zones, gridSize, journey.chapter, lang]);
+  }, [zones, gridSize, journey.chapter, repTerm, lang]);
   // WebGL city map is on by default (USE_GL_MAP); ?glmap=0 forces the old
   // CSS-3D map for this session without a redeploy.
   const useGlMap = useMemo(() => {
@@ -2785,15 +2799,23 @@ export default function KawasanDevelopmentPage() {
   // Development is available during the campaign; project costs and zone
   // progression still apply normally. Election victory continues to gate
   // the separate government route below.
-  const unlocked = journey.chapter === "government";
+  const unlocked = termBuilder;
   const overall = zones.length ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / zones.length) : 0;
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
 
   const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
   const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
-  const cityActivity = ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
+  const cityActivity = repTerm && journey.chapter === "government" && selectedZone?.kind === "industry"
+    ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Semak dasar kerajaan dan rekod penggal anda.", "Review government policy and your term record."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }
+    : repTerm && selectedZone?.kind === "river"
+    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat sokongan parti dan kesan kerja kawasan anda.", "See party support and the effect of your constituency work."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
+    : repTerm && (selectedZone?.kind === "housing" || selectedZone?.kind === "village")
+    ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Suarakan isu kawasan dan jawab kritikan.", "Raise constituency issues and answer critics."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/media"), enabled: true }
+    : repTerm
+    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Terima aduan penduduk dan semak rekod khidmat anda.", "Take residents' complaints and review your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true }
+    : ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
     ? { icon: journey.chapter === "results" ? "📊" : journey.chapter === "formation" ? "🤝" : "🧭", title: journey.chapter === "results" ? t(lang, "Pusat keputusan", "Results centre") : journey.chapter === "formation" ? t(lang, "Dewan rundingan", "Negotiation hall") : t(lang, "Pusat gerakan", "Movement centre"), detail: t(lang, "Bab politik seterusnya menanti di pusat bandar.", "Your next political chapter awaits in the city centre."), label: t(lang, "Sambung perjalanan", "Continue journey"), run: () => router.push(`${resumeRoute(useGameStore.getState())}?from=city`), enabled: true }
-    : journey.chapter === "government" && selectedZone?.kind === "commercial"
+    : journey.chapter === "government" && !repTerm && selectedZone?.kind === "commercial"
     ? { icon: "🏛️", title: t(lang, "Bangunan kabinet", "Cabinet building"), detail: t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/cabinet"), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "industry"
     ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Laksana dasar dan majukan penggal pentadbiran.", "Deliver policies and advance the administration term."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }

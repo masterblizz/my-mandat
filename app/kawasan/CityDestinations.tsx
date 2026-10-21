@@ -29,17 +29,31 @@ const governmentDestinations: CityDestination[] = [
   { id: "national", icon: "🗺️", route: "/sandbox", ms: { name: "Pusat Analisis Negara", detail: "Lihat kesan keputusan di seluruh negara." }, en: { name: "National Analysis Centre", detail: "See how decisions affect the whole country." } },
 ];
 
+// A backbench representative works from their kawasan: service office,
+// media and national analysis. Cabinet rooms are reserved for those who
+// lead the government (unlocked by rank in a later phase).
+const representativeDestinations = (side: "government" | "opposition"): CityDestination[] => [
+  governmentDestinations[0],
+  { id: "media", icon: "📡", route: "/messaging", ms: { name: "Pusat Media", detail: "Suarakan isu kawasan dan jawab kritikan." }, en: { name: "Media Centre", detail: "Raise constituency issues and answer critics." } },
+  ...(side === "government" ? [governmentDestinations[2]] : []),
+  governmentDestinations[3],
+];
+
 export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void }) {
   const lang = useLang();
   const state = useGameStore();
   const [open, setOpen] = useState(false);
   const chapter = state.journey.chapter;
-  const destinations: CityDestination[] = chapter === "campaign"
+  const repTerm = !!state.journey.rank && (chapter === "government" || chapter === "opposition");
+  const reportDestination: CityDestination[] = state.careerProgress.month >= 60 ? [{ id: "report", icon: "📜", route: "/report-card", ms: { name: "Arkib Rekod Penggal", detail: "Nilai legasi dan laporan penggal anda." }, en: { name: "Term Record Archive", detail: "Review your legacy and term report." } }] : [];
+  const destinations: CityDestination[] = repTerm
+    ? [...representativeDestinations(chapter === "government" ? "government" : "opposition"), ...reportDestination]
+    : chapter === "campaign"
     ? campaignDestinations
     : chapter === "government"
-    ? [...governmentDestinations, ...(state.careerProgress.month >= 60 ? [{ id: "report", icon: "📜", route: "/report-card", ms: { name: "Arkib Rekod Penggal", detail: "Nilai legasi dan laporan penggal anda." }, en: { name: "Term Record Archive", detail: "Review your legacy and term report." } }] : [])]
+    ? [...governmentDestinations, ...reportDestination]
     : [];
-  const chapterDestination = chapter === "campaign" ? null : {
+  const chapterDestination = chapter === "campaign" || repTerm ? null : {
     id: "continue", icon: chapter === "results" ? "📊" : chapter === "formation" ? "🤝" : "🧭",
     route: resumeRoute(state),
     ms: { name: chapter === "results" ? "Pusat Keputusan" : chapter === "formation" ? "Dewan Rundingan" : "Pusat Gerakan", detail: "Sambung bab politik semasa anda." },

@@ -25,18 +25,18 @@ export interface CityLedger {
   avgSentiment: number;
 }
 
-export function cityLedger(zones: Pick<CityZone, "economy" | "sentiment" | "projects">[]): CityLedger {
+export function cityLedger(zones: Pick<CityZone, "economy" | "sentiment" | "projects">[], grant = CITY_BASE_GRANT): CityLedger {
   const count = zones.length;
   const avgEconomy = count ? Math.round(zones.reduce((sum, zone) => sum + zone.economy, 0) / count) : 0;
   const avgSentiment = count ? Math.round(zones.reduce((sum, zone) => sum + zone.sentiment, 0) / count) : 0;
   const built = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
   const tax = Math.round((avgEconomy * CITY_TAX_PER_ECONOMY_POINT) / 1000) * 1000;
   const upkeep = built * CITY_PROJECT_UPKEEP;
-  return { grant: CITY_BASE_GRANT, tax, upkeep, net: CITY_BASE_GRANT + tax - upkeep, built, avgEconomy, avgSentiment };
+  return { grant, tax, upkeep, net: grant + tax - upkeep, built, avgEconomy, avgSentiment };
 }
 
-export function cityLedgerForSeats(cityZones: Record<string, CityZone[]>): CityLedger {
-  return cityLedger(Object.values(cityZones).flat());
+export function cityLedgerForSeats(cityZones: Record<string, CityZone[]>, grant?: number): CityLedger {
+  return cityLedger(Object.values(cityZones).flat(), grant);
 }
 
 type ConstructionWork = Journey["construction"][number];

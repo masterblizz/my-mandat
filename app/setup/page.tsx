@@ -11,6 +11,8 @@ import UpgradeButton from "../components/ui/UpgradeButton";
 
 import { useGameStore } from "../store/gameStore";
 import { setActiveSaveSlot } from "../store/saveGame";
+import { REP_OPENING_ALLOCATION, REP_QUARTER_GRANT, STARTING_SIDES, type StartingSide } from "../store/representative";
+import { formatNumber } from "../utils/format";
 import { states } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
 import { type DatasetKind, availableDatasets, getDatasetById } from "../data/datasets";
@@ -134,6 +136,9 @@ export default function SetupPage() {
   const [electionScope, setElectionScope] = useState<"pru" | "prn">(settings.electionScope ?? "pru");
   const [prnStateId, setPrnStateId] = useState(settings.prnStateId ?? "selangor");
   const [prnCandidateId, setPrnCandidateId] = useState<PrnCandidateId | null>(null);
+  // Which bench the newly won seat sits on — decides the opening allocation
+  // and quarterly grant of the representative career.
+  const [side, setSide] = useState<StartingSide>(settings.side ?? "government");
 
   // Nomination state — as party president, the player must contest a seat too.
   // In PRN mode this must be a DUN seat in the chosen PRN negeri, not a
@@ -242,51 +247,52 @@ export default function SetupPage() {
       setNotice(t(lang, "Menyemak akses akaun. Sila tunggu sebentar.", "Checking account access. Please wait a moment."));
       return;
     }
-    // LAUNCH CAMPAIGN must always start a fresh run from the setup choices.
-    // If the player previously loaded an old slot, clear that active slot first
-    // so the autosave subscriber creates a new slot instead of rewriting/resuming it.
-    // Lands on /kawasan (the player's home constituency) rather than jumping
-    // straight into /warroom — kawasan now carries an ENTER WAR ROOM button.
+    // A launch always starts a fresh run from the setup choices. Clearing the
+    // active slot makes the autosave subscriber create a new slot instead of
+    // rewriting a previously loaded one.
     const campaignScope = hasPremium ? electionScope : "prn";
-    navigate("/kawasan", () => {
-      resetGame();
-      setActiveSaveSlot(null);
-      setDataset(selectedDataset);
-      setLeader({
-        name: leaderName,
-        position,
-        party: partyName,
-        partyAbbr,
-        partyColor,
-        avatarIndex,
-        influence,
-        charisma,
-        credibility,
-        negotiation,
-        strategy,
-        experience,
-        homeState,
-        homeConstituencyId: contestConstituencyId,
-        homeConstituencyName: contestConstituency?.name ?? "",
-        ideology: { economic: economicIdeology, social: socialIdeology },
-        manifesto: partyDesc,
-      });
-      if (contestConstituencyId) setNomination(contestConstituencyId, { type: "leader" });
-      updateSettings({
-        electionScope: campaignScope,
-        prnStateId,
-        difficulty,
-        oppositionStrength: oppStrength,
-        mediaBias: mediaBias === "PRO-MANDAT" ? "pro" : mediaBias === "HOSTILE" ? "hostile" : "balanced",
-        eventRandomness,
-        permanentConsequences,
-      });
-      if (campaignScope === "prn" && prnCandidateId) {
-        useGameStore.getState().journeyAction({ type: "prn-candidate", id: prnCandidateId });
-      }
-      setSelectedState(campaignScope === "prn" ? prnStateId : null);
-      setPhase("playing");
+    resetGame();
+    setActiveSaveSlot(null);
+    setDataset(selectedDataset);
+    setLeader({
+      name: leaderName,
+      position,
+      party: partyName,
+      partyAbbr,
+      partyColor,
+      avatarIndex,
+      influence,
+      charisma,
+      credibility,
+      negotiation,
+      strategy,
+      experience,
+      homeState,
+      homeConstituencyId: contestConstituencyId,
+      homeConstituencyName: contestConstituency?.name ?? "",
+      ideology: { economic: economicIdeology, social: socialIdeology },
+      manifesto: partyDesc,
     });
+    if (contestConstituencyId) setNomination(contestConstituencyId, { type: "leader" });
+    updateSettings({
+      electionScope: campaignScope,
+      prnStateId,
+      difficulty,
+      oppositionStrength: oppStrength,
+      mediaBias: mediaBias === "PRO-MANDAT" ? "pro" : mediaBias === "HOSTILE" ? "hostile" : "balanced",
+      eventRandomness,
+      permanentConsequences,
+      side,
+    });
+    if (campaignScope === "prn" && prnCandidateId) {
+      useGameStore.getState().journeyAction({ type: "prn-candidate", id: prnCandidateId });
+    }
+    setSelectedState(campaignScope === "prn" ? prnStateId : null);
+    setPhase("playing");
+    // Day one as the seat's elected representative; the election is settled
+    // to match the chosen bench (see store/representative.ts).
+    const started = useGameStore.getState().startAsRepresentative();
+    navigate(started ? "/elected" : "/kawasan");
   }
 
   return (
@@ -739,6 +745,39 @@ export default function SetupPage() {
                   </div>
                 </TacticalPanel>
               )}
+
+              <TacticalPanel title={t(lang, "PIHAK ANDA SELEPAS MENANG", "YOUR BENCH AFTER WINNING")}>
+                <div role="radiogroup" aria-label={t(lang, "Pihak", "Side")} className="grid gap-3 sm:grid-cols-2">
+                  {STARTING_SIDES.map((option) => {
+                    const active = side === option;
+                    const government = option === "government";
+                    return (
+                      <button key={option} type="button" role="radio" aria-checked={active} onClick={() => setSide(option)}
+                        className="p-3 text-left transition-all"
+                        style={{
+                          border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
+                          background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
+                          boxShadow: active ? "0 0 14px rgb(var(--gold-rgb) / 0.2)" : "none",
+                        }}>
+                        <div className="text-[13px] font-bold tracking-wider" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>
+                          {government ? `🏛️ ${t(lang, "BLOK KERAJAAN", "GOVERNMENT BENCH")}` : `⚖️ ${t(lang, "BLOK PEMBANGKANG", "OPPOSITION BENCH")}`}
+                        </div>
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">
+                          {government
+                            ? (electionScope === "prn"
+                              ? t(lang, "Parti anda membentuk kerajaan negeri. Peruntukan besar, tetapi rakyat menuntut janji ditunaikan.", "Your party forms the state government. Big allocation, but voters expect delivery.")
+                              : t(lang, "Parti anda membentuk kerajaan persekutuan. Peruntukan besar, tetapi rakyat menuntut janji ditunaikan.", "Your party forms the federal government. Big allocation, but voters expect delivery."))
+                            : t(lang, "Parti anda kalah tetapi anda menang kerusi. Peruntukan kecil — bina kawasan dengan bijak dan bina tekanan politik.", "Your party lost but you won your seat. Small allocation — build carefully and apply political pressure.")}
+                        </p>
+                        <div className="mt-2 flex gap-4 text-[10px] font-bold tracking-wider">
+                          <span style={{ color: "var(--gold)" }}>{t(lang, "Peruntukan awal", "Opening allocation")}: RM {formatNumber(REP_OPENING_ALLOCATION[option])}</span>
+                          <span style={{ color: "var(--cyan)" }}>{t(lang, "Geran/suku", "Grant/quarter")}: RM {formatNumber(REP_QUARTER_GRANT[option])}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </TacticalPanel>
             </div>
           )}
 
@@ -1044,6 +1083,7 @@ export default function SetupPage() {
                     <SummaryRow label={t(lang, "setup_page.experience")} value={t(lang, `setup_page.experience_${experience}`)} />
                     <SummaryRow label={t(lang, "setup_page.homeState")} value={states.find((s) => s.id === homeState)?.name || homeState} />
                     <SummaryRow label={t(lang, "setup_page.contestingSeat")} value={contestConstituency ? `${contestConstituency.name} (${contestConstituency.code})` : "—"} />
+                    <SummaryRow label={t(lang, "Pihak", "Side")} value={side === "government" ? t(lang, "Kerajaan", "Government") : t(lang, "Pembangkang", "Opposition")} />
                   </div>
                 </TacticalPanel>
 

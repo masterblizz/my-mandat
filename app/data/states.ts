@@ -28,6 +28,9 @@ export interface StateData {
   };
   region: "peninsular" | "borneo";
   status: "winning" | "losing" | "contested";
+  /** Incumbent's personal vote (support points) by constituency id — the
+   * representative career's own seat can outrun its party's state swing. */
+  personalVote?: Record<string, number>;
 }
 
 export const states: StateData[] = [

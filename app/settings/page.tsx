@@ -143,6 +143,13 @@ function GameplayTab() {
             </div>
           </SettingRow>
 
+          <SettingRow label={t(lang, "Pihak permulaan (permainan baharu)", "Starting bench (new games)")}>
+            <select value={settings.side ?? "government"} onChange={(e) => updateSettings({ side: e.target.value as "government" | "opposition" })} style={{ minWidth: "200px" }}>
+              <option value="government">{t(lang, "Kerajaan", "Government")}</option>
+              <option value="opposition">{t(lang, "Pembangkang", "Opposition")}</option>
+            </select>
+          </SettingRow>
+
           <SettingRow label={t(lang, "settings_page.difficulty")}>
             <select value={settings.difficulty} onChange={(e) => updateSettings({ difficulty: e.target.value as DifficultyKey })} style={{ minWidth: "200px" }}>
               <option value="easy">{t(lang, "settings_page.easy")}</option>

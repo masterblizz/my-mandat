@@ -9,6 +9,7 @@ import { formatNumber, formatPercent } from "../utils/format";
 import { computeSeatDetails } from "../utils/seatDetails";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { useLang, t } from "../i18n/useLang";
+import { REP_OPENING_ALLOCATION, REP_QUARTER_GRANT, repSide } from "../store/representative";
 
 const LEADER_AVATARS = [
   "/avatars/leader-01.png",
@@ -25,7 +26,9 @@ function winnerColor(winner: "mandat" | "lawan" | "others", partyColor: string) 
 export default function ElectedPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
-  const { states, leader, settings, setHasWonElection } = useGameStore();
+  const { states, leader, settings, setHasWonElection, journey } = useGameStore();
+  // Representative career: this page is the new game's day one.
+  const side = repSide(journey);
   const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
@@ -91,6 +94,41 @@ export default function ElectedPage() {
           </h1>
         </div>
 
+        {side && (
+          <section className="mb-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.10), rgb(var(--bg-rgb) / 0.85))", fontFamily: "Space Mono, monospace" }}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black tracking-[0.25em]" style={{ color: "var(--gold)" }}>◆ {t(lang, "HARI PERTAMA · PENGGAL 1", "DAY ONE · TERM 1")}</div>
+                <h2 className="mt-1 text-lg font-black text-white">
+                  {side === "government"
+                    ? t(lang, `Anda kini ${officeTitle} blok kerajaan.`, `You are now a government-bench ${officeTitle}.`)
+                    : t(lang, `Anda kini ${officeTitle} blok pembangkang.`, `You are now an opposition-bench ${officeTitle}.`)}
+                </h2>
+                <p className="mt-1 max-w-3xl text-[12px] leading-relaxed text-text-muted">
+                  {t(lang,
+                    `Rakyat ${ownSeat.constituency.name} menunggu janji anda. Anda ada 20 suku tahun untuk membangunkan kawasan sebelum ${isPrn ? "PRN" : "PRU"} seterusnya — prestasi anda menentukan sama ada kerusi ini kekal milik anda.`,
+                    `The people of ${ownSeat.constituency.name} are waiting on your promises. You have 20 quarters to develop the constituency before the next ${isPrn ? "state" : "general"} election — your record decides whether you keep this seat.`)}
+                </p>
+              </div>
+              <span className="border px-3 py-1.5 text-[10px] font-black tracking-widest" style={{ borderColor: side === "government" ? "rgb(var(--cyan-rgb) / 0.6)" : "rgb(255 176 0 / 0.6)", color: side === "government" ? "var(--cyan)" : "var(--warn-orange)" }}>
+                {side === "government" ? `🏛️ ${t(lang, "KERAJAAN", "GOVERNMENT")}` : `⚖️ ${t(lang, "PEMBANGKANG", "OPPOSITION")}`}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                [t(lang, "PERUNTUKAN PEMBANGUNAN", "DEVELOPMENT ALLOCATION"), `RM ${formatNumber(REP_OPENING_ALLOCATION[side])}`],
+                [t(lang, "GERAN SETIAP SUKU TAHUN", "GRANT EVERY QUARTER"), `RM ${formatNumber(REP_QUARTER_GRANT[side])}`],
+                [t(lang, "MATLAMAT", "OBJECTIVE"), t(lang, "Pertahankan kerusi", "Hold the seat")],
+              ].map(([label, value]) => (
+                <div key={label} className="border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
+                  <div className="text-[9px] tracking-widest text-text-muted">{label}</div>
+                  <div className="mt-1 text-[14px] font-black" style={{ color: "var(--gold)" }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
           {/* Certificate */}
           <TacticalPanel title={t(lang, "elected_page.certificateOfVictory")}>
@@ -151,7 +189,7 @@ export default function ElectedPage() {
             </TacticalPanel>
 
             <TacticalPanel title={t(lang, "elected_page.seatGrid", { homeStateName: homeState?.name.toUpperCase(), stateSeatDetailsLength: stateSeatDetails.length, seatKind: seatKind })}>
-              <div className="grid grid-cols-8 gap-1.5 mt-1">
+              <div className="mt-1 grid grid-cols-[repeat(auto-fill,minmax(30px,1fr))] gap-1.5">
                 {stateSeatDetails.map((seat) => {
                   const isOwn = seat.constituency.id === leader.homeConstituencyId;
                   const color = winnerColor(seat.constituency.winner, leader.partyColor);
@@ -161,8 +199,10 @@ export default function ElectedPage() {
                       title={`${seat.constituency.name} — ${seat.result}`}
                       className="relative aspect-square flex items-center justify-center"
                       style={{
-                        background: `${color}22`,
-                        border: isOwn ? "2px solid var(--gold)" : `1px solid ${color}55`,
+                        // color-mix keeps this valid for CSS-variable party colours too
+                        // (`var(--cyan)22` is not a colour).
+                        background: `color-mix(in srgb, ${color} 14%, transparent)`,
+                        border: isOwn ? "2px solid var(--gold)" : `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
                         boxShadow: isOwn ? "0 0 10px rgb(var(--gold-rgb) / 0.5)" : "none",
                       }}
                     >
@@ -194,9 +234,9 @@ export default function ElectedPage() {
               boxShadow: "0 0 18px rgb(var(--cyan-rgb) / 0.14)",
             }}
           >
-            {isPending ? t(lang, "elected_page.loading") : t(lang, "elected_page.developConstituency")}
+            {isPending ? t(lang, "elected_page.loading") : side ? t(lang, "MULA BERKHIDMAT DI KAWASAN →", "START SERVING THE KAWASAN →") : t(lang, "elected_page.developConstituency")}
           </button>
-          <button
+          {!side && <button
             onClick={() => navigate("/mandate")}
             disabled={isPending}
             className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
@@ -209,7 +249,7 @@ export default function ElectedPage() {
             }}
           >
             {isPending ? t(lang, "elected_page.loading") : t(lang, "elected_page.continueConfirmMandate")}
-          </button>
+          </button>}
         </div>
       </main>
 

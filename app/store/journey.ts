@@ -10,6 +10,7 @@ import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../da
 import { getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { buildTermReport, type TermReportRecord } from "../data/termReport";
 import type { ScenarioPackId } from "../data/scenarioPacks";
+import { repSide, REP_QUARTER_GRANT, type RepRank } from "./representative";
 import { applyCompletedWorks, cityLedgerForSeats, CITY_COMPLAINT_SENTIMENT, CITY_COMPLAINT_TRUST, CITY_SUPPORT_PER_PROJECT } from "../data/cityEconomy";
 
 export type Chapter = "campaign" | "results" | "formation" | "government" | "opposition" | "rebuilding";
@@ -73,6 +74,8 @@ export interface Journey {
   construction: { seat: string; zone: string; project: string; target: "infra" | "welfare" | "economy"; boost: number; remaining: number }[];
   /** Consecutive days (campaign) or quarters (term) each repeatable action was used. Rotating actions resets it. */
   streaks: Record<string, number>;
+  /** Representative-career rank; null = legacy party-leader run (cabinet/coalition rules apply). */
+  rank: RepRank | null;
 }
 export const ISSUE_DATA: Record<Issue, Bilingual & { cost: number; detail: Bilingual }> = {
   flood: { ms: "Tebatan banjir", en: "Flood protection", cost: 300000, detail: { ms: "Penduduk mahu saliran disiapkan sebelum musim hujan.", en: "Residents want drainage completed before the rainy season." } },
@@ -85,7 +88,7 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [], streaks: {} };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [], streaks: {}, rank: null };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
   return { ...newJourney(), ...value };
@@ -136,6 +139,8 @@ export function governingSeats(s: GameState): number {
 }
 export function resumeRoute(s: { journey?: Journey; day: number; totalDays: number }): string {
   const chapter = s.journey?.chapter ?? "campaign";
+  // A representative's term is lived in their own kawasan.
+  if (s.journey?.rank && (chapter === "government" || chapter === "opposition")) return "/kawasan";
   if (chapter === "campaign") return s.day >= s.totalDays ? "/results" : "/kawasan";
   if (chapter === "results" && !s.journey?.resultRecorded) return "/results";
   return ({ results: "/mandate", formation: "/cabinet", government: "/government", opposition: "/opposition", rebuilding: "/postmortem" })[chapter];
@@ -305,8 +310,11 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const cityZones = Object.fromEntries(Object.entries(j.cityZones).map(([seat, zones]) => [seat, applyCompletedWorks(zones, j.construction, seat)]));
     // City treasury: grant + local tax − facility upkeep, booked on the
     // post-completion city so newly delivered facilities start costing now.
-    const governing = j.chapter === "government";
-    const ledger = cityLedgerForSeats(cityZones);
+    // Leader runs: only a governing party has a city budget. Representatives
+    // on either bench draw a constituency grant sized by their side.
+    const side = repSide(j);
+    const governing = j.chapter === "government" || side !== null;
+    const ledger = cityLedgerForSeats(cityZones, side ? REP_QUARTER_GRANT[side] : undefined);
     const hasCity = Object.keys(cityZones).length > 0;
     const cityIncome = governing ? (hasCity ? ledger.net : ledger.grant) : 0;
     const complaints = governing && hasCity && ledger.avgSentiment < CITY_COMPLAINT_SENTIMENT ? CITY_COMPLAINT_TRUST : 0;
@@ -316,16 +324,19 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const policies = POLICY_DATA.filter(p => j.termActions.includes(`policy:${p.id}`));
     const instability = j.stability < 40 ? 3 : 0;
     const effectiveCabinetQuality = j.cabinetQuality - coalitionCabinetPenalty(s);
-    const appointedBonus = j.chapter === "government" ? (effectiveCabinetQuality >= 70 ? 1 : -1) : 0;
+    // Cabinet, coalition and minister-loyalty effects belong to the party
+    // leader who formed the government, not to a backbench representative.
+    const leaderGovernment = j.chapter === "government" && !j.rank;
+    const appointedBonus = leaderGovernment ? (effectiveCabinetQuality >= 70 ? 1 : -1) : 0;
     const cabinetBalance = evaluateCabinet(j.appointments, j.ministerLoyalty, { isPrn: s.settings.electionScope === "prn", stateId: s.settings.prnStateId });
     const loyaltyStep = j.stability >= 65 ? 1 : j.stability < 45 ? -3 : 0;
     const ministerLoyalty = initialMinisterLoyalty(j.appointments, j.ministerLoyalty);
-    if (j.chapter === "government") {
+    if (leaderGovernment) {
       for (const memberId of Object.values(j.appointments)) {
         if (memberId) ministerLoyalty[memberId] = Math.max(0, Math.min(100, (ministerLoyalty[memberId] ?? 50) + loyaltyStep));
       }
     }
-    const defectors = j.chapter === "government" ? Array.from(new Set(Object.values(j.appointments).filter((memberId): memberId is string => {
+    const defectors = leaderGovernment ? Array.from(new Set(Object.values(j.appointments).filter((memberId): memberId is string => {
       if (!memberId || (ministerLoyalty[memberId] ?? 100) > 25) return false;
       const member = PARTY_MEMBERS.find(candidate => candidate.id === memberId);
       return !!member && getMemberTraits(member).ambition >= 70;
@@ -333,12 +344,15 @@ export function reduceJourney(s: GameState, action: JourneyAction): Partial<Game
     const appointments = defectors.length ? Object.fromEntries(Object.entries(j.appointments).map(([postId, memberId]) => [postId, memberId && defectors.includes(memberId) ? null : memberId])) : j.appointments;
     const defectionPenalty = defectors.length * 3;
     const relationshipPressure = Object.values(j.relationships).some(n => n < 35) ? 3 : 0;
-    const representationTrust = j.chapter === "government" ? cabinetBalance.trustDelta : 0;
-    const loyaltyStability = j.chapter === "government" ? cabinetBalance.stabilityDelta : 0;
+    const representationTrust = leaderGovernment ? cabinetBalance.trustDelta : 0;
+    const loyaltyStability = leaderGovernment ? cabinetBalance.stabilityDelta : 0;
     const expectations = expectationDrag(j);
     const trust = Math.max(0, Math.min(100, j.trust - expectations + delivered * 6 + completedWorks.length * 2 + policies.reduce((n, p) => n + p.trust, 0) + appointedBonus + representationTrust - instability - relationshipPressure - defectionPenalty - complaints));
     const defectorNames = defectors.map(id => PARTY_MEMBERS.find(member => member.id === id)?.name ?? id);
-    return { ...(citySupport ? { states: shiftSupport(s, citySupport, true) } : {}), careerProgress: { ...s.careerProgress, month, completed: Array.from(new Set([...s.careerProgress.completed, ...(delivered ? ["shadow-or-govern"] : []), ...(j.organisation >= 65 ? ["prk-machine"] : [])])) },
+    // The kawasan's seat lives in the PRN negeri in PRN mode, which can
+    // differ from the leader's flavour home state.
+    const seatState = s.settings.electionScope === "prn" ? s.settings.prnStateId : s.leader.homeState;
+    return { ...(citySupport ? { states: shiftSupport({ ...s, leader: { ...s.leader, homeState: seatState } }, citySupport, true) } : {}), careerProgress: { ...s.careerProgress, month, completed: Array.from(new Set([...s.careerProgress.completed, ...(delivered ? ["shadow-or-govern"] : []), ...(j.organisation >= 65 ? ["prk-machine"] : [])])) },
       journey: log(`Suku tahun selesai: ${delivered + completedWorks.length} projek siap. Kepercayaan ${j.trust} → ${trust}.${expectations ? ` Jangkaan rakyat meningkat (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} meninggalkan pentadbiran.` : ""}${cityMs}`, `Quarter complete: ${delivered + completedWorks.length} projects delivered. Trust ${j.trust} → ${trust}.${expectations ? ` Public expectations rise (−${expectations}).` : ""}${defectorNames.length ? ` ${defectorNames.join(", ")} left the administration.` : ""}${cityEn}`, { trust, cityZones, appointments, ministerLoyalty, ministerIncidents: [...j.ministerIncidents, ...defectorNames.map(name => `defection:${s.careerProgress.term}:${month}:${name}`)], construction: j.construction.filter(w => w.remaining > 1).map(w => ({ ...w, remaining: w.remaining - 1 })), publicBudget: Math.max(0, j.publicBudget + cityIncome), streaks: rollStreaks(j.streaks, j.termActions, TERM_REPEATABLES), stability: Math.max(0, Math.min(100, j.stability + policies.reduce((n, p) => n + p.stability, 0) + loyaltyStability - relationshipPressure - defectors.length * 5)), termActions: [], pledges: j.pledges.map(p => p.status === "funded" ? { ...p, remaining: p.remaining - 1, status: p.remaining <= 1 ? "delivered" : "funded" } : p) }) };
   }
   if (action.type === "next-election") {

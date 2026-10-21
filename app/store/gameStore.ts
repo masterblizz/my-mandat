@@ -19,6 +19,7 @@ import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates
 import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
 import { getRankPerks, playerXp } from "../lib/playerRank";
 import { nextAssistantAvatar } from "../lib/assistantAvatar";
+import { startAsRepresentative, type StartingSide } from "./representative";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -148,6 +149,8 @@ export interface GameState {
     realisticPolls: boolean;
     eventRandomness: boolean;
     permanentConsequences: boolean;
+    /** Bench the player's newly won seat sits on when a new game starts. */
+    side: StartingSide;
   };
 
   // Actions
@@ -166,6 +169,8 @@ export interface GameState {
   advanceDay: () => void;
   updateSettings: (settings: Partial<GameState["settings"]>) => void;
   startCampaign: () => void;
+  /** New-game entry point: day one as the elected representative of the player's seat. */
+  startAsRepresentative: () => boolean;
   addOperation: (op: Operation) => void;
   removeOperation: (id: string) => void;
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
@@ -295,6 +300,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     realisticPolls: true,
     eventRandomness: true,
     permanentConsequences: true,
+    side: "government",
   },
 
   journeyAction: (action) => set((state) => reduceJourney(state, action)),
@@ -548,6 +554,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { phase: "playing", journey: { ...state.journey, decisions: Math.max(state.journey.decisions, perks.dailyDecisions) } };
   }),
 
+  startAsRepresentative: () => {
+    const patch = startAsRepresentative(get());
+    if (!patch.journey) return false;
+    set(patch);
+    return true;
+  },
+
   resetGame: () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(POLITICAL_REACTIONS_KEY);
@@ -606,6 +619,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         realisticPolls: true,
         eventRandomness: true,
         permanentConsequences: true,
+        side: "government",
       },
     });
   },
