@@ -7,6 +7,7 @@ import StatBar from "../components/ui/StatBar";
 import Toggle from "../components/ui/Toggle";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
+import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, type GameSpeed } from "../data/ybService";
 import { useLang, t } from "../i18n/useLang";
 import { states } from "../data/states";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
@@ -141,6 +142,12 @@ function GameplayTab() {
               )}
               {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "FREE: satu PRN di negeri pilihan.", "FREE: one PRN in your selected state.")}</span>}
             </div>
+          </SettingRow>
+
+          <SettingRow label={t(lang, "Kelajuan jam penggal", "Term clock speed")}>
+            <select value={settings.gameSpeed ?? "week"} onChange={(e) => updateSettings({ gameSpeed: e.target.value as GameSpeed })} style={{ minWidth: "200px" }}>
+              {GAME_SPEEDS.map((option) => <option key={option} value={option}>{SPEED_LABEL[option][lang]} · {t(lang, `${SPEED_DAYS[option]} hari/saat`, `${SPEED_DAYS[option]} days/sec`)}</option>)}
+            </select>
           </SettingRow>
 
           <SettingRow label={t(lang, "Pihak permulaan (permainan baharu)", "Starting bench (new games)")}>

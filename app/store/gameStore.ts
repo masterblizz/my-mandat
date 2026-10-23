@@ -20,6 +20,8 @@ import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../dat
 import { getRankPerks, playerXp } from "../lib/playerRank";
 import { nextAssistantAvatar } from "../lib/assistantAvatar";
 import { continueRepresentativeCareer, startAsRepresentative, type StartingSide } from "./representative";
+import { advanceTerm, performYbActivity } from "./termClock";
+import type { GameSpeed, YbActivityId } from "../data/ybService";
 
 export type NominationEntry =
   | { type: "member"; memberId: string; memberName: string; memberRole: string }
@@ -151,6 +153,8 @@ export interface GameState {
     permanentConsequences: boolean;
     /** Bench the player's newly won seat sits on when a new game starts. */
     side: StartingSide;
+    /** Game days that pass per real second while the term clock runs. */
+    gameSpeed: GameSpeed;
   };
 
   // Actions
@@ -173,6 +177,9 @@ export interface GameState {
   startAsRepresentative: () => boolean;
   /** After an election result: new term (seat held) or rebuilding (seat lost). Returns the route, or null for leader runs. */
   continueRepresentativeCareer: () => string | null;
+  /** Representative term clock: advance by game days (closes quarters on the way). */
+  advanceTermDays: (days: number) => void;
+  performYbActivity: (id: YbActivityId, zoneId?: string) => void;
   addOperation: (op: Operation) => void;
   removeOperation: (id: string) => void;
   runNominationDecision: (stateId: string, candidateType: "local" | "technocrat" | "firebrand") => void;
@@ -303,6 +310,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     eventRandomness: true,
     permanentConsequences: true,
     side: "government",
+    gameSpeed: "week",
   },
 
   journeyAction: (action) => set((state) => reduceJourney(state, action)),
@@ -563,6 +571,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     return true;
   },
 
+  advanceTermDays: (days) => set((state) => advanceTerm(state, days)),
+  performYbActivity: (id, zoneId) => set((state) => performYbActivity(state, id, zoneId)),
+
   continueRepresentativeCareer: () => {
     const next = continueRepresentativeCareer(get());
     if (!next) return null;
@@ -629,6 +640,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         eventRandomness: true,
         permanentConsequences: true,
         side: "government",
+        gameSpeed: "week",
       },
     });
   },

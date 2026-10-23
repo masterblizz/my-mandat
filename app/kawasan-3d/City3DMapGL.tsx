@@ -16,7 +16,7 @@ import {
 import { Canvas } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 import * as THREE from "three";
-import { CityScene, type PerfSample } from "./CityScene";
+import { CityScene, type CityAlert, type PerfSample } from "./CityScene";
 import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
@@ -63,6 +63,8 @@ export type City3DMapGLProps = {
   onOverlayChange?: (overlay: CityOverlay) => void;
   /** Recentre the camera on a zone without the focus/enter semantics of focusZoneId. */
   panToZone?: { id: string; at: number } | null;
+  /** Complaints pinned over zones (zone id -> marker). */
+  alerts?: Record<string, CityAlert>;
 };
 
 const OVERLAY_LABEL: Record<CityOverlay, [string, string]> = {
@@ -85,7 +87,7 @@ function scoreTint(value: number): string {
 export default function City3DMapGL({
   zones, selectedZoneId, setSelectedZoneId, lang,
   gridSize, density, densityLabel, traits, celebration, overall, focusZoneId, onEnterFocusedZone, height, destinationTags, showAllDestinationTags = false, onEnterDestination,
-  children, cameraTargetRef, initialCameraDistance, initialCameraPitch, overlay: overlayProp, onOverlayChange, panToZone,
+  children, cameraTargetRef, initialCameraDistance, initialCameraPitch, overlay: overlayProp, onOverlayChange, panToZone, alerts,
 }: City3DMapGLProps) {
   const [ownOverlay, setOwnOverlay] = useState<CityOverlay>("none");
   const overlay = overlayProp ?? ownOverlay;
@@ -352,6 +354,7 @@ export default function City3DMapGL({
           showAllDestinationTags={showAllDestinationTags}
           onEnterDestination={onEnterDestination}
           overlay={overlay}
+          alerts={alerts}
         />
         {children}
         <PostFX tod={tod} quality={quality} />

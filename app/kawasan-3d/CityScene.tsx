@@ -108,6 +108,8 @@ const ROAD_FILL_COLOR = "#182129";
 const ROAD_FILL_INTENSITY: Record<Tod, number> = { day: 0.1, dusk: 0.18, night: 0.38 };
 
 export type PerfSample = { fps: number; calls: number; tris: number };
+/** A constituent complaint pinned over its zone. */
+export type CityAlert = { icon: string; label: string; urgent: boolean };
 
 function ZoneTile({
   zone, cx, cz, seed, selected, onSelect,
@@ -596,9 +598,10 @@ function OverlayLayer({ placed, overlay }: { placed: CellPlacement[]; overlay: E
 
 function Grid({
   placed, zones, gridSize, density, traits, winLit, selectedId, onSelect, tod, foliageDensity,
-  buildingBudget, larges, claimed, landmarkModels, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none",
+  buildingBudget, larges, claimed, landmarkModels, notchByCell, weather = "clear", nationalLighting = false, klLandmarks = false, destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none", alerts,
 }: {
   overlay?: CityOverlay;
+  alerts?: Record<string, CityAlert>;
   placed: CellPlacement[]; zones: Zone[]; gridSize: number; density: number;
   traits: SeatTraits; winLit: number; selectedId: string; onSelect: (id: string) => void; tod: Tod;
   foliageDensity: number;
@@ -760,6 +763,22 @@ function Grid({
           </Html>
         </group>;
       })}
+      {/* Open constituent complaints float over their zone; clicking one
+          selects the zone so the YB can go and deal with it. */}
+      {alerts && placed.map(({ zone, cx, cz }) => {
+        const alert = alerts[zone.id];
+        if (!alert) return null;
+        return <Html key={`alert-${zone.id}`} position={[cx, 70, cz]} center zIndexRange={[19, 0]} style={{ pointerEvents: "auto" }}>
+          <button type="button" onClick={(event) => { event.stopPropagation(); onSelect(zone.id); }}
+            className={alert.urgent ? "animate-pulse" : undefined}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 7px", whiteSpace: "nowrap", cursor: "pointer",
+              border: `1px solid ${alert.urgent ? "#ff4444" : "#facc15"}`, borderRadius: 3, background: "rgba(2,10,20,.92)",
+              boxShadow: `0 0 14px ${alert.urgent ? "rgba(255,68,68,.5)" : "rgba(250,204,21,.35)"}`, color: "#fef3c7",
+              fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 900, letterSpacing: ".05em" }}>
+            <span style={{ fontSize: 12 }}>{alert.icon}</span>{alert.label}
+          </button>
+        </Html>;
+      })}
       {klLandmarks && <KLProfile gridSize={gridSize} enabled winLit={winLit} nationalLighting={nationalLighting} />}
       {gridSize >= 8 && <Billboards placed={placed} gridSize={gridSize} density={density} traits={traits} winLit={winLit} claimed={claimed} buildingBudget={buildingBudget} />}
       {!irregularRoads && notchByCell.size > 0 && <Roundabout gridSize={gridSize} density={density} />}
@@ -861,8 +880,9 @@ export function CityScene({
   zones, gridSize, density, traits, tod, weather = "clear", overall = 100,
   selectedId, onSelect, celebration, landmarkZoneId,
   camRef, movedRef, distance, hudRef, onPerf, quality, trafficLevel = 0.5, camTargetRef,
-  soundEnabled = false, festivals = [], lang = "ms", destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none",
+  soundEnabled = false, festivals = [], lang = "ms", destinationTags, showAllDestinationTags = false, onEnterDestination, overlay = "none", alerts,
 }: {
+  alerts?: Record<string, CityAlert>;
   /** Civitas-style stat overlay tinting every zone tile. */
   overlay?: CityOverlay;
   zones: Zone[];
@@ -1044,6 +1064,7 @@ export function CityScene({
         showAllDestinationTags={showAllDestinationTags}
         onEnterDestination={onEnterDestination}
         overlay={overlay}
+        alerts={alerts}
       />
       {!traits.bukitBintang && <>
         <StreetLamps gridSize={gridSize} lamp={TOD_ENV[tod].lamp * mood} detail={ruralRoadNetwork ? qs.streetDetail * 0.18 : qs.streetDetail} claimed={claimed} hideNear={roundaboutAt} />

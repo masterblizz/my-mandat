@@ -1,17 +1,19 @@
 "use client";
 
-// Civitas-style city-builder dock for the government term: a persistent
-// treasury strip (budget, next-quarter forecast, works in progress, advance
-// quarter) that expands into a categorised build toolbar, a problems list
-// and the construction queue. Pure view: /kawasan computes every card and
-// owns all state changes, so gameplay rules stay in one place.
+// Civitas-style city-builder dock for the term: a persistent strip (agenda
+// and build toggles, treasury, the term clock) that expands into either the
+// YB agenda (supplied by the page) or a categorised build toolbar, a
+// problems list and the construction queue. Pure view: /kawasan computes
+// every card and owns all state changes, so gameplay rules stay in one place.
 
+import type { ReactNode } from "react";
 import { t, type Lang } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
 import type { CityLedger } from "../data/cityEconomy";
 
 export type DockStat = "infra" | "welfare" | "economy";
 export type DockTab = "all" | DockStat | "issues" | "works";
+export type DockMode = "agenda" | "build" | null;
 
 export type DockCard = {
   id: string; icon: string; title: string; cost: number;
@@ -37,12 +39,18 @@ function scoreColor(value: number) {
 }
 
 export default function BuildDock({
-  lang, open, onToggle, tab, onTab, budget, forecast, month, termEnded, cards, problems, works,
+  lang, mode, onMode, tab, onTab, budget, forecast, month, termEnded, cards, problems, works,
   selectedZone, pending, onPickProject, onCancelPlacement, onBuildSuggested, onFocusZone, onAdvanceQuarter,
+  clock, agenda, agendaBadge,
 }: {
   lang: Lang;
-  open: boolean;
-  onToggle: () => void;
+  mode: DockMode;
+  onMode: (mode: DockMode) => void;
+  /** Term clock controls; replaces the advance-quarter button when given. */
+  clock?: ReactNode;
+  /** YB agenda panel; enables the AGENDA toggle when given. */
+  agenda?: ReactNode;
+  agendaBadge?: string;
   tab: DockTab;
   onTab: (tab: DockTab) => void;
   budget: number;
@@ -70,6 +78,8 @@ export default function BuildDock({
     { id: "works", label: `🚧 ${t(lang, "PEMBINAAN", "WORKS")} ${works.length}` },
   ];
   const visibleCards = tab === "all" ? cards : cards.filter((card) => card.target === tab);
+  const open = mode === "build";
+  const toggle = (next: Exclude<DockMode, null>) => onMode(mode === next ? null : next);
 
   return (
     <div className="city-build-dock city-hud-box absolute bottom-3 left-1/2 z-30 w-[min(780px,calc(100%-300px))] -translate-x-1/2" style={mono}>
@@ -79,6 +89,12 @@ export default function BuildDock({
           <span className="min-w-0 flex-1 truncate">{t(lang, "MOD PENEMPATAN", "PLACEMENT MODE")}: {pending.icon} {pending.title} — {t(lang, "klik zon pada bandar", "click a zone in the city")}</span>
           <button type="button" onClick={onCancelPlacement} className="border px-2 py-1 text-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)" }}>{t(lang, "BATAL", "CANCEL")}</button>
         </div>
+      )}
+
+      {mode === "agenda" && agenda && (
+        <section aria-label={t(lang, "Agenda YB", "YB agenda")} className="mb-2 border shadow-2xl" style={{ ...box, borderColor: "rgb(var(--cyan-rgb) / .5)" }}>
+          {agenda}
+        </section>
       )}
 
       {open && (
@@ -174,32 +190,39 @@ export default function BuildDock({
         </section>
       )}
 
-      <div className="flex items-stretch gap-1.5 border p-1.5 shadow-2xl" style={{ ...box, borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
-        <button type="button" onClick={onToggle} aria-expanded={open}
-          className="shrink-0 border px-3 text-[10px] font-black tracking-widest"
+      <div className="flex flex-wrap items-stretch gap-1.5 border p-1.5 shadow-2xl" style={{ ...box, borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
+        {agenda && (
+          <button type="button" onClick={() => toggle("agenda")} aria-expanded={mode === "agenda"}
+            className="shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
+            style={{ borderColor: "rgb(var(--cyan-rgb) / .65)", color: mode === "agenda" ? "var(--bg)" : "var(--cyan)", background: mode === "agenda" ? "var(--cyan)" : "rgb(var(--cyan-rgb) / .1)" }}>
+            📋 <span className="hidden sm:inline">{t(lang, "AGENDA", "AGENDA")}</span>{agendaBadge ? <span className="ml-1 opacity-80">{agendaBadge}</span> : null}
+          </button>
+        )}
+        <button type="button" onClick={() => toggle("build")} aria-expanded={open}
+          className="shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
           style={{ borderColor: "rgb(var(--gold-rgb) / .65)", color: open ? "var(--bg)" : "var(--gold)", background: open ? "var(--gold)" : "rgb(var(--gold-rgb) / .1)" }}>
-          🏗 {t(lang, "BINA", "BUILD")} {open ? "▾" : "▴"}
+          🏗 <span className={agenda ? "hidden sm:inline" : undefined}>{t(lang, "BINA", "BUILD")}</span> {open ? "▾" : "▴"}
         </button>
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-1.5 text-[8px] font-bold tracking-wider sm:grid-cols-3">
+        <div className={`grid min-w-0 flex-1 grid-cols-1 gap-1.5 text-[8px] font-bold tracking-wider ${clock ? "lg:grid-cols-2" : "sm:grid-cols-3"}`}>
           <div className="min-w-0 px-1">
             <div className="hidden truncate text-text-muted sm:block">{t(lang, "BAJET AWAM", "PUBLIC BUDGET")}</div>
             <div className="truncate text-[11px] font-black text-gold">RM {formatNumber(budget)}</div>
             <div className="truncate text-[8px] sm:hidden" style={{ color: forecast.net >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>{signedRM(forecast.net)} / {t(lang, "suku", "qtr")}</div>
           </div>
-          <div className="hidden min-w-0 px-1 sm:block" title={`${t(lang, "Geran", "Grant")} RM ${formatNumber(forecast.grant)} · ${t(lang, "Cukai", "Tax")} RM ${formatNumber(forecast.tax)} · ${t(lang, "Senggaraan", "Upkeep")} −RM ${formatNumber(forecast.upkeep)}`}>
+          <div className={`hidden min-w-0 px-1 ${clock ? "lg:block" : "sm:block"}`} title={`${t(lang, "Geran", "Grant")} RM ${formatNumber(forecast.grant)} · ${t(lang, "Cukai", "Tax")} RM ${formatNumber(forecast.tax)} · ${t(lang, "Senggaraan", "Upkeep")} −RM ${formatNumber(forecast.upkeep)}`}>
             <div className="truncate text-text-muted">{t(lang, "SUKU SETERUSNYA", "NEXT QUARTER")}</div>
             <div className="truncate text-[11px] font-black" style={{ color: forecast.net >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>{signedRM(forecast.net)}</div>
           </div>
-          <div className="hidden min-w-0 px-1 sm:block">
+          <div className={`hidden min-w-0 px-1 ${clock ? "" : "sm:block"}`}>
             <div className="truncate text-text-muted">{t(lang, "SENTIMEN", "SENTIMENT")} · 🚧 {works.length}</div>
             <div className="truncate text-[11px] font-black" style={{ color: scoreColor(forecast.avgSentiment) }}>{forecast.avgSentiment}% · {forecast.built} {t(lang, "kemudahan", "facilities")}</div>
           </div>
         </div>
-        <button type="button" onClick={onAdvanceQuarter}
+        {clock ?? <button type="button" onClick={onAdvanceQuarter}
           className="shrink-0 border px-2 text-[9px] font-black tracking-widest"
           style={{ borderColor: "rgb(var(--cyan-rgb) / .55)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>
           {termEnded ? t(lang, "KAD LAPORAN →", "REPORT CARD →") : <>{t(lang, `S${quarter}/20`, `Q${quarter}/20`)}<span className="hidden sm:inline"> · {t(lang, "MAJU", "NEXT")}</span> →</>}
-        </button>
+        </button>}
       </div>
     </div>
   );

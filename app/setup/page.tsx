@@ -12,6 +12,7 @@ import UpgradeButton from "../components/ui/UpgradeButton";
 import { useGameStore } from "../store/gameStore";
 import { setActiveSaveSlot } from "../store/saveGame";
 import { REP_OPENING_ALLOCATION, REP_QUARTER_GRANT, STARTING_SIDES, type StartingSide } from "../store/representative";
+import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, type GameSpeed } from "../data/ybService";
 import { formatNumber } from "../utils/format";
 import { states } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
@@ -139,6 +140,8 @@ export default function SetupPage() {
   // Which bench the newly won seat sits on — decides the opening allocation
   // and quarterly grant of the representative career.
   const [side, setSide] = useState<StartingSide>(settings.side ?? "government");
+  // How many game days pass per real second while the term clock runs.
+  const [gameSpeed, setGameSpeed] = useState<GameSpeed>(settings.gameSpeed ?? "week");
 
   // Nomination state — as party president, the player must contest a seat too.
   // In PRN mode this must be a DUN seat in the chosen PRN negeri, not a
@@ -283,6 +286,7 @@ export default function SetupPage() {
       eventRandomness,
       permanentConsequences,
       side,
+      gameSpeed,
     });
     if (campaignScope === "prn" && prnCandidateId) {
       useGameStore.getState().journeyAction({ type: "prn-candidate", id: prnCandidateId });
@@ -1019,6 +1023,20 @@ export default function SetupPage() {
                 </div>
               )}
 
+              <TacticalPanel title={t(lang, "KELAJUAN PERMAINAN", "GAME SPEED")}>
+                <p className="mb-3 text-[11px] leading-relaxed text-text-muted">{t(lang, "Masa penggal berjalan sendiri dan boleh dijeda bila-bila masa. Pilih berapa lama masa berlalu setiap saat — boleh ditukar semasa bermain.", "Term time runs on its own and can be paused any time. Choose how much time passes per second — changeable during play.")}</p>
+                <div role="radiogroup" aria-label={t(lang, "Kelajuan permainan", "Game speed")} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {GAME_SPEEDS.map((option) => (
+                    <button key={option} type="button" role="radio" aria-checked={gameSpeed === option} onClick={() => setGameSpeed(option)}
+                      className="p-3 text-left transition-all"
+                      style={{ border: `1px solid ${gameSpeed === option ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`, background: gameSpeed === option ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)" }}>
+                      <div className="text-[12px] font-bold tracking-wider" style={{ color: gameSpeed === option ? "var(--gold)" : "var(--text-primary)" }}>{SPEED_LABEL[option][lang].toUpperCase()}</div>
+                      <div className="mt-1 text-[10px] text-text-muted">{t(lang, `${SPEED_DAYS[option]} hari / saat`, `${SPEED_DAYS[option]} day${SPEED_DAYS[option] > 1 ? "s" : ""} / second`)}</div>
+                    </button>
+                  ))}
+                </div>
+              </TacticalPanel>
+
               <TacticalPanel title={t(lang, "setup_page.fineTuning")}>
                 <div className="space-y-4">
                   <div>
@@ -1114,6 +1132,7 @@ export default function SetupPage() {
                     <SummaryRow label={t(lang, "setup_page.electionMode")} value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : t(lang, "setup_page.pruNational")} />
                     {electionScope === "prn" && <SummaryRow label={t(lang, "Calon MB/KM", "MB/CM candidate")} value={getPrnCandidate(prnCandidateId)?.name ?? "—"} />}
                     <SummaryRow label={t(lang, "setup_page.difficulty")} value={t(lang, `setup_page.difficulty_${difficulty}_label`)} />
+                    <SummaryRow label={t(lang, "Kelajuan", "Speed")} value={SPEED_LABEL[gameSpeed][lang]} />
                     <SummaryRow label={t(lang, "setup_page.oppStrength")} value={`${oppStrength}%`} />
                     <SummaryRow label={t(lang, "setup_page.mediaBias")} value={t(lang, `setup_page.media_${mediaBias}`)} />
                     <SummaryRow label={t(lang, "setup_page.randomness")} value={t(lang, eventRandomness ? "setup_page.toggleOn" : "setup_page.toggleOff")} />

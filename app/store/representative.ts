@@ -2,6 +2,7 @@ import type { GameState } from "./gameStore";
 import { generateConstituencies } from "../data/constituencies";
 import { computeElectionOutcome } from "../utils/electionOutcome";
 import { cityLedger } from "../data/cityEconomy";
+import { newYbService } from "../data/ybService";
 import { journal, shiftSupport, type Journey } from "./journey";
 
 // Representative career: a new game starts on the first day after the
@@ -95,6 +96,8 @@ export function startAsRepresentative(state: GameState): Partial<GameState> {
       resultRecorded: true,
       onboarded: true,
       publicBudget: allocation,
+      termDay: 0,
+      service: newYbService(),
       decisions: 3,
       actionsToday: [],
       termActions: [],
@@ -121,7 +124,11 @@ export function electionPersonalVote(state: GameState) {
   // Out of office (rebuilding) there is no kawasan record to run on — only
   // the grassroots organisation and trust rebuilt since losing the seat.
   const outOfOffice = state.journey.chapter === "rebuilding";
-  const kawasanRecord = outOfOffice ? (state.journey.organisation - 40) * 0.15 : zones.length ? (ledger.avgSentiment - 50) * 0.4 + ledger.built * 0.6 : -4;
+  // In office, constituency service counts too: being seen on the ground
+  // (presence) and answering complaints rather than letting them lapse.
+  const service = state.journey.service;
+  const serviceRecord = (service.presence - 50) * 0.12 + Math.max(-10, Math.min(10, service.resolved - service.missed * 1.5)) * 0.3;
+  const kawasanRecord = outOfOffice ? (state.journey.organisation - 40) * 0.15 : (zones.length ? (ledger.avgSentiment - 50) * 0.4 + ledger.built * 0.6 : -4) + serviceRecord;
   const performance = Math.max(-15, Math.min(20, kawasanRecord + (state.journey.trust - 50) * 0.1));
   const next = Math.round((previous * 0.5 + performance) * 10) / 10;
   return { seatState, seatId, previous, performance: Math.round(performance * 10) / 10, next };
@@ -164,6 +171,7 @@ export function continueRepresentativeCareer(state: GameState): { patch: Partial
       careerProgress: { ...state.careerProgress, month: 1 },
       journey: {
         ...j, chapter: side, characterStage: "representative", publicBudget: j.publicBudget + allocation,
+        termDay: 0, service: newYbService(),
         decisions: 3, actionsToday: [], termActions: [],
         journal: journal(j,
           `Dipilih semula di ${state.leader.homeConstituencyName} untuk penggal ${term} (blok ${side === "government" ? "kerajaan" : "pembangkang"}). Peruntukan baharu RM${allocation.toLocaleString()}; pembangunan kawasan diteruskan.`,

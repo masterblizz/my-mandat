@@ -114,8 +114,8 @@ function normalizeSlots(slots: SavedGameSlot[]) {
         if (Array.isArray(zones) && zones.every(z => typeof z.id === "string" && Array.isArray(z.projects) && [z.infra, z.welfare, z.economy, z.sentiment].every(Number.isFinite))) journey.cityZones[seat] = zones;
       } catch { /* An invalid legacy city must not prevent loading the campaign. */ }
     }
-    // Saves from before the representative career have no starting side.
-    const settings = slot.state.settings ? { settings: { ...slot.state.settings, side: slot.state.settings.side ?? "government" } } : {};
+    // Saves from before the representative career have no starting side or clock speed.
+    const settings = slot.state.settings ? { settings: { ...slot.state.settings, side: slot.state.settings.side ?? "government", gameSpeed: slot.state.settings.gameSpeed ?? "week" } } : {};
     normalized.push({ ...slot, state: { ...slot.state, ...settings, journey, opponentLog: slot.state.opponentLog ?? [], politicalReactions: slot.state.politicalReactions ?? [], aiNews: slot.state.aiNews ?? [], nationalSupportDelta: slot.state.nationalSupportDelta ?? 0 }, slotNumber });
   }
 
