@@ -249,6 +249,11 @@ button, a, input, select, textarea {
   .city-onboarding .grid { grid-template-columns: 1fr !important; }
   .city-briefing-button { right: auto !important; left: 10px; top: 112px !important; }
   .city-hud-toggle { top: 112px !important; right: 10px !important; }
+  .city-engine-toggle { top: 152px !important; right: 10px !important; }
+  /* The PA's live-analysis bubble sits where the zone card goes on a
+     phone; while a zone card is open the avatar alone stays, a tap still
+     opens the full advice. */
+  .kw-page-content:has(.city-zone-card) .city-embedded-assistant .pa-brief { display: none; }
   .personal-assistant--floating { bottom: calc(76px + env(safe-area-inset-bottom)) !important; left: 10px !important; }
   .personal-assistant--floating > section { max-height: calc(100dvh - 176px); overflow-y: auto; }
   .city3d-controls { top: 8px !important; left: 8px !important; right: 8px !important; gap: 4px !important; }
@@ -265,7 +270,7 @@ button, a, input, select, textarea {
      zone card rides above it instead of underneath. */
   .city-build-dock { left: 10px !important; right: 90px; width: auto !important; transform: none !important; bottom: 12px !important; }
   .city-build-dock .city-build-dock__body { max-height: 34dvh; }
-  .kw-page-content .absolute.bottom-20.left-4.city-zone-card--raised { bottom: 70px; }
+  .kw-page-content .absolute.bottom-20.left-4.city-zone-card--raised { bottom: 92px; }
 }
 
 /* "View city" toggle on /kawasan: hides every HUD box (briefing, onboarding,
