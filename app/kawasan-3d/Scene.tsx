@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import City3DMapGL from "./City3DMapGL";
+import GodotCityMap from "./GodotCityMap";
 import { useLang } from "../i18n/useLang";
 import {
   kawasanGridSize, kawasanDevelopedCount, makeDemoZones,
@@ -70,6 +71,7 @@ export default function Scene() {
   }, []);
 
   const [selectedZoneId, setSelectedZoneId] = useState("zone-0");
+  const [engine, setEngine] = useState<"webgl" | "godot">("webgl");
   const selected = zones.find((z) => z.id === selectedZoneId) ?? zones[0];
   const overall = zones.length
     ? Math.round(zones.reduce((s, z) => s + z.sentiment, 0) / zones.length)
@@ -106,10 +108,27 @@ export default function Scene() {
             {p.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setEngine((e) => (e === "godot" ? "webgl" : "godot"))}
+          style={{ ...ui.chip, ...(engine === "godot" ? ui.chipOn : null) }}
+        >
+          {lang === "ms" ? "ENJIN" : "ENGINE"}: {engine === "godot" ? "GODOT" : "WEBGL"}
+        </button>
       </div>
 
       {/* mimic the live page's [minmax(0,1fr) 390px] panel grid (lg only) */}
       <div style={{ ...ui.grid, gridTemplateColumns: narrow ? "1fr" : "minmax(0,1fr) 390px" }}>
+        {engine === "godot" ? (
+          <GodotCityMap
+            zones={zones}
+            selectedZoneId={selectedZoneId}
+            setSelectedZoneId={setSelectedZoneId}
+            overlay="sentiment"
+            lang={lang}
+            height="clamp(520px, 74vh, 760px)"
+          />
+        ) : (
         <City3DMapGL
           zones={zones}
           selectedZoneId={selectedZoneId}
@@ -122,6 +141,7 @@ export default function Scene() {
           celebration={celebration}
           overall={overall}
         />
+        )}
 
         <aside style={ui.side}>
           <div style={ui.sideKicker}>OBJECT INSPECTOR · {selected && ZONE_KIND_LABEL[selected.kind]}</div>

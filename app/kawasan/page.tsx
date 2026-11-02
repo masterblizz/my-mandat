@@ -58,6 +58,12 @@ const City3DMapGL = dynamic(() => import("../kawasan-3d/City3DMapGL"), {
   ),
 });
 const USE_GL_MAP = true;
+// The Godot city (organic streets, LRT, skyline) is an alternative engine
+// for the same zones; the player switches with the ENJIN button and the
+// choice is remembered per device.
+const GodotCityMap = dynamic(() => import("../kawasan-3d/GodotCityMap"), { ssr: false });
+type MapEngine = "godot" | "webgl";
+const MAP_ENGINE_KEY = "kawasan-map-engine";
 
 // Same quick-campaign templates as /campaign's deploy modal, kept local so a
 // player can launch a home-seat push without leaving the kawasan screen.
@@ -2631,6 +2637,18 @@ export default function KawasanDevelopmentPage() {
   const [zonePanelOpen, setZonePanelOpen] = useState(true);
   const [buildTab, setBuildTab] = useState<DockTab>("all");
   const [overlay, setOverlay] = useState<CityOverlay>("none");
+  const [mapEngine, setMapEngine] = useState<MapEngine>("godot");
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(MAP_ENGINE_KEY);
+      if (saved === "godot" || saved === "webgl") setMapEngine(saved);
+    } catch { /* storage blocked: keep the default */ }
+  }, []);
+  const switchMapEngine = () => setMapEngine((current) => {
+    const next: MapEngine = current === "godot" ? "webgl" : "godot";
+    try { window.localStorage.setItem(MAP_ENGINE_KEY, next); } catch { /* not persisted */ }
+    return next;
+  });
   const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
   // Representative career: the term (either bench) is lived in the kawasan.
   const repTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
@@ -3087,7 +3105,9 @@ export default function KawasanDevelopmentPage() {
         <div className="relative h-[calc(100vh-92px)] min-h-[560px]">
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
-              {useGlMap ? (
+              {useGlMap && mapEngine === "godot" ? (
+                <GodotCityMap zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} overlay={overlay} lang={lang} height="calc(100svh - 94px)" />
+              ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
@@ -3100,6 +3120,14 @@ export default function KawasanDevelopmentPage() {
               </div>
               {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
+              {useGlMap && (
+                <button type="button" onClick={switchMapEngine}
+                  className="absolute right-4 top-[98px] z-[140] border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
+                  style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--bg-rgb) / .9)", fontFamily: "'Space Mono', monospace" }}
+                  title={t(lang, "Tukar enjin peta bandar", "Switch city map engine")}>
+                  {t(lang, "ENJIN", "ENGINE")}: {mapEngine === "godot" ? "GODOT" : "WEBGL"}
+                </button>
+              )}
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-hud-toggle absolute right-4 top-14 z-[140] border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
                 style={{ borderColor: hudHidden ? "rgb(var(--gold-rgb) / .7)" : "rgb(var(--cyan-rgb) / .5)", color: hudHidden ? "var(--gold)" : "var(--cyan)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
