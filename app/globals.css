@@ -307,8 +307,10 @@ button, a, input, select, textarea {
 .city-tool:active { transform: scale(.94); }
 .city-tool:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .city-tool[aria-pressed="true"] { border-color: rgb(var(--gold-rgb) / .8); color: var(--gold); background: rgb(var(--gold-rgb) / .14); }
-.city-tool--engine { top: 56px; right: 16px; }
-.city-tool--view { top: 56px; right: 68px; }
+/* explicit, since .city-tool's position: relative (needed for badges)
+   would otherwise beat Tailwind's .absolute, which is emitted earlier */
+.city-tool--engine { position: absolute; top: 56px; right: 16px; }
+.city-tool--view { position: absolute; top: 56px; right: 68px; }
 .city-tool--activity { margin-right: 104px; }
 .city-tool[data-tip]:hover::after {
   content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; white-space: nowrap;
