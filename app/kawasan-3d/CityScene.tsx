@@ -153,10 +153,11 @@ function ZoneTile({
         <group position={[0, TILE_H + 0.2, 0]}>
           {(
             [
-              [0, -PLOT / 2 + TILE_BORDER_W / 2, PLOT, TILE_BORDER_W],
-              [0, PLOT / 2 - TILE_BORDER_W / 2, PLOT, TILE_BORDER_W],
-              [-PLOT / 2 + TILE_BORDER_W / 2, 0, TILE_BORDER_W, PLOT],
-              [PLOT / 2 - TILE_BORDER_W / 2, 0, TILE_BORDER_W, PLOT],
+              // Short corner brackets leave the streets and plot frontage visible.
+              ...[-1, 1].flatMap((x) => [-1, 1].flatMap((z) => [
+                [x * (PLOT / 2 - 24), z * (PLOT / 2 - TILE_BORDER_W / 2), 48, TILE_BORDER_W],
+                [x * (PLOT / 2 - TILE_BORDER_W / 2), z * (PLOT / 2 - 24), TILE_BORDER_W, 48],
+              ])),
             ] as const
           ).map(([x, z, w, d], i) => (
             <mesh key={i} position={[x, 0, z]}>
@@ -165,6 +166,7 @@ function ZoneTile({
                 color={selected ? "#7dd3fc" : "#cbd5e1"}
                 toneMapped={false}
                 transparent
+                depthWrite={false}
                 opacity={selected ? 0.95 : 0.45}
               />
             </mesh>

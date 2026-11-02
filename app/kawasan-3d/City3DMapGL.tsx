@@ -4,15 +4,10 @@
 // IDENTICAL prop signature, so the live page's right-side panel / projects
 // / manifesto (all driven off selectedZoneId) keep working untouched.
 //
-// Not yet wired into the live route — exercised from the /kawasan-3d
-// sandbox (Scene.tsx). When cutting over: swap <City3DMap .../> for
-// <City3DMapGL .../> behind a ?gl=1 + localStorage flag, load via
-// dynamic(ssr:false), and keep the CSS component importable for one
-// release.
-
 import {
   useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode,
 } from "react";
+import styles from "./cityHud.module.css";
 import { Canvas } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 import * as THREE from "three";
@@ -164,17 +159,24 @@ export default function City3DMapGL({
     () => setTrafficMode((m) => TRAFFIC_MODES[(TRAFFIC_MODES.indexOf(m) + 1) % TRAFFIC_MODES.length]),
     [],
   );
-  const trafficWord =
+  const trafficWordKey =
     trafficMode !== "auto" ? trafficMode.toUpperCase()
       : trafficLevel >= 0.8 ? "PEAK" : trafficLevel >= 0.55 ? "BUSY" : trafficLevel >= 0.3 ? "NORMAL" : "LIGHT";
+  const trafficWord = t(lang,
+    ({ PEAK: "PUNCAK", BUSY: "SIBUK", NORMAL: "BIASA", LIGHT: "LENGANG" } as Record<string, string>)[trafficWordKey],
+    trafficWordKey);
   const isPeakNow = trafficMode === "auto" && autoLevel >= 0.8;
 
   // Narrow-container layout (embedded on a phone-width column).
   const [compact, setCompact] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(900);
   useEffect(() => {
     const el = hudRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(([e]) => setCompact(e.contentRect.width < 620));
+    const ro = new ResizeObserver(([e]) => {
+      setCompact(e.contentRect.width < 620);
+      setContainerWidth(e.contentRect.width);
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -184,7 +186,7 @@ export default function City3DMapGL({
   // it up to a larger inspection overlay; ✕ or a click on the backdrop
   // collapses it.
   const [mapExpanded, setMapExpanded] = useState(false);
-  const mmPx = mapExpanded ? 300 : compact ? 62 : 100;
+  const mmPx = mapExpanded ? Math.min(300, Math.max(60, containerWidth - 48)) : compact ? 62 : 100;
   const mmCell = Math.max(2, Math.floor(mmPx / gridSize));
   const mmGridPx = mmCell * gridSize;
 
@@ -280,7 +282,7 @@ export default function City3DMapGL({
 
   return (
     <div
-      className="city3d-map"
+      className={`city3d-map ${styles.map}`}
       ref={hudRef}
       onPointerDown={noteMapInteraction}
       onWheel={noteMapInteraction}
@@ -388,26 +390,33 @@ export default function City3DMapGL({
         style={{ ...css.controls, ...(compact ? css.controlsCompact : null) }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <button type="button" aria-label="Zoom in" style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_IN)}>+</button>
-        <button type="button" aria-label="Zoom out" style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_OUT)}>−</button>
-        <button type="button" aria-label="Reset camera" style={compact ? css.btnSm : css.btn} onClick={resetCam}>R</button>
-        <button type="button" aria-label={timeMode === "auto" ? "City time follows local clock" : "Cycle time of day"} style={compact ? css.btnSm : css.btnWide} onClick={cycleTod}>
+        <button type="button" aria-label={t(lang, "Zum masuk", "Zoom in")} title={t(lang, "Zum masuk", "Zoom in")} style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_IN)}>+</button>
+        <button type="button" aria-label={t(lang, "Zum keluar", "Zoom out")} title={t(lang, "Zum keluar", "Zoom out")} style={compact ? css.btnSm : css.btn} onClick={() => zoomBy(BTN_ZOOM_OUT)}>−</button>
+        <button type="button" aria-label={t(lang, "Tetapkan semula kamera", "Reset camera")} title={t(lang, "Tetapkan semula kamera", "Reset camera")} style={compact ? css.btnSm : css.btn} onClick={resetCam}>↺</button>
+        <button type="button" aria-label={t(lang, "Tukar waktu bandar", "Cycle city time")} title={t(lang, "Tukar waktu bandar", "Cycle city time")} style={compact ? css.btnSm : css.btnWide} onClick={cycleTod}>
           {TOD_ICON[tod]}{compact ? "" : ` ${t(lang, `kawasan_page.tod_${tod}`)}${timeMode === "auto" ? " · AUTO" : ""}`}
         </button>
-        <button type="button" aria-label="Toggle weather" style={compact ? css.btnSm : css.btnWide} onClick={() => setWeather((w) => (w === "rain" ? "clear" : "rain"))}>
+        <button type="button" aria-label={t(lang, "Tukar cuaca", "Toggle weather")} title={t(lang, "Tukar cuaca", "Toggle weather")} style={compact ? css.btnSm : css.btnWide} onClick={() => setWeather((w) => (w === "rain" ? "clear" : "rain"))}>
           {weather === "rain" ? "🌧" : "☀"}{compact ? "" : ` ${weather === "rain" ? t(lang, "kawasan_page.rain") : t(lang, "kawasan_page.clear")}`}
         </button>
-        <button type="button" aria-label="Cycle traffic density" style={compact ? css.btnSm : css.btnWide} onClick={cycleTraffic}>
+        <button type="button" aria-label={t(lang, "Tukar kepadatan trafik", "Cycle traffic density")} title={t(lang, "Tukar kepadatan trafik", "Cycle traffic density")} style={compact ? css.btnSm : css.btnWide} onClick={cycleTraffic}>
           🚗{compact ? "" : ` ${trafficMode === "auto" ? `AUTO·${trafficWord}` : trafficWord}`}
         </button>
         <button type="button" aria-label={t(lang, "Tukar lapisan data", "Cycle data overlay")} aria-pressed={overlay !== "none"} style={{ ...(compact ? css.btnSm : css.btnWide), ...(overlay !== "none" ? css.btnActive : null) }} onClick={cycleOverlay}>
           ▦{compact ? "" : ` ${t(lang, ...OVERLAY_LABEL[overlay])}`}
         </button>
-        <button type="button" aria-label="Toggle city sound" style={compact ? css.btnSm : css.btn} onClick={() => setSoundEnabled((v) => !v)}>
+        <button type="button" aria-label={t(lang, "Bunyi bandar", "City sound")} title={t(lang, "Bunyi bandar", "City sound")} style={compact ? css.btnSm : css.btn} aria-pressed={soundEnabled} onClick={() => setSoundEnabled((v) => !v)}>
           {soundEnabled ? "🔊" : "🔇"}
         </button>
-        <button type="button" aria-label="Toggle perf readout" style={compact ? css.btnSm : css.btn} onClick={() => setShowPerf((v) => !v)}>ᐧ</button>
+        <button type="button" aria-label={t(lang, "Prestasi paparan", "Performance readout")} title={t(lang, "Prestasi paparan", "Performance readout")} style={compact ? css.btnSm : css.btn} aria-pressed={showPerf} onClick={() => setShowPerf((v) => !v)}>▥</button>
       </div>
+
+      {/* Return to clock-following mode after previewing day/night. */}
+      {timeMode === "manual" && <button type="button" className={styles.clock}
+        style={{ top: compact ? 100 : 12, left: compact ? 12 : "50%", transform: compact ? undefined : "translateX(-50%)" }}
+        onClick={() => setTimeMode("auto")}>
+        ◷ {t(lang, "Ikut waktu tempatan", "Follow local time")}
+      </button>}
 
       {/* scene label + perf (bottom-left) */}
       <div style={css.footL}>
@@ -457,7 +466,7 @@ export default function City3DMapGL({
               {showTitle && <span style={css.minimapTitle}>{t(lang, "kawasan_page.map")}</span>}
               <button
                 type="button"
-                aria-label={mapExpanded ? "Collapse map" : "Expand map"}
+                aria-label={mapExpanded ? t(lang, "Kecilkan peta", "Collapse map") : t(lang, "Besarkan peta", "Expand map")} aria-expanded={mapExpanded}
                 onClick={(e) => { e.stopPropagation(); setMapExpanded((v) => !v); }}
                 style={css.mmToggle}
               >
@@ -518,28 +527,28 @@ export default function City3DMapGL({
 }
 
 const ctrlBox: CSSProperties = {
-  borderWidth: 1, borderStyle: "solid", borderColor: "rgba(186,230,253,0.36)",
+  borderRadius: 6, borderWidth: 1, borderStyle: "solid", borderColor: "rgba(186,230,253,0.36)",
   background: "rgba(5,12,23,0.74)", color: "#e0f2fe",
   backdropFilter: "blur(10px)", boxShadow: "0 6px 16px rgba(2,6,23,0.2)",
 };
 const css: Record<string, CSSProperties> = {
-  legend: { position: "absolute", left: 12, top: 12, display: "flex", flexDirection: "column", gap: 3, font: "700 9px system-ui, sans-serif", letterSpacing: "0.12em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },
+  legend: { position: "absolute", left: 12, top: 12, display: "flex", flexDirection: "column", padding: "10px 12px", border: "1px solid rgba(125,211,252,.22)", borderRadius: 8, background: "rgba(5,12,23,.84)", backdropFilter: "blur(12px)", gap: 6, font: "700 9px system-ui, sans-serif", letterSpacing: "0.12em", color: "#cbd5e1", pointerEvents: "none" },
   overlayLegend: { width: 150, padding: "6px 8px", background: "rgba(3,8,15,0.86)", border: "1px solid rgba(250,204,21,0.45)", color: "#cbd5e1" },
   overlayRamp: { display: "block", height: 6, background: "linear-gradient(90deg, rgb(255,68,68), rgb(240,165,0) 54%, rgb(0,255,136))" },
   btnActive: { borderColor: "rgba(250,204,21,0.8)", color: "#facc15", boxShadow: "0 0 12px rgba(250,204,21,0.25)" },
   legendRow: { display: "flex", alignItems: "center", gap: 5 },
-  legendSwatch: { display: "block", width: 14, height: 6 },
+  legendSwatch: { display: "block", width: 6, height: 6, borderRadius: "50%" },
   controls: { position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" },
   controlsCompact: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", left: 8, right: 8, maxWidth: "none" },
-  btn: { ...ctrlBox, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", font: "900 13px system-ui, sans-serif", cursor: "pointer" },
-  btnSm: { ...ctrlBox, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", font: "900 12px system-ui, sans-serif", cursor: "pointer" },
-  btnWide: { ...ctrlBox, padding: "6px 8px", font: "900 9px system-ui, sans-serif", letterSpacing: "0.14em", cursor: "pointer" },
+  btn: { ...ctrlBox, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", font: "900 13px system-ui, sans-serif", cursor: "pointer" },
+  btnSm: { ...ctrlBox, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", font: "900 12px system-ui, sans-serif", cursor: "pointer" },
+  btnWide: { ...ctrlBox, minHeight: 34, padding: "6px 10px", font: "900 9px system-ui, sans-serif", letterSpacing: "0.14em", cursor: "pointer" },
   footL: { position: "absolute", left: 12, bottom: 10, display: "flex", flexDirection: "column", gap: 4, pointerEvents: "none" },
   label: { font: "900 9px system-ui, sans-serif", letterSpacing: "0.16em", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   peakTag: { font: "900 9px system-ui, sans-serif", letterSpacing: "0.16em", color: "#fca5a5", background: "rgba(60,10,10,0.82)", border: "1px solid rgba(248,113,113,0.5)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
   perf: { font: "12px ui-monospace, monospace", color: "#7dd3fc", background: "rgba(3,8,15,0.8)", padding: "3px 7px", borderRadius: 3, alignSelf: "flex-start" },
-  hint: { position: "absolute", left: 12, right: 12, bottom: 10, textAlign: "center", font: "700 9px system-ui, sans-serif", letterSpacing: "0.18em", color: "rgba(148,163,184,0.95)", pointerEvents: "none" },
-  minimap: { position: "absolute", right: 12, bottom: 44, padding: 6, borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.85)" },
+  hint: { position: "absolute", left: "50%", transform: "translateX(-50%)", width: "max-content", maxWidth: "60%", padding: "7px 12px", borderRadius: 6, background: "rgba(3,8,15,.82)", bottom: 10, textAlign: "center", font: "700 9px system-ui, sans-serif", letterSpacing: "0.06em", color: "#cbd5e1", pointerEvents: "none" },
+  minimap: { position: "absolute", right: 12, bottom: 44, padding: 8, borderRadius: 8, backdropFilter: "blur(12px)", borderWidth: 1, borderStyle: "solid", borderColor: "rgba(125,211,252,0.3)", background: "rgba(3,8,15,0.85)" },
   minimapTitle: { textAlign: "center", font: "900 7px system-ui, sans-serif", letterSpacing: "0.2em", color: "#7dd3fc" },
-  mmToggle: { ...ctrlBox, width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", font: "700 10px system-ui, sans-serif", lineHeight: 1, cursor: "pointer", padding: 0, borderRadius: 2 },
+  mmToggle: { ...ctrlBox, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", font: "700 10px system-ui, sans-serif", lineHeight: 1, cursor: "pointer", padding: 0, borderRadius: 2 },
 };

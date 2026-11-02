@@ -46,6 +46,7 @@ const SHOES = col(["#1c1917", "#f5f5f4", "#57381f", "#27272a", "#1c1917"]);
 const SCHOOL_WHITE = new THREE.Color("#f8fafc");
 const SCHOOL_NAVY = new THREE.Color("#1e3a8a");
 const UMBRELLA_COL = col(["#c53d4f", "#e2b84b", "#277da1", "#40513b", "#6d597a", "#d8e2dc"]);
+const ACCESSORY_COL = col(["#263b5a", "#6f3148", "#53633e", "#815d31", "#334155", "#7c3f55"]);
 
 // Adult rig proportions (before per-person scale) — feet at TILE_H.
 const LEG_LEN = 4.4;
@@ -121,6 +122,9 @@ type Ped = {
   legs: THREE.Color;     // trousers, or skin under a skirt / shorts
   garment: null | { type: "skirt" | "shorts"; color: THREE.Color; len: number };
   shoe: THREE.Color;
+  /** Everyday carry gives close-up walkers an individual silhouette. */
+  accessory: "bag" | "backpack" | "phone" | null;
+  accessoryColor: THREE.Color;
   umbrella: number;
 };
 
@@ -131,6 +135,10 @@ function pick<T>(rnd: () => number, arr: T[]): T {
 function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid: boolean): Omit<Ped, "cx" | "cz" | "lane" | "u" | "speed" | "phase" | "umbrella"> {
   const hair = pick(rnd, HAIRS);
   const shoe = pick(rnd, SHOES);
+  // Kept on the data object rather than inferred while animating, so a
+  // person remains recognisable throughout a loop and across React renders.
+  const accessory = rnd() < 0.19 ? "backpack" as const : rnd() < 0.34 ? "bag" as const : rnd() < 0.43 ? "phone" as const : null;
+  const accessoryColor = pick(rnd, ACCESSORY_COL);
   if (kind === "man") {
     const top = pick(rnd, MEN_TOPS);
     const longSleeve = rnd() < 0.3;
@@ -139,7 +147,7 @@ function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid:
       kind, b: 0.96 + rnd() * 0.12, shoulder: 1, headScale: 1, swingMul: 1, skin,
       hairStyle: old && rnd() < 0.4 ? "bald" : "short",
       hair: old ? GREY_HAIR : hair,
-      top, forearm: longSleeve ? top : skin, legs: pick(rnd, PANTS), garment: null, shoe,
+      top, forearm: longSleeve ? top : skin, legs: pick(rnd, PANTS), garment: null, shoe, accessory, accessoryColor,
     };
   }
   if (kind === "woman") {
@@ -151,7 +159,7 @@ function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid:
         kind, b: 0.88 + rnd() * 0.09, shoulder: 0.86, headScale: 1, swingMul: 0.62, skin,
         hairStyle: "tudung", hair: pick(rnd, TUDUNG),
         top: fabric, forearm: fabric, legs: fabric,
-        garment: { type: "skirt", color: fabric, len: 0.9 }, shoe,
+        garment: { type: "skirt", color: fabric, len: 0.9 }, shoe, accessory, accessoryColor,
       };
     }
     const top = pick(rnd, WOMEN_TOPS);
@@ -161,13 +169,13 @@ function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid:
       return {
         kind, b: 0.88 + rnd() * 0.09, shoulder: 0.86, headScale: 1, swingMul: 0.85, skin,
         hairStyle, hair, top, forearm: skin, legs: skin,
-        garment: { type: "skirt", color: pick(rnd, SKIRTS), len: 0.5 }, shoe,
+        garment: { type: "skirt", color: pick(rnd, SKIRTS), len: 0.5 }, shoe, accessory, accessoryColor,
       };
     }
     // blouse + trousers
     return {
       kind, b: 0.88 + rnd() * 0.09, shoulder: 0.86, headScale: 1, swingMul: 0.95, skin,
-      hairStyle, hair, top, forearm: rnd() < 0.4 ? top : skin, legs: pick(rnd, PANTS), garment: null, shoe,
+      hairStyle, hair, top, forearm: rnd() < 0.4 ? top : skin, legs: pick(rnd, PANTS), garment: null, shoe, accessory, accessoryColor,
     };
   }
   const b = 0.6 + rnd() * 0.12;
@@ -178,7 +186,7 @@ function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid:
     return {
       kind, b, shoulder: 0.92, headScale, swingMul: 1.05, skin,
       hairStyle: "short", hair, top, forearm: skin, legs: skin,
-      garment: { type: "shorts", color: shorts, len: 0.38 }, shoe,
+      garment: { type: "shorts", color: shorts, len: 0.38 }, shoe, accessory, accessoryColor,
     };
   }
   // girl
@@ -190,7 +198,7 @@ function makePerson(kind: Kind, rnd: () => number, skin: THREE.Color, schoolKid:
     hairStyle: tudung ? "tudung" : rnd() < 0.55 ? "pony" : "long",
     hair: tudung ? (schoolKid ? SCHOOL_WHITE : pick(rnd, TUDUNG)) : hair,
     top, forearm: tudung && schoolKid ? top : skin, legs: tudung && schoolKid ? skirt : skin,
-    garment: { type: "skirt", color: skirt, len: tudung && schoolKid ? 0.9 : 0.55 }, shoe,
+    garment: { type: "skirt", color: skirt, len: tudung && schoolKid ? 0.9 : 0.55 }, shoe, accessory, accessoryColor,
   };
 }
 
@@ -325,12 +333,18 @@ export function Pedestrians({
     const hair = Object.fromEntries(HAIR_STYLES.map((s) => [s, [] as number[]])) as Record<HairStyle, number[] | undefined>;
     const skirts: number[] = [];
     const shorts: number[] = [];
+    const bags: number[] = [];
+    const backpacks: number[] = [];
+    const phones: number[] = [];
     peds.forEach((p, i) => {
       hair[p.hairStyle]?.push(i);
       if (p.garment?.type === "skirt") skirts.push(i);
       else if (p.garment?.type === "shorts") shorts.push(i);
+      if (p.accessory === "bag") bags.push(i);
+      else if (p.accessory === "backpack") backpacks.push(i);
+      else if (p.accessory === "phone") phones.push(i);
     });
-    return { hair, skirts, shorts };
+    return { hair, skirts, shorts, bags, backpacks, phones };
   }, [peds]);
 
   const torsoRef = useRef<THREE.InstancedMesh>(null);
@@ -344,6 +358,9 @@ export function Pedestrians({
   const hairRefs = useRef<Partial<Record<HairStyle, THREE.InstancedMesh | null>>>({});
   const umbrellaRef = useRef<THREE.InstancedMesh>(null);
   const umbrellaShaftRef = useRef<THREE.InstancedMesh>(null);
+  const bagRef = useRef<THREE.InstancedMesh>(null);
+  const backpackRef = useRef<THREE.InstancedMesh>(null);
+  const phoneRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tmpQ = useMemo(() => new THREE.Quaternion(), []);
   const tmpV = useMemo(() => new THREE.Vector3(), []);
@@ -375,13 +392,19 @@ export function Pedestrians({
     const shorts = new THREE.CylinderGeometry(1.0, 1.08, 1, 10, 1);
     shorts.translate(0, -0.5, 0);
     shorts.scale(0.68, 1, 1.0);
+    const bag = new THREE.BoxGeometry(1.45, 1.7, 0.48);
+    bag.translate(0, -0.85, 0);
+    const backpack = new THREE.BoxGeometry(1.55, 1.9, 0.58);
+    backpack.translate(0, -0.95, 0);
+    const phone = new THREE.BoxGeometry(0.42, 0.78, 0.1);
+    phone.translate(0, -0.39, 0);
     const hair = Object.fromEntries(
       HAIR_STYLES.map((s) => [s, buildHairGeometry(s)]),
     ) as Record<HairStyle, THREE.BufferGeometry | null>;
-    return { torso, head, leg, shoe, upperArm, forearmHand, skirt, shorts, hair };
+    return { torso, head, leg, shoe, upperArm, forearmHand, skirt, shorts, bag, backpack, phone, hair };
   }, []);
   useEffect(() => () => {
-    [geo.torso, geo.head, geo.leg, geo.shoe, geo.upperArm, geo.forearmHand, geo.skirt, geo.shorts]
+    [geo.torso, geo.head, geo.leg, geo.shoe, geo.upperArm, geo.forearmHand, geo.skirt, geo.shorts, geo.bag, geo.backpack, geo.phone]
       .forEach((g) => g.dispose());
     Object.values(geo.hair).forEach((g) => g?.dispose());
   }, [geo]);
@@ -427,6 +450,14 @@ export function Pedestrians({
       peds.forEach((p, i) => umbrellas.setColorAt(i, UMBRELLA_COL[p.umbrella]));
       if (umbrellas.instanceColor) umbrellas.instanceColor.needsUpdate = true;
     }
+    const accessories: Array<[THREE.InstancedMesh | null, number[]]> = [
+      [bagRef.current, groups.bags], [backpackRef.current, groups.backpacks], [phoneRef.current, groups.phones],
+    ];
+    accessories.forEach(([mesh, members]) => {
+      if (!mesh) return;
+      members.forEach((pi, k) => mesh.setColorAt(k, peds[pi].accessoryColor));
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    });
   }, [peds, groups, weather]);
 
   // Reverse lookup: ped index -> slot in its hair / garment mesh.
@@ -436,7 +467,11 @@ export function Pedestrians({
     const garmentSlot = new Int32Array(peds.length).fill(-1);
     groups.skirts.forEach((pi, k) => { garmentSlot[pi] = k; });
     groups.shorts.forEach((pi, k) => { garmentSlot[pi] = k; });
-    return { hairSlot, garmentSlot };
+    const accessorySlot = new Int32Array(peds.length).fill(-1);
+    groups.bags.forEach((pi, k) => { accessorySlot[pi] = k; });
+    groups.backpacks.forEach((pi, k) => { accessorySlot[pi] = k; });
+    groups.phones.forEach((pi, k) => { accessorySlot[pi] = k; });
+    return { hairSlot, garmentSlot, accessorySlot };
   }, [peds, groups]);
 
   useFrame((_, dt) => {
@@ -450,6 +485,9 @@ export function Pedestrians({
     const shortsMesh = shortsRef.current;
     const umbrellas = umbrellaRef.current;
     const umbrellaShafts = umbrellaShaftRef.current;
+    const bags = bagRef.current;
+    const backpacks = backpackRef.current;
+    const phones = phoneRef.current;
     const rainy = weather === "rain";
     if (!torso || !head || !legs || !shoes || !upper || !fore) return;
     if (rainy && (!umbrellas || !umbrellaShafts)) return;
@@ -473,6 +511,12 @@ export function Pedestrians({
       if (hs >= 0) hairRefs.current[p.hairStyle]?.setMatrixAt(hs, dummy.matrix);
       const gs = slots.garmentSlot[i];
       if (gs >= 0) (p.garment!.type === "skirt" ? skirts : shortsMesh)?.setMatrixAt(gs, dummy.matrix);
+      const as = slots.accessorySlot[i];
+      if (as >= 0) {
+        if (p.accessory === "bag") bags?.setMatrixAt(as, dummy.matrix);
+        else if (p.accessory === "backpack") backpacks?.setMatrixAt(as, dummy.matrix);
+        else phones?.setMatrixAt(as, dummy.matrix);
+      }
       umbrellas?.setMatrixAt(i, dummy.matrix);
       umbrellaShafts?.setMatrixAt(i, dummy.matrix);
     };
@@ -574,6 +618,33 @@ export function Pedestrians({
         fore.setMatrixAt(i * 2 + n, dummy.matrix);
       });
 
+      // Accessories attach to the body rather than the world so they retain
+      // their place through turns and make nearby walkers feel less cloned.
+      const as = slots.accessorySlot[i];
+      if (as >= 0) {
+        if (p.accessory === "backpack") {
+          dummy.position.set(x - cosH * 0.72 * b, shoulderY - 1.15 * b, z - sinH * 0.72 * b);
+          dummy.rotation.set(0, yaw, 0);
+          dummy.scale.set(b, b, b);
+          dummy.updateMatrix();
+          backpacks?.setMatrixAt(as, dummy.matrix);
+        } else if (p.accessory === "bag") {
+          const [bx, bz] = side(1.15 * b);
+          dummy.position.set(bx + cosH * 0.24 * b, hipY + 0.2 * b, bz + sinH * 0.24 * b);
+          dummy.rotation.set(0, yaw, 0.12);
+          dummy.scale.set(b, b, b);
+          dummy.updateMatrix();
+          bags?.setMatrixAt(as, dummy.matrix);
+        } else {
+          const [px, pz] = side(-SHOULDER_W * p.shoulder * b);
+          dummy.position.set(px + cosH * 0.55 * b, shoulderY - (UPPER_ARM + FOREARM * 0.35) * b, pz + sinH * 0.55 * b);
+          dummy.rotation.set(0, yaw, -0.28);
+          dummy.scale.set(b, b, b);
+          dummy.updateMatrix();
+          phones?.setMatrixAt(as, dummy.matrix);
+        }
+      }
+
       if (rainy && umbrellas && umbrellaShafts) {
         // One hand carries the umbrella slightly to the pedestrian's right.
         // The shared lean gives the rainy crowd a coherent wind direction;
@@ -591,6 +662,7 @@ export function Pedestrians({
       }
     }
     [torso, head, legs, shoes, upper, fore, skirts, shortsMesh].forEach((m) => { if (m) m.instanceMatrix.needsUpdate = true; });
+    [bags, backpacks, phones].forEach((m) => { if (m) m.instanceMatrix.needsUpdate = true; });
     for (const style of HAIR_STYLES) {
       const m = hairRefs.current[style];
       if (m) m.instanceMatrix.needsUpdate = true;
@@ -631,6 +703,21 @@ export function Pedestrians({
       {groups.shorts.length > 0 && (
         <instancedMesh ref={shortsRef} args={[geo.shorts, undefined, groups.shorts.length]} key={`ped-sh-${n}-${groups.shorts.length}`} castShadow frustumCulled={false}>
           <meshStandardMaterial color="#ffffff" roughness={0.88} />
+        </instancedMesh>
+      )}
+      {groups.bags.length > 0 && (
+        <instancedMesh ref={bagRef} args={[geo.bag, undefined, groups.bags.length]} key={`ped-bag-${n}-${groups.bags.length}`} castShadow frustumCulled={false}>
+          <meshStandardMaterial color="#ffffff" roughness={0.72} />
+        </instancedMesh>
+      )}
+      {groups.backpacks.length > 0 && (
+        <instancedMesh ref={backpackRef} args={[geo.backpack, undefined, groups.backpacks.length]} key={`ped-pack-${n}-${groups.backpacks.length}`} castShadow frustumCulled={false}>
+          <meshStandardMaterial color="#ffffff" roughness={0.78} />
+        </instancedMesh>
+      )}
+      {groups.phones.length > 0 && (
+        <instancedMesh ref={phoneRef} args={[geo.phone, undefined, groups.phones.length]} key={`ped-phone-${n}-${groups.phones.length}`} frustumCulled={false}>
+          <meshStandardMaterial color="#bfefff" emissive="#0e7490" emissiveIntensity={0.3} roughness={0.35} />
         </instancedMesh>
       )}
       {HAIR_STYLES.map((style) => {

@@ -1,0 +1,34 @@
+.map button {
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.map button:hover {
+  background: #153247 !important;
+  border-color: #7dd3fc !important;
+}
+
+.map button:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 3px;
+}
+
+.map button[aria-pressed="true"] {
+  border-color: #67e8f9 !important;
+  box-shadow: inset 0 -2px #22d3ee;
+}
+
+.clock {
+  position: absolute;
+  border: 1px solid rgba(250, 204, 21, .45);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: rgba(5, 12, 23, .9);
+  color: #fde68a;
+  font: 600 11px system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map button { transition: none; }
+}
