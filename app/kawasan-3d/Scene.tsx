@@ -121,10 +121,10 @@ export default function Scene() {
       <div style={{ ...ui.grid, gridTemplateColumns: narrow ? "1fr" : "minmax(0,1fr) 390px" }}>
         {engine === "godot" ? (
           <GodotCityMap
+            profile={{ code: `demo-${presetKey}`, name: preset.label, density: preset.density, traits: DIGITAL_TWIN_TRAITS }}
             zones={zones}
             selectedZoneId={selectedZoneId}
             setSelectedZoneId={setSelectedZoneId}
-            overlay="sentiment"
             lang={lang}
             height="clamp(520px, 74vh, 760px)"
           />

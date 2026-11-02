@@ -5,41 +5,46 @@
 // is hosted on its own and embedded in an iframe rather than bundled.
 //
 // Contract (window.postMessage):
-//   page -> city  { type: "kawasan-state", state: { zones, selected, overlay } }
+//   page -> city  { type: "kawasan-state", state: { profile, zones, selected } }
 //   city -> page  { type: "kawasan-godot-ready" } once the engine is up
-//                 { type: "kawasan-zone-click", id } when a zone marker is tapped
+//                 { type: "kawasan-zone-click", id } when the player taps a zone
+// The profile (seat code, density, traits) decides what city is built:
+// only Bukit Bintang gets the KL landmarks, coastal / paddy / hilly seats
+// get their own landscape, and the code seeds a distinct street layout.
 // The city only draws what it is sent; all game state stays here.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { CityOverlay, Zone } from "./cityData";
+import type { SeatTraits, Zone } from "./cityData";
 import { t, type Lang } from "../i18n/useLang";
 
 export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "https://kawasan-3d-city.surge.sh/";
 
+export type GodotSeatProfile = { code: string; name: string; density: number; traits: SeatTraits };
+
 export type GodotCityMapProps = {
+  profile: GodotSeatProfile;
   zones: Zone[];
   selectedZoneId: string;
   setSelectedZoneId: (id: string) => void;
-  overlay: CityOverlay;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ zones, selectedZoneId, setSelectedZoneId, overlay, lang, height = "100%" }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%" }: GodotCityMapProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const origin = useMemo(() => new URL(GODOT_CITY_URL).origin, []);
 
   // Only the fields the city draws; projects/building lists stay page-side.
   const state = useMemo(() => ({
+    profile,
     zones: zones.map((z) => ({
       id: z.id, kind: z.kind, archetype: z.archetype,
       sentiment: z.sentiment, infra: z.infra, welfare: z.welfare, economy: z.economy,
       projects: z.projects.length, building: z.building?.length ?? 0,
     })),
     selected: selectedZoneId,
-    overlay: overlay === "none" ? "sentiment" : overlay,
-  }), [zones, selectedZoneId, overlay]);
+  }), [profile, zones, selectedZoneId]);
 
   const send = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-state", state }, origin);

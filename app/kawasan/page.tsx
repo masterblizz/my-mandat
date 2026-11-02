@@ -2694,6 +2694,11 @@ export default function KawasanDevelopmentPage() {
     : t(lang, "kawasan_page.rural");
 
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
+  // What the Godot city builds for this seat (see GodotCityMap).
+  const godotProfile = useMemo(
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, traits }),
+    [ownSeat?.code, ownSeat?.name, density, traits],
+  );
   const traitLabels = [
     traits.coastal ? t(lang, "kawasan_page.coastal") : null,
     traits.paddy ? t(lang, "kawasan_page.riceBowl") : null,
@@ -3106,7 +3111,7 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
-                <GodotCityMap zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} overlay={overlay} lang={lang} height="calc(100svh - 94px)" />
+                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="calc(100svh - 94px)" />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
               ) : (
