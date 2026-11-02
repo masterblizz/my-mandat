@@ -62,9 +62,12 @@ export default function CityDestinations({ onFocus, variant = "panel", onActivit
   const visible = chapterDestination ? [chapterDestination, ...destinations] : destinations;
 
   if (variant === "overlay") return (
-    <div className="city-destination-overlay city-hud-box absolute left-1/2 top-3 z-20 w-[min(720px,calc(100%-104px))] -translate-x-1/2" style={{ fontFamily: "'Space Mono', monospace" }}>
-      <button type="button" onClick={() => setOpen((value) => { const next = !value; onActivityMarkersChange?.(next); return next; })} className="mx-auto flex items-center gap-2 border px-3 py-2 text-[9px] font-black tracking-[.18em] text-cyan shadow-xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .48)", background: "rgb(var(--bg-rgb) / .88)", backdropFilter: "blur(12px)" }}>
-        🏙️ {t(lang, "LOKASI AKTIVITI", "ACTIVITY LOCATIONS")} <span className="text-gold">{open ? "×" : "↓"}</span>
+    <div className="city-destination-overlay city-hud-box absolute right-4 top-14 z-20 w-[min(560px,calc(100%-32px))]" style={{ fontFamily: "'Space Mono', monospace" }}>
+      {/* Icon slot in the map toolbar (see .city-tool in globals.css). */}
+      <button type="button" onClick={() => setOpen((value) => { const next = !value; onActivityMarkersChange?.(next); return next; })}
+        className="city-tool city-tool--activity ml-auto" aria-pressed={open}
+        aria-label={t(lang, "Lokasi aktiviti", "Activity locations")} data-tip={t(lang, "Lokasi aktiviti", "Activity locations")}>
+        <span aria-hidden>{open ? "✕" : "📍"}</span>
       </button>
       {open && <section aria-label={t(lang, "Destinasi bandar", "City destinations")} className="mt-2 border p-2 shadow-2xl" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .93)", backdropFilter: "blur(14px)" }}>
         <p className="px-1 pb-2 text-center text-[9px] text-text-muted">{t(lang, "Pilih lokasi, kemudian klik bangunan yang ditanda pada bandar.", "Choose a location, then click its highlighted building in the city.")}</p>

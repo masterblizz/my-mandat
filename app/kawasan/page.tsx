@@ -3127,16 +3127,17 @@ export default function KawasanDevelopmentPage() {
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               {useGlMap && (
                 <button type="button" onClick={switchMapEngine}
-                  className="city-engine-toggle absolute right-4 top-[98px] z-[140] border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
-                  style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--bg-rgb) / .9)", fontFamily: "'Space Mono', monospace" }}
-                  title={t(lang, "Tukar enjin peta bandar", "Switch city map engine")}>
-                  {t(lang, "ENJIN", "ENGINE")}: {mapEngine === "godot" ? "GODOT" : "WEBGL"}
+                  className="city-tool city-tool--engine absolute z-[140]"
+                  aria-label={`${t(lang, "Enjin peta", "Map engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}
+                  data-tip={`${t(lang, "Enjin", "Engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}>
+                  <span aria-hidden>{mapEngine === "godot" ? "🎮" : "🧊"}</span>
                 </button>
               )}
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
-                className="city-hud-toggle absolute right-4 top-14 z-[140] border px-3 py-2 text-[9px] font-black tracking-widest shadow-xl"
-                style={{ borderColor: hudHidden ? "rgb(var(--gold-rgb) / .7)" : "rgb(var(--cyan-rgb) / .5)", color: hudHidden ? "var(--gold)" : "var(--cyan)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
-                {hudHidden ? `▣ ${t(lang, "TUNJUK PANEL", "SHOW PANELS")}` : `◫ ${t(lang, "LIHAT BANDAR", "VIEW CITY")}`}
+                className="city-tool city-tool--view city-hud-toggle absolute z-[140]"
+                aria-label={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}
+                data-tip={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}>
+                <span aria-hidden>{hudHidden ? "▣" : "👁"}</span>
               </button>
               <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               <PersonalAssistant embedded cityContext={selectedZone ? { selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall } : undefined} />
