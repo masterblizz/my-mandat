@@ -8,7 +8,11 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
-import { assistantStandingSrc } from "../lib/assistantAvatar";
+import dynamic from "next/dynamic";
+import { assistantGender } from "../lib/assistantAvatar";
+
+// WebGL room with the MakeHuman cast; browser-only.
+const Office3D = dynamic(() => import("./Office3D"), { ssr: false });
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
@@ -176,7 +180,7 @@ export default function PoliticalOfficePage() {
     markOfficeMailRead,
     assistantAvatar,
   } = useGameStore();
-  const standingAssistantSrc = assistantStandingSrc(assistantAvatar);
+  const assistantModel = assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male";
   const [active, setActive] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(true);
   const [openedMail, setOpenedMail] = useState<number | null>(null);
@@ -188,11 +192,6 @@ export default function PoliticalOfficePage() {
   const [newsIndex, setNewsIndex] = useState(0);
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
-  const officeVisual = isRural
-    ? isNight
-      ? "/political-office-rural-night.png"
-      : "/political-office-rural.png"
-    : "/political-office-realistic.png";
   const homeSupport =
     states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
   const calendarStateName = states.find((state) => state.id === leader.homeState)?.name ?? "Malaysia";
@@ -410,50 +409,18 @@ export default function PoliticalOfficePage() {
         className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]"
         style={{ fontFamily: "'Space Mono', monospace" }}
       >
-        <Image
-          src={officeVisual}
-          alt={officeTitle}
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        {isNight && !isRural && (
-          <div className="pointer-events-none absolute inset-0 z-[1] bg-[#030818]/35 mix-blend-multiply" />
-        )}
-        <button
-          type="button"
-          onClick={() => setAssistantOpen(true)}
-          aria-label={t(
-            lang,
-            "Buka panduan Personal Assistant",
-            "Open Personal Assistant guidance",
-          )}
-          className="absolute bottom-7 left-[13%] z-[15] h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] overflow-visible text-left transition-transform hover:scale-[1.015] focus:outline-none"
-          title={t(
-            lang,
-            "Personal Assistant · klik untuk berbincang",
-            "Personal Assistant · click to talk",
-          )}
-        >
-          <Image
-            src={standingAssistantSrc}
-            alt="Personal Assistant standing beside the desk"
-            fill
-            sizes="(max-width: 768px) 275px, 470px"
-            className="origin-bottom scale-[1.18] object-contain object-bottom drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"
+        <div className="absolute inset-0 z-[1]" role="img" aria-label={officeTitle}>
+          <Office3D
+            assistantName={assistantModel}
+            rural={isRural}
+            night={isNight}
+            onAssistant={() => setAssistantOpen(true)}
+            assistantLabel={`PERSONAL ASSISTANT · ${t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}`}
+            hotspots={Object.fromEntries((["desk", "schedule", "news", "files"] as const).map((key, i) => [key, {
+              key, icon: hotspots[i].icon, title: hotspots[i].title, onClick: () => setActive(hotspots[i].title),
+            }]))}
           />
-          <span
-            className="absolute bottom-[10%] left-1/2 -translate-x-1/2 whitespace-nowrap border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl"
-            style={{
-              borderColor: "rgb(var(--gold-rgb) / .65)",
-              background: "rgb(2 8 20 / .9)",
-            }}
-          >
-            ✦ PERSONAL ASSISTANT ·{" "}
-            {t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}
-          </span>
-        </button>
+        </div>
         {active &&
           (active === hotspots[1].title || active === hotspots[3].title) &&
           (() => {
@@ -733,28 +700,6 @@ export default function PoliticalOfficePage() {
           </div>
         )}
 
-        {hotspots.map((spot) => (
-          <div
-            key={spot.title}
-            className={`absolute z-[5] flex items-center gap-2 ${spot.className}`}
-          >
-            <span className="relative flex h-3 w-3">
-              <i className="absolute inset-0 animate-ping rounded-full bg-cyan/70" />
-              <i className="relative m-auto h-2 w-2 rounded-full bg-cyan ring-2 ring-[#07111c]" />
-            </span>
-            <button
-              type="button"
-              onClick={() => setActive(spot.title)}
-              className="border px-3 py-2 text-[10px] font-black tracking-wide text-white shadow-xl transition hover:border-gold hover:bg-cyan/15"
-              style={{
-                borderColor: "rgb(var(--cyan-rgb) / .58)",
-                background: "rgb(2 8 20 / .88)",
-              }}
-            >
-              {spot.icon} {spot.title}
-            </button>
-          </div>
-        ))}
         {unreadMailCount > 0 && (
           <button
             type="button"

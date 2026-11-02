@@ -252,6 +252,9 @@ button, a, input, select, textarea {
   .city-tool--view { top: 10px !important; right: 62px !important; }
   .city-tool--activity { margin-right: 104px !important; }
   .city-tool[data-tip]:hover::after { display: none; }
+  /* 3D office: hotspots shrink to their icon on a phone */
+  .office-hotspot__label { display: none; }
+  .office-hotspot { padding: 8px !important; gap: 6px !important; font-size: 14px !important; }
   /* The PA's live-analysis bubble sits where the zone card goes on a
      phone; while a zone card is open the avatar alone stays, a tap still
      opens the full advice. */
