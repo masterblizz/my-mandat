@@ -182,9 +182,16 @@ export default function PoliticalOfficePage() {
   } = useGameStore();
   const assistantModel = assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male";
   const [active, setActive] = useState<string | null>(null);
-  const [inboxOpen, setInboxOpen] = useState(true);
+  // Office HUD: a slim top strip plus an icon dock; each dock icon opens
+  // one panel (inbox, resources, PA objective) and only one is open at a
+  // time, so the 3D room stays visible instead of being buried in boxes.
+  const [panel, setPanel] = useState<"inbox" | "resources" | "assistant" | null>(null);
+  const inboxOpen = panel === "inbox";
+  const setInboxOpen = (open: boolean) => setPanel(open ? "inbox" : null);
   const [openedMail, setOpenedMail] = useState<number | null>(null);
-  const [assistantOpen, setAssistantOpen] = useState(true);
+  const assistantOpen = panel === "assistant";
+  const setAssistantOpen = (open: boolean) => setPanel(open ? "assistant" : null);
+  const togglePanel = (next: "inbox" | "resources" | "assistant") => setPanel((cur) => (cur === next ? null : next));
   const [notice, setNotice] = useState<string | null>(null);
   const [officeFeedback, setOfficeFeedback] = useState<string | null>(null);
   const [officeApproach, setOfficeApproach] = useState<ActivityApproach>("balanced");
@@ -627,66 +634,24 @@ export default function PoliticalOfficePage() {
             );
           })()}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,20,.68),transparent_36%,transparent_68%,rgba(2,8,20,.46))]" />
-        <div
-          className="absolute left-4 top-14 z-10 border px-4 py-3 shadow-2xl"
-          style={{
-            borderColor: "rgb(var(--cyan-rgb) / .5)",
-            background: "rgb(2 8 20 / .86)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          <div className="text-[9px] font-black tracking-[.22em] text-cyan">
-            🏢 {t(lang, "LOKASI BANDAR · INTERIOR", "CITY LOCATION · INTERIOR")}
+        <div className="office-hud absolute left-3 right-3 top-12 z-10 flex items-center gap-2 border px-3 py-2 shadow-2xl"
+          style={{ borderColor: "rgb(var(--cyan-rgb) / .4)", background: "rgb(2 8 20 / .82)", backdropFilter: "blur(12px)" }}>
+          <button type="button" onClick={() => router.push("/kawasan")} className="city-tool office-hud__back shrink-0"
+            aria-label={t(lang, "Kembali ke bandar", "Return to city")} data-tip={t(lang, "Kembali ke bandar", "Return to city")}>
+            <span aria-hidden>←</span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[8px] font-black tracking-[.2em] text-cyan">
+              🏢 {leader.partyAbbr || leader.party} · {isRural ? localProfile.seatName : t(lang, "PEJABAT", "OFFICE")}
+            </div>
+            <h1 className="truncate text-sm font-black tracking-wider text-white">{officeTitle}</h1>
           </div>
-          <h1 className="mt-1 text-lg font-black tracking-wider text-white">
-            {officeTitle}
-          </h1>
-          <p className="mt-1 text-[9px] text-text-muted">
-            {leader.partyAbbr || leader.party} ·{" "}
-            {isRural
-              ? t(
-                  lang,
-                  `Pejabat khidmat ${localProfile.seatName} · luar bandar`,
-                  `${localProfile.seatName} service office · rural`,
-                )
-              : t(lang, "Ruang kerja aktif", "Active workspace")}
-          </p>
-        </div>
-        <div
-          className="absolute right-40 top-14 z-10 hidden items-center gap-5 border px-4 py-2.5 text-[9px] font-black tracking-widest xl:flex"
-          style={{
-            borderColor: "rgb(var(--cyan-rgb) / .28)",
-            background: "rgb(2 8 20 / .84)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          <div>
-            <span className="block text-text-muted">
-              {t(lang, "KEPERCAYAAN", "TRUST")}
-            </span>
-            <b className="mt-1 block text-sm text-cyan">{journey.trust}</b>
-          </div>
-          <div className="h-8 w-px bg-cyan/20" />
-          <div>
-            <span className="block text-text-muted">
-              {t(lang, "TENAGA", "ENERGY")}
-            </span>
-            <b className="mt-1 block text-sm text-gold">
-              {journey.decisions}/3
-            </b>
+          <div className="flex shrink-0 items-center gap-3 text-[10px] font-black tracking-widest">
+            <span title={t(lang, "Tenaga", "Energy")} className="text-gold">⚡ {journey.decisions}/3</span>
+            <span title={t(lang, "Bajet", "Budget")} className="office-hud__wide text-cyan">💰 RM {officeFunds.toLocaleString("ms-MY")}</span>
+            <span title={t(lang, "Kepercayaan", "Trust")} className="office-hud__wide text-cyan">🤝 {journey.trust}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/kawasan")}
-          className="absolute right-4 top-14 z-10 border px-3 py-2 text-[9px] font-black tracking-widest text-cyan shadow-xl"
-          style={{
-            borderColor: "rgb(var(--cyan-rgb) / .48)",
-            background: "rgb(2 8 20 / .86)",
-          }}
-        >
-          ← {t(lang, "KEMBALI KE BANDAR", "RETURN TO CITY")}
-        </button>
         {notice && (
           <div
             role="status"
@@ -700,36 +665,35 @@ export default function PoliticalOfficePage() {
           </div>
         )}
 
-        {unreadMailCount > 0 && (
-          <button
-            type="button"
+        <nav className="office-dock absolute right-3 top-[112px] z-30 flex flex-col gap-2" aria-label={t(lang, "Panel pejabat", "Office panels")}>
+          <button type="button" className="city-tool" aria-pressed={panel === "inbox"}
             onClick={() => {
-              const nextUnreadMail = unreadMailIndices[0]!;
-              setInboxOpen(true);
-              setOpenedMail(nextUnreadMail);
-              markOfficeMailRead(nextUnreadMail);
+              if (panel !== "inbox" && unreadMailCount > 0) {
+                const nextUnreadMail = unreadMailIndices[0]!;
+                setOpenedMail(nextUnreadMail);
+                markOfficeMailRead(nextUnreadMail);
+              }
+              togglePanel("inbox");
             }}
-            className="absolute left-[55%] top-[53%] z-20 flex items-center gap-1.5 border px-2 py-1.5 text-[9px] font-black tracking-widest text-cyan shadow-xl transition hover:scale-105 hover:border-gold"
-            style={{
-              borderColor: "rgb(var(--cyan-rgb) / .75)",
-              background: "rgb(2 8 20 / .94)",
-            }}
-            title={t(lang, "Buka e-mel baharu", "Open new email")}
-          >
-            <span className="relative text-base">
-              ✉️
-              <i className="absolute -right-1 -top-1 h-2 w-2 animate-pulse rounded-full bg-neon-red" />
-            </span>
-            {t(lang, "E-MEL BAHARU", "NEW EMAIL")}{" "}
-            <b className="rounded-full bg-neon-red px-1.5 py-0.5 text-[8px] text-white">
-              {unreadMailCount}
-            </b>
+            aria-label={`${t(lang, "Peti masuk", "Inbox")}${unreadMailCount ? ` · ${unreadMailCount} ${t(lang, "baharu", "new")}` : ""}`}
+            data-tip={t(lang, "Peti masuk", "Inbox")}>
+            <span aria-hidden>📨</span>
+            {unreadMailCount > 0 && <b className="absolute -right-1.5 -top-1.5 rounded-full bg-neon-red px-1.5 text-[9px] leading-4 text-white">{unreadMailCount}</b>}
           </button>
-        )}
+          <button type="button" className="city-tool" aria-pressed={panel === "resources"} onClick={() => togglePanel("resources")}
+            aria-label={t(lang, "Sumber & had tindakan", "Resources & action limits")} data-tip={t(lang, "Sumber", "Resources")}>
+            <span aria-hidden>📊</span>
+          </button>
+          <button type="button" className="city-tool" aria-pressed={panel === "assistant"} onClick={() => togglePanel("assistant")}
+            aria-label={t(lang, "Personal Assistant & objektif", "Personal Assistant & objective")} data-tip={t(lang, "Objektif PA", "PA objective")}>
+            <span aria-hidden>🎯</span>
+            {!objectiveDone && <i className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-gold" />}
+          </button>
+        </nav>
 
         {assistantOpen && (
           <section
-            className="absolute bottom-12 left-4 z-20 w-[min(390px,calc(100%-32px))] border p-3 shadow-2xl"
+            className="office-sheet absolute bottom-12 left-4 z-20 w-[min(390px,calc(100%-32px))] border p-3 shadow-2xl"
             style={{
               borderColor: "rgb(var(--gold-rgb) / .54)",
               background: "rgb(2 8 20 / .94)",
@@ -990,9 +954,9 @@ export default function PoliticalOfficePage() {
               </div>
             );
           })()}
-        {!active && (
+        {!active && panel === "resources" && (
           <section
-            className="fixed top-[62%] z-[21] w-[min(360px,calc(100%-32px))] -translate-y-1/2 border p-3 shadow-2xl"
+            className="office-sheet fixed top-[62%] z-[21] w-[min(360px,calc(100%-32px))] -translate-y-1/2 border p-3 shadow-2xl"
             style={{
               right: "max(20px, calc((100vw - 1480px) / 2 + 20px))",
               borderColor: "rgb(var(--cyan-rgb) / .68)",
@@ -1092,7 +1056,7 @@ export default function PoliticalOfficePage() {
         )}
         {inboxOpen && (
           <section
-            className="absolute right-4 top-40 z-30 w-[min(320px,calc(100%-32px))] border border-t-2 shadow-2xl"
+            className="office-sheet absolute right-[68px] top-[112px] z-30 w-[min(320px,calc(100%-32px))] border border-t-2 shadow-2xl"
             style={{
               borderColor: "rgb(var(--cyan-rgb) / .42)",
               borderTopColor: "var(--neon-red)",
@@ -1163,7 +1127,7 @@ export default function PoliticalOfficePage() {
           </section>
         )}
         <section
-          className="absolute bottom-12 right-4 z-20 w-72 border p-3 shadow-2xl"
+          className="office-actionbar absolute bottom-12 right-4 z-20 w-72 border p-3 shadow-2xl"
           style={{
             borderColor: "rgb(var(--cyan-rgb) / .35)",
             background: "rgb(2 8 20 / .92)",

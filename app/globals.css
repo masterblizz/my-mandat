@@ -252,6 +252,20 @@ button, a, input, select, textarea {
   .city-tool--view { top: 10px !important; right: 62px !important; }
   .city-tool--activity { margin-right: 104px !important; }
   .city-tool[data-tip]:hover::after { display: none; }
+  /* Office HUD on a phone: the dock opens one panel as a bottom sheet
+     above a slim END DAY bar; energy already sits in the top strip. */
+  .office-hud { top: 48px !important; left: 8px !important; right: 8px !important; padding: 6px 10px !important; }
+  .office-hud h1 { font-size: 13px !important; line-height: 1.25 !important; }
+  .office-hud__wide, .office-hud__back { display: none !important; }
+  .office-dock { top: 100px !important; right: 8px !important; }
+  .office-sheet {
+    position: fixed !important; left: 8px !important; right: 8px !important; top: auto !important;
+    bottom: calc(132px + env(safe-area-inset-bottom)) !important; width: auto !important;
+    transform: none !important; max-height: 50dvh; overflow-y: auto; z-index: 45 !important;
+  }
+  .office-actionbar { left: 8px !important; right: 8px !important; width: auto !important; padding: 8px !important; }
+  .office-actionbar > div:first-child { display: none; }
+  .office-actionbar > div:last-child { margin-top: 0 !important; }
   /* 3D office: hotspots shrink to their icon on a phone */
   .office-hotspot__label { display: none; }
   .office-hotspot { padding: 8px !important; gap: 6px !important; font-size: 14px !important; }
