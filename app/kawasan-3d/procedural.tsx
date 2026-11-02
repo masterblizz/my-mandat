@@ -53,7 +53,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useHeightTween, InstancedBoxes, type BuildingInstance } from "./models";
-import { getFacadeTexture, getWindowTexture } from "./windows";
+import { getFacadeTexture, getRoofTileTexture, getWindowTexture } from "./windows";
 import { pickVariantIndex, type BType } from "./cityData";
 import { ArchitecturalDetails } from "./buildingDetails";
 
@@ -115,6 +115,15 @@ const PASTEL_PALETTES: Partial<Record<BType, readonly string[]>> = {
   stall: ["#f4e8c8", "#f2d0a0", "#c8e4c0"],
 };
 const VARIANT_LINKED_PALETTES = new Set<BType>(["tower", "skyscraper", "hotel"]);
+// Roof colours for the gable types, picked by the same colour index as
+// the walls so a taman gets mixed roofs at zero extra draw calls: clay
+// terracotta, deep clay, charcoal and blue-grey concrete genting for the
+// terrace/house estates; zinc and rusted zinc for kampung.
+export const ROOF_PALETTES: Partial<Record<BType, readonly string[]>> = {
+  house: ["#a4573f", "#5e6268", "#8e3f2e", "#4a5d6c", "#b06446", "#6b5a52"],
+  terrace: ["#9c4f38", "#565b61", "#a85d42", "#465868", "#7c3c2c"],
+  kampung: ["#8c4634", "#8d969a", "#7a5a3e", "#9a5a3c", "#7f8a8e"],
+};
 // Same well-tested hash as pickVariantIndex, keyed with a suffix so the
 // colour pick doesn't correlate 1:1 with the geometry-variant pick.
 function pickColorIndex(key: string, count: number): number {
@@ -480,6 +489,7 @@ export function ProceduralBuildings({
           items={vItems}
           groundY={groundY}
           color={palette ? palette[colorIdx] : color}
+          roofColor={ROOF_PALETTES[type]?.[colorIdx % (ROOF_PALETTES[type]?.length ?? 1)]}
           winLit={winLit}
         />
       ))}
@@ -488,13 +498,14 @@ export function ProceduralBuildings({
 }
 
 function ProceduralVariant({
-  type, variant, items, groundY, color, winLit,
+  type, variant, items, groundY, color, roofColor, winLit,
 }: {
   type: BType;
   variant: number;
   items: BuildingInstance[];
   groundY: number;
   color: string;
+  roofColor?: string;
   winLit: number;
 }) {
   const ref = useRef<THREE.InstancedMesh>(null);
@@ -551,8 +562,9 @@ function ProceduralVariant({
       color: new THREE.Color(
         isCommercial ? "#626a70"
           : SETBACK_TYPES.has(type) ? "#8f979a" // concrete roof deck / ledges
-          : type === "kampung" ? "#8c4634" : "#a4573f",
+          : roofColor ?? (type === "kampung" ? "#8c4634" : "#a4573f"),
       ),
+      map: isGable ? getRoofTileTexture() : null,
       roughness: 0.92,
       metalness: 0.05,
     });
@@ -560,7 +572,7 @@ function ProceduralVariant({
     arr[MAT_WALL] = wall;
     arr[MAT_ROOF] = roof;
     return arr;
-  }, [type, variant, color, isGable, isCommercial]);
+  }, [type, variant, color, roofColor, isGable, isCommercial]);
 
   useEffect(() => {
     // Window brightness by family stays below the façade's body lighting.

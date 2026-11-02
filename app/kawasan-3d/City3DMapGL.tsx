@@ -437,7 +437,7 @@ export default function City3DMapGL({
       {/* hint (bottom, centred) — dropped on phone-narrow to avoid clutter */}
       {!compact && (
         <div style={{ ...css.hint, opacity: hintVisible ? 1 : 0, transition: "opacity 260ms ease" }}>
-          {t(lang, "kawasan_page.dragRotateMap")} / {t(lang, "kawasan_page.scrollZoom")} · {t(lang, "kawasan_page.clickAZoneToPickA")}
+          {t(lang, "kawasan_page.dragRotateMap")} / {t(lang, "kawasan_page.scrollZoom")} / {t(lang, "kawasan_page.rightDragPan")} · {t(lang, "kawasan_page.clickAZoneToPickA")}
           {moodDim ? " · ⚠" : ""}
         </div>
       )}

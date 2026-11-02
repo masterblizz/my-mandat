@@ -354,3 +354,66 @@ export function getTowerFacadeTexture(): THREE.Texture {
   towerFacade = tex;
   return tex;
 }
+
+// Genting (clay / concrete roof tile) map for the gable roofs in
+// procedural.tsx. Neutral greyscale so the per-house roof colour on the
+// material tints it — terracotta, charcoal and blue-grey all share one
+// texture. ExtrudeGeometry's side-wall UVs put the slope run on U and
+// the ridge length on V, so tile COURSES are the vertical columns here
+// (constant U) with a darker overlap shadow at each course's lower lip,
+// and the staggered butt joints break each course along V.
+let roofTile: THREE.Texture | null = null;
+export function getRoofTileTexture(): THREE.Texture {
+  if (roofTile) return roofTile;
+  const W = 128;
+  const H = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  let s = 7717;
+  const next = () => (s = (s * 1103515245 + 12345) & 0x7fffffff);
+
+  const courses = 4;
+  const tilesPerCourse = 4;
+  const cw = W / courses;
+  const th = H / tilesPerCourse;
+  for (let c = 0; c < courses; c++) {
+    const x0 = c * cw;
+    // curved profile across the course: lit crown, shaded overlap lip
+    const g = ctx.createLinearGradient(x0, 0, x0 + cw, 0);
+    g.addColorStop(0, "#f2f2f2");
+    g.addColorStop(0.55, "#d6d6d6");
+    g.addColorStop(0.86, "#a8a8a8");
+    g.addColorStop(1, "#6e6e6e");
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, 0, cw, H);
+    // butt joints, staggered half a tile on alternate courses
+    const off = c % 2 ? th / 2 : 0;
+    for (let t = -1; t <= tilesPerCourse; t++) {
+      const y = t * th + off;
+      const j = ((next() >>> 9) % 30) - 15;
+      ctx.fillStyle = `rgba(${j > 0 ? 255 : 0},${j > 0 ? 255 : 0},${j > 0 ? 255 : 0},${Math.abs(j) / 160})`;
+      ctx.fillRect(x0, y + 1, cw, th - 2); // per-tile weathering tint
+      ctx.fillStyle = "rgba(40,40,40,0.55)";
+      ctx.fillRect(x0, y - 0.75, cw, 1.5);
+    }
+  }
+  // sparse moss / grime speckle so a whole taman isn't machine-clean
+  for (let i = 0; i < 90; i++) {
+    const x = (next() >>> 8) % W;
+    const y = (next() >>> 8) % H;
+    ctx.fillStyle = `rgba(60,64,50,${0.08 + ((next() >>> 12) % 10) / 100})`;
+    ctx.fillRect(x, y, 2 + ((next() >>> 10) % 3), 1 + ((next() >>> 11) % 2));
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(4, 3);
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  roofTile = tex;
+  return tex;
+}

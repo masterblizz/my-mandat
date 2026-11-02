@@ -37,7 +37,7 @@ import type { Lang } from "../i18n/useLang";
 import { Cyclists } from "./twowheelers";
 import { CitySoundController } from "./CitySoundController";
 import { Html, Line } from "@react-three/drei";
-import { ProceduralBuildings, PROCEDURAL_TYPES } from "./procedural";
+import { ProceduralBuildings, PROCEDURAL_TYPES, ROOF_PALETTES } from "./procedural";
 import {
   isGrassKind, grassColor, undevelopedGrassColor, grassTextureFor,
   pavedSurfaceFor, pavedTextureFor,
@@ -510,7 +510,7 @@ function Buildings({
             key={`${type}-model-${vi}`}
             fallback={<InstancedBoxes items={vItems} groundY={GROUND_Y} color={color} winLit={winLit} />}
           >
-            <InstancedModel url={variantUrls[vi]} items={vItems} groundY={GROUND_Y} fallbackColor={color} />
+            <InstancedModel url={variantUrls[vi]} items={vItems} groundY={GROUND_Y} fallbackColor={color} roofPalette={ROOF_PALETTES[type]} />
           </Suspense>
         ));
       })}

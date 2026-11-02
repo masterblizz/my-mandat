@@ -17,7 +17,7 @@ import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { MODEL_MAP, COMMON_MODEL_TYPES, type BType } from "./cityData";
+import { MODEL_MAP, COMMON_MODEL_TYPES, pickVariantIndex, type BType } from "./cityData";
 
 // One placed building. Geometry convention for BOTH box and model paths:
 // base sits at y = groundY, footprint centred on (x, z).
@@ -199,10 +199,64 @@ function useNormalizedModel(url: string) {
 }
 
 // ── instanced model ─────────────────────────────────────────────────
+// Kenney's house kit paints every roof from the green swatches of its
+// shared colormap atlas — the only green-dominant texels in it — which
+// reads as a toy suburb rather than a Malaysian taman. For roofed
+// families the shader masks those texels and swaps in a per-instance
+// genting colour (instanceColor, so mixed roofs cost no extra draws),
+// keeping the atlas gradient as shading and scoring tile courses as
+// world-height bands (a sloped roof's contour lines run parallel to its
+// ridge, exactly like real tile courses). Walls ignore instanceColor.
+const ROOF_COURSE = 1.6; // world units between tile courses
+function applyRoofRemap(m: THREE.MeshStandardMaterial) {
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uCourse = { value: ROOF_COURSE };
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying float vKwY;")
+      .replace(
+        "#include <project_vertex>",
+        `#include <project_vertex>
+        vec4 kwP = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          kwP = instanceMatrix * kwP;
+        #endif
+        vKwY = (modelMatrix * kwP).y;`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vKwY;\nuniform float uCourse;")
+      .replace(
+        "#include <map_fragment>",
+        `float kwRoof = 0.0;
+        float kwShade = 1.0;
+        #ifdef USE_MAP
+          vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+          kwRoof = smoothstep(0.06, 0.16, sampledDiffuseColor.g - max(sampledDiffuseColor.r, sampledDiffuseColor.b));
+          kwShade = clamp(dot(sampledDiffuseColor.rgb, vec3(0.3, 0.59, 0.11)) / 0.42, 0.6, 1.2);
+          diffuseColor *= sampledDiffuseColor;
+        #endif`,
+      )
+      .replace(
+        "#include <color_fragment>",
+        `#if defined( USE_COLOR )
+          float kwC = fract(vKwY / uCourse);
+          float kwW = fwidth(vKwY / uCourse);
+          // dark overlap lip at the bottom of each course, faded out once
+          // courses get thinner than a pixel so distant roofs don't shimmer
+          float kwLip = (1.0 - smoothstep(0.0, 0.22 + kwW, kwC)) * (1.0 - smoothstep(0.3, 0.6, kwW));
+          vec3 kwTile = vColor.rgb * kwShade * (1.0 - 0.32 * kwLip);
+          diffuseColor.rgb = mix(diffuseColor.rgb, kwTile, kwRoof);
+        #endif`,
+      );
+  };
+  m.customProgramCacheKey = () => "kw-roof-remap-v1";
+}
+
 export function InstancedModel({
-  url, items, groundY, fallbackColor,
+  url, items, groundY, fallbackColor, roofPalette,
 }: {
   url: string; items: BuildingInstance[]; groundY: number; fallbackColor: string;
+  /** Per-instance roof colours for roofed families (see applyRoofRemap). */
+  roofPalette?: readonly string[];
 }) {
   const norm = useNormalizedModel(url);
   const ref = useRef<THREE.InstancedMesh>(null);
@@ -220,9 +274,14 @@ export function InstancedModel({
       withColor.color.lerp(new THREE.Color(fallbackColor), 0.86);
       withColor.roughness = Math.max(withColor.roughness ?? 0.5, 0.42);
       withColor.metalness = Math.min(withColor.metalness ?? 0, 0.48);
+      if (roofPalette?.length) applyRoofRemap(withColor);
     }
     return copy;
-  }, [norm, fallbackColor]);
+  }, [norm, fallbackColor, roofPalette]);
+  const roofColors = useMemo(
+    () => roofPalette?.map((c) => new THREE.Color(c)),
+    [roofPalette],
+  );
   useEffect(() => () => { material?.dispose(); }, [material]);
 
   const writeMatrix = (i: number, h: number) => {
@@ -248,9 +307,15 @@ export function InstancedModel({
   useEffect(() => {
     if (!norm || !ref.current) return;
     for (let i = 0; i < items.length; i++) writeMatrix(i, items[i].h);
+    if (roofColors?.length) {
+      for (let i = 0; i < items.length; i++) {
+        ref.current.setColorAt(i, roofColors[pickVariantIndex(`${items[i].key}:roof`, roofColors.length)]);
+      }
+      if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
+    }
     commit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [norm, items]);
+  }, [norm, items, roofColors]);
 
   if (!norm || !material) return <InstancedBoxes items={items} groundY={groundY} color={fallbackColor} />;
   return (

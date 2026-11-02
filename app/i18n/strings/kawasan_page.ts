@@ -12,6 +12,7 @@ const kawasan_page = {
   clear: { ms: "CERAH", en: "CLEAR" },
   dragRotateMap: { ms: "SERET · PUTAR PETA", en: "DRAG · ROTATE MAP" },
   scrollZoom: { ms: "SKROL · ZUM", en: "SCROLL · ZOOM" },
+  rightDragPan: { ms: "KLIK KANAN / WASD · ALIH", en: "RIGHT-DRAG / WASD · PAN" },
   clickAZoneToPickA: { ms: "KLIK ZON UNTUK PILIH PROJEK", en: "CLICK A ZONE TO PICK A PROJECT" },
   map: { ms: "PETA", en: "MAP" },
   denseMetro: { ms: "BANDAR RAYA PADAT", en: "DENSE METRO" },
