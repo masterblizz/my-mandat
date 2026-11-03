@@ -16,6 +16,19 @@ extends Node3D
 ##                  {type:"office-room", room, action:"open", id}
 
 const Person := preload("res://person.gd")
+const Tex := preload("res://textures.gd")
+
+# room id -> floor finish: [kind, colour, fleck/grout, metres per texture tile]
+const FLOORS := {
+	"yb": ["parquet", "#8a5a34", "", 1.2],
+	"mesyuarat": ["carpet_tile", "#34506e", "#6a88a6", 1.0],
+	"media": ["carpet", "#1d2638", "#3f5172", 0.9],
+	"koridor": ["terrazzo", "#b9aa8c", "", 1.4],
+	"gerakan": ["carpet_tile", "#4a5560", "#75828f", 1.0],
+	"lobi": ["tiles", "#c4ab84", "#7d6648", 0.6],
+	"kaunter": ["tiles", "#9fb0b6", "#66767c", 0.6],
+	"surau": ["carpet", "#2f6b4f", "#6aa685", 0.8],
+}
 
 const WALL_H := 2.8
 const WALL_T := 0.16
@@ -71,6 +84,8 @@ var player: Node3D
 var pa: Node3D
 var queue_npc: Node3D
 var npcs: Array = []
+var jalur: Texture2D
+var party_mat: StandardMaterial3D
 var facade: Array[Node3D] = []  # sign + awning: hidden while the camera works inside
 var door_l: Node3D
 var door_r: Node3D
@@ -108,6 +123,7 @@ var _pinch_d := 0.0
 var _pinch_a := 0.0
 
 func _ready() -> void:
+	jalur = Tex.jalur_gemilang()
 	_build_environment()
 	region = NavigationRegion3D.new()
 	add_child(region)
@@ -217,7 +233,48 @@ func label(text: String, pos: Vector3, size := 48, color := Color.WHITE, billboa
 	(parent if parent else self).add_child(l)
 	return l
 
-func floor_slab(x0: float, z0: float, x1: float, z1: float, color, room := "") -> void:
+## Textured, tiling floor material (triplanar so one texture tile = `metres`).
+func floor_mat(kind: String, color: String, fleck: String, metres: float) -> StandardMaterial3D:
+	var key := "floor|%s|%s|%s" % [kind, color, fleck]
+	if _mat_cache.has(key):
+		return _mat_cache[key]
+	var tex: Texture2D
+	match kind:
+		"parquet": tex = Tex.parquet(Color(color))
+		"carpet": tex = Tex.carpet(Color(color), Color(fleck))
+		"carpet_tile": tex = Tex.carpet(Color(color), Color(fleck), 64)
+		"terrazzo": tex = Tex.terrazzo(Color(color))
+		_: tex = Tex.tiles(Color(color), Color(fleck))
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = tex
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3.ONE / metres
+	m.roughness = 0.95 if kind.begins_with("carpet") else 0.55
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	_mat_cache[key] = m
+	return m
+
+## A flat textured plane (rugs, mats, flags, wall art). UV 0..1 over the plane.
+func plane(size: Vector2, pos: Vector3, tex: Texture2D, upright := false, rot_y := 0.0, parent: Node3D = null, double := false) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = size
+	mi.mesh = pm
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = tex
+	m.roughness = 0.9
+	if double:
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.position = pos
+	if upright:
+		mi.rotation = Vector3(PI / 2, rot_y, 0)
+	else:
+		mi.rotation.y = rot_y
+	(parent if parent else region).add_child(mi)
+	return mi
+
+func floor_slab(x0: float, z0: float, x1: float, z1: float, color, room := "", fm: Material = null) -> void:
 	var size := Vector3(x1 - x0, 0.1, z1 - z0)
 	var pos := Vector3((x0 + x1) / 2.0, -0.05, (z0 + z1) / 2.0)
 	var body := StaticBody3D.new()
@@ -234,7 +291,7 @@ func floor_slab(x0: float, z0: float, x1: float, z1: float, color, room := "") -
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
-	mi.material_override = mat(color, 0.9)
+	mi.material_override = fm if fm else mat(color, 0.9)
 	body.add_child(mi)
 	region.add_child(body)
 
@@ -274,8 +331,17 @@ func _apply_daylight() -> void:
 func _build_exterior() -> void:
 	# grass (decor only, not walkable), sidewalk and road (walkable)
 	box(Vector3(80, 0.1, 70), Vector3(0, -0.11, 4), "#5f8a4a", false)
-	floor_slab(-16, 9.0, 16, 10.6, "#a9a59b", "luar")
-	floor_slab(-30, 10.6, 30, 15.5, "#3a3d43", "luar")
+	floor_slab(-16, 9.0, 16, 10.6, "#a9a59b", "luar", floor_mat("tiles", "#b9b1a2", "#8a8274", 0.5))
+	floor_slab(-30, 10.6, 30, 15.5, "#3a3d43", "luar", floor_mat("carpet", "#3a3d43", "#5a5d63", 2.0))
+	# Malaysian kerb: painted black and white
+	for i in 64:
+		box(Vector3(0.5, 0.16, 0.22), Vector3(-16.0 + i * 0.5 + 0.25, 0.08, 10.62), "#f2f2ee" if i % 2 == 0 else "#1c1c1c", false)
+	# blue street-name sign
+	box(Vector3(0.07, 2.6, 0.07), Vector3(-15.2, 1.3, 10.3), "#59606a", false)
+	box(Vector3(1.7, 0.36, 0.04), Vector3(-15.2, 2.5, 10.3), "#1f4e9c", false)
+	var street := label("JALAN MERDEKA 1", Vector3(-15.2, 2.5, 10.33), 44, Color.WHITE, false)
+	street.no_depth_test = false
+	street.outline_size = 0
 	for x in range(-28, 30, 4):
 		box(Vector3(1.8, 0.012, 0.14), Vector3(x, 0.006, 13.1), "#e8e2c8", false)
 	# the YB's car beside the kerb
@@ -292,10 +358,35 @@ func _build_exterior() -> void:
 		var w := cyl(0.32, 0.22, p, "#111317", car)
 		w.rotation.x = PI / 2
 	# trees and lamps along the sidewalk
-	for x in [-14.0, -8.5, 8.5, 14.0]:
+	for x in [-8.5, 8.5]:
 		box(Vector3(0.22, 1.8, 0.22), Vector3(x, 0.9, 9.8), "#5a4030", true)
 		sphere(1.05, Vector3(x, 2.5, 9.8), "#3f7a3a")
 		sphere(0.8, Vector3(x + 0.5, 2.9, 9.6), "#4b8a43")
+	for x in [-14.0, 14.0, -18.0, 18.0]:
+		palm(Vector3(x, 0, 9.9 if abs(x) < 16 else 8.0))
+	# hibiscus (bunga raya) hedges along the facade
+	for x in [-11.5, -10.0, -4.0, -2.6, 2.6, 4.0, 10.0, 11.5]:
+		bunga_raya(Vector3(x, 0, 9.5))
+	# party pennants strung between the lamps: the colour follows the party
+	party_mat = StandardMaterial3D.new()
+	party_mat.albedo_color = player_color
+	party_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for i in 30:
+		var x := -10.6 + i * 0.73
+		var sag := 0.35 * sin(PI * (i + 0.5) / 30.0)
+		var pen := MeshInstance3D.new()
+		var pr := PrismMesh.new()
+		pr.size = Vector3(0.36, 0.42, 0.01)
+		pen.mesh = pr
+		pen.material_override = party_mat if i % 3 != 2 else mat("#ffffff")
+		pen.position = Vector3(x, 3.35 - sag, 10.3)
+		pen.rotation.z = PI
+		add_child(pen)
+	box(Vector3(21.4, 0.015, 0.015), Vector3(0, 3.55, 10.3), "#333", false)
+	# national flag on a tall pole at the entrance
+	box(Vector3(0.09, 6.2, 0.09), Vector3(-6.2, 3.1, 10.0), "#d7dbe0", false, 0.0, null, mat("#d7dbe0", 0.3, 0.7))
+	var big_flag := plane(Vector2(1.8, 0.9), Vector3(-5.28, 5.65, 10.0), jalur, true, 0.0, null, true)
+	big_flag.rotation = Vector3(PI / 2, 0, 0)
 	for x in [-11.0, 11.0]:
 		box(Vector3(0.1, 3.6, 0.1), Vector3(x, 1.8, 10.3), "#59606a", false)
 		box(Vector3(0.6, 0.1, 0.25), Vector3(x, 3.6, 10.3), "#59606a", false, 0.0, null, mat("#fff2c8", 0.5, 0.0, "#ffe7b0", 1.5))
@@ -323,7 +414,8 @@ func _build_exterior() -> void:
 func _build_floors() -> void:
 	for id in ROOMS:
 		var r: Array = ROOMS[id]
-		floor_slab(r[0], r[1], r[2], r[3], r[4], id)
+		var f: Array = FLOORS[id]
+		floor_slab(r[0], r[1], r[2], r[3], r[4], id, floor_mat(f[0], f[1], f[2], f[3]))
 		if id != "koridor":
 			var l := label(r[5], Vector3((r[0] + r[2]) / 2.0, 0.02, r[3] - 0.55), 72, Color(0.95, 0.69, 0.12, 0.55), false)
 			l.rotation.x = -PI / 2
@@ -362,7 +454,7 @@ func wall_z(x: float, z0: float, z1: float, gaps := []) -> void:
 		_wall(Vector3(WALL_T, 0.5, g[1] - g[0]), Vector3(x, WALL_H - 0.25, (g[0] + g[1]) / 2.0), false)
 
 func _wall(size: Vector3, pos: Vector3, solid := true) -> void:
-	var mi := box(size, pos, "#e9e4da", solid, 0.0, null, mat("#ddd6c8", 0.92))
+	var mi := box(size, pos, "#e9e4da", solid, 0.0, null, mat("#d3c9b6", 0.92))
 	# a darker cap reads as the cut edge when the wall drops away
 	var cap := MeshInstance3D.new()
 	var cm := BoxMesh.new()
@@ -371,6 +463,14 @@ func _wall(size: Vector3, pos: Vector3, solid := true) -> void:
 	cap.material_override = mat("#2c3e50", 0.7)
 	cap.position = Vector3(0, size.y / 2.0, 0)
 	mi.add_child(cap)
+	if solid:
+		var skirt := MeshInstance3D.new()
+		var sk := BoxMesh.new()
+		sk.size = Vector3(size.x + 0.02, 0.14, size.z + 0.02)
+		skirt.mesh = sk
+		skirt.material_override = mat("#5a3f2a", 0.6)
+		skirt.position = Vector3(0, -size.y / 2.0 + 0.07, 0)
+		mi.add_child(skirt)
 	walls.append({"mesh": mi, "center": pos, "full": size.y, "h": size.y, "lintel": not solid})
 
 func _build_walls() -> void:
@@ -398,6 +498,41 @@ func chair(pos: Vector3, rot_y: float, color := "#2f3a48") -> void:
 	box(Vector3(0.5, 0.55, 0.07), Vector3(0, 0.76, -0.24), color, false, 0.0, c)
 	box(Vector3(0.06, 0.42, 0.06), Vector3(0, 0.21, 0), "#59606a", false, 0.0, c)
 
+func palm(pos: Vector3) -> void:
+	var lean := 0.18
+	var top := pos
+	for i in 6:
+		var seg := cyl(0.13 - i * 0.01, 0.75, pos + Vector3(lean * i * 0.25, 0.38 + i * 0.72, 0), "#8a7356")
+		seg.rotation.z = -lean * 0.4
+		top = pos + Vector3(lean * i * 0.25, 0.75 + i * 0.72, 0)
+	for k in 8:
+		var frond := Node3D.new()
+		frond.position = top
+		frond.rotation = Vector3(0, k * TAU / 8.0, 0)
+		region.add_child(frond)
+		var leaf := box(Vector3(0.32, 0.04, 1.9), Vector3(0, -0.25, 0.85), "#3f7f35", false, 0.0, frond)
+		leaf.rotation.x = 0.5
+	for k in 3:
+		sphere(0.13, top + Vector3(0.12 * cos(k * 2.1), -0.2, 0.12 * sin(k * 2.1)), "#6b5a2a")
+
+func bunga_raya(pos: Vector3) -> void:
+	sphere(0.42, pos + Vector3(0, 0.4, 0), "#2f6a30")
+	for k in 5:
+		var a := k * 1.3
+		sphere(0.08, pos + Vector3(cos(a) * 0.33, 0.55 + (k % 2) * 0.15, sin(a) * 0.33), "#d4142a")
+
+## A framed official portrait (gold frame, silhouette) on a wall facing +z or -z.
+func portrait(pos: Vector3, facing_z := 1.0) -> void:
+	box(Vector3(0.72, 0.92, 0.04), pos, "#c9a227", false, 0.0, null, mat("#c9a227", 0.35, 0.6))
+	box(Vector3(0.6, 0.8, 0.02), pos + Vector3(0, 0, 0.022 * facing_z), "#1a2f52", false)
+	sphere(0.11, pos + Vector3(0, 0.12, 0.04 * facing_z), "#c9a07a")
+	box(Vector3(0.36, 0.22, 0.02), pos + Vector3(0, -0.2, 0.04 * facing_z), "#f2f0e6", false)
+	box(Vector3(0.4, 0.06, 0.03), pos + Vector3(0, 0.27, 0.04 * facing_z), "#f2b01e", false)
+
+func desk_flag(pos: Vector3, tex: Texture2D) -> void:
+	box(Vector3(0.012, 0.42, 0.012), pos + Vector3(0, 0.21, 0), "#c9b26a", false)
+	plane(Vector2(0.26, 0.13), pos + Vector3(0.13, 0.36, 0), tex, true, 0.0, null, true)
+
 func plant(pos: Vector3) -> void:
 	box(Vector3(0.4, 0.45, 0.4), pos + Vector3(0, 0.22, 0), "#d8d2c4", true)
 	sphere(0.32, pos + Vector3(0, 0.75, 0), "#3f7a3a")
@@ -405,7 +540,12 @@ func plant(pos: Vector3) -> void:
 
 func _build_furniture() -> void:
 	# ── Bilik YB ──
-	box(Vector3(4.6, 0.01, 3.2), Vector3(-8, 0.005, -6.2), "#6a2f2f", false)
+	var songket_rug := Tex.songket_rug()
+	plane(Vector2(4.6, 3.0), Vector3(-8, 0.008, -6.1), songket_rug)
+	portrait(Vector3(-8.55, 2.15, -8.88))
+	portrait(Vector3(-7.45, 2.15, -8.88))
+	plane(Vector2(1.2, 2.2), Vector3(-12.9, 1.45, -5.6), Tex.ukiran(), true, PI / 2)
+	desk_flag(Vector3(-8.95, 0.79, -6.3), jalur)
 	box(Vector3(2.3, 0.78, 1.0), Vector3(-8, 0.39, -6.6), "#4a3524", true, 0.0, null, mat("#4a3524", 0.55))
 	box(Vector3(0.66, 0.4, 0.04), Vector3(-7.7, 1.0, -6.85), "#11161d", false, 0.0, null, mat("#11161d", 0.3, 0.2, "#1f6a92", 0.6))
 	box(Vector3(0.34, 0.02, 0.24), Vector3(-8.6, 0.8, -6.4), "#f4f1e8", false)
@@ -416,19 +556,7 @@ func _build_furniture() -> void:
 	for i in 14:
 		box(Vector3(0.12, 0.34, 0.3), Vector3(-12.55 + i * 0.17, 1.42 - (i % 2) * 0.62, -8.55), ["#a8432f", "#2f5f8a", "#c9a227", "#4d7a4a"][i % 4], false)
 	box(Vector3(0.05, 2.3, 0.05), Vector3(-12.4, 1.15, -8.2), "#c9b26a", false)
-	var flag := Node3D.new()
-	flag.position = Vector3(-12.0, 2.0, -8.2)
-	region.add_child(flag)
-	for i in 14:
-		box(Vector3(0.8, 0.034, 0.01), Vector3(0, 0.18 - i * 0.034, 0), "#cc0001" if i % 2 == 0 else "#ffffff", false, 0.0, flag)
-	# Jalur Gemilang: 14 stripes, blue canton with the yellow crescent and star
-	box(Vector3(0.4, 0.24, 0.012), Vector3(-0.2, 0.06, 0.004), "#010066", false, 0.0, flag)
-	for d in [[0.075, Vector3(-0.27, 0.06, 0.012), "#ffcc00"], [0.064, Vector3(-0.245, 0.06, 0.016), "#010066"]]:
-		var disc := cyl(d[0], 0.004, d[1], d[2], flag)
-		disc.rotation.x = PI / 2
-	var star := cyl(0.04, 0.004, Vector3(-0.13, 0.06, 0.016), "#ffcc00", flag)
-	star.rotation.x = PI / 2
-	(star.mesh as CylinderMesh).radial_segments = 14
+	plane(Vector2(0.9, 0.45), Vector3(-11.93, 1.95, -8.2), jalur, true, 0.0, null, true)
 	box(Vector3(0.9, 0.42, 2.0), Vector3(-12.45, 0.21, -4.6), "#3b4656", true)
 	plant(Vector3(-3.6, 0, -8.4))
 	plant(Vector3(-12.4, 0, -3.1))
@@ -443,6 +571,9 @@ func _build_furniture() -> void:
 	chair(Vector3(-1.45, 0, -5.75), PI / 2)
 	chair(Vector3(2.45, 0, -5.75), -PI / 2)
 	box(Vector3(2.4, 1.2, 0.05), Vector3(0.5, 1.6, -8.9), "#f7f7f2", false)
+	plane(Vector2(2.4, 1.3), Vector3(-2.9, 1.6, -5.75), Tex.batik(), true, PI / 2)
+	box(Vector3(0.05, 1.45, 2.55), Vector3(-2.94, 1.6, -5.75), "#5a3f2a", false)
+	desk_flag(Vector3(0.5, 0.79, -5.75), jalur)
 	box(Vector3(2.2, 0.06, 0.02), Vector3(0.5, 2.05, -8.87), "#1d8bc4", false)
 	plant(Vector3(3.5, 0, -8.5))
 
@@ -454,6 +585,7 @@ func _build_furniture() -> void:
 	tvl.no_depth_test = false
 	room_labels["__tv"] = tvl
 	box(Vector3(0.75, 1.1, 0.5), Vector3(8.5, 0.55, -7.3), "#20354a", true)
+	plane(Vector2(0.7, 0.5), Vector3(8.5, 0.62, -7.04), Tex.songket(), true, 0.0)
 	box(Vector3(0.04, 0.35, 0.04), Vector3(8.5, 1.27, -7.42), "#222", false)
 	for x in [5.5, 6.7, 7.9, 9.1, 10.3, 11.5]:
 		chair(Vector3(x, 0, -4.4), PI, "#46536a")
@@ -466,6 +598,8 @@ func _build_furniture() -> void:
 		box(Vector3(0.28, 0.2, 0.01), Vector3(-5.4 + (i % 3) * 0.75, 1.75 - int(i / 3) * 0.35, -2.37), ["#f5d76e", "#a8d8f0", "#f2a7a0"][i % 3], false)
 	plant(Vector3(-12.5, 0, -1.5))
 	plant(Vector3(12.5, 0, -1.5))
+	portrait(Vector3(3.0, 1.75, -2.42))
+	portrait(Vector3(4.2, 1.75, -2.42))
 
 	# ── Bilik Gerakan ──
 	box(Vector3(0.06, 1.3, 3.6), Vector3(-12.88, 1.55, 4.0), "#f7f7f2", false)
@@ -483,7 +617,23 @@ func _build_furniture() -> void:
 	box(Vector3(0.45, 1.8, 2.4), Vector3(-6.0, 0.9, 7.4), "#5a3f2a", true)
 
 	# ── Lobi ──
-	box(Vector3(4.0, 0.01, 3.0), Vector3(0.8, 0.005, 4.3), "#284a6a", false)
+	plane(Vector2(4.2, 2.8), Vector3(0.6, 0.008, 4.3), songket_rug)
+	# Merdeka bunting: mini Jalur Gemilang across the lobby
+	box(Vector3(10.6, 0.012, 0.012), Vector3(0, 2.55, 8.4), "#333", false)
+	for i in 16:
+		var fx := -5.0 + i * 0.66
+		plane(Vector2(0.34, 0.17), Vector3(fx, 2.42 - 0.12 * sin(PI * i / 15.0), 8.4), jalur, true, 0.0, null, true)
+	plane(Vector2(2.0, 1.2), Vector3(5.42, 1.65, 3.6), Tex.batik(), true, -PI / 2)
+	box(Vector3(0.05, 1.32, 2.12), Vector3(5.44, 1.65, 3.6), "#5a3f2a", false)
+	box(Vector3(0.05, 1.3, 0.05), Vector3(4.6, 0.65, 0.4), "#59606a", false)
+	box(Vector3(0.9, 0.45, 0.04), Vector3(4.6, 1.45, 0.4), "#0b1a2c", false)
+	var take := label("SILA AMBIL\nNOMBOR GILIRAN", Vector3(4.6, 1.45, 0.43), 30, Color("#f2b01e"), false)
+	take.no_depth_test = false
+	take.outline_size = 0
+	# shoe rack outside the surau
+	box(Vector3(0.4, 0.5, 1.2), Vector3(5.1, 0.25, 5.4), "#7a5a3a", true)
+	for k in 4:
+		box(Vector3(0.12, 0.08, 0.26), Vector3(5.08, 0.54, 4.95 + k * 0.3), ["#222", "#7a3b2a", "#2f4f7a", "#c9c2b2"][k], false)
 	for z in [3.0, 4.0, 5.0, 6.0]:
 		chair(Vector3(-4.85, 0, z), PI / 2, "#7a2f3a")
 	box(Vector3(0.6, 0.4, 1.2), Vector3(-3.7, 0.2, 4.5), "#6b4a2e", true)
@@ -494,6 +644,8 @@ func _build_furniture() -> void:
 	plant(Vector3(5.0, 0, 0.1))
 	box(Vector3(0.35, 1.15, 0.35), Vector3(5.0, 0.58, 8.4), "#dfe6ea", true)
 	box(Vector3(3.2, 0.7, 0.04), Vector3(0, 2.1, -0.42), "#0b1a2c", false)
+	portrait(Vector3(-2.2, 2.1, -0.4))
+	portrait(Vector3(2.2, 2.1, -0.4))
 	var welcome := label("SELAMAT DATANG", Vector3(0, 2.1, -0.38), 64, Color("#f2b01e"), false)
 	welcome.no_depth_test = false
 	room_labels["__welcome"] = welcome
@@ -512,7 +664,27 @@ func _build_furniture() -> void:
 	# ── Surau · Pantri ──
 	box(Vector3(0.1, 1.1, 3.4), Vector3(9.6, 0.55, 7.0), "#c9c2b2", true)
 	for i in 3:
-		box(Vector3(0.7, 0.015, 1.2), Vector3(10.6 + i * 0.85, 0.008, 6.8), ["#7b2d3a", "#2d5a7b", "#4a6b2d"][i], false)
+		plane(Vector2(0.7, 1.15), Vector3(10.6 + i * 0.85, 0.01, 6.9), Tex.sejadah(Color(["#1f5f4a", "#6e1423", "#1f3a6e"][i])), false, PI)
+	box(Vector3(1.1, 0.34, 0.04), Vector3(11.45, 2.0, 5.08), "#0b1a2c", false)
+	var kib := label("KIBLAT", Vector3(11.3, 2.0, 5.11), 40, Color("#5be3a4"), false)
+	kib.no_depth_test = false
+	kib.outline_size = 0
+	var arrow := MeshInstance3D.new()
+	var am := PrismMesh.new()
+	am.size = Vector3(0.18, 0.18, 0.02)
+	arrow.mesh = am
+	arrow.material_override = mat("#5be3a4")
+	arrow.position = Vector3(11.85, 2.0, 5.11)
+	arrow.rotation.z = -PI / 2
+	region.add_child(arrow)
+	box(Vector3(0.5, 0.6, 0.3), Vector3(12.6, 0.3, 8.6), "#7a5a3a", false)
+	# pantry: mangkuk tingkat (tiffin carrier) and teh tarik
+	for k in 3:
+		cyl(0.11, 0.1, Vector3(7.6, 0.8 + k * 0.105, 6.2), "#c9ced4", region)
+	cyl(0.03, 0.08, Vector3(7.6, 1.14, 6.2), "#c9ced4", region)
+	for k in 2:
+		cyl(0.045, 0.1, Vector3(7.95, 0.79, 6.05 + k * 0.25), "#b07a45", region)
+	cyl(0.09, 0.22, Vector3(8.4, 1.01, 8.6), "#d7dbe0", region)
 	box(Vector3(3.0, 0.9, 0.6), Vector3(7.6, 0.45, 8.6), "#d9d4c8", true)
 	box(Vector3(0.7, 1.8, 0.7), Vector3(6.0, 0.9, 5.5), "#dfe6ea", true)
 	box(Vector3(0.9, 0.74, 0.9), Vector3(7.8, 0.37, 6.2), "#a88a64", true)
@@ -989,6 +1161,8 @@ func _apply_state(s: Dictionary) -> void:
 		player_model = new_model
 		player_color = new_color
 		_spawn_player(player.global_position if player else LOBBY_POINT, player.rotation.y if player else PI)
+		if party_mat:
+			party_mat.albedo_color = player_color
 	_swap_pa(String(s.get("pa", pa_model)))
 	_apply_lang()
 	if first:
