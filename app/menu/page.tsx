@@ -10,7 +10,7 @@ import ContinueRunModal from "../components/menu/ContinueRunModal";
 import LangThemeToggle from "../components/layout/LangThemeToggle";
 import { states as initialStates } from "../data/states";
 import { generateConstituencies } from "../data/constituencies";
-import { newJourney, normalizeJourney, resumeRoute } from "../store/journey";
+import { hubRoute, newJourney, normalizeJourney } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot, type SavedGameSlot } from "../store/saveGame";
 import { useLang, t } from "../i18n/useLang";
@@ -178,7 +178,7 @@ export default function MainMenuPage() {
   const resumeSavedGame = useCallback((slot: SavedGameSlot) => {
     setActiveSaveSlot(slot.id);
     useGameStore.setState({ ...slot.state, journey: normalizeJourney(slot.state.journey), phase: "playing" });
-    router.push(resumeRoute(slot.state));
+    router.push(hubRoute(slot.state));
   }, [router]);
 
   const navigateMenuItem = useCallback((item: MenuItem) => {

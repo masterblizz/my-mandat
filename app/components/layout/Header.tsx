@@ -135,7 +135,7 @@ export default function Header() {
             className="px-2 py-1 text-[12px] font-bold tracking-[0.18em] text-gold transition-all hover:bg-gold/15"
             style={{ border: "1px solid rgb(var(--gold-rgb) / 0.45)" }}
           >
-            {t(lang, "BANDAR 3D", "3D CITY")}
+            ⌂ {t(lang, "HUB BANDAR", "CITY HUB")}
           </Link>
         )}
 

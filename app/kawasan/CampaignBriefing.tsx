@@ -19,7 +19,7 @@ import { assistantAvatarSrc } from "../lib/assistantAvatar";
 export default function CampaignBriefing() {
   const lang = useLang();
   const router = useRouter();
-  const { journey, day, totalDays, leader, settings, assistantAvatar } = useGameStore();
+  const { journey, day, totalDays, leader, settings, assistantAvatar, phase } = useGameStore();
   const assistantSrc = assistantAvatarSrc(assistantAvatar);
   const showOnStart = useUIStore((s) => s.showCampaignBriefing);
   const setShowOnStart = useUIStore((s) => s.setShowCampaignBriefing);
@@ -32,7 +32,10 @@ export default function CampaignBriefing() {
 
   const homeSupport = useGameStore((state) => state.states.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0);
   const campaign = journey.chapter === "campaign" && day < totalDays;
-  if (!campaign) return null;
+  // The character prologue (CityOnboarding) owns the screen until it is done;
+  // opening the day-1 briefing on top of it stacks two modals.
+  const prologueActive = phase === "menu" && journey.characterStage === "member";
+  if (!campaign || prologueActive) return null;
   const fresh = day === 1 && journey.decisions === 3 && journey.actionsToday.length === 0;
   const objectiveDay = Math.min(10, totalDays);
   const objectiveDone = journey.locationObjectives.includes("campaign:home-support-60");
