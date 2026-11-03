@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-<title>MyMandat Office</title>
+<title>MyMandat World</title>
 <style>
 html, body, #canvas { margin: 0; padding: 0; border: 0; width: 100%; height: 100%; overflow: hidden; background: #020814; touch-action: none; }
 #canvas { display: block; outline: none; }
@@ -18,21 +18,21 @@ html, body, #canvas { margin: 0; padding: 0; border: 0; width: 100%; height: 100
 <div id="status"><span id="msg">MEMUATKAN PEJABAT 3D…</span><div id="bar"><i></i></div></div>
 <script src="index.js"></script>
 <script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":18088544,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":18146448,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[]};
 const status = document.getElementById("status");
 const bar = document.querySelector("#bar i");
 const tell = (msg) => { try { window.parent.postMessage(JSON.stringify(msg), window.location.origin); } catch (e) { /* standalone */ } };
 const missing = Engine.getMissingFeatures({ threads: false });
 if (missing.length) {
   document.getElementById("msg").textContent = "WEBGL2 TIDAK DISOKONG";
-  tell({ type: "office-error", message: missing.join(", ") });
+  tell({ type: "world-error", message: missing.join(", ") });
 } else {
   const engine = new Engine(GODOT_CONFIG);
   engine.startGame({
-    onProgress: (current, total) => { if (total > 0) bar.style.width = Math.round(current / total * 100) + "%"; tell({ type: "office-progress", value: total > 0 ? current / total : 0 }); },
+    onProgress: (current, total) => { if (total > 0) bar.style.width = Math.round(current / total * 100) + "%"; tell({ type: "world-progress", value: total > 0 ? current / total : 0 }); },
   }).then(() => { status.remove(); }, (err) => {
     document.getElementById("msg").textContent = "GAGAL MEMUATKAN";
-    tell({ type: "office-error", message: String(err) });
+    tell({ type: "world-error", message: String(err) });
   });
 }
 </script>

@@ -25,14 +25,14 @@ const tell = (msg) => { try { window.parent.postMessage(JSON.stringify(msg), win
 const missing = Engine.getMissingFeatures({ threads: false });
 if (missing.length) {
   document.getElementById("msg").textContent = "WEBGL2 TIDAK DISOKONG";
-  tell({ type: "office-error", message: missing.join(", ") });
+  tell({ type: "world-error", message: missing.join(", ") });
 } else {
   const engine = new Engine(GODOT_CONFIG);
   engine.startGame({
-    onProgress: (current, total) => { if (total > 0) bar.style.width = Math.round(current / total * 100) + "%"; tell({ type: "office-progress", value: total > 0 ? current / total : 0 }); },
+    onProgress: (current, total) => { if (total > 0) bar.style.width = Math.round(current / total * 100) + "%"; tell({ type: "world-progress", value: total > 0 ? current / total : 0 }); },
   }).then(() => { status.remove(); }, (err) => {
     document.getElementById("msg").textContent = "GAGAL MEMUATKAN";
-    tell({ type: "office-error", message: String(err) });
+    tell({ type: "world-error", message: String(err) });
   });
 }
 </script>
