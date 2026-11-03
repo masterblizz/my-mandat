@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss";
 
+const LANDSCAPE_PHONE = "(orientation: landscape) and (max-height: 500px) and (min-width: 640px)";
+
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -7,6 +9,16 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    // Landscape phones (short and wide) get the multi-column md/lg/xl
+    // layouts instead of the stacked phone layout, so screens fit their
+    // height instead of scrolling. See the landscape block in globals.css.
+    screens: {
+      sm: "640px",
+      md: { raw: `(min-width: 768px), ${LANDSCAPE_PHONE}` },
+      lg: { raw: `(min-width: 1024px), ${LANDSCAPE_PHONE}` },
+      xl: { raw: `(min-width: 1280px), ${LANDSCAPE_PHONE}` },
+      "2xl": "1536px",
+    },
     extend: {
       fontSize: {
         xs:    ['14px', { lineHeight: '1.2' }],

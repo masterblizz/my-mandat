@@ -497,7 +497,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen font-mono" style={{ background: "var(--bg)", paddingTop: "40px", paddingBottom: "36px" }}>
+    <main className="settings-screen min-h-screen font-mono" style={{ background: "var(--bg)", paddingTop: "40px", paddingBottom: "36px" }}>
       <Header />
 
       <div className="flex items-center px-4" style={{ height: "44px", background: "var(--panel)", borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)", fontFamily: "'Space Mono', monospace" }}>
@@ -532,6 +532,6 @@ export default function SettingsPage() {
         leftText={t(lang, "settings_page.settingsGameplayActive")}
         rightText={t(lang, "settings_page.navigateSelectEscBack")}
       />
-    </div>
+    </main>
   );
 }

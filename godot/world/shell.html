@@ -20,6 +20,8 @@ $GODOT_HEAD_INCLUDE
 <script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const status = document.getElementById("status");
+// Embedded in the game page, which shows its own localised loader.
+if (window.parent !== window) status.style.visibility = "hidden";
 const bar = document.querySelector("#bar i");
 const tell = (msg) => { try { window.parent.postMessage(JSON.stringify(msg), window.location.origin); } catch (e) { /* standalone */ } };
 const missing = Engine.getMissingFeatures({ threads: false });

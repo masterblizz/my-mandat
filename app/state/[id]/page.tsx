@@ -281,7 +281,7 @@ export default function StatePage() {
       <div className="flex pt-[40px] pb-[36px] min-h-screen">
         {/* Left Sidebar */}
         <div
-          className="fixed left-0 top-[40px] bottom-[36px] flex flex-col"
+          className="state-sidebar fixed left-0 top-[40px] bottom-[36px] flex flex-col"
           style={{
             width: "180px",
             background: "var(--panel)",

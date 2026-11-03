@@ -350,7 +350,7 @@ export default function CalendarPage() {
 
   return (
     <div
-      className="min-h-screen font-mono"
+      className="calendar-screen min-h-screen font-mono"
       style={{ background: "var(--bg)", paddingTop: "40px", paddingBottom: "36px" }}
     >
       <Header />
