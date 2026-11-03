@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
@@ -13,6 +13,11 @@ import { assistantGender } from "../lib/assistantAvatar";
 
 // WebGL room with the MakeHuman cast; browser-only.
 const Office3D = dynamic(() => import("./Office3D"), { ssr: false });
+// Sims-style multi-room office (Godot web export); Office3D is the light fallback.
+const GodotOffice = dynamic(() => import("./GodotOffice"), { ssr: false });
+import type { GodotOfficeState, OfficeInteraction } from "./GodotOffice";
+const OFFICE_ENGINE_KEY = "office-engine";
+const OFFICE_INTRO_KEY = "office-intro-day";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 
 type Hotspot = {
@@ -196,6 +201,8 @@ export default function PoliticalOfficePage() {
   const [officeFeedback, setOfficeFeedback] = useState<string | null>(null);
   const [officeApproach, setOfficeApproach] = useState<ActivityApproach>("balanced");
   const [isNight, setIsNight] = useState(false);
+  const [engine, setEngine] = useState<"godot" | "webgl">("godot");
+  const [introToday, setIntroToday] = useState(false);
   const [newsIndex, setNewsIndex] = useState(0);
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
@@ -406,6 +413,56 @@ export default function PoliticalOfficePage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(OFFICE_ENGINE_KEY);
+      if (saved === "godot" || saved === "webgl") setEngine(saved);
+      // The walk-in plays on the first office visit of each campaign/term day.
+      const dayKey = `${journey.chapter}:${journey.chapter === "campaign" ? day : journey.termDay}`;
+      if (window.sessionStorage.getItem(OFFICE_INTRO_KEY) !== dayKey) {
+        setIntroToday(true);
+        window.sessionStorage.setItem(OFFICE_INTRO_KEY, dayKey);
+      }
+    } catch {
+      setIntroToday(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const switchEngine = (next: "godot" | "webgl") => {
+    setEngine(next);
+    try { window.localStorage.setItem(OFFICE_ENGINE_KEY, next); } catch { /* not persisted */ }
+  };
+  const openInbox = () => {
+    if (unreadMailCount > 0) {
+      const nextUnreadMail = unreadMailIndices[0]!;
+      setOpenedMail(nextUnreadMail);
+      markOfficeMailRead(nextUnreadMail);
+    }
+    setPanel("inbox");
+  };
+  // Avatars 2 and 4 (index 1, 3) are the women in the setup line-up.
+  const playerModel: GodotOfficeState["player"] = [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male";
+  const godotState = useMemo<GodotOfficeState>(() => ({
+    lang,
+    player: playerModel,
+    playerName: leader.name,
+    playerColor: leader.partyColor,
+    pa: assistantModel as GodotOfficeState["pa"],
+    night: isNight,
+    badges: { meeting: unreadMailCount, files: newsBulletins.length, residents: officeActionDone("prepare") ? 0 : 1 },
+    intro: introToday,
+  }), [lang, playerModel, leader.name, leader.partyColor, assistantModel, isNight, unreadMailCount, newsBulletins.length, introToday, journey.actionsToday, journey.termActions]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Each Godot interaction opens the same panel its old hotspot did.
+  const openInteraction = (id: OfficeInteraction) => {
+    if (id === "desk") setActive(hotspots[0].title);
+    else if (id === "board") setActive(hotspots[1].title);
+    else if (id === "tv") setActive(hotspots[2].title);
+    else if (id === "files") setActive(hotspots[3].title);
+    else if (id === "residents") { setOfficeApproach("community"); setActive(hotspots[3].title); }
+    else if (id === "meeting") openInbox();
+    else if (id === "pa") setAssistantOpen(true);
+    else if (id === "pantry") setNotice(t(lang, "Rehat sebentar di pantri. Staf berkongsi khabar terkini kawasan.", "A short pantry break. Staff share the latest news from the constituency."));
+  };
+
   return (
     <div
       className="min-h-screen overflow-hidden"
@@ -417,6 +474,9 @@ export default function PoliticalOfficePage() {
         style={{ fontFamily: "'Space Mono', monospace" }}
       >
         <div className="absolute inset-0 z-[1]" role="img" aria-label={officeTitle}>
+          {engine === "godot" ? (
+            <GodotOffice state={godotState} onOpen={openInteraction} onError={() => switchEngine("webgl")} />
+          ) : (
           <Office3D
             assistantName={assistantModel}
             rural={isRural}
@@ -427,6 +487,7 @@ export default function PoliticalOfficePage() {
               key, icon: hotspots[i].icon, title: hotspots[i].title, onClick: () => setActive(hotspots[i].title),
             }]))}
           />
+          )}
         </div>
         {active &&
           (active === hotspots[1].title || active === hotspots[3].title) &&
@@ -667,14 +728,7 @@ export default function PoliticalOfficePage() {
 
         <nav className="office-dock absolute right-3 top-[112px] z-30 flex flex-col gap-2" aria-label={t(lang, "Panel pejabat", "Office panels")}>
           <button type="button" className="city-tool" aria-pressed={panel === "inbox"}
-            onClick={() => {
-              if (panel !== "inbox" && unreadMailCount > 0) {
-                const nextUnreadMail = unreadMailIndices[0]!;
-                setOpenedMail(nextUnreadMail);
-                markOfficeMailRead(nextUnreadMail);
-              }
-              togglePanel("inbox");
-            }}
+            onClick={() => (panel === "inbox" ? setPanel(null) : openInbox())}
             aria-label={`${t(lang, "Peti masuk", "Inbox")}${unreadMailCount ? ` · ${unreadMailCount} ${t(lang, "baharu", "new")}` : ""}`}
             data-tip={t(lang, "Peti masuk", "Inbox")}>
             <span aria-hidden>📨</span>
@@ -688,6 +742,11 @@ export default function PoliticalOfficePage() {
             aria-label={t(lang, "Personal Assistant & objektif", "Personal Assistant & objective")} data-tip={t(lang, "Objektif PA", "PA objective")}>
             <span aria-hidden>🎯</span>
             {!objectiveDone && <i className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-gold" />}
+          </button>
+          <button type="button" className="city-tool" aria-pressed={engine === "godot"} onClick={() => switchEngine(engine === "godot" ? "webgl" : "godot")}
+            aria-label={engine === "godot" ? t(lang, "Tukar ke pejabat ringan", "Switch to the light office") : t(lang, "Tukar ke pejabat 3D penuh", "Switch to the full 3D office")}
+            data-tip={engine === "godot" ? t(lang, "Pejabat ringan", "Light office") : t(lang, "Pejabat 3D penuh", "Full 3D office")}>
+            <span aria-hidden>{engine === "godot" ? "🏢" : "🎮"}</span>
           </button>
         </nav>
 

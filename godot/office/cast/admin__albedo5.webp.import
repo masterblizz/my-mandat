@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bh3ku8gra0b03"
+path="res://.godot/imported/admin__albedo5.webp-2bf507a5d0088a59ea6b62fdd3a2a2d9.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "af5c64d1129a76c02d99161b8e079ac7"
+}
+
+[deps]
+
+source_file="res://cast/admin__albedo5.webp"
+dest_files=["res://.godot/imported/admin__albedo5.webp-2bf507a5d0088a59ea6b62fdd3a2a2d9.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

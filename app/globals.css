@@ -1584,3 +1584,8 @@ input[type="range"].range-red::-moz-range-thumb {
   .city-hub-bar__item { min-width: 62px; min-height: 52px; padding: 6px 8px; }
   .city-hub-bar__label { display: block; font-size: 8px; letter-spacing: .08em; }
 }
+
+/* Godot office (/office): the long control hint is desktop-only. */
+@media (max-width: 640px) {
+  .office-3d-hint { display: none; }
+}

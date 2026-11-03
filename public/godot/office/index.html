@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+<title>MyMandat Office</title>
+<style>
+html, body, #canvas { margin: 0; padding: 0; border: 0; width: 100%; height: 100%; overflow: hidden; background: #020814; touch-action: none; }
+#canvas { display: block; outline: none; }
+#status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font: 700 11px/1.4 "Space Mono", ui-monospace, monospace; letter-spacing: .22em; color: #19d3f2; background: #020814; }
+#bar { width: min(280px, 70vw); height: 4px; border: 1px solid rgba(25, 211, 242, .45); }
+#bar i { display: block; height: 100%; width: 0; background: #f2b01e; transition: width .2s; }
+</style>
+
+</head>
+<body>
+<canvas id="canvas" tabindex="0">HTML5 canvas appears to be unsupported in the current browser.</canvas>
+<div id="status"><span id="msg">MEMUATKAN PEJABAT 3D…</span><div id="bar"><i></i></div></div>
+<script src="index.js"></script>
+<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":18078960,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[]};
+const status = document.getElementById("status");
+const bar = document.querySelector("#bar i");
+const tell = (msg) => { try { window.parent.postMessage(JSON.stringify(msg), window.location.origin); } catch (e) { /* standalone */ } };
+const missing = Engine.getMissingFeatures({ threads: false });
+if (missing.length) {
+  document.getElementById("msg").textContent = "WEBGL2 TIDAK DISOKONG";
+  tell({ type: "office-error", message: missing.join(", ") });
+} else {
+  const engine = new Engine(GODOT_CONFIG);
+  engine.startGame({
+    onProgress: (current, total) => { if (total > 0) bar.style.width = Math.round(current / total * 100) + "%"; tell({ type: "office-progress", value: total > 0 ? current / total : 0 }); },
+  }).then(() => { status.remove(); }, (err) => {
+    document.getElementById("msg").textContent = "GAGAL MEMUATKAN";
+    tell({ type: "office-error", message: String(err) });
+  });
+}
+</script>
+</body>
+</html>
+
