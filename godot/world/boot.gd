@@ -5,6 +5,7 @@ extends Node
 const LOCATIONS := {
 	"office": "res://main.gd",
 	"warroom": "res://warroom.gd",
+	"studio": "res://studio.gd",
 }
 
 func _ready() -> void:
