@@ -30,7 +30,7 @@ export default function StatusBar({
 
   return (
     <footer
-      className="pointer-events-none fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-4 px-4 pr-[264px]"
+      className="app-statusbar pointer-events-none fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-4 px-4 pr-[264px]"
       style={{
         height: "36px",
         background: "var(--bg)",

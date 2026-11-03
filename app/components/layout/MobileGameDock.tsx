@@ -13,8 +13,8 @@ type DockItem = {
 };
 
 const DOCK_ITEMS: DockItem[] = [
-  { href: "/kawasan", icon: "⌂", labelMs: "Bandar", labelEn: "City", match: (path) => path === "/kawasan" || path.startsWith("/location/") || path === "/office" },
-  { href: "/warroom", icon: "◈", labelMs: "War Room", labelEn: "War Room", match: (path) => path === "/warroom" || path.startsWith("/state/") },
+  { href: "/kawasan", icon: "⌂", labelMs: "Bandar", labelEn: "City", match: (path) => path === "/kawasan" || (path.startsWith("/location/") && path !== "/location/operations") || path === "/office" },
+  { href: "/warroom", icon: "◈", labelMs: "War Room", labelEn: "War Room", match: (path) => path === "/warroom" || path === "/location/operations" || path.startsWith("/state/") },
   { href: "/campaign", icon: "⚑", labelMs: "Kempen", labelEn: "Campaign", match: (path) => path === "/campaign" || path === "/calendar" },
   { href: "/polling", icon: "⌁", labelMs: "Intel", labelEn: "Intel", match: (path) => path === "/polling" || path === "/messaging" || path === "/advisor" },
   { href: "/menu", icon: "☰", labelMs: "Menu", labelEn: "Menu", match: (path) => path === "/menu" },

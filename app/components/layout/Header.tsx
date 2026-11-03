@@ -73,7 +73,7 @@ export default function Header() {
   return (
     <>
     <header
-      className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-4"
+      className="app-header fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-4"
       style={{
         height: "40px",
         background: "var(--bg)",
@@ -83,7 +83,7 @@ export default function Header() {
     >
       <div className="flex items-center gap-3 text-xs">
         <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
-        <span className="tracking-wider text-text-muted">{t(lang, "components_layout_Header.tacticalOps")}</span>
+        <span className="app-header__ops tracking-wider text-text-muted">{t(lang, "components_layout_Header.tacticalOps")}</span>
 
         {/* Only rendered once hasPremium is confirmed true — nothing shows
             while usePremiumStatus() is still loading or if the user isn't
@@ -141,7 +141,7 @@ export default function Header() {
 
       </div>
 
-      <div className="hidden text-xs uppercase tracking-widest text-text-muted md:block">
+      <div className="app-header__title hidden text-xs uppercase tracking-widest text-text-muted md:block">
         {governingRoute
           ? t(lang, "components_layout_Header.governmentAdministrationNonElectionMode")
           : electionScope === "prn"
@@ -150,8 +150,8 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3 text-xs">
-        <span className="font-bold tracking-widest text-white tabular-nums">{time}</span>
-        <span className="flex items-center gap-1 text-neon-green">
+        <span className="app-header__clock font-bold tracking-widest text-white tabular-nums">{time}</span>
+        <span className="app-header__online flex items-center gap-1 text-neon-green">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neon-green" />
           {t(lang, "components_layout_Header.sysOnline")}
         </span>

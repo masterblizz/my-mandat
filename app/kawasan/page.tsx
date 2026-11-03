@@ -3117,13 +3117,13 @@ export default function KawasanDevelopmentPage() {
       )}
 
       <main className="kw-page-content px-3 pb-[40px] pt-[48px] w-full">
-        <div className="relative h-[calc(100vh-92px)] min-h-[560px]">
+        <div className="kw-map-frame relative h-[calc(100vh-92px)] min-h-[560px]">
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
-                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="calc(100svh - 94px)" />
+                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%" />
               ) : useGlMap ? (
-                <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="calc(100svh - 94px)" />
+                <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
                 <City3DMap zones={zones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} />
               )}

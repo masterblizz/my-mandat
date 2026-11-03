@@ -67,9 +67,9 @@ function CampaignWelcomeModal({ totalDays, isPrn, onClose }: { totalDays: number
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+    <div className="campaign-welcome fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
       <section
-        className="w-full max-w-2xl overflow-hidden border"
+        className="campaign-welcome__card w-full max-w-2xl overflow-hidden border"
         style={{ borderColor: "rgb(var(--gold-rgb) / 0.65)", background: "linear-gradient(135deg, rgb(var(--bg-rgb) / 0.98), rgb(var(--cyan-rgb) / 0.08))", boxShadow: "0 0 50px rgb(var(--gold-rgb) / 0.18)" }}
         onClick={(event) => event.stopPropagation()}
       >

@@ -470,7 +470,7 @@ export default function PoliticalOfficePage() {
     >
       <Header />
       <main
-        className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]"
+        className="office-main relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]"
         style={{ fontFamily: "'Space Mono', monospace" }}
       >
         <div className="absolute inset-0 z-[1]" role="img" aria-label={officeTitle}>

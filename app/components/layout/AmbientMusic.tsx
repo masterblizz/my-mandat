@@ -126,7 +126,7 @@ export default function AmbientMusic() {
 
   return (
     <div
-      className="fixed bottom-1 right-3 z-[60] flex items-center"
+      className="app-music fixed bottom-1 right-3 z-[60] flex items-center"
       style={{ fontFamily: "'Space Mono', monospace" }}
     >
       {/* Track switcher — only show when music is on */}
@@ -134,7 +134,7 @@ export default function AmbientMusic() {
         <>
           <button
             onClick={prevTrack}
-            className="border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
+            className="app-music__track border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
@@ -146,7 +146,7 @@ export default function AmbientMusic() {
             ‹
           </button>
           <div
-            className="border-y px-2 py-1.5 text-[8px] font-black tracking-[0.16em]"
+            className="app-music__track border-y px-2 py-1.5 text-[8px] font-black tracking-[0.16em]"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",
@@ -159,7 +159,7 @@ export default function AmbientMusic() {
           </div>
           <button
             onClick={nextTrack}
-            className="border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
+            className="app-music__track border px-2 py-1.5 text-[9px] font-black transition hover:brightness-125"
             style={{
               borderColor: "rgb(var(--gold-rgb) / 0.35)",
               color: "var(--gold)",

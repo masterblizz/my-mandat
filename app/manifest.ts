@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#080c14",
     theme_color: "#080c14",
-    orientation: "portrait-primary",
+    orientation: "landscape",
     categories: ["games", "strategy", "simulation"],
     icons: [
       { src: "/logo-peti-undi.png", sizes: "any", type: "image/png", purpose: "maskable" },
