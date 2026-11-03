@@ -15,7 +15,7 @@ import { PARTY_MEMBERS } from "../../data/members";
 // backdrop stays as the light fallback.
 const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
 // Locations that are Sims-style 3D buildings in the Godot world.
-const LOCATION_3D_SCENES: Record<string, "warroom" | "party"> = { operations: "warroom", party: "party" };
+const LOCATION_3D_SCENES: Record<string, "warroom" | "party" | "media"> = { operations: "warroom", party: "party", media: "media" };
 const engineKey = (kind: string) => (kind === "operations" ? "warroom-engine" : `${kind}-engine-3d`);
 const introKey = (kind: string) => (kind === "operations" ? "warroom-intro-day" : `${kind}-intro-day`);
 import { useLang, t } from "../../i18n/useLang";
@@ -1117,7 +1117,8 @@ export default function LocationPage() {
     else if (id === "pa") setHostGuideOpen(true);
     else if (id === "exit") router.push("/kawasan");
     else if (id === "nominate") router.push("/campaign");
-    else if (id === "rally" || id === "manifesto") setActivityOpen(true);
+    else if (id === "rally" || id === "manifesto" || id === "press" || id === "social") setActivityOpen(true);
+    else if (id === "control") router.push("/messaging");
   };
   useEffect(() => {
     if (!activityOpen) setActivityFeedback(null);
