@@ -10,11 +10,14 @@ import { useGameStore, type ActivityApproach } from "../../store/gameStore";
 import dynamic from "next/dynamic";
 import type { GodotWorldState } from "../../components/world/GodotWorld";
 import { assistantGender } from "../../lib/assistantAvatar";
+import { PARTY_MEMBERS } from "../../data/members";
 // The operations centre is a Sims-style 3D war room (Godot); the painted
 // backdrop stays as the light fallback.
 const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
-const WARROOM_ENGINE_KEY = "warroom-engine";
-const WARROOM_INTRO_KEY = "warroom-intro-day";
+// Locations that are Sims-style 3D buildings in the Godot world.
+const LOCATION_3D_SCENES: Record<string, "warroom" | "party"> = { operations: "warroom", party: "party" };
+const engineKey = (kind: string) => (kind === "operations" ? "warroom-engine" : `${kind}-engine-3d`);
+const introKey = (kind: string) => (kind === "operations" ? "warroom-intro-day" : `${kind}-intro-day`);
 import { useLang, t } from "../../i18n/useLang";
 import {
   currentLocalTimeIsNight,
@@ -993,16 +996,17 @@ export default function LocationPage() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   // In the 3D operations centre the PA stands in the room, so her guide
   // starts closed and the walk-in replaces the arrival card.
-  const [hostGuideOpen, setHostGuideOpen] = useState(kind !== "operations");
+  const [hostGuideOpen, setHostGuideOpen] = useState(!LOCATION_3D_SCENES[kind]);
   const [notice, setNotice] = useState<string | null>(null);
   const [activityFeedback, setActivityFeedback] = useState<string | null>(null);
   const [activityApproach, setActivityApproach] =
     useState<ActivityApproach>("balanced");
   const [arrivalOpen, setArrivalOpen] = useState(
-    () => searchParams.get("console") !== "1" && kind !== "operations",
+    () => searchParams.get("console") !== "1" && !LOCATION_3D_SCENES[kind],
   );
   const [warEngine, setWarEngine] = useState<"godot" | "image">("godot");
   const [warIntro, setWarIntro] = useState(false);
+  const [candidateId, setCandidateId] = useState<string | null>(null);
   const [isNight, setIsNight] = useState(false);
   const scene = SCENES[kind] ?? SCENES.party;
   const localProfile = homeSeatProfile(states, leader, settings);
@@ -1045,15 +1049,16 @@ export default function LocationPage() {
     "campaign:home-support-60",
   );
   const objectiveDay = Math.min(10, totalDays);
-  const war3d = kind === "operations" && warEngine === "godot";
+  const scene3d = LOCATION_3D_SCENES[kind];
+  const war3d = !!scene3d && warEngine === "godot";
   useEffect(() => {
-    if (kind !== "operations") return;
+    if (!scene3d) return;
     try {
-      if (window.localStorage.getItem(WARROOM_ENGINE_KEY) === "image") setWarEngine("image");
+      if (window.localStorage.getItem(engineKey(kind)) === "image") setWarEngine("image");
       const dayKey = `${journey.chapter}:${journey.chapter === "campaign" ? day : journey.termDay}`;
-      if (searchParams.get("console") !== "1" && window.sessionStorage.getItem(WARROOM_INTRO_KEY) !== dayKey) {
+      if (searchParams.get("console") !== "1" && window.sessionStorage.getItem(introKey(kind)) !== dayKey) {
         setWarIntro(true);
-        window.sessionStorage.setItem(WARROOM_INTRO_KEY, dayKey);
+        window.sessionStorage.setItem(introKey(kind), dayKey);
       }
     } catch {
       /* storage blocked: no intro, 3D stays on */
@@ -1061,8 +1066,16 @@ export default function LocationPage() {
   }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const switchWarEngine = (next: "godot" | "image") => {
     setWarEngine(next);
-    try { window.localStorage.setItem(WARROOM_ENGINE_KEY, next); } catch { /* not persisted */ }
+    try { window.localStorage.setItem(engineKey(kind), next); } catch { /* not persisted */ }
   };
+  const nominations = useGameStore((state) => state.nominations);
+  // seats each named member is nominated to, for the candidate board
+  const candidateSeats = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const entry of Object.values(nominations)) if (entry?.type === "member") out[entry.memberId] = (out[entry.memberId] ?? 0) + 1;
+    return out;
+  }, [nominations]);
+  const candidate = candidateId ? PARTY_MEMBERS.find((member) => member.id === candidateId) : undefined;
   const warScopePrn = (settings.electionScope ?? "pru") === "prn";
   const warPrnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
   const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
@@ -1088,7 +1101,14 @@ export default function LocationPage() {
     day,
     totalDays,
     headline: hotUpdate ? (lang === "ms" ? hotUpdate.headline : hotUpdate.headlineEN) : "",
-  }), [lang, leader.avatarIndex, leader.name, leader.partyColor, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    partyName: leader.party,
+    partyAbbr: leader.partyAbbr,
+    candidates: scene3d === "party" ? PARTY_MEMBERS.map((member) => ({
+      id: member.id, name: member.name, role: member.role, influence: member.influence, specialty: member.specialty,
+      seats: candidateSeats[member.id] ?? 0,
+    })) : undefined,
+    selected: candidateId ?? "",
+  }), [lang, leader.avatarIndex, leader.name, leader.partyColor, leader.party, leader.partyAbbr, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id, scene3d, candidateSeats, candidateId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Each 3D marker opens the panel or screen that already does that job.
   const openWarInteraction = (id: string) => {
     if (id === "console" || id === "screens") setOperationsDeskOpen(true);
@@ -1096,6 +1116,8 @@ export default function LocationPage() {
     else if (id === "analytics") router.push("/polling");
     else if (id === "pa") setHostGuideOpen(true);
     else if (id === "exit") router.push("/kawasan");
+    else if (id === "nominate") router.push("/campaign");
+    else if (id === "rally" || id === "manifesto") setActivityOpen(true);
   };
   useEffect(() => {
     if (!activityOpen) setActivityFeedback(null);
@@ -1400,8 +1422,8 @@ export default function LocationPage() {
       <main className="location-main relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
         {war3d ? (
           <div className="absolute inset-0 z-0 pt-[40px]">
-            <GodotWorld scene="warroom" state={warState} onOpen={openWarInteraction}
-              onError={() => switchWarEngine("image")} onStateClick={(id) => router.push(`/state/${id}`)} />
+            <GodotWorld scene={scene3d!} state={warState} onOpen={openWarInteraction}
+              onError={() => switchWarEngine("image")} onStateClick={(id) => router.push(`/state/${id}`)} onPick={setCandidateId} />
           </div>
         ) : (
           <Image
@@ -1418,6 +1440,29 @@ export default function LocationPage() {
         )}
         {isNight && (
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_45%,rgba(3,12,28,.16),rgba(2,7,17,.68))] mix-blend-multiply" />
+        )}
+        {war3d && candidate && (
+          <section role="dialog" aria-label={candidate.name} className="party-candidate absolute bottom-12 left-4 z-30 w-[min(360px,calc(100%-32px))] border p-3 shadow-2xl"
+            style={{ borderColor: `${scene.accent}aa`, background: "rgba(6,14,24,.96)", backdropFilter: "blur(14px)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[9px] font-black tracking-[.2em]" style={{ color: scene.accent }}>{t(lang, "CALON PARTI", "PARTY CANDIDATE")} · {candidate.experience === "veteran" ? t(lang, "VETERAN", "VETERAN") : candidate.experience === "rising" ? t(lang, "BINTANG BARU", "RISING") : t(lang, "MUKA BARU", "NEW FACE")}</div>
+                <h2 className="mt-1 truncate text-sm font-black text-white">{candidate.name}</h2>
+                <p className="text-[10px] text-text-muted">{candidate.role} · {states.find((state) => state.id === candidate.homeState)?.name ?? candidate.homeState}{candidate.homeConstituency ? ` · ${candidate.homeConstituency}` : ""}</p>
+              </div>
+              <button type="button" onClick={() => setCandidateId(null)} className="px-1 text-sm text-text-muted hover:text-white" aria-label={t(lang, "Tutup", "Close")}>×</button>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {([["influence", t(lang, "PENGARUH", "INFLUENCE")], ["charisma", t(lang, "KARISMA", "CHARISMA")], ["credibility", t(lang, "KREDIBILITI", "CREDIBILITY")]] as const).map(([key, title]) => (
+                <div key={key}><div className="flex justify-between text-[8px] text-text-muted"><span>{title}</span><b className="text-white">{candidate[key]}</b></div>
+                  <div className="mt-1 h-1.5 bg-black/60"><div className="h-full" style={{ width: `${candidate[key]}%`, background: scene.accent }} /></div></div>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-text-muted">{(candidateSeats[candidate.id] ?? 0) > 0 ? t(lang, `Dicalonkan di ${candidateSeats[candidate.id]} kerusi.`, `Nominated in ${candidateSeats[candidate.id]} seat(s).`) : t(lang, "Belum dicalonkan di mana-mana kerusi.", "Not nominated in any seat yet.")}</p>
+            <button type="button" onClick={() => router.push("/campaign")} className="mt-2 w-full border px-3 py-2 text-[9px] font-black tracking-widest" style={{ color: scene.accent, borderColor: `${scene.accent}99` }}>
+              {t(lang, "CALONKAN DI KERUSI →", "NOMINATE IN A SEAT →")}
+            </button>
+          </section>
         )}
         {!war3d && <button
           type="button"
@@ -2153,11 +2198,11 @@ export default function LocationPage() {
           <h1 className="mt-1 text-lg font-black text-white">
             {scene.icon} {label}
           </h1>
-          {kind === "operations" && (
+          {scene3d && (
             <button type="button" onClick={() => switchWarEngine(war3d ? "image" : "godot")}
               className="mt-2 border px-2 py-1 text-[8px] font-black tracking-widest"
               style={{ color: scene.accent, borderColor: `${scene.accent}88` }}>
-              {war3d ? t(lang, "PAPARAN RINGAN", "LIGHT VIEW") : t(lang, "PUSAT OPERASI 3D", "3D OPERATIONS CENTRE")}
+              {war3d ? t(lang, "PAPARAN RINGAN", "LIGHT VIEW") : t(lang, "BANGUNAN 3D", "3D BUILDING")}
             </button>
           )}
           <p className="mt-1 text-[9px] text-text-muted">

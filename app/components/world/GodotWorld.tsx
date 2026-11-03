@@ -18,7 +18,7 @@ import { t, type Lang } from "../../i18n/useLang";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
-export type WorldScene = "office" | "warroom" | "studio" | "dewan";
+export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party";
 export type OfficeInteraction = "desk" | "pa" | "meeting" | "tv" | "board" | "residents" | "files" | "pantry";
 export type WarRoomInteraction = "console" | "screens" | "pa" | "analytics" | "briefing" | "exit";
 
@@ -51,6 +51,10 @@ export type GodotWorldState = {
   ownSeats?: number;
   governmentSeats?: number;
   ministers?: { name: string; post: string }[];
+  // party headquarters extras
+  partyAbbr?: string;
+  candidates?: { id: string; name: string; role: string; influence: number; specialty: string; seats: number }[];
+  selected?: string;
 };
 
 // Room names shown as a toast when the player walks in (both scenes).
@@ -66,6 +70,12 @@ const ROOM_NAMES: Record<string, [string, string]> = {
   luar: ["Luar bangunan", "Outside"],
   analitik: ["Bilik Analitik", "Analytics Room"],
   taklimat: ["Bilik Taklimat", "Briefing Room"],
+};
+const PARTY_ROOM_NAMES: Record<string, [string, string]> = {
+  calon: ["Bilik Calon", "Candidate Room"],
+  dewan: ["Dewan Perhimpunan", "Assembly Hall"],
+  manifesto: ["Bilik Manifesto", "Manifesto Room"],
+  lobi: ["Lobi Parti", "Party Lobby"],
 };
 const DEWAN_ROOM_NAMES: Record<string, [string, string]> = {
   dewan: ["Dewan", "Chamber"],
@@ -92,8 +102,9 @@ function resolveColor(value: string): string {
   return "#" + rgb.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
 }
 
-export default function GodotWorld({ scene, state, onOpen, onError, onStateClick, onReady }: {
+export default function GodotWorld({ scene, state, onOpen, onError, onStateClick, onReady, onPick }: {
   scene: WorldScene;
+  onPick?: (id: string) => void;
   onReady?: () => void;
   state: GodotWorldState;
   onOpen: (id: string) => void;
@@ -107,9 +118,11 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
   const [room, setRoom] = useState<string | null>(null);
   const onStateClickRef = useRef(onStateClick);
   const onReadyRef = useRef(onReady);
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
   onReadyRef.current = onReady;
   onStateClickRef.current = onStateClick;
-  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
+  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
   const lang = state.lang;
   const onOpenRef = useRef(onOpen);
   const onErrorRef = useRef(onError);
@@ -134,6 +147,7 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
         if (msg.action === "open" && typeof msg.id === "string") onOpenRef.current(msg.id);
       }
       else if (msg.type === "world-state-click" && typeof msg.id === "string") onStateClickRef.current?.(msg.id);
+      else if (msg.type === "world-pick" && typeof msg.id === "string") onPickRef.current?.(msg.id);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -156,13 +170,13 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
       <iframe
         ref={frameRef}
         src={`${GODOT_WORLD_URL}?scene=${scene}`}
-        title={scene === "warroom" ? t(lang, "Pusat Operasi 3D", "3D operations centre") : scene === "studio" ? t(lang, "Studio Malam Keputusan 3D", "3D election night studio") : scene === "dewan" ? t(lang, "Dewan 3D", "3D chamber") : t(lang, "Pusat Khidmat 3D", "3D service centre")}
+        title={scene === "warroom" ? t(lang, "Pusat Operasi 3D", "3D operations centre") : scene === "studio" ? t(lang, "Studio Malam Keputusan 3D", "3D election night studio") : scene === "dewan" ? t(lang, "Dewan 3D", "3D chamber") : scene === "party" ? t(lang, "Ibu Pejabat Parti 3D", "3D party headquarters") : t(lang, "Pusat Khidmat 3D", "3D service centre")}
         className="absolute inset-0 h-full w-full border-0"
         allow="fullscreen"
       />
       {!ready && (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
-          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{scene === "warroom" ? t(lang, "MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…") : scene === "studio" ? t(lang, "MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…") : scene === "dewan" ? t(lang, "MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…") : t(lang, "MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…")} {Math.round(progress * 100)}%</span>
+          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{scene === "warroom" ? t(lang, "MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…") : scene === "studio" ? t(lang, "MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…") : scene === "dewan" ? t(lang, "MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…") : scene === "party" ? t(lang, "MEMUATKAN IBU PEJABAT 3D…", "LOADING 3D HEADQUARTERS…") : t(lang, "MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…")} {Math.round(progress * 100)}%</span>
           <span className="block h-1 w-[min(280px,70vw)] border" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
             <span className="block h-full bg-gold transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </span>
@@ -184,6 +198,8 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
       {scene !== "studio" && <div className="world-3d-hint pointer-events-none absolute bottom-14 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold tracking-widest text-text-muted" style={{ fontFamily: "'Space Mono', monospace" }}>
         {scene === "dewan"
           ? t(lang, "KLIK TANDA EMAS IKRAR JAWATAN UNTUK ANGKAT SUMPAH · SERET UNTUK GERAK", "CLICK THE GOLD OATH MARKER TO BE SWORN IN · DRAG TO PAN")
+          : scene === "party"
+          ? t(lang, "KLIK KAD DI PAPAN CALON UNTUK MENILAI CALON · KLIK TANDA EMAS UNTUK BERTINDAK · SERET UNTUK GERAK", "CLICK A CARD ON THE CANDIDATE BOARD TO REVIEW · CLICK A GOLD MARKER TO ACT · DRAG TO PAN")
           : scene === "warroom"
           ? t(lang, "KLIK NEGERI DI MEJA PETA UNTUK BUKA MEDAN · KLIK TANDA EMAS UNTUK BERTINDAK · SERET UNTUK GERAK", "CLICK A STATE ON THE MAP TABLE TO OPEN IT · CLICK A GOLD MARKER TO ACT · DRAG TO PAN")
           : t(lang, "KLIK LANTAI UNTUK BERJALAN · KLIK TANDA EMAS UNTUK BERTINDAK · SERET UNTUK GERAK · KLIK KANAN / DUA JARI UNTUK PUSING", "CLICK THE FLOOR TO WALK · CLICK A GOLD MARKER TO ACT · DRAG TO PAN · RIGHT-DRAG / TWO FINGERS TO ROTATE")}

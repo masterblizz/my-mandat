@@ -9,6 +9,7 @@ every location; the page picks one with `?scene=`:
 | `warroom` | `/location/operations`  | `warroom.gd`  |
 | `studio`  | `/results` (election night count) | `studio.gd` |
 | `dewan`   | `/swearing-in` (chamber, oath) | `dewan.gd` |
+| `party`   | `/location/party` (headquarters, candidate board) | `partyhq.gd` |
 
 `main.gd` is the base: rooms, textured floors, walls with Sims cutaway, a
 navmesh baked at start-up, the camera, click-to-walk, the walk-in intro and
@@ -34,6 +35,7 @@ godot --headless --path godot/world -- --scene=office --selftest
 godot --headless --path godot/world -- --scene=warroom --selftest
 godot --headless --path godot/world -- --scene=studio --selftest
 godot --headless --path godot/world -- --scene=dewan --selftest
+godot --headless --path godot/world -- --scene=party --selftest
 godot --headless --path godot/world --export-release Web ../../public/godot/world/index.html
 ```
 

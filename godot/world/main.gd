@@ -113,6 +113,7 @@ var follow_player := false
 
 var current_room := ""
 var pending_open := ""
+var pending_pick := ""
 var intro_playing := false
 var intro_done := false
 var state_seen := false
@@ -843,6 +844,11 @@ func _on_player_arrived() -> void:
 	if intro_playing:
 		_end_intro()
 		return
+	if pending_pick != "":
+		var pid := pending_pick
+		pending_pick = ""
+		_post({"type": "world-pick", "id": pid})
+		return
 	if pending_open != "":
 		var id := pending_open
 		pending_open = ""
@@ -1100,6 +1106,17 @@ func _click(screen: Vector2) -> void:
 	if col.has_meta("state"):
 		_post({"type": "world-state-click", "id": col.get_meta("state")})
 		return
+	# a dynamic pickable (e.g. a candidate card): walk there, then report it
+	if col.has_meta("pick"):
+		pending_open = ""
+		pending_pick = String(col.get_meta("pick"))
+		var stand: Vector3 = col.get_meta("stand")
+		_show_click(stand)
+		if player.global_position.distance_to(stand) < 0.35:
+			_on_player_arrived()
+		else:
+			walk_player(stand, col.get_meta("face"))
+		return
 	if col.has_meta("interact"):
 		var id: String = col.get_meta("interact")
 		var it: Array = INTERACT[id]
@@ -1117,6 +1134,7 @@ func _click(screen: Vector2) -> void:
 			walk_player(stand, face)
 	else:
 		pending_open = ""
+		pending_pick = ""
 		var p: Vector3 = hit["position"]
 		_show_click(p)
 		walk_player(Vector3(p.x, 0, p.z))
