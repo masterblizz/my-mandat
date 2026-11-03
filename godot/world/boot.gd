@@ -6,6 +6,7 @@ const LOCATIONS := {
 	"office": "res://main.gd",
 	"warroom": "res://warroom.gd",
 	"studio": "res://studio.gd",
+	"dewan": "res://dewan.gd",
 }
 
 func _ready() -> void:
