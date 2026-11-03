@@ -8,18 +8,18 @@ extends Node3D
 ## and reports what the player does.
 ##
 ## Bridge (window.postMessage, JSON strings):
-##   page -> scene  {type:"office-state", lang, player, playerName, playerColor, pa, night, badges, intro}
-##                  {type:"office-skip"} · {type:"office-probe"} (test aid)
-##   scene -> page  {type:"office-ready"}
-##                  {type:"office-intro", playing}
-##                  {type:"office-room", room, action:"enter"}
-##                  {type:"office-room", room, action:"open", id}
+##   page -> scene  {type:"world-state", lang, player, playerName, playerColor, pa, night, badges, intro}
+##                  {type:"world-skip"} · {type:"world-probe"} (test aid)
+##   scene -> page  {type:"world-ready"}
+##                  {type:"world-intro", playing}
+##                  {type:"world-room", room, action:"enter"}
+##                  {type:"world-room", room, action:"open", id}
 
 const Person := preload("res://person.gd")
 const Tex := preload("res://textures.gd")
 
 # room id -> floor finish: [kind, colour, fleck/grout, metres per texture tile]
-const FLOORS := {
+var FLOORS := {
 	"yb": ["parquet", "#8a5a34", "", 1.2],
 	"mesyuarat": ["carpet_tile", "#34506e", "#6a88a6", 1.0],
 	"media": ["carpet", "#1d2638", "#3f5172", 0.9],
@@ -36,9 +36,15 @@ const CUT_H := 0.42
 const LAYER_FLOOR := 1
 const LAYER_SOLID := 2
 const LAYER_PICK := 4
+const LAYER_STATE := 8
+var wall_color := "#d3c9b6"
+var interior_sun := 1.0  # multiplier on daylight for darker rooms
+var overview_target := Vector3(0, 0, 0.8)
+var door_pos := Vector3(0, 0, 9)  # glass entrance doors (door_l / door_r slide along x)
+var overview_dist := Vector2(25.0, 31.0)  # landscape, portrait
 
 # room id -> [x0, z0, x1, z1, floor colour, ms name, en name]
-const ROOMS := {
+var ROOMS := {
 	"yb": [-13.0, -9.0, -3.0, -2.5, "#7a5638", "BILIK YB", "YB'S OFFICE"],
 	"mesyuarat": [-3.0, -9.0, 4.0, -2.5, "#3d4a5c", "BILIK MESYUARAT", "MEETING ROOM"],
 	"media": [4.0, -9.0, 13.0, -2.5, "#252c39", "BILIK MEDIA", "MEDIA ROOM"],
@@ -61,8 +67,8 @@ var INTERACT := {
 	"pantry": ["surau", "REHAT SEBENTAR", "TAKE A BREAK", Vector3(7.6, 1.6, 8.4), Vector3(7.6, 0, 7.2), Vector3(7.6, 0, 8.6)],
 }
 
-const LOBBY_POINT := Vector3(0, 0, 6.2)
-const INTRO_START := Vector3(2.3, 0, 11.4)
+var LOBBY_POINT := Vector3(0, 0, 6.2)
+var INTRO_START := Vector3(2.3, 0, 11.4)
 
 var lang := "ms"
 var night := false
@@ -137,6 +143,7 @@ func _ready() -> void:
 	_spawn_cast()
 	_setup_bridge()
 	_apply_lang()
+	_go_overview(true)
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	nav_ready = true
@@ -323,7 +330,7 @@ func _apply_daylight() -> void:
 		env.background_color = Color("#bcd6ea")
 		env.ambient_light_color = Color("#c9d6e6")
 		env.ambient_light_energy = 0.32
-		sun.light_energy = 0.78
+		sun.light_energy = 0.78 * interior_sun
 		sun.light_color = Color("#fff3df")
 	for l in night_lights:
 		l.visible = night
@@ -454,7 +461,7 @@ func wall_z(x: float, z0: float, z1: float, gaps := []) -> void:
 		_wall(Vector3(WALL_T, 0.5, g[1] - g[0]), Vector3(x, WALL_H - 0.25, (g[0] + g[1]) / 2.0), false)
 
 func _wall(size: Vector3, pos: Vector3, solid := true) -> void:
-	var mi := box(size, pos, "#e9e4da", solid, 0.0, null, mat("#d3c9b6", 0.92))
+	var mi := box(size, pos, "#e9e4da", solid, 0.0, null, mat(wall_color, 0.92))
 	# a darker cap reads as the cut edge when the wall drops away
 	var cap := MeshInstance3D.new()
 	var cm := BoxMesh.new()
@@ -839,7 +846,7 @@ func _on_player_arrived() -> void:
 	if pending_open != "":
 		var id := pending_open
 		pending_open = ""
-		_post({"type": "office-room", "room": INTERACT[id][0], "action": "open", "id": id})
+		_post({"type": "world-room", "room": INTERACT[id][0], "action": "open", "id": id})
 
 # ── intro: arrive by car and walk in ─────────────────────────────────
 func start_intro() -> void:
@@ -854,19 +861,26 @@ func start_intro() -> void:
 	yaw = 0.55
 	yaw_goal = 0.15
 	target = INTRO_START
-	_post({"type": "office-intro", "playing": true})
+	_post({"type": "world-intro", "playing": true})
 	walk_player(LOBBY_POINT, LOBBY_POINT + Vector3(0, 0, -3))
+
+## Whole-building view, like a lot view: zoom in from here.
+func _go_overview(snap := false) -> void:
+	var vs := get_viewport().get_visible_rect().size
+	target_goal = overview_target
+	dist_goal = overview_dist.y if vs.y > vs.x else overview_dist.x
+	yaw_goal = 0.3
+	if snap:
+		target = target_goal
+		dist = dist_goal
+		yaw = yaw_goal
 
 func _end_intro() -> void:
 	intro_playing = false
 	intro_done = true
 	follow_player = false
-	# whole-building overview, like a lot view: zoom in from here
-	var vs := get_viewport().get_visible_rect().size
-	target_goal = Vector3(0, 0, 0.8)
-	dist_goal = 31.0 if vs.y > vs.x else 25.0
-	yaw_goal = 0.3
-	_post({"type": "office-intro", "playing": false})
+	_go_overview()
+	_post({"type": "world-intro", "playing": false})
 
 func skip_intro() -> void:
 	if not intro_playing:
@@ -883,7 +897,7 @@ func _process(delta: float) -> void:
 	_update_walls(delta)
 	_update_doors(delta)
 	_update_markers()
-	var show_facade := target.z > 10.5 and not intro_playing
+	var show_facade := target.z > door_pos.z + 1.5 and not intro_playing
 	for f in facade:
 		f.visible = show_facade
 	_update_queue(delta)
@@ -895,7 +909,7 @@ func _process(delta: float) -> void:
 		if room != current_room:
 			current_room = room
 			if not intro_playing:
-				_post({"type": "office-room", "room": room, "action": "enter"})
+				_post({"type": "world-room", "room": room, "action": "enter"})
 	if click_ring.visible:
 		click_ring_t += delta
 		var s := 1.0 + click_ring_t * 1.5
@@ -945,9 +959,11 @@ func _update_walls(delta: float) -> void:
 		mi.position.y = (h - full) / 2.0
 
 func _update_doors(delta: float) -> void:
+	if not door_l:
+		return
 	var near := false
 	for p in [player, queue_npc]:
-		if p and (p as Node3D).global_position.distance_to(Vector3(0, 0, 9)) < 2.8:
+		if p and (p as Node3D).global_position.distance_to(door_pos) < 2.8:
 			near = true
 	var goal := 1.15 if near else 0.0
 	door_l.position.x = lerp(door_l.position.x, -goal, clamp(delta * 5.0, 0.0, 1.0))
@@ -1076,11 +1092,14 @@ func _click(screen: Vector2) -> void:
 		return
 	var from := cam.project_ray_origin(screen)
 	var dir := cam.project_ray_normal(screen)
-	var q := PhysicsRayQueryParameters3D.create(from, from + dir * 200.0, LAYER_FLOOR | LAYER_PICK)
+	var q := PhysicsRayQueryParameters3D.create(from, from + dir * 200.0, LAYER_FLOOR | LAYER_PICK | LAYER_STATE)
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
 		return
 	var col: Object = hit["collider"]
+	if col.has_meta("state"):
+		_post({"type": "world-state-click", "id": col.get_meta("state")})
+		return
 	if col.has_meta("interact"):
 		var id: String = col.get_meta("interact")
 		var it: Array = INTERACT[id]
@@ -1114,7 +1133,7 @@ func _setup_bridge() -> void:
 	_js_cb = JavaScriptBridge.create_callback(_on_js_message)
 	var window = JavaScriptBridge.get_interface("window")
 	window.addEventListener("message", _js_cb)
-	_post({"type": "office-ready"})
+	_post({"type": "world-ready"})
 
 func _post(d: Dictionary) -> void:
 	if OS.has_feature("web"):
@@ -1128,11 +1147,11 @@ func _on_js_message(args) -> void:
 	if typeof(msg) != TYPE_DICTIONARY:
 		return
 	match msg.get("type", ""):
-		"office-state":
+		"world-state":
 			_apply_state(msg)
-		"office-skip":
+		"world-skip":
 			skip_intro()
-		"office-probe":
+		"world-probe":
 			# test aid: where each gold marker is on screen, and where the player is
 			var pts := {}
 			for id in markers:
@@ -1140,9 +1159,22 @@ func _on_js_message(args) -> void:
 				if not cam.is_position_behind(w):
 					var v := cam.unproject_position(w)
 					pts[id] = [v.x, v.y]
+			for key in _probe_points():
+				var wp: Vector3 = _probe_points()[key]
+				if not cam.is_position_behind(wp):
+					var sv := cam.unproject_position(wp)
+					pts[key] = [sv.x, sv.y]
 			var vsz := get_viewport().get_visible_rect().size
-			_post({"type": "office-probe", "markers": pts, "room": current_room, "intro": intro_playing, "size": [vsz.x, vsz.y],
+			_post({"type": "world-probe", "markers": pts, "room": current_room, "intro": intro_playing, "size": [vsz.x, vsz.y],
 				"player": [player.global_position.x, player.global_position.z] if player else []})
+
+## Extra world points a test may click (the war room's states).
+func _probe_points() -> Dictionary:
+	return {}
+
+## Location-specific state (e.g. the war room's map); no-op in the office.
+func _apply_state_extra(_s: Dictionary) -> void:
+	pass
 
 func _apply_state(s: Dictionary) -> void:
 	var first := not state_seen
@@ -1164,6 +1196,7 @@ func _apply_state(s: Dictionary) -> void:
 		if party_mat:
 			party_mat.albedo_color = player_color
 	_swap_pa(String(s.get("pa", pa_model)))
+	_apply_state_extra(s)
 	_apply_lang()
 	if first:
 		if s.get("intro", true):
@@ -1171,14 +1204,21 @@ func _apply_state(s: Dictionary) -> void:
 		else:
 			intro_done = true
 
+## Location-specific signs; the office's are here, other locations override.
+func _apply_lang_extra() -> void:
+	if room_labels.has("__sign"):
+		room_labels["__sign"].text = "PUSAT KHIDMAT RAKYAT" if lang == "ms" else "CONSTITUENCY SERVICE CENTRE"
+	if room_labels.has("__tv"):
+		room_labels["__tv"].text = "BERITA LANGSUNG" if lang == "ms" else "LIVE NEWS"
+	if room_labels.has("__welcome"):
+		room_labels["__welcome"].text = "SELAMAT DATANG" if lang == "ms" else "WELCOME"
+
 func _apply_lang() -> void:
 	var i := 6 if lang == "en" else 5
 	for id in ROOMS:
 		if room_labels.has(id):
 			room_labels[id].text = ROOMS[id][i]
-	room_labels["__sign"].text = "PUSAT KHIDMAT RAKYAT" if lang == "ms" else "CONSTITUENCY SERVICE CENTRE"
-	room_labels["__tv"].text = "BERITA LANGSUNG" if lang == "ms" else "LIVE NEWS"
-	room_labels["__welcome"].text = "SELAMAT DATANG" if lang == "ms" else "WELCOME"
+	_apply_lang_extra()
 	for id in markers:
 		var it: Array = INTERACT[id]
 		var text: String = it[2] if lang == "en" else it[1]

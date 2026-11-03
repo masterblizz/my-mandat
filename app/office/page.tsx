@@ -14,8 +14,8 @@ import { assistantGender } from "../lib/assistantAvatar";
 // WebGL room with the MakeHuman cast; browser-only.
 const Office3D = dynamic(() => import("./Office3D"), { ssr: false });
 // Sims-style multi-room office (Godot web export); Office3D is the light fallback.
-const GodotOffice = dynamic(() => import("./GodotOffice"), { ssr: false });
-import type { GodotOfficeState, OfficeInteraction } from "./GodotOffice";
+const GodotWorld = dynamic(() => import("../components/world/GodotWorld"), { ssr: false });
+import type { GodotWorldState, OfficeInteraction } from "../components/world/GodotWorld";
 const OFFICE_ENGINE_KEY = "office-engine";
 const OFFICE_INTRO_KEY = "office-intro-day";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
@@ -440,13 +440,13 @@ export default function PoliticalOfficePage() {
     setPanel("inbox");
   };
   // Avatars 2 and 4 (index 1, 3) are the women in the setup line-up.
-  const playerModel: GodotOfficeState["player"] = [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male";
-  const godotState = useMemo<GodotOfficeState>(() => ({
+  const playerModel: GodotWorldState["player"] = [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male";
+  const godotState = useMemo<GodotWorldState>(() => ({
     lang,
     player: playerModel,
     playerName: leader.name,
     playerColor: leader.partyColor,
-    pa: assistantModel as GodotOfficeState["pa"],
+    pa: assistantModel as GodotWorldState["pa"],
     night: isNight,
     badges: { meeting: unreadMailCount, files: newsBulletins.length, residents: officeActionDone("prepare") ? 0 : 1 },
     intro: introToday,
@@ -475,7 +475,7 @@ export default function PoliticalOfficePage() {
       >
         <div className="absolute inset-0 z-[1]" role="img" aria-label={officeTitle}>
           {engine === "godot" ? (
-            <GodotOffice state={godotState} onOpen={openInteraction} onError={() => switchEngine("webgl")} />
+            <GodotWorld scene="office" state={godotState} onOpen={(id) => openInteraction(id as OfficeInteraction)} onError={() => switchEngine("webgl")} />
           ) : (
           <Office3D
             assistantName={assistantModel}

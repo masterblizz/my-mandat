@@ -2,11 +2,19 @@
 
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "../../components/layout/Header";
 import StatusBar from "../../components/layout/StatusBar";
 import MalaysiaMap from "../../components/map/MalaysiaMap";
 import { useGameStore, type ActivityApproach } from "../../store/gameStore";
+import dynamic from "next/dynamic";
+import type { GodotWorldState } from "../../components/world/GodotWorld";
+import { assistantGender } from "../../lib/assistantAvatar";
+// The operations centre is a Sims-style 3D war room (Godot); the painted
+// backdrop stays as the light fallback.
+const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
+const WARROOM_ENGINE_KEY = "warroom-engine";
+const WARROOM_INTRO_KEY = "warroom-intro-day";
 import { useLang, t } from "../../i18n/useLang";
 import {
   currentLocalTimeIsNight,
@@ -976,20 +984,25 @@ export default function LocationPage() {
     politicalReactions,
     aiNews,
     assistantAvatar,
+    getTotalProjectedSeats,
   } = useGameStore();
   const [activityOpen, setActivityOpen] = useState(false);
   const [operationsDeskOpen, setOperationsDeskOpen] = useState(
     () => searchParams.get("console") === "1",
   );
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const [hostGuideOpen, setHostGuideOpen] = useState(true);
+  // In the 3D operations centre the PA stands in the room, so her guide
+  // starts closed and the walk-in replaces the arrival card.
+  const [hostGuideOpen, setHostGuideOpen] = useState(kind !== "operations");
   const [notice, setNotice] = useState<string | null>(null);
   const [activityFeedback, setActivityFeedback] = useState<string | null>(null);
   const [activityApproach, setActivityApproach] =
     useState<ActivityApproach>("balanced");
   const [arrivalOpen, setArrivalOpen] = useState(
-    () => searchParams.get("console") !== "1",
+    () => searchParams.get("console") !== "1" && kind !== "operations",
   );
+  const [warEngine, setWarEngine] = useState<"godot" | "image">("godot");
+  const [warIntro, setWarIntro] = useState(false);
   const [isNight, setIsNight] = useState(false);
   const scene = SCENES[kind] ?? SCENES.party;
   const localProfile = homeSeatProfile(states, leader, settings);
@@ -1032,6 +1045,58 @@ export default function LocationPage() {
     "campaign:home-support-60",
   );
   const objectiveDay = Math.min(10, totalDays);
+  const war3d = kind === "operations" && warEngine === "godot";
+  useEffect(() => {
+    if (kind !== "operations") return;
+    try {
+      if (window.localStorage.getItem(WARROOM_ENGINE_KEY) === "image") setWarEngine("image");
+      const dayKey = `${journey.chapter}:${journey.chapter === "campaign" ? day : journey.termDay}`;
+      if (searchParams.get("console") !== "1" && window.sessionStorage.getItem(WARROOM_INTRO_KEY) !== dayKey) {
+        setWarIntro(true);
+        window.sessionStorage.setItem(WARROOM_INTRO_KEY, dayKey);
+      }
+    } catch {
+      /* storage blocked: no intro, 3D stays on */
+    }
+  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  const switchWarEngine = (next: "godot" | "image") => {
+    setWarEngine(next);
+    try { window.localStorage.setItem(WARROOM_ENGINE_KEY, next); } catch { /* not persisted */ }
+  };
+  const warScopePrn = (settings.electionScope ?? "pru") === "prn";
+  const warPrnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
+  const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
+  const warState = useMemo<GodotWorldState>(() => ({
+    lang,
+    player: [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male",
+    playerName: leader.name,
+    playerColor: leader.partyColor,
+    pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",
+    night: isNight,
+    badges: {},
+    intro: warIntro,
+    states: states.map((state) => ({
+      id: state.id,
+      short: state.shortName,
+      support: state.mandatSupport,
+      status: state.status,
+      active: !warScopePrn || state.id === warPrnState?.id,
+    })),
+    seats: getTotalProjectedSeats(),
+    totalSeats: warTotalSeats,
+    majority: Math.floor(warTotalSeats / 2) + 1,
+    day,
+    totalDays,
+    headline: hotUpdate ? (lang === "ms" ? hotUpdate.headline : hotUpdate.headlineEN) : "",
+  }), [lang, leader.avatarIndex, leader.name, leader.partyColor, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Each 3D marker opens the panel or screen that already does that job.
+  const openWarInteraction = (id: string) => {
+    if (id === "console" || id === "screens") setOperationsDeskOpen(true);
+    else if (id === "briefing") setActivityOpen(true);
+    else if (id === "analytics") router.push("/polling");
+    else if (id === "pa") setHostGuideOpen(true);
+    else if (id === "exit") router.push("/kawasan");
+  };
   useEffect(() => {
     if (!activityOpen) setActivityFeedback(null);
   }, [activityOpen]);
@@ -1332,22 +1397,29 @@ export default function LocationPage() {
       style={{ fontFamily: "'Space Mono', monospace" }}
     >
       <Header />
-      <main className="relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
-        <Image
-          src={sceneAsset}
-          alt={label}
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
+      <main className="location-main relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
+        {war3d ? (
+          <div className="absolute inset-0 z-0 pt-[40px]">
+            <GodotWorld scene="warroom" state={warState} onOpen={openWarInteraction}
+              onError={() => switchWarEngine("image")} onStateClick={(id) => router.push(`/state/${id}`)} />
+          </div>
+        ) : (
+          <Image
+            src={sceneAsset}
+            alt={label}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+        )}
         {operationsDeskOpen && (
           <OperationsDesk onClose={() => setOperationsDeskOpen(false)} />
         )}
         {isNight && (
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_45%,rgba(3,12,28,.16),rgba(2,7,17,.68))] mix-blend-multiply" />
         )}
-        <button
+        {!war3d && <button
           type="button"
           onClick={() => setHostGuideOpen(true)}
           className={`absolute bottom-7 left-[13%] z-[15] text-left transition-transform hover:scale-[1.015] focus:outline-none ${assistantHost ? "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] overflow-visible" : "h-[min(78vh,820px)] w-[min(37vw,470px)] min-w-[275px] drop-shadow-[0_20px_22px_rgba(0,0,0,.62)]"}`}
@@ -1377,7 +1449,7 @@ export default function LocationPage() {
               : host.roleEn.toUpperCase()}{" "}
             · {t(lang, "BERBINCANG", "TALK")} →
           </span>
-        </button>
+        </button>}
         {activityOpen && activityFeedback && (
           <div
             role="status"
@@ -2081,6 +2153,13 @@ export default function LocationPage() {
           <h1 className="mt-1 text-lg font-black text-white">
             {scene.icon} {label}
           </h1>
+          {kind === "operations" && (
+            <button type="button" onClick={() => switchWarEngine(war3d ? "image" : "godot")}
+              className="mt-2 border px-2 py-1 text-[8px] font-black tracking-widest"
+              style={{ color: scene.accent, borderColor: `${scene.accent}88` }}>
+              {war3d ? t(lang, "PAPARAN RINGAN", "LIGHT VIEW") : t(lang, "PUSAT OPERASI 3D", "3D OPERATIONS CENTRE")}
+            </button>
+          )}
           <p className="mt-1 text-[9px] text-text-muted">
             {isRural
               ? `${localProfile.seatName} · ${t(lang, "pusat pekan & komuniti", "town and community hub")}`
@@ -2143,7 +2222,8 @@ export default function LocationPage() {
             {notice}
           </div>
         )}
-        <div className="absolute left-[42%] top-[42%] z-10 flex items-center gap-2">
+        {/* the painted scene's hotspot; the 3D war room has its own markers */}
+        <div className={`absolute left-[42%] top-[42%] z-10 flex items-center gap-2 ${war3d ? "hidden" : ""}`}>
           <span className="relative flex h-3 w-3">
             <i
               className="absolute inset-0 animate-ping rounded-full"
