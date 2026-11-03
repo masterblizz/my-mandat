@@ -4,6 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { ElectionNightUpdate } from "../../data/electionNight";
 import { useLang, t } from "../../i18n/useLang";
+import dynamic from "next/dynamic";
+import { useGameStore } from "../../store/gameStore";
+import { assistantGender } from "../../lib/assistantAvatar";
+import type { GodotWorldState } from "../world/GodotWorld";
+
+// Election night plays in the Godot TV studio; the 2D layout below is the
+// fallback (no WebGL2, the player's choice, or a slow first load).
+const GodotWorld = dynamic(() => import("../world/GodotWorld"), { ssr: false });
+const RESULTS_ENGINE_KEY = "results-engine";
 
 type Tallies = { mandat: number; lawan: number; others: number };
 type Dot = { x: number; y: number; angle: number };
@@ -71,6 +80,24 @@ export default function ElectionNightCount({ timeline, partyName, partyColor, to
   const [majorityCall, setMajorityCall] = useState<"mandat" | "lawan" | null>(null);
   const calledRef = useRef(false);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
+  const leaderProfile = useGameStore((state) => state.leader);
+  const assistantAvatar = useGameStore((state) => state.assistantAvatar);
+  const [engine, setEngine] = useState<"godot" | "2d">("godot");
+  const [stageReady, setStageReady] = useState(false);
+  const studio = engine === "godot";
+  useEffect(() => {
+    try { if (window.localStorage.getItem(RESULTS_ENGINE_KEY) === "2d") setEngine("2d"); } catch { /* default 3D */ }
+  }, []);
+  // Wait for the studio before the first box opens, but never more than 12 s.
+  useEffect(() => {
+    if (!studio || stageReady) return;
+    const timer = window.setTimeout(() => setStageReady(true), 12000);
+    return () => window.clearTimeout(timer);
+  }, [studio, stageReady]);
+  const switchEngine = (next: "godot" | "2d") => {
+    setEngine(next);
+    try { window.localStorage.setItem(RESULTS_ENGINE_KEY, next); } catch { /* not persisted */ }
+  };
 
   // The moment a bloc crosses the majority line is the night's climax:
   // hold the broadcast briefly on a full-width call before counting on.
@@ -90,6 +117,7 @@ export default function ElectionNightCount({ timeline, partyName, partyColor, to
 
   useEffect(() => {
     if (reduceMotion || paused || finished || majorityCall || cursor >= timeline.length) return;
+    if (studio && !stageReady) return;
     const update = timeline[cursor];
     const delay = update.kind === "bulletin" ? (fast ? 280 : 760) : (fast ? 18 : 58);
     const timer = window.setTimeout(() => {
@@ -106,7 +134,7 @@ export default function ElectionNightCount({ timeline, partyName, partyColor, to
       else setCursor(index => index + 1);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [cursor, fast, finished, majorityCall, paused, reduceMotion, timeline, totalSeats]);
+  }, [cursor, fast, finished, majorityCall, paused, reduceMotion, timeline, totalSeats, studio, stageReady]);
 
   const progress = totalSeats ? Math.min(100, declared / totalSeats * 100) : 0;
   const leader = useMemo(() => {
@@ -114,13 +142,72 @@ export default function ElectionNightCount({ timeline, partyName, partyColor, to
     return entries[0];
   }, [lang, partyName, tallies]);
 
+  const called = tallies.mandat >= majorityTarget ? "mandat" : tallies.lawan >= majorityTarget ? "lawan" : "";
+  const currentSeat = feed.find((item) => item.kind === "seat");
+  const studioState = useMemo<GodotWorldState>(() => ({
+    lang,
+    player: [1, 3].includes(leaderProfile.avatarIndex) ? "pa_female" : "pa_male",
+    playerName: leaderProfile.name,
+    playerColor: partyColor,
+    pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",
+    night: true,
+    badges: {},
+    intro: false,
+    partyName,
+    tally: tallies,
+    declared,
+    totalSeats,
+    majority: majorityTarget,
+    scopeLabel,
+    current: currentSeat && currentSeat.kind === "seat" ? { seat: currentSeat.seatName, state: currentSeat.stateName, winner: currentSeat.winnerLabel, result: currentSeat.result } : undefined,
+    call: called,
+  }), [lang, leaderProfile.avatarIndex, leaderProfile.name, partyColor, assistantAvatar, partyName, tallies, declared, totalSeats, majorityTarget, scopeLabel, currentSeat, called]);
+
   if (reduceMotion) return null;
+
+  const seatPct = (v: number) => `${(v / Math.max(1, totalSeats)) * 100}%`;
+  const blocs = [{ label: partyName, value: tallies.mandat, color: partyColor }, { label: "LAWAN", value: tallies.lawan, color: "var(--warn-orange)" }, { label: t(lang, "LAIN-LAIN", "OTHERS"), value: tallies.others, color: "var(--text-muted)" }];
+  const controls = <div className="flex flex-wrap gap-2">
+    <button className="border border-cyan/30 bg-black/60 px-3 py-2 text-[10px] font-bold tracking-wider text-cyan" onClick={() => setPaused(value => !value)} disabled={finished}>{paused ? t(lang, "SAMBUNG", "RESUME") : t(lang, "JEDA", "PAUSE")}</button>
+    <button className="border border-gold/30 bg-black/60 px-3 py-2 text-[10px] font-bold tracking-wider text-gold" onClick={() => setFast(value => !value)}>{fast ? "1×" : "3×"}</button>
+    <button className="border border-white/15 bg-black/60 px-3 py-2 text-[10px] font-bold tracking-wider text-text-muted" onClick={() => switchEngine(studio ? "2d" : "godot")}>{studio ? t(lang, "PAPARAN 2D", "2D VIEW") : t(lang, "STUDIO 3D", "3D STUDIO")}</button>
+    <button className="border border-white/15 bg-black/60 px-3 py-2 text-[10px] font-bold tracking-wider text-text-muted" onClick={onComplete}>{t(lang, "LANGKAU", "SKIP")}</button>
+  </div>;
+
+  if (studio) return <div className="election-studio fixed inset-0 z-[80] bg-[#03070d]" style={{ fontFamily: "Space Mono, monospace" }}>
+    <GodotWorld scene="studio" state={studioState} onOpen={() => {}} onReady={() => setStageReady(true)} onError={() => { switchEngine("2d"); }} />
+    <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 bg-gradient-to-b from-[#03070d] to-transparent px-4 pb-8 pt-4 sm:px-8">
+      <div><div className="text-[10px] font-bold tracking-[0.3em] text-gold">{t(lang, "SIARAN LANGSUNG", "LIVE COUNT")}</div><h1 className="mt-1 text-xl font-black tracking-widest text-white sm:text-2xl">{t(lang, "MALAM KEPUTUSAN", "ELECTION NIGHT")}</h1><p className="mt-1 text-[11px] text-text-muted">{scopeLabel}</p></div>
+      <div className="pointer-events-auto">{controls}</div>
+    </header>
+    <div className="pointer-events-none absolute left-4 top-28 z-10 w-[min(340px,calc(100%-32px))] border border-cyan/25 bg-[#03070d]/80 p-3 backdrop-blur sm:left-8">
+      <div className="grid grid-cols-3 gap-2 text-center">{blocs.map(item => <div key={item.label}><motion.div key={item.value} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="text-3xl font-black" style={{ color: item.color }}>{item.value}</motion.div><div className="truncate text-[8px] font-bold tracking-wider text-text-muted">{item.label}</div></div>)}</div>
+      <div className="mt-2 flex justify-between text-[9px] text-text-muted"><span>{declared}/{totalSeats} {t(lang, "DIUMUMKAN", "DECLARED")}</span><span>{t(lang, "MAJORITI", "MAJORITY")} {majorityTarget}</span></div>
+      <div className="relative mt-1 h-2 overflow-hidden bg-black/60">
+        <div className="absolute inset-y-0 left-0 transition-[width] duration-300" style={{ width: seatPct(tallies.mandat), background: partyColor }} />
+        <div className="absolute inset-y-0 transition-[width,left] duration-300" style={{ left: seatPct(tallies.mandat), width: seatPct(tallies.others), background: "#8b9bb0" }} />
+        <div className="absolute inset-y-0 right-0 transition-[width] duration-300" style={{ width: seatPct(tallies.lawan), background: "var(--warn-orange)" }} />
+        <div className="absolute inset-y-0 w-0.5 bg-gold" style={{ left: seatPct(majorityTarget) }} />
+      </div>
+      {!stageReady && <div className="mt-2 text-[9px] tracking-widest text-cyan">{t(lang, "STUDIO SEDANG BERSEDIA…", "STUDIO GETTING READY…")}</div>}
+    </div>
+    <aside className="election-studio__log pointer-events-none absolute right-4 top-28 z-10 hidden w-[280px] border border-gold/20 bg-[#03070d]/80 p-3 backdrop-blur md:block sm:right-8">
+      <div className="mb-2 flex items-center justify-between"><strong className="text-[10px] tracking-widest text-gold">{t(lang, "LOG PENGUMUMAN", "DECLARATION LOG")}</strong><span className="text-[9px] text-text-muted">{Math.round(progress)}%</span></div>
+      <div className="space-y-1">{feed.slice(0, 6).map((update, index) => update.kind === "bulletin" ? <div key={`${update.id}-${index}`} className="border-l-2 border-gold bg-gold/5 px-2 py-1 text-[10px] text-white">{update.title[lang]}</div> : <div key={update.id} className="flex items-center justify-between gap-2 border-b border-white/5 px-1 py-1"><div className="min-w-0"><div className="truncate text-[10px] font-bold text-white">{update.seatName}</div><div className="text-[8px] text-text-muted">{update.stateShortName} · {update.seatCode}</div></div><span className="shrink-0 text-[9px] font-bold" style={{ color: update.result === "WIN" ? partyColor : update.result === "LOSS" ? "var(--warn-orange)" : "var(--text-muted)" }}>{update.winnerLabel}</span></div>)}</div>
+    </aside>
+    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
+      {current?.kind === "bulletin" ? <motion.div key={current.id} initial={{ opacity: 0.6, y: 8 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl border border-gold/40 bg-[#03070d]/90 px-5 py-3 text-center backdrop-blur"><div className="text-[9px] font-bold tracking-[0.25em] text-gold">{t(lang, "BULETIN TERKINI", "BREAKING BULLETIN")}</div><div className="mt-1 text-lg font-black uppercase text-white">{current.title[lang]}</div><p className="mt-1 text-xs text-text-muted">{current.detail[lang]}</p></motion.div>
+        : current?.kind === "seat" ? <motion.div key={current.id} initial={{ opacity: 0.6, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.12 }} className="min-w-[260px] border-t-2 bg-[#03070d]/90 px-6 py-3 text-center backdrop-blur" style={{ borderColor: current.result === "WIN" ? partyColor : current.result === "LOSS" ? "var(--warn-orange)" : "#8b9bb0" }}><div className="text-[9px] tracking-[0.25em] text-text-muted">{current.stateName} · {current.seatCode}</div><div className="text-xl font-black uppercase text-white">{current.seatName}</div><div className="text-sm font-bold" style={{ color: current.result === "WIN" ? partyColor : current.result === "LOSS" ? "var(--warn-orange)" : "var(--text-muted)" }}>{current.winnerLabel}</div></motion.div> : null}
+    </div>
+    <AnimatePresence>{majorityCall && <motion.div key="call" initial={{ opacity: 0, scaleX: 0.6 }} animate={{ opacity: 1, scaleX: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="pointer-events-none absolute inset-x-0 top-1/2 z-20 -translate-y-1/2 border-y-2 py-5 text-center" style={{ borderColor: majorityCall === "mandat" ? partyColor : "var(--warn-orange)", background: "rgb(var(--bg-rgb) / .9)" }}><div className="text-[10px] font-bold tracking-[0.35em] text-gold">{t(lang, "UNJURAN RASMI", "PROJECTION")}</div><div className="mt-2 px-4 text-2xl font-black tracking-widest sm:text-3xl" style={{ color: majorityCall === "mandat" ? partyColor : "var(--warn-orange)" }}>{majorityCall === "mandat" ? partyName : "LAWAN"} · {t(lang, "MAJORITI DICAPAI", "MAJORITY REACHED")}</div></motion.div>}</AnimatePresence>
+    {finished && <div className="absolute inset-x-0 bottom-28 z-20 flex justify-center"><button className="border border-gold/60 bg-[#03070d]/90 px-6 py-3 text-xs font-bold tracking-widest text-gold hover:bg-gold/20" onClick={onComplete}>{t(lang, "LIHAT KEPUTUSAN RASMI →", "VIEW OFFICIAL RESULT →")}</button></div>}
+  </div>;
 
   return <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#03070d] p-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:p-8" style={{ fontFamily: "Space Mono, monospace" }}>
     <div className="mx-auto flex min-h-full max-w-6xl flex-col">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-cyan/25 pb-4">
         <div><div className="text-[10px] font-bold tracking-[0.3em] text-gold">{t(lang, "SIARAN LANGSUNG", "LIVE COUNT")}</div><h1 className="mt-1 text-2xl font-black tracking-widest text-white">{t(lang, "MALAM KEPUTUSAN", "ELECTION NIGHT")}</h1><p className="mt-1 text-xs text-text-muted">{scopeLabel} · {t(lang, "keputusan kerusi demi kerusi", "seat-by-seat declarations")}</p></div>
-        <div className="flex flex-wrap gap-2"><button className="border border-cyan/30 px-3 py-2 text-[10px] font-bold tracking-wider text-cyan" onClick={() => setPaused(value => !value)} disabled={finished}>{paused ? t(lang, "SAMBUNG", "RESUME") : t(lang, "JEDA", "PAUSE")}</button><button className="border border-gold/30 px-3 py-2 text-[10px] font-bold tracking-wider text-gold" onClick={() => setFast(value => !value)}>{fast ? "1×" : "3×"}</button><button className="border border-white/15 px-3 py-2 text-[10px] font-bold tracking-wider text-text-muted" onClick={onComplete}>{t(lang, "LANGKAU", "SKIP")}</button></div>
+        {controls}
       </header>
 
       <div className="mt-5 grid flex-1 gap-4 lg:grid-cols-[1.35fr_.65fr]">

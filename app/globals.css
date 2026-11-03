@@ -1587,7 +1587,7 @@ input[type="range"].range-red::-moz-range-thumb {
 
 /* Godot office (/office): the long control hint is desktop-only. */
 @media (max-width: 640px) {
-  .office-3d-hint { display: none; }
+  .world-3d-hint { display: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1678,8 +1678,8 @@ input[type="range"].range-red::-moz-range-thumb {
   .office-actionbar > div:first-child { display: none; }
   .office-actionbar > div:last-child { margin-top: 0 !important; }
   .office-sheet { top: 76px !important; bottom: 28px !important; max-height: none !important; overflow-y: auto; }
-  .office-3d-hint { display: none; }
-  .office-intro-skip { top: 76px !important; }
+  .world-3d-hint { display: none; }
+  .world-intro-skip { top: 76px !important; }
   .location-main { height: 100dvh !important; min-height: 0 !important; padding-top: 32px !important; }
   .location-main > .absolute.inset-0.pt-\[40px\] { padding-top: 32px !important; }
 

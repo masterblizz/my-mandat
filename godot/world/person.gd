@@ -101,6 +101,12 @@ func set_pose(p: String) -> void:
 		if pel >= 0:
 			var py := (skel.global_transform * skel.get_bone_global_pose(pel)).origin.y - global_position.y
 			visual.position = Vector3(0, 0.47 - py + 0.08, -0.18)
+	elif p == "cheer":
+		# both arms up, fists high: a supporter celebrating a seat
+		for s in [1.0, -1.0]:
+			var side := "l" if s > 0 else "r"
+			aim("upperarm_" + side, "lowerarm_" + side, Vector3(0.35 * s, 1, 0.15))
+			aim("lowerarm_" + side, "hand_" + side, Vector3(0.1 * s, 1, 0.05))
 	elif p == "tablet":
 		aim("upperarm_r", "lowerarm_r", Vector3(-0.1, -1, 0.15))
 		aim("lowerarm_r", "hand_r", Vector3(0.25, -0.1, 1))
@@ -145,6 +151,17 @@ func stop() -> void:
 	if skel:
 		set_pose(pose)
 
+## Celebrate for a moment, then return to the previous pose.
+var _cheer_left := 0.0
+var _pose_before := "stand"
+func cheer(seconds := 1.4) -> void:
+	if walking:
+		return
+	if _cheer_left <= 0.0:
+		_pose_before = pose
+	_cheer_left = seconds
+	set_pose("cheer")
+
 func is_walking() -> bool:
 	return walking
 
@@ -161,6 +178,12 @@ func _process(delta: float) -> void:
 	if walking:
 		_step_walk(delta)
 	else:
+		if _cheer_left > 0.0:
+			_cheer_left -= delta
+			visual.position.y = abs(sin(_cheer_left * 9.0)) * 0.12
+			if _cheer_left <= 0.0:
+				set_pose(_pose_before)
+			return
 		_idle(delta)
 
 func _step_walk(delta: float) -> void:
