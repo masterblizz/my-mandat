@@ -303,9 +303,9 @@ export default function MainMenuPage() {
         <div className="flex items-center gap-3">
           <span style={{ color: "var(--cyan)" }}>◇</span>
           <span className="font-bold tracking-[0.18em] text-white">MANDAT//AI</span>
-          <span style={{ color: "var(--text-muted)" }}>· {t(lang, "menu_page.tacticalOps")}</span>
+          <span className="main-menu-ops" style={{ color: "var(--text-muted)" }}>· {t(lang, "menu_page.tacticalOps")}</span>
         </div>
-        <div className="hidden md:block" style={{ color: "var(--text-muted)" }}>
+        <div className="main-menu-title hidden md:block" style={{ color: "var(--text-muted)" }}>
           {isPrn
             ? t(lang, "menu_page.stateElectionCommandSimulator", { prnStateName: prnState?.name?.toUpperCase() ?? "" })
             : t(lang, "menu_page.generalElectionCommandSimulator")}
@@ -339,7 +339,7 @@ export default function MainMenuPage() {
               <div className="text-[9px] font-bold tracking-[0.38em]" style={{ color: "rgb(var(--gold-rgb) / 0.55)" }}>{t(lang, "menu_page.campaignCommandSimulator")}</div>
             </div>
           </div>
-          <p className="mb-3 max-w-[395px] text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
+          <p className="main-menu-tagline mb-3 max-w-[395px] text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
             {isPrn
               ? t(lang, "menu_page.theMachineIsLiveInPlay", { prnStateName: prnState?.name ?? "Negeri", seatTotal: seatTotal, prnStateName2: prnState?.name ?? "The state" })
               : t(lang, "menu_page.theMachineIsLiveFourteenStates")}
@@ -410,7 +410,7 @@ export default function MainMenuPage() {
 
           </div>
 
-          <div className="mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
+          <div className="main-menu-stats mt-3 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <div className="text-[21px] font-black" style={{ color: "var(--cyan)" }}>{mounted ? projectedSeats : Math.round(seatTotal * 0.48)}<span className="text-[12px]" style={{ color: "var(--text-muted)" }}>/{seatTotal}</span></div>
@@ -428,7 +428,7 @@ export default function MainMenuPage() {
           </div>
 
           {/* Election Timeline */}
-          <div className="mt-4 border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
+          <div className="main-menu-timeline mt-4 border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.12)" }}>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-black tracking-[0.32em]" style={{ color: "var(--gold)" }}>{isPrn ? t(lang, "menu_page.electionTimeline") : t(lang, "menu_page.electionTimeline2")}</span>
               <span className="text-[9px] font-bold tracking-[0.18em]" style={{ color: "var(--neon-red)" }}>{isPrn ? `PRN · ${prnState?.shortName ?? ""}` : "GE16"} · {t(lang, "menu_page.active")}</span>
@@ -463,7 +463,7 @@ export default function MainMenuPage() {
           </div>
 
           {/* Coalition Watch */}
-          <div className="mt-2 border px-4 py-3" style={{
+          <div className="main-menu-coalition mt-2 border px-4 py-3" style={{
             borderColor: "rgb(var(--gold-rgb) / 0.18)",
             background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.04), rgb(var(--bg-rgb) / 0.62))",
           }}>

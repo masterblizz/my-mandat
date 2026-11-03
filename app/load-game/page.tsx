@@ -128,7 +128,7 @@ export default function LoadGamePage() {
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden px-8 py-7"
+      className="load-game-screen relative min-h-screen overflow-hidden px-8 py-7"
       style={{
         background:
           "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.04), transparent 26%), var(--bg)",

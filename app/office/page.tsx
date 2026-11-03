@@ -513,7 +513,7 @@ export default function PoliticalOfficePage() {
             const prepareReason = officeActionReason("prepare");
             const commitReason = officeActionReason("commit");
             return (
-              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-sm">
+              <div className="office-modal absolute inset-0 z-[60] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-sm">
                 <section
                   className="w-[min(1080px,100%)] overflow-hidden border shadow-2xl"
                   style={{
@@ -545,7 +545,7 @@ export default function PoliticalOfficePage() {
                       × {t(lang, "TUTUP", "CLOSE")}
                     </button>
                   </div>
-                  <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]">
+                  <div className="office-modal__body grid max-h-[72vh] overflow-y-auto lg:grid-cols-[1.35fr_.65fr]">
                     {schedule ? (
                       <MonthlyFieldCalendar
                         lang={lang}
@@ -581,14 +581,14 @@ export default function PoliticalOfficePage() {
                         </div>
                       </div>
                     )}
-                    <aside className="p-5">
+                    <aside className="office-decision p-5">
                       <div className="text-[9px] font-black tracking-[.2em] text-gold">
                         {t(lang, "KEPUTUSAN PEJABAT", "OFFICE DECISION")}
                       </div>
                       <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
                         {spot.detail}
                       </p>
-                      <div className="mt-4 border border-cyan/35 bg-cyan/5 p-2 text-[9px] leading-relaxed text-cyan">
+                      <div className="office-decision__hint mt-4 border border-cyan/35 bg-cyan/5 p-2 text-[9px] leading-relaxed text-cyan">
                         {schedule
                           ? t(
                               lang,
@@ -603,7 +603,7 @@ export default function PoliticalOfficePage() {
                       </div>
                       <div className="mt-3">
                         <b className="text-[9px] tracking-widest text-gold">{t(lang, "PILIH PENDEKATAN", "CHOOSE AN APPROACH")}</b>
-                        <div className="mt-2 grid gap-1.5">
+                        <div className="office-decision__approaches mt-2 grid gap-1.5">
                           {officeApproaches.map((approach) => <button key={approach.id} type="button" onClick={() => setOfficeApproach(approach.id)} className={`border p-2 text-left ${officeApproach === approach.id ? "border-cyan bg-cyan/10" : "border-cyan/20 opacity-60"}`}><b className="block text-[8px] text-cyan">{officeApproach === approach.id ? "✓ " : ""}{approach.title}</b><span className="mt-1 block text-[8px] text-text-muted">{approach.detail}</span></button>)}
                         </div>
                       </div>
@@ -615,7 +615,7 @@ export default function PoliticalOfficePage() {
                           ✓ {officeFeedback}
                         </div>
                       )}
-                      <div className="mt-5 grid grid-cols-2 gap-2">
+                      <div className="office-decision__stats mt-5 grid grid-cols-2 gap-2">
                         <div
                           className="border p-3"
                           style={{ borderColor: "rgb(var(--cyan-rgb) / .3)" }}
