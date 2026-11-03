@@ -39,10 +39,10 @@ const representativeDestinations = (side: "government" | "opposition"): CityDest
   governmentDestinations[3],
 ];
 
-export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void }) {
-  const lang = useLang();
+// Every room the player can reach from the city in the current chapter.
+// Shared by the destinations panel, the map overlay and the hub bar.
+export function useCityDestinations(): CityDestination[] {
   const state = useGameStore();
-  const [open, setOpen] = useState(false);
   const chapter = state.journey.chapter;
   const repTerm = !!state.journey.rank && (chapter === "government" || chapter === "opposition");
   const reportDestination: CityDestination[] = state.careerProgress.month >= 60 ? [{ id: "report", icon: "📜", route: "/report-card", ms: { name: "Arkib Rekod Penggal", detail: "Nilai legasi dan laporan penggal anda." }, en: { name: "Term Record Archive", detail: "Review your legacy and term report." } }] : [];
@@ -60,6 +60,13 @@ export default function CityDestinations({ onFocus, variant = "panel", onActivit
     en: { name: chapter === "results" ? "Results Centre" : chapter === "formation" ? "Negotiation Hall" : "Movement Centre", detail: "Continue your current political chapter." },
   };
   const visible = chapterDestination ? [chapterDestination, ...destinations] : destinations;
+  return visible;
+}
+
+export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void }) {
+  const lang = useLang();
+  const [open, setOpen] = useState(false);
+  const visible = useCityDestinations();
 
   if (variant === "overlay") return (
     <div className="city-destination-overlay city-hud-box absolute right-4 top-14 z-20 w-[min(560px,calc(100%-32px))]" style={{ fontFamily: "'Space Mono', monospace" }}>

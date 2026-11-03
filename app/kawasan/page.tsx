@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
 import CampaignBriefing from "./CampaignBriefing";
+import CityHubBar from "./CityHubBar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
 import PersonalAssistant from "../components/assistant/PersonalAssistant";
@@ -64,6 +65,8 @@ const USE_GL_MAP = true;
 const GodotCityMap = dynamic(() => import("../kawasan-3d/GodotCityMap"), { ssr: false });
 type MapEngine = "godot" | "webgl";
 const MAP_ENGINE_KEY = "kawasan-map-engine";
+// Destinations with a /location/[kind] interior scene.
+const HUB_LOCATION_KINDS = new Set(["party", "operations", "calendar", "media", "commission", "cabinet", "administration", "national"]);
 
 // Same quick-campaign templates as /campaign's deploy modal, kept local so a
 // player can launch a home-seat push without leaving the kawasan screen.
@@ -2942,6 +2945,13 @@ export default function KawasanDevelopmentPage() {
     enterDestination(focusedDestination);
   }
 
+  // Hub bar: rooms with an interior scene open it; anything else (chapter
+  // screens, the term archive) goes straight to its route.
+  function enterHubDestination(destination: CityDestination) {
+    if (destination.id === "office" || HUB_LOCATION_KINDS.has(destination.id)) enterDestination(destination.id);
+    else router.push(destination.route);
+  }
+
   function enterDestination(destinationId: string | null | undefined, originLabel?: string) {
     if (destinationId === "office") {
       router.push("/office");
@@ -3125,6 +3135,7 @@ export default function KawasanDevelopmentPage() {
               </div>
               {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
+              <CityHubBar onEnter={enterHubDestination} />
               {useGlMap && (
                 <button type="button" onClick={switchMapEngine}
                   className="city-tool city-tool--engine absolute z-[140]"

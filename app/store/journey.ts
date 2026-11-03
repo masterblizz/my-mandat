@@ -150,6 +150,16 @@ export function resumeRoute(s: { journey?: Journey; day: number; totalDays: numb
   if (chapter === "results" && !s.journey?.resultRecorded) return "/results";
   return ({ results: "/mandate", formation: "/cabinet", government: "/government", opposition: "/opposition", rebuilding: "/postmortem" })[chapter];
 }
+// The 3D city is the game hub: whenever the current chapter is lived day to
+// day (campaign, governing, opposition), the player returns to their kawasan
+// and reaches every other room from there. One-off chapter screens (results,
+// coalition formation, post-mortem) still open directly.
+export function hubRoute(s: { journey?: Journey; day: number; totalDays: number }): string {
+  const chapter = s.journey?.chapter ?? "campaign";
+  if (chapter === "campaign" && s.day < s.totalDays) return "/kawasan";
+  if (chapter === "government" || chapter === "opposition") return "/kawasan";
+  return resumeRoute(s);
+}
 export function finishElection(s: GameState): Partial<GameState> {
   if (s.day < s.totalDays || s.journey.chapter !== "campaign") return {};
   const outcome = computeElectionOutcome(s.states, s.settings);

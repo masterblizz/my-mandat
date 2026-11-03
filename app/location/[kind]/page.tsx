@@ -374,23 +374,25 @@ function TelemetryWall({
   partySupport: number;
   manpower: number;
   activeOperationCount: number;
-  stateSignals: { support: number; trend: number }[];
+  stateSignals: { support: number; trend: number; label?: string }[];
 }) {
   const lang = useLang();
-  const barHeights = (
-    stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]
-  )
-    .slice(0, 5)
-    .map((signal) => Math.max(18, Math.min(92, Math.round(signal.support))));
-  const trendPoints = (
-    stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0 }]
-  )
-    .slice(0, 5)
-    .map(
-      (signal, index) =>
-        `${8 + index * 23},${37 - Math.max(-12, Math.min(12, signal.trend)) * 1.25 - (signal.support - 50) * 0.18}`,
-    )
-    .join(" ");
+  const signals = (stateSignals.length ? stateSignals : [{ support: partySupport, trend: 0, label: "MY" }]).slice(0, 5);
+  // Scale to the visible spread: states usually sit within a few points of
+  // each other, and a fixed 0–100 scale renders them as identical bars.
+  const supports = signals.map((signal) => signal.support);
+  const lo = Math.min(...supports) - 4;
+  const hi = Math.max(...supports) + 4;
+  const barHeights = signals.map((signal) => Math.round(22 + ((signal.support - lo) / Math.max(1, hi - lo)) * 74));
+  const trends = signals.map((signal) => signal.trend);
+  const tLo = Math.min(...trends) - 0.6;
+  const tHi = Math.max(...trends) + 0.6;
+  const trendXY = signals.map((signal, index) => ({
+    x: signals.length === 1 ? 52 : 6 + index * (93 / (signals.length - 1)),
+    y: 36 - ((signal.trend - tLo) / Math.max(0.5, tHi - tLo)) * 30,
+  }));
+  const trendPoints = trendXY.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const zeroY = 36 - ((0 - tLo) / Math.max(0.5, tHi - tLo)) * 30;
   const reach = Math.max(16, Math.min(94, Math.round(manpower / 10)));
   const threat = Math.max(18, Math.min(90, 30 + activeOperationCount * 12));
 
@@ -410,12 +412,31 @@ function TelemetryWall({
           {t(lang, "TREND ISYARAT", "SIGNAL TREND")}
         </div>
         <div className="mt-1 flex h-10 items-end gap-1.5">
-          {barHeights.map((height, index) => (
-            <span
-              key={`${height}-${index}`}
-              className="flex-1 bg-cyan/70 shadow-[0_0_10px_rgba(0,229,255,.36)]"
-              style={{ height: `${height}%` }}
-            />
+          {barHeights.map((height, index) => {
+            const up = signals[index].trend >= 0;
+            return (
+              <span
+                key={`${signals[index].label ?? index}`}
+                title={`${signals[index].label ?? ""} ${signals[index].support.toFixed(1)}% · ${up ? "+" : ""}${signals[index].trend.toFixed(1)}`}
+                className="relative flex-1 transition-[height] duration-500"
+                style={{
+                  height: `${height}%`,
+                  background: `linear-gradient(180deg, ${up ? "rgba(0,229,255,.95)" : "rgba(255,107,92,.9)"}, ${up ? "rgba(0,229,255,.25)" : "rgba(255,107,92,.22)"})`,
+                  boxShadow: up ? "0 0 10px rgba(0,229,255,.32)" : "0 0 10px rgba(255,107,92,.3)",
+                }}
+              >
+                <span className="absolute inset-x-0 -top-[11px] text-center text-[7px] font-bold leading-none text-text-muted">
+                  {Math.round(signals[index].support)}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+        <div className="mt-0.5 flex gap-1.5">
+          {signals.map((signal, index) => (
+            <span key={index} className="flex-1 truncate text-center text-[7px] font-bold tracking-wider text-text-muted">
+              {signal.label ?? ""}
+            </span>
           ))}
         </div>
         <div className="mt-1 text-[8px] text-text-muted">
@@ -444,25 +465,30 @@ function TelemetryWall({
           )}
         >
           <path
-            d="M0 38 H105 M0 21 H105 M0 5 H105"
-            stroke="rgba(148,163,184,.18)"
+            d="M0 36 H105 M0 21 H105 M0 6 H105"
+            stroke="rgba(148,163,184,.14)"
             strokeWidth=".6"
+          />
+          {zeroY >= 4 && zeroY <= 38 && <path d={`M0 ${zeroY.toFixed(1)} H105`} stroke="rgba(148,163,184,.4)" strokeWidth=".6" strokeDasharray="2 2" />}
+          <polyline
+            points={`${trendXY[0].x.toFixed(1)},40 ${trendPoints} ${trendXY[trendXY.length - 1].x.toFixed(1)},40`}
+            fill="rgba(167,139,250,.14)"
+            stroke="none"
           />
           <polyline
             points={trendPoints}
             fill="none"
             stroke="#a78bfa"
             strokeWidth="2"
+            strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
-          <polyline
-            points={`0,40 ${trendPoints} 105,40`}
-            fill="rgba(167,139,250,.12)"
-            stroke="none"
-          />
+          {trendXY.map((p, index) => (
+            <circle key={index} cx={p.x} cy={p.y} r="1.6" fill={signals[index].trend >= 0 ? "#a78bfa" : "#ff6b5c"} />
+          ))}
         </svg>
         <div className="text-[8px] text-text-muted">
-          {t(lang, "pemantau turun naik negeri", "state volatility monitor")}
+          {t(lang, "ayunan negeri", "state swing")} {trends.length ? `${Math.min(...trends) >= 0 ? "+" : ""}${Math.min(...trends).toFixed(1)} → ${Math.max(...trends) >= 0 ? "+" : ""}${Math.max(...trends).toFixed(1)}` : ""}
         </div>
       </div>
       <div
@@ -722,6 +748,7 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
           stateSignals={priorityStates.map((state) => ({
             support: state.mandatSupport,
             trend: state.trend,
+            label: state.shortName,
           }))}
         />
         <div className="grid min-h-0 flex-1 overflow-y-auto xl:grid-cols-[1.7fr_.7fr]">

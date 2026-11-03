@@ -11,7 +11,7 @@ import {
   setActiveSaveSlot,
   type SavedGameSlot,
 } from "../store/saveGame";
-import { normalizeJourney, resumeRoute } from "../store/journey";
+import { hubRoute, normalizeJourney } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { useLang, t, type Lang } from "../i18n/useLang";
@@ -100,7 +100,7 @@ export default function LoadGamePage() {
 
   const handleLoad = () => {
     if (!selectedSlot) return;
-    navigate(resumeRoute(selectedSlot.state), () => {
+    navigate(hubRoute(selectedSlot.state), () => {
       setActiveSaveSlot(selectedSlot.id);
       setActiveSlotId(selectedSlot.id);
       useGameStore.setState({ ...selectedSlot.state, journey: normalizeJourney(selectedSlot.state.journey), phase: "playing" });

@@ -34,7 +34,7 @@ export default function ReportCardPage() {
 
   function startNextElection() {
     game.journeyAction({ type: "next-election" });
-    router.push("/warroom");
+    router.push("/kawasan");
   }
 
   return <div className="min-h-screen bg-[var(--bg)]"><Header />

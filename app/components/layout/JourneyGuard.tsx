@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useGameStore } from "../../store/gameStore";
-import { resumeRoute } from "../../store/journey";
+import { hubRoute } from "../../store/journey";
 
 export default function JourneyGuard() {
   const pathname = usePathname(), router = useRouter();
@@ -14,8 +14,8 @@ export default function JourneyGuard() {
       return;
     }
     const postElection = ["/results", "/elected", "/mandate", "/formation", "/cabinet", "/swearing-in"];
-    if (game.day < game.totalDays && postElection.includes(pathname)) router.replace("/warroom");
-    if (["government", "opposition", "rebuilding"].includes(game.journey.chapter) && ["/warroom", "/campaign", "/messaging"].includes(pathname)) router.replace(resumeRoute(game));
+    if (game.day < game.totalDays && postElection.includes(pathname)) router.replace("/kawasan");
+    if (["government", "opposition", "rebuilding"].includes(game.journey.chapter) && ["/warroom", "/campaign", "/messaging"].includes(pathname)) router.replace(hubRoute(game));
     if (["/cabinet", "/swearing-in"].includes(pathname) && !game.journey.coalitionConfirmed) router.replace("/formation");
   }, [game.day, game.totalDays, game.phase, game.journey.chapter, game.journey.coalitionConfirmed, pathname, router]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
