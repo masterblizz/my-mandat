@@ -18,7 +18,7 @@ import { t, type Lang } from "../../i18n/useLang";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
-export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party";
+export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media";
 export type OfficeInteraction = "desk" | "pa" | "meeting" | "tv" | "board" | "residents" | "files" | "pantry";
 export type WarRoomInteraction = "console" | "screens" | "pa" | "analytics" | "briefing" | "exit";
 
@@ -77,6 +77,12 @@ const PARTY_ROOM_NAMES: Record<string, [string, string]> = {
   manifesto: ["Bilik Manifesto", "Manifesto Room"],
   lobi: ["Lobi Parti", "Party Lobby"],
 };
+const MEDIA_ROOM_NAMES: Record<string, [string, string]> = {
+  sidang: ["Bilik Sidang Media", "Press Briefing Room"],
+  kawalan: ["Bilik Kawalan Siaran", "Broadcast Control"],
+  sosial: ["Meja Media Sosial", "Social Media Desk"],
+  lobi: ["Lobi Media", "Media Lobby"],
+};
 const DEWAN_ROOM_NAMES: Record<string, [string, string]> = {
   dewan: ["Dewan", "Chamber"],
   lobi: ["Lobi Parlimen", "Parliament Lobby"],
@@ -122,7 +128,7 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
   onPickRef.current = onPick;
   onReadyRef.current = onReady;
   onStateClickRef.current = onStateClick;
-  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
+  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : scene === "media" ? MEDIA_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
   const lang = state.lang;
   const onOpenRef = useRef(onOpen);
   const onErrorRef = useRef(onError);
@@ -170,13 +176,13 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
       <iframe
         ref={frameRef}
         src={`${GODOT_WORLD_URL}?scene=${scene}`}
-        title={scene === "warroom" ? t(lang, "Pusat Operasi 3D", "3D operations centre") : scene === "studio" ? t(lang, "Studio Malam Keputusan 3D", "3D election night studio") : scene === "dewan" ? t(lang, "Dewan 3D", "3D chamber") : scene === "party" ? t(lang, "Ibu Pejabat Parti 3D", "3D party headquarters") : t(lang, "Pusat Khidmat 3D", "3D service centre")}
+        title={scene === "warroom" ? t(lang, "Pusat Operasi 3D", "3D operations centre") : scene === "studio" ? t(lang, "Studio Malam Keputusan 3D", "3D election night studio") : scene === "dewan" ? t(lang, "Dewan 3D", "3D chamber") : scene === "party" ? t(lang, "Ibu Pejabat Parti 3D", "3D party headquarters") : scene === "media" ? t(lang, "Pusat Media 3D", "3D media centre") : t(lang, "Pusat Khidmat 3D", "3D service centre")}
         className="absolute inset-0 h-full w-full border-0"
         allow="fullscreen"
       />
       {!ready && (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
-          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{scene === "warroom" ? t(lang, "MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…") : scene === "studio" ? t(lang, "MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…") : scene === "dewan" ? t(lang, "MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…") : scene === "party" ? t(lang, "MEMUATKAN IBU PEJABAT 3D…", "LOADING 3D HEADQUARTERS…") : t(lang, "MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…")} {Math.round(progress * 100)}%</span>
+          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{scene === "warroom" ? t(lang, "MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…") : scene === "studio" ? t(lang, "MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…") : scene === "dewan" ? t(lang, "MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…") : scene === "party" ? t(lang, "MEMUATKAN IBU PEJABAT 3D…", "LOADING 3D HEADQUARTERS…") : scene === "media" ? t(lang, "MEMUATKAN PUSAT MEDIA 3D…", "LOADING 3D MEDIA CENTRE…") : t(lang, "MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…")} {Math.round(progress * 100)}%</span>
           <span className="block h-1 w-[min(280px,70vw)] border" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
             <span className="block h-full bg-gold transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </span>

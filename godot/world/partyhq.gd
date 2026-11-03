@@ -213,6 +213,8 @@ func _build_cards(list: Array) -> void:
 		var rows: int = int(ceil(n / float(cols)))
 		var span := BOARD_Z1 - BOARD_Z0
 		var cw := span / cols
+		# ~0.08 m per character at this font size
+		name_chars = max(10, int((cw - 0.25) / 0.085))
 		for i in list.size():
 			var col: int = i % cols
 			var row: int = i / cols
@@ -232,9 +234,6 @@ func _build_cards(list: Array) -> void:
 			var nm := label("", Vector3(0.03, 0.07, 0.03), 26, Color.WHITE, false, root)
 			nm.no_depth_test = false
 			nm.outline_size = 0
-			nm.width = int((cw - 0.25) / 0.006 / 1.0)
-			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
-			nm.clip_text = true
 			var info := label("", Vector3(0.03, -0.08, 0.03), 18, Color("#8aa3b8"), false, root)
 			info.no_depth_test = false
 			info.outline_size = 0
@@ -258,7 +257,7 @@ func _build_cards(list: Array) -> void:
 			continue
 		var card: Dictionary = cards[id]
 		var seats := int(c.get("seats", 0))
-		card["name"].text = String(c.get("name", ""))
+		card["name"].text = _fit(String(c.get("name", "")), name_chars)
 		var en := lang == "en"
 		card["info"].text = "%s · INF %d · %s" % [String(c.get("role", "")), int(c.get("influence", 0)), ("%d %s" % [seats, "SEAT(S)" if en else "KERUSI"]) if seats > 0 else ("FREE" if en else "BELUM DICALONKAN")]
 		var gcol := Color(SPECIALTY.get(String(c.get("specialty", "")), "#8aa3b8"))
@@ -266,6 +265,11 @@ func _build_cards(list: Array) -> void:
 		card["glow"].material_override = gmat
 		var highlight := id == selected_id
 		card["name"].modulate = Color("#f2b01e") if highlight else (player_color.lightened(0.35) if seats > 0 else Color.WHITE)
+
+## Label3D cannot clip, so long names are shortened to the card width.
+var name_chars := 22
+func _fit(text: String, n: int) -> String:
+	return text if text.length() <= n else text.substr(0, n - 1) + "…"
 
 func _apply_state_extra(s: Dictionary) -> void:
 	var name := String(s.get("partyName", ""))
