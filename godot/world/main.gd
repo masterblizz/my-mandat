@@ -170,8 +170,44 @@ func mat(c, rough := 0.85, metal := 0.0, emission = null, energy := 1.0) -> Stan
 		m.emission_enabled = true
 		m.emission = emission if emission is Color else Color(emission)
 		m.emission_energy_multiplier = energy
+	else:
+		_surface(m, metal)
 	_mat_cache[key] = m
 	return m
+
+## Surface textures baked in Blender (blender/materials.py): a tileable
+## greyscale detail map multiplied over the colour, plus a normal map,
+## projected triplanar so every box gets grain at a real-world scale.
+var _tex := {}
+func _surface_tex(name: String) -> Array:
+	if not _tex.has(name):
+		_tex[name] = [load("res://assets/tex/%s_detail.png" % name), load("res://assets/tex/%s_normal.png" % name)]
+	return _tex[name]
+
+func _surface(m: StandardMaterial3D, metal: float) -> void:
+	var c := m.albedo_color
+	var kind := "plaster"
+	if metal >= 0.3:
+		kind = "metal"
+	elif c.s < 0.12:
+		kind = "plaster" if c.v > 0.7 else "concrete"
+	elif c.h > 0.18 and c.h < 0.45:
+		kind = "grass"        # lawns, hedges, foliage: soft mottle, no weave
+	elif c.h > 0.02 and c.h < 0.12 and c.v < 0.75:
+		kind = "wood"
+	elif c.s > 0.3:
+		kind = "fabric"
+	var t := _surface_tex("concrete" if kind == "grass" else kind)
+	if t[0] == null:
+		return
+	m.albedo_texture = t[0]
+	m.normal_enabled = true
+	m.normal_texture = t[1]
+	m.normal_scale = {"wood": 0.45, "fabric": 0.3, "metal": 0.25, "grass": 0.4}.get(kind, 0.6)
+	m.uv1_triplanar = true
+	var metres: float = {"wood": 1.6, "fabric": 0.8, "metal": 1.2, "concrete": 2.0, "grass": 4.0}.get(kind, 2.4)
+	m.uv1_scale = Vector3.ONE / metres
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 ## A box. solid=true also makes it a navmesh obstacle.
 func box(size: Vector3, pos: Vector3, color, solid := true, rot_y := 0.0, parent: Node3D = null, m: Material = null) -> MeshInstance3D:

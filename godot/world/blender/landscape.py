@@ -21,7 +21,7 @@ OUT = sys.argv[-1] if sys.argv[-1].endswith(".glb") else "landscape.glb"
 random.seed(16)
 
 SIZE_X, SIZE_Z = 260.0, 230.0      # metres
-RES = 1.6                           # grid spacing
+RES = 1.5                           # grid spacing
 FLAT_R = 30.0                       # flat radius around the lot
 RISE = 34.0                         # metres over which hills grow in
 CENTER_Y = -0.35                    # below every location's ground slab
@@ -42,8 +42,9 @@ def height(x, z):
     p = Vector((x * 0.014, z * 0.014, 0.0))
     ridge = 1.0 - abs(noise.noise(p * 0.8))          # ridged ranges
     hills = noise.fractal(p, 0.6, 2.1, 5) * 0.5 + 0.5
-    detail = noise.noise(p * 6.0) * 0.08
-    h = (ridge ** 2.2) * 15.0 + hills * 9.0 + detail * 5.0
+    detail = noise.fractal(p * 5.0, 0.75, 2.2, 4)
+    crisp = abs(noise.noise(p * 14.0))
+    h = (ridge ** 1.8) * 17.0 + hills * 9.0 + detail * 2.6 + crisp * 1.4
     # a far mountain line behind and beside the lot
     far = max(0.0, (d - 70.0) / 25.0) * (1.0 - front)
     h += far * far * 9.0 * (0.6 + 0.4 * noise.noise(p * 0.5))
@@ -68,7 +69,7 @@ def colour(h, slope, x, z):
         c = forest
     if slope > 1.25:
         c = earth if n > 0.55 else rock
-    shade = 0.9 + 0.22 * n
+    shade = 0.86 + 0.24 * n + random.uniform(-0.05, 0.05)
     return tuple(min(1.0, v * shade) for v in c) + (1.0,)
 
 
@@ -115,7 +116,7 @@ def build_terrain():
     mod.angle_limit = math.radians(1.2)
     bpy.ops.object.modifier_apply(modifier=mod.name)
     for p in me.polygons:
-        p.use_smooth = True
+        p.use_smooth = False
     return obj
 
 
@@ -136,8 +137,8 @@ def tree(bm, col, pos, kind, scale):
     for f in faces:
         for loop in f.loops:
             loop[col] = trunk_c
-    cr = (1.6 if kind == "forest" else 1.2) * scale
-    top = zz + h + (2.6 if kind == "forest" else 0.4) * scale
+    cr = (2.0 if kind == "forest" else 1.2) * scale
+    top = zz + h + (1.6 if kind == "forest" else 0.4) * scale
     base_z = zz + h - (0.8 if kind == "forest" else 0.2) * scale
     ring = []
     n = 7
@@ -155,25 +156,27 @@ def tree(bm, col, pos, kind, scale):
 
 
 def build_trees(terrain):
+    """Dense forest on the hills (clustered by noise), a few on the flats."""
     bm = bmesh.new()
     col = bm.loops.layers.color.new("Col")
     count = 0
-    for _ in range(9000):
-        x = random.uniform(-SIZE_X / 2 + 4, SIZE_X / 2 - 4)
-        z = random.uniform(-SIZE_Z / 2 + 4, SIZE_Z / 2 - 4)
+    for _ in range(40000):
+        x = random.uniform(-SIZE_X / 2 + 3, SIZE_X / 2 - 3)
+        z = random.uniform(-SIZE_Z / 2 + 3, SIZE_Z / 2 - 3)
         d = math.hypot(x / 1.15, z if z < 0 else z * 0.8)
-        if d < FLAT_R + 3:
+        if d < FLAT_R + 2:
             continue
         h = height(x, z) - CENTER_Y
-        if h < 0.6:
+        if h < 0.8:
             continue
-        kind = "palm" if h < 9.0 and random.random() < 0.7 else "forest"
-        # thicker on ridges, sparse on the plantation slopes
-        if kind == "palm" and random.random() < 0.55:
+        clump = noise.noise(Vector((x * 0.05, z * 0.05, 3.0))) * 0.5 + 0.5
+        density = min(1.0, h / 6.0) * (0.35 + 0.65 * clump)
+        if random.random() > density:
             continue
-        tree(bm, col, (x, -z, height(x, z) - 0.1), kind, random.uniform(0.9, 1.5))
+        kind = "palm" if h < 4.0 and random.random() < 0.5 else "forest"
+        tree(bm, col, (x, -z, height(x, z) - 0.15), kind, random.uniform(1.0, 1.8))
         count += 1
-        if count >= 2600:
+        if count >= 5000:
             break
     me = bpy.data.meshes.new("Trees")
     bm.to_mesh(me)
