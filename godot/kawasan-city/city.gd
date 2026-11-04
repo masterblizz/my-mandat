@@ -35,8 +35,9 @@ const SHOPHOUSE_WALLS := [
 ]
 const ROOFS := [Color("a4573f"), Color("5e6268"), Color("8e3f2e"), Color("4a5d6c"), Color("b06446"), Color("6b5a52")]
 const ZINC := [Color("8d969a"), Color("7a5a3e"), Color("9a5a3c"), Color("7f8a8e")]
-const GLASS := [Color("6f97ab"), Color("c4cfd0"), Color("7fa9b6"), Color("5d88a0"), Color("9fb4bd"), Color("86adb8")]
-const CONDO_WALLS := [Color("f4f1ea"), Color("e9e4d8"), Color("dfe6ea"), Color("efe3d2"), Color("e2e8df")]
+# KL-style skyline: blue and smoked glass mixed with stone and dark-grey towers
+const GLASS := [Color("6f97ab"), Color("c4cfd0"), Color("5d88a0"), Color("9fb4bd"), Color("3f5563"), Color("56646c"), Color("8a8f8c"), Color("b8ad9c")]
+const CONDO_WALLS := [Color("f4f1ea"), Color("e9e4d8"), Color("dfe6ea"), Color("d9c8ad"), Color("c9bfae"), Color("b9b4aa"), Color("d4c2a2")]
 const CONDO_ACCENTS := [Color("c0392b"), Color("2e6da4"), Color("d68910"), Color("1e8449"), Color("7d3c98"), Color("566573")]
 const SIGNS := [Color("e53935"), Color("fdd835"), Color("1e88e5"), Color("43a047"), Color("fb8c00"), Color("8e24aa")]
 
@@ -626,10 +627,12 @@ func _setup_environment() -> void:
 	env.fog_enabled = true
 	# depth fog: the city stays crisp, only the far valley fades out
 	env.fog_mode = Environment.FOG_MODE_DEPTH
-	env.fog_depth_begin = 1500.0
-	env.fog_depth_end = 7000.0
-	env.fog_depth_curve = 1.4
-	env.fog_aerial_perspective = 0.12
+	# haze like a KL skyline: the near streets stay crisp, the towers
+	# and ranges behind fade layer by layer into the horizon colour
+	env.fog_depth_begin = 900.0
+	env.fog_depth_end = 5200.0
+	env.fog_depth_curve = 1.3
+	env.fog_aerial_perspective = 0.15
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -656,11 +659,12 @@ func set_tod(t: int) -> void:
 			env.ambient_light_energy = 0.55
 			env.fog_light_color = Color(0.72, 0.8, 0.88)
 		1:
-			sun.rotation_degrees = Vector3(-10, -70, 0)
-			sun.light_color = Color(1.0, 0.62, 0.36)
-			sun.light_energy = 1.0
-			sky_mat.sky_top_color = Color(0.2, 0.25, 0.48)
-			sky_mat.sky_horizon_color = Color(0.95, 0.55, 0.36)
+			# golden hour: low warm sun, teal-grey sky over a peach horizon
+			sun.rotation_degrees = Vector3(-12, -70, 0)
+			sun.light_color = Color(1.0, 0.7, 0.45)
+			sun.light_energy = 1.15
+			sky_mat.sky_top_color = Color(0.34, 0.43, 0.5)
+			sky_mat.sky_horizon_color = Color(0.94, 0.7, 0.58)
 			sky_mat.ground_horizon_color = Color(0.4, 0.3, 0.3)
 			env.ambient_light_energy = 0.7
 			env.fog_light_color = Color(0.8, 0.55, 0.45)
@@ -1556,17 +1560,32 @@ func _fill_trees() -> void:
 		if ci >= 0:
 			occ[ci] = 1
 		tree(p, rng.randf() < 0.25)
-	# hills ringing the valley (closer and higher on hilly seats)
+	# mountain ranges ringing the valley, in layers: a near forested
+	# ridge, then bluer and paler ranges behind it that the haze softens
 	var hilly := bool(traits.get("hilly", false))
-	for i in 28:
-		var a := TAU * i / 28.0 + rng.randf_range(-0.06, 0.06)
-		var r := rng.randf_range(900.0, 1100.0) if hilly else rng.randf_range(1250.0, 1450.0)
-		var hp := _polar(r, a)
-		if in_sea(hp):
-			continue
-		var col := Color(0.2, 0.33, 0.19).lerp(Color(0.28, 0.4, 0.24), rng.randf())
-		var hh := rng.randf_range(180, 320) if hilly else rng.randf_range(90, 200)
-		ball(hp + Vector3(0, -14, 0), Vector3(rng.randf_range(260, 380), hh, rng.randf_range(220, 320)), col)
+	var layers := [
+		{"r": Vector2(900, 1100) if hilly else Vector2(1250, 1400), "n": 30, "w": Vector2(260, 380), "h": Vector2(180, 320) if hilly else Vector2(80, 170), "c0": Color(0.2, 0.33, 0.19), "c1": Color(0.28, 0.4, 0.24)},
+		{"r": Vector2(1650, 1850), "n": 46, "w": Vector2(320, 480), "h": Vector2(180, 300) if hilly else Vector2(110, 210), "c0": Color(0.14, 0.22, 0.2), "c1": Color(0.2, 0.28, 0.27)},
+		{"r": Vector2(2300, 2600), "n": 52, "w": Vector2(420, 640), "h": Vector2(260, 420) if hilly else Vector2(170, 300), "c0": Color(0.2, 0.26, 0.3), "c1": Color(0.26, 0.32, 0.36)},
+	]
+	for L in layers:
+		var n: int = L.n
+		for i in n:
+			var a := TAU * i / float(n) + rng.randf_range(-0.08, 0.08)
+			var hp := _polar(rng.randf_range(L.r.x, L.r.y), a)
+			if in_sea(hp):
+				continue
+			var col: Color = (L.c0 as Color).lerp(L.c1, rng.randf())
+			var hh := rng.randf_range(L.h.x, L.h.y)
+			var wide := rng.randf_range(L.w.x, L.w.y)
+			# long and narrow along the ring, so neighbours merge into a ridge
+			var b := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(160, 260), hh, wide))
+			_add(sphere_mesh, mat_plain, Transform3D(b, hp + Vector3(0, -hh * 0.08, 0)), col)
+			# a lower shoulder beside each peak breaks up the dome outline
+			if rng.randf() < 0.7:
+				var sp := _polar(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
+				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
+				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
 	if bool(traits.get("kinabalu", false)):
 		var mp := _polar(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
