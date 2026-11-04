@@ -1,9 +1,8 @@
 "use client";
 
 // Sky life over the hosted Godot city (a separate project, so it is drawn
-// here as a light DOM layer): soft clouds drifting across the upper part of
-// the frame, flocks of birds crossing now and then, and at dusk a few
-// birds heading home. Night keeps a couple of dim clouds and no birds.
+// here as a light DOM layer): flocks of birds crossing now and then, fewer
+// at dusk, none at night.
 // Pure CSS animation; never takes input; respects reduced motion.
 
 import { useEffect, useState } from "react";
@@ -18,15 +17,6 @@ function phaseNow(date = new Date()): Phase {
 }
 
 // Deterministic layout so the sky does not reshuffle on every render.
-const CLOUDS = [
-  { top: 4, scale: 1.25, duration: 150, delay: -20, opacity: 0.9 },
-  { top: 12, scale: 0.8, duration: 115, delay: -70, opacity: 0.8 },
-  { top: 2, scale: 0.95, duration: 170, delay: -110, opacity: 0.75 },
-  { top: 18, scale: 0.6, duration: 95, delay: -40, opacity: 0.65 },
-  { top: 9, scale: 1.05, duration: 135, delay: -125, opacity: 0.85 },
-  { top: 22, scale: 0.7, duration: 105, delay: -5, opacity: 0.6 },
-];
-
 const FLOCKS = [
   { top: 14, size: 7, duration: 34, delay: 3, dir: 1 },
   { top: 24, size: 5, duration: 41, delay: 19, dir: -1 },
@@ -53,20 +43,13 @@ export default function CitySkyLife() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const cloudColor = phase === "night" ? "rgb(150 165 190 / .22)" : phase === "dusk" ? "rgb(255 214 190 / .85)" : "rgb(255 255 255 / .92)";
-  const clouds = phase === "night" ? CLOUDS.slice(0, 3) : CLOUDS;
   const flocks = phase === "night" ? [] : phase === "dusk" ? FLOCKS.slice(0, 2) : FLOCKS;
 
   return (
     <div aria-hidden className="city-sky-life pointer-events-none absolute inset-0 overflow-hidden">
-      {clouds.map((c, i) => (
-        <div key={i} className="sky-cloud" style={{
-          top: `${c.top}%`, opacity: c.opacity, animationDuration: `${c.duration}s`, animationDelay: `${c.delay}s`,
-          ["--cloud-scale" as string]: c.scale, ["--cloud-color" as string]: cloudColor,
-        }}>
-          <span /><span /><span /><span />
-        </div>
-      ))}
+      {/* No clouds: the page cannot see the Godot camera, so when the player
+          zooms out the "sky" area is ground and DOM clouds read as white
+          smudges on the grass. Birds stay, they pass quickly. */}
       {flocks.map((f, i) => (
         <svg key={i} className={`sky-flock ${f.dir < 0 ? "sky-flock--west" : ""}`} viewBox="-40 -20 80 40"
           style={{ top: `${f.top}%`, width: 60 + f.size * 6, animationDuration: `${f.duration}s`, animationDelay: `${f.delay}s`,
