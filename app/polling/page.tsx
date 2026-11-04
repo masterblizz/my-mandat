@@ -17,6 +17,7 @@ import { nationalPollHistory, getStatePollHistory } from "../data/parties";
 import { useGameStore } from "../store/gameStore";
 import { formatNumber, formatPercent, formatSignedPercent } from "../utils/format";
 import { useLang, t } from "../i18n/useLang";
+import { pollReading } from "../lib/pollReading";
 
 type Tab = "POLLING" | "DEMOGRAPHICS" | "SWING VOTERS" | "ISSUES" | "FORECAST";
 const TABS: Tab[] = ["POLLING", "DEMOGRAPHICS", "SWING VOTERS", "ISSUES", "FORECAST"];
@@ -73,7 +74,12 @@ export default function PollingPage() {
   const lang = useLang();
   const [activeTab, setActiveTab] = useState<Tab>("POLLING");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const { states: gameStates, getNationalSupport, getTotalProjectedSeats, leader, settings } = useGameStore();
+  const { states: trueStates, getNationalSupport, getTotalProjectedSeats, leader, settings, day } = useGameStore();
+  // Poll figures shown here pass through settings.realisticPolls (sampling error) — see lib/pollReading.
+  const gameStates = useMemo(() => trueStates.map((s) => {
+    const p = pollReading({ mandat: s.mandatSupport, lawan: s.lawanSupport, others: s.othersSupport }, { realistic: settings.realisticPolls, seed: s.id, day });
+    return { ...s, mandatSupport: p.mandat, lawanSupport: p.lawan, othersSupport: p.others };
+  }), [trueStates, settings.realisticPolls, day]);
 
   const isPrn = settings.electionScope === "prn";
   const prnState = gameStates.find((state) => state.id === settings.prnStateId) ?? gameStates[0];
@@ -85,7 +91,7 @@ export default function PollingPage() {
   const projectedSeats = isPrn ? (prnState?.projectedSeats ?? 0) : getTotalProjectedSeats();
   const nationalSupport = isPrn && prnState
     ? { mandat: prnState.mandatSupport, lawan: prnState.lawanSupport, others: prnState.othersSupport }
-    : getNationalSupport();
+    : pollReading(getNationalSupport(), { realistic: settings.realisticPolls, seed: "national", day });
   const pollHistory = useMemo(
     () => (isPrn && prnState ? getStatePollHistory(prnState) : nationalPollHistory),
     [isPrn, prnState]
@@ -128,7 +134,7 @@ export default function PollingPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
-      <StatusBar leftText={isPrn && prnState ? `📊 PRN · ${prnState.name.toUpperCase()}` : "📊 PRU · 222"} rightText={t(lang, "KETIK NEGERI UNTUK SUSUN", "TAP STATE TO SORT")} />
+      <StatusBar leftText={`${isPrn && prnState ? `📊 PRN · ${prnState.name.toUpperCase()}` : "📊 PRU · 222"}${settings.realisticPolls ? ` · ${t(lang, "RALAT ±2.5", "MOE ±2.5")}` : ""}`} rightText={t(lang, "KETIK NEGERI UNTUK SUSUN", "TAP STATE TO SORT")} />
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 

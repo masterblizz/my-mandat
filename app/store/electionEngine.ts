@@ -17,7 +17,14 @@ interface EngineInput {
   resources: { funds: number; manpower: number };
   totalDays?: number;
   difficulty?: "easy" | "normal" | "hard" | "nightmare";
-  settings?: { oppositionStrength: number; electionScope?: "pru" | "prn"; prnStateId?: string };
+  settings?: {
+    oppositionStrength: number;
+    electionScope?: "pru" | "prn";
+    prnStateId?: string;
+    mediaBias?: "pro" | "balanced" | "hostile";
+    eventRandomness?: boolean;
+    permanentConsequences?: boolean;
+  };
   // Optional: the store's rolling opponent-action history, used to derive
   // recently-targeted states so pressure doesn't repeatedly hit the same
   // one (see AIInput.recentTargetIds in opponentAI.ts).
@@ -62,7 +69,15 @@ export function processDay(state: EngineInput): DayResult {
     : state.states;
   const effectiveStates = scopedStates.length ? scopedStates : state.states;
 
-  const triggeredEvent = pickEvent(state.day, electionScope, prnStateId);
+  // Setting: eventRandomness — when off, no random campaign events fire at all.
+  const triggeredEvent = state.settings?.eventRandomness === false ? null : pickEvent(state.day, electionScope, prnStateId);
+  // Setting: permanentConsequences — when off, harmful event hits (support and
+  // funds) land at half strength, i.e. half the damage is treated as recoverable.
+  const harmScale = state.settings?.permanentConsequences === false ? 0.5 : 1;
+  const softenHarm = (v: number) => (v < 0 ? v * harmScale : v);
+  // Setting: mediaBias — a friendly press adds a small daily tailwind to every
+  // in-scope state, a hostile one a small headwind (±0.1 pt/day).
+  const mediaBiasDrift = state.settings?.mediaBias === "pro" ? 0.1 : state.settings?.mediaBias === "hostile" ? -0.1 : 0;
   const totalDays = state.totalDays ?? 30;
 
   // ── Build opponent AI inputs from current game state ──────────────────────
@@ -122,10 +137,13 @@ export function processDay(state: EngineInput): DayResult {
 
     // Random event effects
     if (triggeredEvent) {
-      if (triggeredEvent.impact.national) delta += triggeredEvent.impact.national * 0.25;
+      if (triggeredEvent.impact.national) delta += softenHarm(triggeredEvent.impact.national * 0.25);
       if (triggeredEvent.impact.states?.includes(s.id) && triggeredEvent.impact.stateImpact)
-        delta += triggeredEvent.impact.stateImpact * 0.3;
+        delta += softenHarm(triggeredEvent.impact.stateImpact * 0.3);
     }
+
+    // Media climate (settings.mediaBias)
+    delta += mediaBiasDrift;
 
     // Noise ±0.3%
     delta += (lcg(s.id.charCodeAt(0) * state.day) - 0.5) * 0.6;
@@ -165,7 +183,7 @@ export function processDay(state: EngineInput): DayResult {
 
   let bonusFunds = 0;
   if (triggeredEvent?.impact.resource === "funds" && triggeredEvent.impact.resourceChange)
-    bonusFunds = triggeredEvent.impact.resourceChange;
+    bonusFunds = Math.round(softenHarm(triggeredEvent.impact.resourceChange));
 
   // ── Build alerts ──────────────────────────────────────────────────────────
   const newAlerts: Alert[] = [];

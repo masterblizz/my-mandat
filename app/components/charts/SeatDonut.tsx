@@ -6,13 +6,15 @@ interface SeatDonutProps {
   mandat: number;
   lawan: number;
   others: number;
-  winTarget?: number;
+  /** Majority line for the scope being shown (PRU 112 of 222, PRN half the DUN + 1). */
+  winTarget: number;
   size?: "sm" | "md" | "lg";
-  partyName?: string;
+  /** Selected dataset party abbreviation — no hard-coded default identity. */
+  partyName: string;
   partyColor?: string;
 }
 
-export default function SeatDonut({ mandat, lawan, others, winTarget = 112, size = "md", partyName = "MANDAT", partyColor = "var(--cyan)" }: SeatDonutProps) {
+export default function SeatDonut({ mandat, lawan, others, winTarget, size = "md", partyName, partyColor = "var(--cyan)" }: SeatDonutProps) {
   const lang = useLang();
   const othersLabel = t(lang, "components_charts_SeatDonut.others");
   const seatsWord = t(lang, "components_charts_SeatDonut.seats");

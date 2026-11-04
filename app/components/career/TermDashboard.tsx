@@ -46,7 +46,7 @@ export default function TermDashboard({ expected }: { expected?: Chapter }) {
       <div className="mb-3"><InfoFold label={t(lang, "Matlamat", "Objective")}>{j.chapter === "government" ? t(lang, "Siapkan janji, jaga gabungan dan pertahankan rekod. Projek memerlukan dua suku tahun; prestasi kabinet mempengaruhi kepercayaan.", "Deliver commitments, maintain the coalition and defend your record. Projects take two quarters; cabinet performance affects trust.") : t(lang, "Capai jentera 65 dan kepercayaan 60 sebelum pilihan raya. Bina cawangan, latih calon dan semak dasar kerajaan.", "Reach organisation 65 and trust 60 before the election. Build branches, train candidates and scrutinise government policy.")}</InfoFold></div>
       <JourneyPanel />
       {j.records.length > 0 && <section className="border border-gold/30 p-4"><h2 className="font-bold text-gold">🏅 {t(lang, "Legasi politik", "Political legacy")}</h2>{j.records.map(r => <p key={r.term} className="mt-2 text-sm text-text-muted">{t(lang, `Penggal ${r.term}`, `Term ${r.term}`)}: 🪑 {r.seats} · ✅ {r.delivered} · 🤝 {r.trust}</p>)}</section>}
-      <Link className="mt-4 inline-flex min-h-[40px] items-center text-cyan underline" href="/sandbox">🌐 {t(lang, "Simulasi negara", "National simulation")}</Link>
+      <Link className="mt-4 inline-flex min-h-[40px] items-center text-cyan underline" href="/sandbox">🌐 {s.settings.electionScope === "prn" ? t(lang, `Simulasi negeri · ${s.states.find(x => x.id === s.settings.prnStateId)?.name ?? ""}`, `State simulation · ${s.states.find(x => x.id === s.settings.prnStateId)?.name ?? ""}`) : t(lang, "Simulasi negara", "National simulation")}</Link>
     </>}
   </main></div>;
 }
