@@ -1257,8 +1257,8 @@ export default function PoliticalOfficePage() {
         )}
         rightText={t(
           lang,
-          "Klik perabot atau paparan untuk berinteraksi",
-          "Click furniture or displays to interact",
+          "👆 Ketik perabot atau skrin",
+          "👆 Tap furniture or a screen",
         )}
       />
     </div>
