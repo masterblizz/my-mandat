@@ -1747,10 +1747,17 @@ input[type="range"].range-red::-moz-range-thumb {
     padding-top: 6px !important; padding-bottom: 8px !important;
   }
   /* the Ultimate upsell shrinks to one line so the step's own choices show */
-  .setup-ultimate { margin-bottom: 8px !important; padding: 6px 12px !important; gap: 8px !important; flex-wrap: nowrap !important; }
-  .setup-ultimate h2 { font-size: 13px !important; margin-top: 0 !important; }
-  .setup-ultimate__desc { display: none; }
-  .setup-ultimate button { padding: 6px 12px !important; }
+  .setup-ultimate { margin-bottom: 6px !important; padding: 4px 10px !important; }
+  /* compact game-menu wizard: small step track, short title, side-by-side leader */
+  .setup-steps { margin-bottom: 4px !important; }
+  .setup-steps > button > span:first-child { width: 26px; height: 26px; font-size: 13px; }
+  .setup-title { font-size: 15px !important; margin-bottom: 8px !important; }
+  .setup-leader { flex-direction: row !important; }
+  .setup-leader > div:first-child { width: 170px !important; }
+  .setup-avatar-preview { width: 96px !important; height: 140px !important; }
+  .setup-seat-grid { max-height: 150px !important; }
+  .setup-tile-icon { font-size: 24px !important; }
+  .setup-tile { padding: 8px !important; }
   .settings-screen > div:nth-of-type(2) { height: 32px !important; }
   .settings-screen > div:nth-of-type(3) { min-height: 0 !important; padding-top: 8px !important; padding-bottom: 8px !important; gap: 12px !important; }
   .load-game-screen { height: 100dvh; min-height: 0 !important; overflow-y: auto !important; padding: 10px 16px !important; }

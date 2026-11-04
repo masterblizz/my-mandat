@@ -1,11 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import ScenarioStart from "../components/career/ScenarioStart";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
-import TacticalPanel from "../components/layout/TacticalPanel";
-import StatBar from "../components/ui/StatBar";
 import Toggle from "../components/ui/Toggle";
 import UpgradeButton from "../components/ui/UpgradeButton";
 
@@ -54,28 +52,106 @@ const AVATARS = [
   { src: "/avatars/player-standing-05.png" },
 ];
 
+// One icon + one short word per step: the wizard reads like a game menu,
+// not a form.
 const STEPS = [
-  { num: "00" },
-  { num: "01" },
-  { num: "02" },
-  { num: "03" },
-  { num: "04" },
-  { num: "05" },
-];
+  { icon: "🗂️", ms: "MOD", en: "MODE", titleMs: "Pilih dunia permainan", titleEn: "Choose your world" },
+  { icon: "👤", ms: "WATAK", en: "LEADER", titleMs: "Siapa anda?", titleEn: "Who are you?" },
+  { icon: "🗳️", ms: "UNDI", en: "ELECTION", titleMs: "Pilih medan pertempuran", titleEn: "Pick your battlefield" },
+  { icon: "📍", ms: "KERUSI", en: "SEAT", titleMs: "Kerusi yang anda menangi", titleEn: "The seat you won" },
+  { icon: "⚔️", ms: "CABARAN", en: "CHALLENGE", titleMs: "Tahap cabaran", titleEn: "Challenge level" },
+  { icon: "🚀", ms: "MULA", en: "START", titleMs: "Sedia untuk mula?", titleEn: "Ready to start?" },
+] as const;
 
-function UltimatePlanCard({ hasUltimate, isLoading }: { hasUltimate: boolean; isLoading: boolean }) {
+const DIFFICULTY_ICON = { easy: "🙂", normal: "😐", hard: "😠", nightmare: "💀" } as const;
+
+/** A big tappable choice: icon on top, a word or two, nothing to read. */
+function Tile({ active, onClick, disabled, accent = "var(--gold)", badge, className = "", children }: {
+  active: boolean; onClick: () => void; disabled?: boolean; accent?: string;
+  badge?: { text: string; color: string }; className?: string; children: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={active}
+      className={`setup-tile relative flex min-w-0 flex-col items-start rounded-md p-3 text-left transition-all active:scale-[.97] disabled:cursor-not-allowed ${className}`}
+      style={{
+        border: `1.5px solid ${active ? accent : "rgb(var(--cyan-rgb) / 0.16)"}`,
+        background: active ? `linear-gradient(160deg, color-mix(in srgb, ${accent} 16%, transparent), rgb(var(--bg-rgb) / 0.6))` : "rgba(255,255,255,0.025)",
+        boxShadow: active ? `0 0 18px color-mix(in srgb, ${accent} 22%, transparent)` : "none",
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      {badge && <span className="absolute right-2 top-2 text-[9px] font-black tracking-widest" style={{ color: badge.color }}>{badge.text}</span>}
+      {active && !badge && <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ background: accent }}>✓</span>}
+      {children}
+    </button>
+  );
+}
+
+/** A small pill toggle for minor choices. */
+function Chip({ active, onClick, color = "var(--gold)", children, title }: { active: boolean; onClick: () => void; color?: string; children: ReactNode; title?: string }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} title={title}
+      className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wider transition-all active:scale-95"
+      style={{ border: `1px solid ${active ? color : "rgb(var(--cyan-rgb) / 0.2)"}`, background: active ? color : "transparent", color: active ? "#000" : "var(--text-muted)" }}>
+      {children}
+    </button>
+  );
+}
+
+/** Section label: an icon and a word, optional note on the right. */
+function Label({ icon, children, right }: { icon: string; children: ReactNode; right?: ReactNode }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-black tracking-[0.18em]" style={{ color: "var(--cyan)" }}><span aria-hidden>{icon}</span>{children}</div>
+      {right}
+    </div>
+  );
+}
+
+/** Optional detail, folded away so the main choice stays simple. */
+function More({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <details className="setup-more group rounded-md border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)", background: "rgba(255,255,255,0.02)" }}>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-[11px] font-black tracking-[0.18em] text-text-muted">
+        <span>⚙ {label}</span><span className="transition-transform group-open:rotate-180">▾</span>
+      </summary>
+      <div className="space-y-4 px-3 pb-3">{children}</div>
+    </details>
+  );
+}
+
+function Slider({ label, value, min = 0, max = 100, onChange, left, right, color = "var(--cyan)" }: {
+  label: string; value: number; min?: number; max?: number; onChange: (v: number) => void; left?: string; right?: string; color?: string;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[11px]"><span className="font-bold tracking-wider text-text-muted">{label}</span><span className="font-black" style={{ color }}>{value}</span></div>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label}
+        className="h-2 w-full cursor-pointer appearance-none rounded-full"
+        style={{ accentColor: color, background: `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, var(--bar-empty) ${pct}%, var(--bar-empty) 100%)` }} />
+      {(left || right) && <div className="mt-1 flex justify-between text-[10px] text-text-muted"><span>{left}</span><span>{right}</span></div>}
+    </div>
+  );
+}
+
+function UltimateStrip({ hasUltimate, isLoading }: { hasUltimate: boolean; isLoading: boolean }) {
   const lang = useLang();
   if (hasUltimate || isLoading) return null;
-
   return (
-    <section className="setup-ultimate mb-5 flex w-full max-w-[1100px] flex-wrap items-center justify-between gap-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgb(var(--bg-rgb) / 0.9))" }}>
-      <div>
-        <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>✦ {t(lang, "setup_page.ultimatePlan")}</div>
-        <h2 className="mt-1 text-lg font-black text-white">{t(lang, "setup_page.ultimateTitle")}</h2>
-        <p className="setup-ultimate__desc mt-1 max-w-2xl text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t(lang, "setup_page.ultimateDescription")}</p>
-      </div>
-      <UpgradeButton priceId={PREMIUM_PRICE_IDS.ultimateMonthly} mode="subscription" label={t(lang, "setup_page.getUltimate")} className="border border-gold bg-gold px-5 py-3 text-xs font-black tracking-wider text-black disabled:opacity-50" />
-    </section>
+    <div className="setup-ultimate mb-3 flex w-full max-w-[1100px] items-center justify-between gap-3 rounded-md border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / 0.4)", background: "linear-gradient(90deg, rgb(var(--gold-rgb) / 0.12), transparent)" }}>
+      <div className="min-w-0 truncate text-[11px] font-black tracking-[0.16em]" style={{ color: "var(--gold)" }}>✦ ULTIMATE · <span className="text-white">{t(lang, "Arkib Senario", "Scenario Archive")}</span></div>
+      <UpgradeButton priceId={PREMIUM_PRICE_IDS.ultimateMonthly} mode="subscription" label={t(lang, "setup_page.getUltimate")} className="shrink-0 rounded border border-gold bg-gold px-3 py-1.5 text-[10px] font-black tracking-wider text-black disabled:opacity-50" />
+    </div>
+  );
+}
+
+/** One-line upsell for a locked option. */
+function LockedNote({ text, priceId, label }: { text: string; priceId: string; label: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
+      <span className="text-[11px] font-bold text-text-muted">🔒 {text}</span>
+      <UpgradeButton priceId={priceId} mode="subscription" label={label} className="shrink-0 rounded border border-gold px-3 py-1.5 text-[10px] font-black tracking-wider text-gold disabled:opacity-50" />
+    </div>
   );
 }
 
@@ -150,7 +226,6 @@ export default function SetupPage() {
   // constituency list and silently falls back to the first DUN seat.
   const homeStateData = useMemo(() => states.find((s) => s.id === homeState) ?? states[0], [homeState]);
   const prnStateData = useMemo(() => states.find((s) => s.id === prnStateId) ?? states[0], [prnStateId]);
-  const positionLabelLower = t(lang, `setup_page.position_${position}`).toLowerCase();
   const homeConstituencies = useMemo(
     () => electionScope === "prn" ? generateConstituencies(prnStateData, "dun") : generateConstituencies(homeStateData),
     [electionScope, prnStateData, homeStateData]
@@ -195,7 +270,6 @@ export default function SetupPage() {
 
   const pointsUsed = influence + charisma + credibility + negotiation + strategy;
   const pointsRemaining = TOTAL_POINTS - pointsUsed;
-  const oppSliderPct = ((oppStrength - 20) / (99 - 20)) * 100;
 
   function handleAttributeChange(newVal: number, currentVal: number, setter: (v: number) => void) {
     // Cap increases so pointsRemaining never drops below 0; decreases are always allowed.
@@ -299,6 +373,22 @@ export default function SetupPage() {
     navigate(started ? "/elected" : "/kawasan");
   }
 
+  const meta = STEPS[step];
+  const nextDisabled = (step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId);
+  const nextHint = step === 1 && !leaderName.trim()
+    ? t(lang, "Masukkan nama", "Enter a name")
+    : step === 2 && electionScope === "prn" && !prnCandidateId
+      ? t(lang, "Pilih calon MB", "Pick an MB candidate")
+      : null;
+  const safetyColor = (safety: string) => safety === "safe" ? "var(--neon-green)" : safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
+  const attributes = [
+    { id: "influence", val: influence, set: setInfluence, color: "var(--cyan)" },
+    { id: "charisma", val: charisma, set: setCharisma, color: "var(--gold)" },
+    { id: "credibility", val: credibility, set: setCredibility, color: "var(--neon-green)" },
+    { id: "negotiation", val: negotiation, set: setNegotiation, color: "var(--warn-orange)" },
+    { id: "strategy", val: strategy, set: setStrategy, color: "#8b5cf6" },
+  ];
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
@@ -308,7 +398,7 @@ export default function SetupPage() {
         </div>
       )}
       <main className="setup-screen pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
-        {step === 0 && <UltimatePlanCard hasUltimate={hasUltimate} isLoading={premiumLoading} />}
+        {step === 0 && <UltimateStrip hasUltimate={hasUltimate} isLoading={premiumLoading} />}
         {/* Scenario Archive is deliberately invisible unless Ultimate access
             is verified; standard Premium users continue to the custom builder. */}
         {step === 0 && hasUltimate && !premiumLoading && <ScenarioStart />}
@@ -319,861 +409,350 @@ export default function SetupPage() {
             <span className="h-px flex-1 bg-white/10" />
           </div>
         )}
-        <div className="w-full max-w-[1100px] mt-6">
-          {/* Step Indicator */}
-          <div className="flex gap-0 mb-2 sm:mb-8">
-            {STEPS.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => i < step && setStep(i)}
-                aria-current={i === step ? "step" : undefined}
-                className="flex-1 py-2 sm:py-3 text-center border-b-2 transition-all"
-                style={{
-                  borderColor: i === step ? "var(--gold)" : "var(--bar-empty)",
-                  cursor: i < step ? "pointer" : "default",
-                }}
-              >
-                <div
-                  className="text-[12px] font-bold tracking-widest"
-                  style={{ color: i === step ? "var(--gold)" : "var(--text-muted)" }}
-                >
-                  {s.num}
-                </div>
-                <div
-                  className="hidden text-[11px] tracking-wider mt-0.5 sm:block"
-                  style={{ color: i === step ? "var(--gold)" : "var(--text-muted)" }}
-                >
-                  {t(lang, `setup_page.step_${s.num}_label`)}
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="mb-5 text-center text-[11px] font-bold tracking-[0.2em] sm:hidden" style={{ color: "var(--gold)" }}>
-            {STEPS[step].num} · {t(lang, `setup_page.step_${STEPS[step].num}_label`)}
-          </div>
-
-          {/* Step 0: Data Mode */}
-          {step === 0 && (
-            <div className="space-y-6">
-              <div className="text-center mb-2">
-                <div className="text-[13px] text-text-muted tracking-widest uppercase">
-                  {t(lang, "setup_page.chooseWhichPoliticalNamesPartiesAppear")}
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {availableDatasets.map((ds) => {
-                  const selected = selectedDataset === ds.id;
-                  const isReal = ds.id === "real-malaysia";
-                  const accentColor = isReal ? "var(--gold)" : "var(--cyan)";
-                  return (
-                    <button
-                      key={ds.id}
-                      onClick={() => handleDatasetSelect(ds.id as DatasetKind)}
-                      className="relative text-left p-6 transition-all"
-                      style={{
-                        background: selected ? (isReal ? "rgb(var(--gold-rgb) / 0.07)" : "rgb(var(--cyan-rgb) / 0.07)") : "rgba(255,255,255,0.02)",
-                        border: `1px solid ${selected ? accentColor : "var(--bar-empty)"}`,
-                        boxShadow: selected ? `0 0 18px ${accentColor}33` : "none",
-                      }}
-                    >
-                      {selected && (
-                        <div
-                          className="absolute top-3 right-3 text-[10px] font-bold tracking-widest px-2 py-0.5"
-                          style={{ background: accentColor, color: "#000" }}
-                        >
-                          {t(lang, "setup_page.selected")}
-                        </div>
-                      )}
-                      <div className="text-[22px] mb-3">{isReal ? "🇲🇾" : "🎮"}</div>
-                      <div
-                        className="text-[15px] font-bold tracking-wider mb-2 uppercase"
-                        style={{ color: selected ? accentColor : "var(--text-primary)" }}
-                      >
-                        {t(lang, ds.labelMS ?? ds.label, ds.label)}
-                      </div>
-                      <div className="text-[13px] text-text-muted leading-relaxed mb-4">
-                        {t(lang, ds.descriptionMS ?? ds.description, ds.description)}
-                      </div>
-                      <div
-                        className="text-[11px] px-3 py-2 leading-relaxed"
-                        style={{
-                          background: isReal ? "rgb(var(--gold-rgb) / 0.08)" : "rgb(var(--cyan-rgb) / 0.08)",
-                          border: `1px solid ${isReal ? "rgb(var(--gold-rgb) / 0.25)" : "rgb(var(--cyan-rgb) / 0.25)"}`,
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        ℹ {t(lang, ds.dataNoteMS ?? ds.dataNote, ds.dataNote)}
-                      </div>
-                      <div className="mt-4 space-y-1">
-                        {ds.parties.slice(0, 4).map((p) => (
-                          <div key={p.id} className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-                            <span className="text-[12px] text-text-muted">{p.abbreviation} — {p.name}</span>
-                          </div>
-                        ))}
-                        {ds.parties.length > 4 && (
-                          <div className="text-[11px] text-text-muted pl-4">
-                            {t(lang, "setup_page.moreParties", { dsPartiesLength: ds.parties.length - 4 })}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Avatar & Party */}
-          {step === 1 && (
-            <div className="flex flex-col gap-4 lg:flex-row">
-              {/* Left: Avatar Selector */}
-              <TacticalPanel title={t(lang, "setup_page.avatar")} className="w-full shrink-0 lg:w-[260px]">
-                <div className="flex flex-col items-center gap-3 mt-1">
-                  <div
-                    className="setup-avatar-preview relative flex items-center justify-center overflow-hidden"
+        <div className="w-full max-w-[1100px] mt-2">
+          {/* Step track: icon + one word each, tap to go back */}
+          <div className="setup-steps mb-3 flex items-center gap-1">
+            {STEPS.map((s, i) => {
+              const done = i < step;
+              const current = i === step;
+              return (
+                <button key={s.en} type="button" onClick={() => done && setStep(i)} aria-current={current ? "step" : undefined}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-1 py-1"
+                  style={{ cursor: done ? "pointer" : "default" }}>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px] transition-all"
                     style={{
-                      width: "210px",
-                      height: "310px",
-                      border: "1px solid rgb(var(--cyan-rgb) / .7)",
-                      background: "radial-gradient(ellipse at 50% 34%, rgb(var(--cyan-rgb) / 0.22), rgba(8,12,20,.6) 54%, rgb(var(--gold-rgb) / .12) 100%)",
-                      boxShadow: "0 0 28px rgb(var(--cyan-rgb) / 0.24), inset 0 0 22px rgb(var(--gold-rgb) / 0.12)",
-                    }}
-                  >
-                    <Image
-                      src={AVATARS[avatarIndex].src}
-                      alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })}
-                      fill
-                      sizes="210px"
-                      style={{ objectFit: "contain", objectPosition: "center bottom" }}
-                    />
-                    <span className="absolute bottom-2 left-2 border px-2 py-1 text-[8px] font-black tracking-widest text-gold" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(2 8 20 / .86)" }}>{t(lang, "AVATAR PENUH", "FULL AVATAR")}</span>
-                  </div>
+                      border: `1.5px solid ${current ? "var(--gold)" : done ? "var(--cyan)" : "var(--bar-empty)"}`,
+                      background: current ? "rgb(var(--gold-rgb) / 0.18)" : done ? "rgb(var(--cyan-rgb) / 0.12)" : "transparent",
+                      boxShadow: current ? "0 0 14px rgb(var(--gold-rgb) / 0.45)" : "none",
+                      filter: current || done ? "none" : "grayscale(1) opacity(.55)",
+                    }}>{done ? "✓" : s.icon}</span>
+                  <span className="hidden truncate text-[9px] font-black tracking-[0.14em] sm:block" style={{ color: current ? "var(--gold)" : done ? "var(--cyan)" : "var(--text-muted)" }}>{t(lang, s.ms, s.en)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <h1 className="setup-title mb-4 text-center text-[18px] font-black tracking-wide text-white sm:text-[22px]">{t(lang, meta.titleMs, meta.titleEn)}</h1>
 
-                  <div className="text-center">
-                    <div className="text-[11px] tracking-[0.28em]" style={{ color: "var(--cyan)" }}>
-                      {t(lang, "setup_page.selectedAvatar")}
-                    </div>
-                    <div
-                      className="mt-1 inline-flex px-2 py-1 text-[10px] font-bold tracking-wider"
-                      style={{
-                        color: "var(--gold)",
-                        border: "1px solid rgb(var(--gold-rgb) / 0.35)",
-                        background: "rgb(var(--gold-rgb) / 0.08)",
-                      }}
-                    >
-                      {t(lang, `setup_page.avatar_${avatarIndex}`)}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap justify-center gap-2.5 w-full pt-1" aria-label={t(lang, "setup_page.chooseAvatar")}>
-                    {AVATARS.map((avatar, i) => {
-                      const selected = avatarIndex === i;
-                      return (
-                        <button
-                          key={avatar.src}
-                          type="button"
-                          onClick={() => setAvatarIndex(i)}
-                          aria-label={t(lang, "setup_page.select", { avatarName: t(lang, `setup_page.avatar_${i}`) })}
-                          aria-pressed={selected}
-                          className="group relative flex items-center justify-center overflow-hidden transition-all hover:scale-105"
-                          style={{
-                            width: "38px",
-                            height: "58px",
-                            border: `1px solid ${selected ? "var(--gold)" : "#12445f"}`,
-                            boxShadow: selected ? "0 0 18px rgb(var(--gold-rgb) / 0.55), 0 0 10px rgb(var(--cyan-rgb) / 0.25)" : "0 0 10px rgb(var(--cyan-rgb) / 0.14)",
-                            background: "var(--bg)",
-                            opacity: selected ? 1 : 0.78,
-                          }}
-                        >
-                          <Image
-                            src={avatar.src}
-                            alt=""
-                            aria-hidden="true"
-                            fill
-                            sizes="38px"
-                            style={{ objectFit: "contain", objectPosition: "center bottom" }}
-                          />
-                          <span
-                            className="absolute inset-0"
-                            style={{ boxShadow: selected ? "inset 0 0 0 2px rgba(255,255,255,0.18)" : "inset 0 0 18px rgba(0,0,0,0.2)" }}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </TacticalPanel>
-
-              {/* Center: Leader Details */}
-              <TacticalPanel title={t(lang, "setup_page.leaderDetails")} className="min-w-0 flex-1">
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.name")}</div>
-                    <input
-                      type="text"
-                      value={leaderName}
-                      onChange={(e) => setLeaderName(e.target.value.toUpperCase())}
-                      className="w-full uppercase"
-                      placeholder={t(lang, "setup_page.enterName")}
-                    />
-                  </div>
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.position")}</div>
-                    <select
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      className="w-full"
-                    >
-                      {POSITIONS.map((p) => (
-                        <option key={p.id} value={p.id}>{t(lang, `setup_page.position_${p.id}`)}</option>
+          {/* Step 0: world / data mode */}
+          {step === 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {availableDatasets.map((ds) => {
+                const isReal = ds.id === "real-malaysia";
+                const accent = isReal ? "var(--gold)" : "var(--cyan)";
+                return (
+                  <Tile key={ds.id} active={selectedDataset === ds.id} onClick={() => handleDatasetSelect(ds.id as DatasetKind)} accent={accent} className="items-center p-4 text-center">
+                    <span className="setup-tile-icon text-[40px] leading-none sm:text-[52px]">{isReal ? "🇲🇾" : "🎮"}</span>
+                    <span className="mt-2 w-full text-center text-[14px] font-black tracking-wider" style={{ color: selectedDataset === ds.id ? accent : "var(--text-primary)" }}>
+                      {t(lang, isReal ? "setup_page.dataModeReal" : "setup_page.dataModeFictional")}
+                    </span>
+                    <span className="mt-1 w-full text-center text-[11px] text-text-muted">
+                      {isReal ? t(lang, "Parti sebenar · angka simulasi", "Real parties · simulated numbers") : t(lang, "Parti rekaan · bebas", "Made-up parties · no politics")}
+                    </span>
+                    <span className="mt-3 flex w-full flex-wrap justify-center gap-1">
+                      {ds.parties.slice(0, 6).map((party) => (
+                        <span key={party.id} className="rounded-full px-1.5 py-0.5 text-[9px] font-black" style={{ border: `1px solid ${party.color}`, color: party.color }}>{party.abbreviation}</span>
                       ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.experience")}</div>
-                    <div className="flex gap-2">
-                      {EXPERIENCE_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => setExperience(opt.id)}
-                          className="flex-1 py-1.5 text-[12px] tracking-wider transition-all"
-                          style={{
-                            background: experience === opt.id ? "var(--gold)" : "transparent",
-                            color: experience === opt.id ? "#000" : "var(--text-muted)",
-                            border: "1px solid",
-                            borderColor: experience === opt.id ? "var(--gold)" : "var(--bar-empty)",
-                          }}
-                        >
-                          {t(lang, `setup_page.experience_${opt.id}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.homeState")}</div>
-                    <select
-                      value={homeState}
-                      onChange={(e) => setHomeState(e.target.value)}
-                      className="w-full"
-                    >
-                      {states.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Set the character's actual hometown while building the
-                      profile. The same state is deliberately reused by the
-                      nomination step, so /kawasan opens the city the player
-                      explicitly chose rather than the first generated seat. */}
-                  <div className="rounded-sm border p-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.24)", background: "rgb(var(--cyan-rgb) / 0.045)" }}>
-                    <div className="flex items-center justify-between gap-3 mb-1">
-                      <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.characterConstituency")}</div>
-                      <span className="text-[9px] font-black tracking-widest text-cyan">{electionScope === "prn" ? "DUN" : "PARLIMEN"}</span>
-                    </div>
-                    <select
-                      value={contestConstituencyId}
-                      onChange={(e) => setContestConstituencyId(e.target.value)}
-                      className="w-full text-[13px]"
-                      aria-label={t(lang, "setup_page.characterConstituency")}
-                    >
-                      {homeConstituencies.map((constituency) => (
-                        <option key={constituency.id} value={constituency.id}>
-                          {constituency.code} · {constituency.name}
-                        </option>
-                      ))}
-                    </select>
-                    {contestConstituency && <div className="mt-2 flex items-center justify-between text-[10px]">
-                      <span className="text-text-muted">{t(lang, "setup_page.characterConstituencyHint")}</span>
-                      <span className="font-bold text-gold">{contestConstituency.mandat}% {t(lang, "setup_page.support")}</span>
-                    </div>}
-                  </div>
-
-                  {/* Leader Attributes */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.leaderAttributes")}</div>
-                      <div
-                        className="text-[12px] font-bold"
-                        style={{ color: pointsRemaining < 0 ? "var(--neon-red)" : "var(--neon-green)" }}
-                      >
-                        {t(lang, "setup_page.ptsRemaining", { pointsRemaining: pointsRemaining })}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {[
-                        { id: "influence", val: influence, set: setInfluence },
-                        { id: "charisma", val: charisma, set: setCharisma },
-                        { id: "credibility", val: credibility, set: setCredibility },
-                        { id: "negotiation", val: negotiation, set: setNegotiation },
-                        { id: "strategy", val: strategy, set: setStrategy },
-                      ].map(({ id, val, set }) => (
-                        <div key={id} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-text-muted">{t(lang, `setup_page.attr_${id}`)}</span>
-                            <span className="text-[12px] text-cyan font-bold">{val}</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={1}
-                            max={100}
-                            value={val}
-                            onChange={(e) => handleAttributeChange(Number(e.target.value), val, set)}
-                            className="w-full h-1.5 appearance-none cursor-pointer rounded-none"
-                            style={{
-                              accentColor: "var(--cyan)",
-                              background: `linear-gradient(to right, rgba(0,200,255,0.45) 0%, rgba(0,200,255,0.45) ${val}%, rgba(26,35,51,0.8) ${val}%, rgba(26,35,51,0.8) 100%)`,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </TacticalPanel>
-
-              {/* Right: Party Identity */}
-              <TacticalPanel title={t(lang, "setup_page.partyIdentity")} className="w-full shrink-0 lg:w-[200px]">
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-1">{t(lang, "setup_page.datasetParty")}</div>
-                    <select
-                      value={selectedPartyId}
-                      onChange={(e) => setSelectedPartyId(e.target.value)}
-                      className="w-full text-[12px]"
-                      style={{ color: partyColor, borderColor: partyColor }}
-                    >
-                      {currentDataset.parties.map((party) => (
-                        <option key={party.id} value={party.id}>
-                          {party.abbreviation} — {party.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="mt-1 text-[9px] leading-4 tracking-[0.12em]" style={{ color: "#6f8092" }}>
-                      {t(lang, "setup_page.partyIdentityLockedToSelectedDataset", { currentDatasetLabelMSCurrentDataset: currentDataset.labelMS ?? currentDataset.label, currentDatasetLabel: currentDataset.label })}
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgba(255,255,255,0.025)" }}>
-                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "setup_page.partyName")}</div>
-                      <div className="mt-1 text-[11px] font-bold leading-4 text-white">{partyName}</div>
-                    </div>
-                    <div className="border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgba(255,255,255,0.025)" }}>
-                      <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, "setup_page.abbreviation")}</div>
-                      <div className="mt-1 text-[13px] font-black" style={{ color: partyColor }}>{partyAbbr}</div>
-                    </div>
-                  </div>
-                  {/* Logo Preview */}
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "setup_page.logoPreview")}</div>
-                    <div
-                      className="flex items-center justify-center h-20 text-4xl font-bold"
-                      style={{
-                        background: "var(--bg)",
-                        border: `2px solid ${partyColor}`,
-                        color: partyColor,
-                        boxShadow: `0 0 12px ${partyColor}44`,
-                        fontFamily: "Space Mono, monospace",
-                      }}
-                    >
-                      {partyAbbr[0] || "M"}
-                    </div>
-                    <div className="text-center text-[11px] mt-1" style={{ color: partyColor }}>
-                      {partyAbbr}
-                    </div>
-                  </div>
-                </div>
-              </TacticalPanel>
+                      {ds.parties.length > 6 && <span className="text-[9px] text-text-muted">+{ds.parties.length - 6}</span>}
+                    </span>
+                  </Tile>
+                );
+              })}
             </div>
           )}
 
-          {/* Step 3: Nomination — as party president, the leader must also contest a seat.
-              Runs after campaign settings so it already knows PRU vs PRN. */}
-          {step === 3 && (
-            <div className="space-y-3">
-              <TacticalPanel title={electionScope === "prn" ? t(lang, "setup_page.contestYourDunSeat") : t(lang, "setup_page.contestYourOwnSeat")}>
-                <div className="text-[13px] text-text-muted leading-relaxed mb-3">
-                  {electionScope === "prn"
-                    ? t(lang, "setup_page.asOfYouMustBeNominated", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", prnStateDataNamePrnStateId: prnStateData?.name ?? prnStateId.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })
-                    : t(lang, "setup_page.asOfYouMustBeNominated2", { pOSITIONSFindP: positionLabelLower, partyName: partyName || "parti anda", homeStateDataNameHomeState: homeStateData?.name ?? homeState.toUpperCase(), position: positionLabelLower, partyName2: partyName || "your party" })}
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                  {homeConstituencies.map((c) => {
-                    const active = contestConstituencyId === c.id;
-                    const safetyColor = c.safety === "safe" ? "var(--neon-green)" : c.safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
-                    const winColor = c.winner === "mandat" ? "var(--cyan)" : c.winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setContestConstituencyId(c.id)}
-                        className="p-3 text-left transition-all"
-                        style={{
-                          border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
-                          background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
-                          boxShadow: active ? "0 0 14px rgb(var(--gold-rgb) / 0.2)" : "none",
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[13px] font-bold truncate" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>{c.name}</span>
-                          <span className="text-[9px] shrink-0" style={{ color: "#4a5568" }}>{c.code}</span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 text-[11px]">
-                          <span style={{ color: winColor }}>{c.mandat}% {t(lang, "setup_page.support")}</span>
-                          <span className="uppercase font-bold" style={{ color: safetyColor }}>{t(lang, c.safety === "safe" ? "setup_page.safetySafe" : c.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </TacticalPanel>
-
-              {contestConstituency && (
-                <TacticalPanel title={t(lang, "setup_page.yourCandidacy")} noPadding>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.contestingSeat")}</div>
-                      <div className="text-[14px] font-bold text-white">{contestConstituency.name} ({contestConstituency.code})</div>
-                    </div>
-                    <div className="flex gap-6">
-                      <div className="text-right">
-                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.support")}</div>
-                        <div className="text-[14px] font-bold" style={{ color: "var(--cyan)" }}>{contestConstituency.mandat}%</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-text-muted tracking-widest">{t(lang, "setup_page.safety")}</div>
-                        <div
-                          className="text-[14px] font-bold"
-                          style={{ color: contestConstituency.safety === "safe" ? "var(--neon-green)" : contestConstituency.safety === "marginal" ? "var(--gold)" : "var(--neon-red)" }}
-                        >
-                          {t(lang, contestConstituency.safety === "safe" ? "setup_page.safetySafe" : contestConstituency.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")}
-                        </div>
-                      </div>
-                    </div>
+          {/* Step 1: leader */}
+          {step === 1 && (
+            <div className="setup-leader flex flex-col gap-4 sm:flex-row">
+              <div className="flex shrink-0 flex-col items-center gap-2 sm:w-[220px]">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setAvatarIndex((avatarIndex + AVATARS.length - 1) % AVATARS.length)} aria-label={t(lang, "Avatar sebelum", "Previous avatar")}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border text-lg text-cyan active:scale-90" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.4)" }}>‹</button>
+                  <div className="setup-avatar-preview relative overflow-hidden rounded-md"
+                    style={{ width: "170px", height: "250px", border: `1.5px solid ${partyColor}`, background: `radial-gradient(ellipse at 50% 34%, color-mix(in srgb, ${partyColor} 20%, transparent), rgba(8,12,20,.6) 60%)`, boxShadow: `0 0 24px color-mix(in srgb, ${partyColor} 20%, transparent)` }}>
+                    <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar2", { avatarName: t(lang, `setup_page.avatar_${avatarIndex}`) })} fill sizes="170px" style={{ objectFit: "contain", objectPosition: "center bottom" }} />
                   </div>
-                </TacticalPanel>
-              )}
-
-              <TacticalPanel title={t(lang, "PIHAK ANDA SELEPAS MENANG", "YOUR BENCH AFTER WINNING")}>
-                <div role="radiogroup" aria-label={t(lang, "Pihak", "Side")} className="grid gap-3 sm:grid-cols-2">
-                  {STARTING_SIDES.map((option) => {
-                    const active = side === option;
-                    const government = option === "government";
-                    return (
-                      <button key={option} type="button" role="radio" aria-checked={active} onClick={() => setSide(option)}
-                        className="p-3 text-left transition-all"
-                        style={{
-                          border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
-                          background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
-                          boxShadow: active ? "0 0 14px rgb(var(--gold-rgb) / 0.2)" : "none",
-                        }}>
-                        <div className="text-[13px] font-bold tracking-wider" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>
-                          {government ? `🏛️ ${t(lang, "BLOK KERAJAAN", "GOVERNMENT BENCH")}` : `⚖️ ${t(lang, "BLOK PEMBANGKANG", "OPPOSITION BENCH")}`}
-                        </div>
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">
-                          {government
-                            ? (electionScope === "prn"
-                              ? t(lang, "Parti anda membentuk kerajaan negeri. Peruntukan besar, tetapi rakyat menuntut janji ditunaikan.", "Your party forms the state government. Big allocation, but voters expect delivery.")
-                              : t(lang, "Parti anda membentuk kerajaan persekutuan. Peruntukan besar, tetapi rakyat menuntut janji ditunaikan.", "Your party forms the federal government. Big allocation, but voters expect delivery."))
-                            : t(lang, "Parti anda kalah tetapi anda menang kerusi. Peruntukan kecil — bina kawasan dengan bijak dan bina tekanan politik.", "Your party lost but you won your seat. Small allocation — build carefully and apply political pressure.")}
-                        </p>
-                        <div className="mt-2 flex flex-col gap-1 text-[10px] font-bold tracking-wider sm:flex-row sm:gap-4">
-                          <span style={{ color: "var(--gold)" }}>{t(lang, "Peruntukan awal", "Opening allocation")}: RM {formatNumber(REP_OPENING_ALLOCATION[option])}</span>
-                          <span style={{ color: "var(--cyan)" }}>{t(lang, "Geran/suku", "Grant/quarter")}: RM {formatNumber(REP_QUARTER_GRANT[option])}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  <button type="button" onClick={() => setAvatarIndex((avatarIndex + 1) % AVATARS.length)} aria-label={t(lang, "Avatar seterusnya", "Next avatar")}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border text-lg text-cyan active:scale-90" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.4)" }}>›</button>
                 </div>
-              </TacticalPanel>
-            </div>
-          )}
-
-          {/* Step 2: Campaign Settings */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <TacticalPanel title={t(lang, "setup_page.ideologyPositioning")}>
-                <div className="space-y-6">
-                  <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 px-3 py-3">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.economicPolicy")}</span>
-                      <span className="min-w-9 rounded-sm border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-right text-[12px] text-cyan font-bold">{economicIdeology}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={economicIdeology}
-                      onChange={(e) => setEconomicIdeology(Number(e.target.value))}
-                      className="w-full h-2 appearance-none cursor-pointer rounded-full"
-                      style={{
-                        accentColor: "var(--cyan)",
-                        background: `linear-gradient(to right, var(--neon-green) 0%, #c7d12e ${economicIdeology}%, var(--bar-empty) ${economicIdeology}%, var(--bar-empty) 100%)`,
-                        boxShadow: "0 0 12px rgb(var(--neon-green-rgb,21 128 61) / 0.16)",
-                      }}
-                    />
-                    <div className="mt-2 flex items-center justify-between text-[11px] tracking-wider">
-                      <span className="text-neon-green">{t(lang, "setup_page.progressive")}</span>
-                      <span className="text-warn-orange">{t(lang, "setup_page.conservative")}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 px-3 py-3">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.socialStance")}</span>
-                      <span className="min-w-9 rounded-sm border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-right text-[12px] text-cyan font-bold">{socialIdeology}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={socialIdeology}
-                      onChange={(e) => setSocialIdeology(Number(e.target.value))}
-                      className="w-full h-2 appearance-none cursor-pointer rounded-full"
-                      style={{
-                        accentColor: "var(--cyan)",
-                        background: `linear-gradient(to right, var(--neon-green) 0%, #c7d12e ${socialIdeology}%, var(--bar-empty) ${socialIdeology}%, var(--bar-empty) 100%)`,
-                        boxShadow: "0 0 12px rgb(var(--neon-green-rgb,21 128 61) / 0.16)",
-                      }}
-                    />
-                    <div className="mt-2 flex items-center justify-between text-[11px] tracking-wider">
-                      <span className="text-neon-green">{t(lang, "setup_page.progressive")}</span>
-                      <span className="text-warn-orange">{t(lang, "setup_page.traditional")}</span>
-                    </div>
-                  </div>
+                <div className="text-[10px] font-black tracking-[0.18em] text-gold">{t(lang, `setup_page.avatar_${avatarIndex}`)}</div>
+                <div className="flex gap-1.5" aria-label={t(lang, "setup_page.chooseAvatar")}>
+                  {AVATARS.map((avatar, i) => (
+                    <button key={avatar.src} type="button" onClick={() => setAvatarIndex(i)} aria-label={t(lang, "setup_page.select", { avatarName: t(lang, `setup_page.avatar_${i}`) })} aria-pressed={avatarIndex === i}
+                      className="h-2.5 rounded-full transition-all" style={{ width: avatarIndex === i ? 22 : 10, background: avatarIndex === i ? "var(--gold)" : "var(--bar-empty)" }} />
+                  ))}
                 </div>
-              </TacticalPanel>
+              </div>
 
-              <TacticalPanel title={t(lang, "setup_page.partyDescription")}>
-                <textarea
-                  value={partyDesc}
-                  onChange={(e) => setPartyDesc(e.target.value)}
-                  placeholder={t(lang, "setup_page.describeYourPartySCoreMission")}
-                  rows={4}
-                  className="w-full resize-none text-[13px]"
-                />
-              </TacticalPanel>
-
-              <TacticalPanel title={t(lang, "setup_page.electionModePruPrn")}>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { id: "prn" as const, state: "unlocked" as const },
-                    { id: "pru" as const, state: premiumLoading ? "checking" as const : hasPremium ? "unlocked" as const : "locked" as const },
-                  ].map((mode) => {
-                    const active = electionScope === mode.id;
-                    const interactive = mode.state === "unlocked";
-                    return (
-                      <button
-                        key={mode.id}
-                        onClick={() => { if (interactive) setElectionScope(mode.id); }}
-                        disabled={!interactive}
-                        className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
-                        style={{
-                          border: `1px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`,
-                          background: active ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.025)",
-                          boxShadow: active ? "0 0 16px rgb(var(--gold-rgb) / 0.18)" : "none",
-                          opacity: mode.state === "locked" ? 0.55 : mode.state === "checking" ? 0.75 : 1,
-                        }}
-                      >
-                        {mode.state === "locked" && (
-                          <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
-                            🔒 {t(lang, "setup_page.premium")}
-                          </span>
-                        )}
-                        {mode.id === "prn" && mode.state === "unlocked" && (
-                          <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
-                            ✓ {t(lang, "setup_page.unlocked")}
-                          </span>
-                        )}
-                        <div className="text-[13px] font-black tracking-widest" style={{ color: active ? "var(--gold)" : "var(--cyan)" }}>{t(lang, `setup_page.mode_${mode.id}_title`)}</div>
-                        <div className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(lang, `setup_page.mode_${mode.id}_sub`)}</div>
-                      </button>
-                    );
-                  })}
+              <div className="min-w-0 flex-1 space-y-4">
+                <div>
+                  <Label icon="✏️">{t(lang, "setup_page.name")}</Label>
+                  <input type="text" value={leaderName} onChange={(e) => setLeaderName(e.target.value.toUpperCase())}
+                    className="w-full rounded-md text-[16px] font-black uppercase tracking-wider" placeholder={t(lang, "NAMA ANDA", "YOUR NAME")} aria-label={t(lang, "setup_page.name")} />
                 </div>
-                {!premiumLoading && !hasPremium && (
-                  <div className="mt-3 flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
-                    <div className="text-[11px] leading-relaxed text-text-muted">
-                      {t(lang, "PRU nasional dan kempen pelbagai negeri dibuka dengan Premium. Akaun Free bermula dengan satu PRN di negeri pilihan anda.", "National PRU and multi-state campaigns unlock with Premium. Free accounts begin with one PRN in their selected state.")}
-                    </div>
-                    <UpgradeButton
-                      priceId={PREMIUM_PRICE_IDS.premiumMonthly}
-                      mode="subscription"
-                      label={t(lang, "BUKA PRU DENGAN PREMIUM", "UNLOCK PRU WITH PREMIUM")}
-                    />
-                  </div>
-                )}
-                {electionScope === "prn" && (
-                  <div className="mt-4 space-y-4">
-                    <div className="rounded-sm border border-cyan/15 bg-[var(--bg)]/45 p-3">
-                      <div className="mb-2 text-[11px] font-bold tracking-widest text-text-muted">{t(lang, "setup_page.selectPrnState")}</div>
-                      <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full text-[13px]">
-                        {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} kerusi</option>)}
-                      </select>
-                      <div className="mt-2 text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>{t(lang, "setup_page.prnModeWillSpotlightThisNegeri")}</div>
-                    </div>
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-end justify-between gap-2"><div><div className="text-[11px] font-black tracking-[0.2em] text-gold">{t(lang, "WAJIB · CALON MB/KETUA MENTERI", "REQUIRED · MB/CHIEF MINISTER CANDIDATE")}</div><p className="mt-1 text-[11px] text-text-muted">{t(lang, "Pilih wajah kerajaan negeri. Kesesuaian demografi, saluran kempen dan gaya debat memberi kesan sebenar.", "Choose the face of the state government. Demographic fit, campaign channel and debate style have real effects.")}</p></div><span className="text-[10px] text-cyan">{prnStateData.name}</span></div>
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                        {PRN_CANDIDATES.map(candidate => {
-                          const active = prnCandidateId === candidate.id;
-                          const impact = prnCandidateStateImpact(candidate.id, prnStateData);
-                          return <button key={candidate.id} type="button" onClick={() => setPrnCandidateId(candidate.id)} className="p-3 text-left transition-transform hover:-translate-y-0.5" style={{ border: `1px solid ${active ? candidate.color : "rgb(var(--cyan-rgb)/0.18)"}`, background: active ? `${candidate.color}14` : "rgba(255,255,255,0.025)", boxShadow: active ? `0 0 18px ${candidate.color}22` : "none" }}>
-                            <div className="flex items-start justify-between gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-full border text-xs font-black" style={{ borderColor: candidate.color, color: candidate.color }}>{candidate.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</span><span className="text-[9px] font-black" style={{ color: impact >= 1 ? "var(--neon-green)" : impact >= .5 ? "var(--gold)" : "var(--warn-orange)" }}>{impact >= 0 ? "+" : ""}{impact.toFixed(2)}</span></div>
-                            <div className="mt-2 text-[12px] font-black text-white">{candidate.name}</div><div className="mt-0.5 text-[10px] font-bold" style={{ color: candidate.color }}>{candidate.archetype[lang]}</div>
-                            <p className="mt-2 text-[10px] leading-relaxed text-text-muted">{candidate.pitch[lang]}</p>
-                            <div className="mt-2 text-[9px] text-cyan">↑ {candidate.strength[lang]}</div><div className="mt-1 text-[9px] text-amber-300">↓ {candidate.risk[lang]}</div>
-                            <div className="mt-2 text-[9px] font-bold text-text-muted">{candidate.preferredChannel === "ceramah" ? t(lang, "CERAMAH", "RALLY") : t(lang, "MEDIA SOSIAL", "SOCIAL")} · {t(lang, "jentera", "organisation")} {candidate.organisationDelta >= 0 ? "+" : ""}{candidate.organisationDelta} · {t(lang, "kepercayaan", "trust")} {candidate.trustDelta >= 0 ? "+" : ""}{candidate.trustDelta}</div>
-                          </button>;
-                        })}
-                      </div>
-                      {!prnCandidateId && <p className="mt-2 text-[10px] font-bold text-amber-300">{t(lang, "Pilih seorang calon untuk meneruskan.", "Select one candidate to continue.")}</p>}
-                    </div>
-                  </div>
-                )}
-              </TacticalPanel>
-
-              {electionScope !== "prn" && (
-                <TacticalPanel title={t(lang, "setup_page.startingRegionFocus")}>
-                  <div className="flex gap-6 mt-2">
-                    {[
-                      { id: "peninsular", val: regionPeninsular, set: setRegionPeninsular },
-                      { id: "sabah", val: regionSabah, set: setRegionSabah },
-                      { id: "sarawak", val: regionSarawak, set: setRegionSarawak },
-                    ].map(({ id, val, set }) => (
-                      <label key={id} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={val}
-                          onChange={(e) => set(e.target.checked)}
-                          className="w-4 h-4"
-                          style={{ accentColor: "var(--cyan)" }}
-                        />
-                        <span className="text-[13px] text-text-muted tracking-wider">{t(lang, `setup_page.region_${id}`)}</span>
-                      </label>
+                <div>
+                  <Label icon="🚩" right={<span className="truncate text-[10px] font-bold" style={{ color: partyColor }}>{partyName}</span>}>{t(lang, "PARTI", "PARTY")}</Label>
+                  <div className="setup-chip-row flex flex-wrap gap-1.5">
+                    {currentDataset.parties.map((party) => (
+                      <Chip key={party.id} active={selectedPartyId === party.id} onClick={() => setSelectedPartyId(party.id)} color={party.color} title={party.name}>{party.abbreviation}</Chip>
                     ))}
                   </div>
-                </TacticalPanel>
-              )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label icon="🎖️">{t(lang, "setup_page.position")}</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {POSITIONS.map((p) => <Chip key={p.id} active={position === p.id} onClick={() => setPosition(p.id)}>{t(lang, `setup_page.position_${p.id}`)}</Chip>)}
+                    </div>
+                  </div>
+                  <div>
+                    <Label icon="⭐">{t(lang, "setup_page.experience")}</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {EXPERIENCE_OPTIONS.map((opt) => <Chip key={opt.id} active={experience === opt.id} onClick={() => setExperience(opt.id)}>{t(lang, `setup_page.experience_${opt.id}`)}</Chip>)}
+                    </div>
+                  </div>
+                </div>
+                <More label={`${t(lang, "ATRIBUT", "ATTRIBUTES")} · ${t(lang, "setup_page.ptsRemaining", { pointsRemaining })}`}>
+                  {attributes.map(({ id, val, set, color }) => (
+                    <Slider key={id} label={t(lang, `setup_page.attr_${id}`)} value={val} min={1} max={100} color={color} onChange={(v) => handleAttributeChange(v, val, set)} />
+                  ))}
+                </More>
+              </div>
             </div>
           )}
 
-          {/* Step 4: Difficulty */}
+          {/* Step 2: election mode */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { id: "pru" as const, icon: "🇲🇾", title: "PRU", sub: t(lang, "Seluruh negara · Parlimen", "Nationwide · Parliament"), state: premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked" },
+                  { id: "prn" as const, icon: "🏛️", title: "PRN", sub: t(lang, "Satu negeri · DUN", "One state · DUN"), state: "unlocked" },
+                ]).map((mode) => (
+                  <Tile key={mode.id} active={electionScope === mode.id} disabled={mode.state !== "unlocked"} onClick={() => setElectionScope(mode.id)} className="items-center p-4 text-center"
+                    badge={mode.state === "locked" ? { text: `🔒 ${t(lang, "setup_page.premium")}`, color: "var(--gold)" } : undefined}>
+                    <span className="setup-tile-icon text-[36px] leading-none">{mode.icon}</span>
+                    <span className="mt-2 w-full text-center text-[20px] font-black tracking-[0.2em]" style={{ color: electionScope === mode.id ? "var(--gold)" : "var(--cyan)" }}>{mode.title}</span>
+                    <span className="mt-0.5 w-full text-center text-[11px] text-text-muted">{mode.sub}</span>
+                  </Tile>
+                ))}
+              </div>
+              {!premiumLoading && !hasPremium && (
+                <LockedNote text={t(lang, "PRU dibuka dengan Premium", "PRU unlocks with Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
+              )}
+
+              {electionScope === "prn" && (
+                <>
+                  <div>
+                    <Label icon="📍">{t(lang, "NEGERI", "STATE")}</Label>
+                    <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full rounded-md text-[14px] font-bold" aria-label={t(lang, "setup_page.selectPrnState")}>
+                      {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} DUN</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <Label icon="👔" right={!prnCandidateId ? <span className="text-[10px] font-black text-amber-300">{t(lang, "WAJIB PILIH", "REQUIRED")}</span> : undefined}>{t(lang, "CALON MB", "MB CANDIDATE")}</Label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                      {PRN_CANDIDATES.map((candidate) => {
+                        const active = prnCandidateId === candidate.id;
+                        const impact = prnCandidateStateImpact(candidate.id, prnStateData);
+                        const fit = impact >= 1 ? { c: "var(--neon-green)", w: t(lang, "SESUAI", "STRONG FIT") } : impact >= 0.5 ? { c: "var(--gold)", w: t(lang, "OK", "OK") } : { c: "var(--warn-orange)", w: t(lang, "LEMAH", "WEAK") };
+                        return (
+                          <Tile key={candidate.id} active={active} onClick={() => setPrnCandidateId(candidate.id)} accent={candidate.color} badge={{ text: fit.w, color: fit.c }}>
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 text-[13px] font-black" style={{ borderColor: candidate.color, color: candidate.color }}>
+                              {candidate.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}
+                            </span>
+                            <span className="mt-2 w-full truncate text-[12px] font-black text-white">{candidate.name}</span>
+                            <span className="w-full truncate text-[10px] font-bold" style={{ color: candidate.color }}>{candidate.archetype[lang]}</span>
+                            {active && <span className="mt-1.5 text-[10px] leading-snug text-cyan">↑ {candidate.strength[lang]}</span>}
+                          </Tile>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <More label={t(lang, "IDEOLOGI & MANIFESTO", "IDEOLOGY & MANIFESTO")}>
+                <Slider label={t(lang, "setup_page.economicPolicy")} value={economicIdeology} onChange={setEconomicIdeology} left={t(lang, "setup_page.progressive")} right={t(lang, "setup_page.conservative")} />
+                <Slider label={t(lang, "setup_page.socialStance")} value={socialIdeology} onChange={setSocialIdeology} left={t(lang, "setup_page.progressive")} right={t(lang, "setup_page.traditional")} />
+                <textarea value={partyDesc} onChange={(e) => setPartyDesc(e.target.value)} placeholder={t(lang, "Manifesto ringkas (pilihan)…", "Short manifesto (optional)…")} rows={2} className="w-full resize-none rounded-md text-[13px]" aria-label={t(lang, "setup_page.partyDescription")} />
+                {electionScope !== "prn" && (
+                  <div>
+                    <div className="mb-1.5 text-[11px] font-bold tracking-wider text-text-muted">{t(lang, "setup_page.startingRegionFocus")}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { id: "peninsular", val: regionPeninsular, set: setRegionPeninsular },
+                        { id: "sabah", val: regionSabah, set: setRegionSabah },
+                        { id: "sarawak", val: regionSarawak, set: setRegionSarawak },
+                      ].map(({ id, val, set }) => <Chip key={id} active={val} onClick={() => set(!val)} color="var(--cyan)">{t(lang, `setup_page.region_${id}`)}</Chip>)}
+                    </div>
+                  </div>
+                )}
+              </More>
+            </div>
+          )}
+
+          {/* Step 3: seat + bench */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <Label icon="📍" right={<span className="text-[10px] font-black text-cyan">{electionScope === "prn" ? `DUN · ${prnStateData.name}` : t(lang, "PARLIMEN", "PARLIAMENT")}</span>}>
+                  {electionScope === "prn" ? t(lang, "NEGERI PRN", "PRN STATE") : t(lang, "NEGERI", "STATE")}
+                </Label>
+                {electionScope === "prn" ? (
+                  <div className="rounded-md border px-3 py-2 text-[14px] font-black text-white" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.25)" }}>{prnStateData.name}</div>
+                ) : (
+                  <select value={homeState} onChange={(e) => setHomeState(e.target.value)} className="w-full rounded-md text-[14px] font-bold" aria-label={t(lang, "setup_page.homeState")}>
+                    {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
+              </div>
+              <div>
+                <Label icon="🗺️" right={<span className="text-[10px] text-text-muted">{homeConstituencies.length} {t(lang, "kerusi", "seats")}</span>}>{t(lang, "KERUSI", "SEAT")}</Label>
+                <div className="setup-seat-grid grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" style={{ maxHeight: "260px", overflowY: "auto" }}>
+                  {homeConstituencies.map((c) => {
+                    const active = contestConstituencyId === c.id;
+                    return (
+                      <button key={c.id} type="button" onClick={() => setContestConstituencyId(c.id)} aria-pressed={active}
+                        className="rounded-md p-2.5 text-left transition-all active:scale-[.97]"
+                        style={{ border: `1.5px solid ${active ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.14)"}`, background: active ? "rgb(var(--gold-rgb) / 0.1)" : "rgba(255,255,255,0.02)" }}>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate text-[12px] font-black" style={{ color: active ? "var(--gold)" : "var(--text-primary)" }}>{c.name}</span>
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: safetyColor(c.safety) }} aria-label={t(lang, c.safety === "safe" ? "setup_page.safetySafe" : c.safety === "marginal" ? "setup_page.safetyMarginal" : "setup_page.safetyDanger")} />
+                        </div>
+                        <div className="mt-0.5 flex items-center justify-between text-[10px]">
+                          <span className="text-text-muted">{c.code}</span>
+                          <span className="font-bold text-cyan">{c.mandat}%</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-1.5 flex gap-3 text-[9px] font-bold tracking-wider text-text-muted">
+                  <span><span style={{ color: "var(--neon-green)" }}>●</span> {t(lang, "setup_page.safetySafe")}</span>
+                  <span><span style={{ color: "var(--gold)" }}>●</span> {t(lang, "setup_page.safetyMarginal")}</span>
+                  <span><span style={{ color: "var(--neon-red)" }}>●</span> {t(lang, "setup_page.safetyDanger")}</span>
+                  <span className="ml-auto">% = {t(lang, "sokongan", "support")}</span>
+                </div>
+              </div>
+              <div>
+                <Label icon="🪑">{t(lang, "PIHAK ANDA", "YOUR BENCH")}</Label>
+                <div role="radiogroup" aria-label={t(lang, "Pihak", "Side")} className="grid grid-cols-2 gap-3">
+                  {STARTING_SIDES.map((option) => {
+                    const government = option === "government";
+                    return (
+                      <Tile key={option} active={side === option} onClick={() => setSide(option)} accent={government ? "var(--gold)" : "var(--cyan)"} className="items-center text-center">
+                        <span className="setup-tile-icon text-[30px] leading-none">{government ? "🏛️" : "⚖️"}</span>
+                        <span className="mt-1.5 w-full text-center text-[13px] font-black tracking-wider text-white">{government ? t(lang, "KERAJAAN", "GOVERNMENT") : t(lang, "PEMBANGKANG", "OPPOSITION")}</span>
+                        <span className="mt-1 w-full text-center text-[10px] font-bold text-gold">💰 RM {formatNumber(REP_OPENING_ALLOCATION[option])}</span>
+                        <span className="w-full text-center text-[10px] text-text-muted">+RM {formatNumber(REP_QUARTER_GRANT[option])} / {t(lang, "suku", "quarter")}</span>
+                      </Tile>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: challenge */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {DIFFICULTIES.map((d) => {
                   const isNightmare = d.id === "nightmare";
                   const state = !isNightmare ? "unlocked" : premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked";
-                  const interactive = state === "unlocked";
                   return (
-                    <button
-                      key={d.id}
-                      onClick={() => { if (interactive) handleDifficultySelect(d); }}
-                      disabled={!interactive}
-                      className="relative p-4 text-left transition-all disabled:cursor-not-allowed"
-                      style={{
-                        background: difficulty === d.id ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)",
-                        border: difficulty === d.id ? "1px solid var(--gold)" : "1px solid var(--bar-empty)",
-                        boxShadow: difficulty === d.id ? "0 0 12px rgb(var(--gold-rgb) / 0.2)" : "none",
-                        opacity: state === "locked" ? 0.55 : state === "checking" ? 0.75 : 1,
-                      }}
-                    >
-                      {state === "locked" && (
-                        <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--gold)" }}>
-                          🔒 {t(lang, "setup_page.premium")}
-                        </span>
-                      )}
-                      {isNightmare && state === "unlocked" && (
-                        <span className="absolute right-3 top-3 text-[9px] font-black tracking-widest" style={{ color: "var(--neon-green)" }}>
-                          ✓ {t(lang, "setup_page.unlocked")}
-                        </span>
-                      )}
-                      <div
-                        className="text-sm font-bold tracking-widest mb-2"
-                        style={{ color: difficulty === d.id ? "var(--gold)" : "var(--text-primary)" }}
-                      >
-                        {t(lang, `setup_page.difficulty_${d.id}_label`)}
-                      </div>
-                      <div className="text-[12px] text-text-muted mb-3 leading-relaxed">{t(lang, `setup_page.difficulty_${d.id}_desc`)}</div>
-                      <div className="space-y-1.5">
-                        <div>
-                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "setup_page.oppositionStr")}</div>
-                          <StatBar label="" value={d.opp} color="var(--neon-red)" animate={false} size="sm" />
-                        </div>
-                        <div>
-                          <div className="text-[11px] text-text-muted mb-0.5">{t(lang, "setup_page.mediaChallenge")}</div>
-                          <StatBar label="" value={d.media} color="var(--warn-orange)" animate={false} size="sm" />
-                        </div>
-                      </div>
-                    </button>
+                    <Tile key={d.id} active={difficulty === d.id} disabled={state !== "unlocked"} onClick={() => handleDifficultySelect(d)} accent={isNightmare ? "var(--neon-red)" : "var(--gold)"} className="items-center text-center"
+                      badge={state === "locked" ? { text: "🔒", color: "var(--gold)" } : undefined}>
+                      <span className="setup-tile-icon text-[30px] leading-none">{DIFFICULTY_ICON[d.id]}</span>
+                      <span className="mt-1.5 w-full text-center text-[12px] font-black tracking-wider text-white">{t(lang, `setup_page.difficulty_${d.id}_label`)}</span>
+                      <span className="mt-2 flex w-full items-center gap-1.5 text-[9px] text-text-muted" title={t(lang, "setup_page.oppositionStr")}>⚔️
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bar-empty)]"><span className="block h-full rounded-full" style={{ width: `${d.opp}%`, background: "var(--neon-red)" }} /></span>
+                      </span>
+                      <span className="mt-1 flex w-full items-center gap-1.5 text-[9px] text-text-muted" title={t(lang, "setup_page.mediaChallenge")}>📰
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bar-empty)]"><span className="block h-full rounded-full" style={{ width: `${d.media}%`, background: "var(--warn-orange)" }} /></span>
+                      </span>
+                    </Tile>
                   );
                 })}
               </div>
               {!premiumLoading && !hasPremium && (
-                <div className="flex items-center justify-between gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb) / 0.3)", background: "rgb(var(--gold-rgb) / 0.05)" }}>
-                  <div className="text-[11px] leading-relaxed text-text-muted">
-                    {t(lang, "setup_page.nightmareDifficultyIsAPremiumFeature")}
-                  </div>
-                  <UpgradeButton
-                    priceId={PREMIUM_PRICE_IDS.premiumMonthly}
-                    mode="subscription"
-                    label={t(lang, "setup_page.getPremium")}
-                  />
-                </div>
+                <LockedNote text={t(lang, "Mimpi Ngeri = Premium", "Nightmare = Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
               )}
-
-              <TacticalPanel title={t(lang, "KELAJUAN PERMAINAN", "GAME SPEED")}>
-                <p className="mb-3 text-[11px] leading-relaxed text-text-muted">{t(lang, "Masa penggal berjalan sendiri dan boleh dijeda bila-bila masa. Pilih berapa lama masa berlalu setiap saat — boleh ditukar semasa bermain.", "Term time runs on its own and can be paused any time. Choose how much time passes per second — changeable during play.")}</p>
-                <div role="radiogroup" aria-label={t(lang, "Kelajuan permainan", "Game speed")} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div>
+                <Label icon="⏩">{t(lang, "KELAJUAN", "SPEED")}</Label>
+                <div role="radiogroup" aria-label={t(lang, "Kelajuan permainan", "Game speed")} className="grid grid-cols-4 gap-2">
                   {GAME_SPEEDS.map((option) => (
                     <button key={option} type="button" role="radio" aria-checked={gameSpeed === option} onClick={() => setGameSpeed(option)}
-                      className="p-3 text-left transition-all"
-                      style={{ border: `1px solid ${gameSpeed === option ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.18)"}`, background: gameSpeed === option ? "rgb(var(--gold-rgb) / 0.08)" : "rgba(255,255,255,0.02)" }}>
-                      <div className="text-[12px] font-bold tracking-wider" style={{ color: gameSpeed === option ? "var(--gold)" : "var(--text-primary)" }}>{SPEED_LABEL[option][lang].toUpperCase()}</div>
-                      <div className="mt-1 text-[10px] text-text-muted">{t(lang, `${SPEED_DAYS[option]} hari / saat`, `${SPEED_DAYS[option]} day${SPEED_DAYS[option] > 1 ? "s" : ""} / second`)}</div>
+                      className="rounded-md px-1 py-2 text-center transition-all active:scale-95"
+                      style={{ border: `1.5px solid ${gameSpeed === option ? "var(--gold)" : "rgb(var(--cyan-rgb) / 0.16)"}`, background: gameSpeed === option ? "rgb(var(--gold-rgb) / 0.1)" : "rgba(255,255,255,0.02)" }}>
+                      <div className="truncate text-[11px] font-black" style={{ color: gameSpeed === option ? "var(--gold)" : "var(--text-primary)" }}>{SPEED_LABEL[option][lang].toUpperCase()}</div>
+                      <div className="text-[9px] text-text-muted">{t(lang, `${SPEED_DAYS[option]} hari/s`, `${SPEED_DAYS[option]} d/s`)}</div>
                     </button>
                   ))}
                 </div>
-              </TacticalPanel>
-
-              <TacticalPanel title={t(lang, "setup_page.fineTuning")}>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.oppositionStrength")}</span>
-                      <span className="text-[12px] text-neon-red font-bold">{oppStrength}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={20}
-                      max={99}
-                      value={oppStrength}
-                      onChange={(e) => setOppStrength(Number(e.target.value))}
-                      className="range-red w-full h-2 appearance-none cursor-pointer rounded-full"
-                      style={{
-                        accentColor: "var(--neon-red)",
-                        background: `linear-gradient(to right, var(--neon-red) 0%, var(--neon-red) ${oppSliderPct}%, var(--bar-empty) ${oppSliderPct}%, var(--bar-empty) 100%)`,
-                        boxShadow: "0 0 14px rgb(255 68 68 / 0.22)",
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="text-[12px] text-text-muted tracking-wider mb-2">{t(lang, "setup_page.mediaBias")}</div>
-                    <div className="flex gap-2">
-                      {MEDIA_OPTIONS.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => setMediaBias(m.id)}
-                          className="flex-1 py-1.5 text-[12px] tracking-wider transition-all"
-                          style={{
-                            background: mediaBias === m.id ? (m.id === "PRO-MANDAT" ? "rgb(var(--neon-green-rgb,21 128 61) / 0.15)" : m.id === "HOSTILE" ? "rgb(255 68 68 / 0.15)" : "rgb(var(--cyan-rgb) / 0.15)") : "transparent",
-                            color: mediaBias === m.id ? (m.id === "PRO-MANDAT" ? "var(--neon-green)" : m.id === "HOSTILE" ? "var(--neon-red)" : "var(--cyan)") : "var(--text-muted)",
-                            border: "1px solid",
-                            borderColor: mediaBias === m.id ? (m.id === "PRO-MANDAT" ? "var(--neon-green)" : m.id === "HOSTILE" ? "var(--neon-red)" : "var(--cyan)") : "var(--bar-empty)",
-                          }}
-                        >
-                          {t(lang, `setup_page.media_${m.id}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2">
-                    <Toggle value={eventRandomness} onChange={setEventRandomness} label={t(lang, "setup_page.eventRandomness")} />
-                    <Toggle value={permanentConsequences} onChange={setPermanentConsequences} label={t(lang, "setup_page.permanentConsequences")} />
+              </div>
+              <More label={t(lang, "PENALAAN HALUS", "FINE TUNING")}>
+                <Slider label={t(lang, "setup_page.oppositionStrength")} value={oppStrength} min={20} max={99} onChange={setOppStrength} color="var(--neon-red)" />
+                <div>
+                  <div className="mb-1.5 text-[11px] font-bold tracking-wider text-text-muted">{t(lang, "setup_page.mediaBias")}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MEDIA_OPTIONS.map((m) => (
+                      <Chip key={m.id} active={mediaBias === m.id} onClick={() => setMediaBias(m.id)} color={m.id === "PRO-MANDAT" ? "var(--neon-green)" : m.id === "HOSTILE" ? "var(--neon-red)" : "var(--cyan)"}>{t(lang, `setup_page.media_${m.id}`)}</Chip>
+                    ))}
                   </div>
                 </div>
-              </TacticalPanel>
+                <div className="flex flex-wrap gap-x-8 gap-y-3">
+                  <Toggle value={eventRandomness} onChange={setEventRandomness} label={t(lang, "setup_page.eventRandomness")} />
+                  <Toggle value={permanentConsequences} onChange={setPermanentConsequences} label={t(lang, "setup_page.permanentConsequences")} />
+                </div>
+              </More>
             </div>
           )}
 
-          {/* Step 5: Confirm */}
+          {/* Step 5: confirm — one player card and a big start button */}
           {step === 5 && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <TacticalPanel title={t(lang, "setup_page.leaderProfile")}>
-                  <div className="space-y-2">
-                    <div className="flex justify-center mb-3">
-                      <div style={{ position: "relative", width: "80px", height: "80px", border: "2px solid var(--cyan)", overflow: "hidden", background: "var(--bg)" }}>
-                        <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} fill sizes="80px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
-                      </div>
-                    </div>
-                    <SummaryRow label={t(lang, "setup_page.name")} value={leaderName} />
-                    <SummaryRow label={t(lang, "setup_page.position")} value={t(lang, `setup_page.position_${position}`)} />
-                    <SummaryRow label={t(lang, "setup_page.experience")} value={t(lang, `setup_page.experience_${experience}`)} />
-                    <SummaryRow label={t(lang, "setup_page.homeState")} value={states.find((s) => s.id === homeState)?.name || homeState} />
-                    <SummaryRow label={t(lang, "setup_page.contestingSeat")} value={contestConstituency ? `${contestConstituency.name} (${contestConstituency.code})` : "—"} />
-                    <SummaryRow label={t(lang, "Pihak", "Side")} value={side === "government" ? t(lang, "Kerajaan", "Government") : t(lang, "Pembangkang", "Opposition")} />
-                  </div>
-                </TacticalPanel>
-
-                <TacticalPanel title={t(lang, "setup_page.partyIdentity")}>
-                  <div className="space-y-2">
-                    <div
-                      className="flex items-center justify-center h-12 text-2xl font-bold mb-3"
-                      style={{ background: "var(--bg)", border: `2px solid ${partyColor}`, color: partyColor }}
-                    >
-                      {partyAbbr[0] || "M"}
-                    </div>
-                    <SummaryRow label={t(lang, "setup_page.name")} value={partyName} />
-                    <SummaryRow label={t(lang, "setup_page.abbr")} value={partyAbbr} />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-text-muted tracking-wider">{t(lang, "setup_page.color")}</span>
-                      <div className="w-5 h-5" style={{ background: partyColor }} />
-                    </div>
-                  </div>
-                </TacticalPanel>
-
-                <TacticalPanel title={t(lang, "setup_page.gameSettings")}>
-                  <div className="space-y-2">
-                    <SummaryRow label={t(lang, "setup_page.dataMode")} value={t(lang, selectedDataset === "real-malaysia" ? "setup_page.dataModeReal" : "setup_page.dataModeFictional")} />
-                    <SummaryRow label={t(lang, "setup_page.electionMode")} value={electionScope === "prn" ? `PRN · ${states.find((s) => s.id === prnStateId)?.name ?? prnStateId}` : t(lang, "setup_page.pruNational")} />
-                    {electionScope === "prn" && <SummaryRow label={t(lang, "Calon MB/KM", "MB/CM candidate")} value={getPrnCandidate(prnCandidateId)?.name ?? "—"} />}
-                    <SummaryRow label={t(lang, "setup_page.difficulty")} value={t(lang, `setup_page.difficulty_${difficulty}_label`)} />
-                    <SummaryRow label={t(lang, "Kelajuan", "Speed")} value={SPEED_LABEL[gameSpeed][lang]} />
-                    <SummaryRow label={t(lang, "setup_page.oppStrength")} value={`${oppStrength}%`} />
-                    <SummaryRow label={t(lang, "setup_page.mediaBias")} value={t(lang, `setup_page.media_${mediaBias}`)} />
-                    <SummaryRow label={t(lang, "setup_page.randomness")} value={t(lang, eventRandomness ? "setup_page.toggleOn" : "setup_page.toggleOff")} />
-                    <SummaryRow label={t(lang, "setup_page.permEffects")} value={t(lang, permanentConsequences ? "setup_page.toggleOn" : "setup_page.toggleOff")} />
-                  </div>
-                </TacticalPanel>
-              </div>
-
-              <TacticalPanel title={t(lang, "setup_page.attributeSummary")}>
-                <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
-                  {[
-                    { id: "influence", val: influence, color: "var(--cyan)" },
-                    { id: "charisma", val: charisma, color: "var(--gold)" },
-                    { id: "credibility", val: credibility, color: "var(--neon-green)" },
-                    { id: "negotiation", val: negotiation, color: "var(--warn-orange)" },
-                    { id: "strategy", val: strategy, color: "#8b5cf6" },
-                  ].map(({ id, val, color }) => (
-                    <div key={id} className="text-center">
-                      <div className="text-2xl font-bold" style={{ color }}>{val}</div>
-                      <div className="text-[11px] text-text-muted mt-1">{t(lang, `setup_page.attr_${id}`)}</div>
-                    </div>
-                  ))}
+              <div className="setup-card flex gap-4 rounded-lg border p-4" style={{ borderColor: partyColor, background: `linear-gradient(135deg, color-mix(in srgb, ${partyColor} 13%, transparent), rgb(var(--bg-rgb) / 0.7))`, boxShadow: `0 0 26px color-mix(in srgb, ${partyColor} 15%, transparent)` }}>
+                <div className="relative h-[150px] w-[100px] shrink-0 overflow-hidden rounded-md" style={{ border: `1.5px solid ${partyColor}` }}>
+                  <Image src={AVATARS[avatarIndex].src} alt={t(lang, "setup_page.avatar3")} fill sizes="100px" style={{ objectFit: "contain", objectPosition: "center bottom" }} />
                 </div>
-              </TacticalPanel>
-
-              <button
-                onClick={handleLaunch}
-                disabled={isLaunching}
-                className="w-full py-4 text-sm font-bold tracking-[0.2em] uppercase transition-all disabled:opacity-60 disabled:cursor-wait"
-                style={{
-                  background: "var(--gold)",
-                  color: "#000000",
-                  fontFamily: "Space Mono, monospace",
-                  boxShadow: "0 0 20px rgb(var(--gold-rgb) / 0.4)",
-                }}
-              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[20px] font-black tracking-wide text-white">{leaderName || "—"}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+                    <span className="rounded-full px-2 py-0.5 text-black" style={{ background: partyColor }}>{partyAbbr}</span>
+                    <span className="text-text-muted">{t(lang, `setup_page.position_${position}`)} · {t(lang, `setup_page.experience_${experience}`)}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-3">
+                    {[
+                      { icon: "📍", v: contestConstituency ? `${contestConstituency.code} ${contestConstituency.name}` : "—" },
+                      { icon: "🗳️", v: electionScope === "prn" ? `PRN · ${prnStateData.name}` : t(lang, "PRU · Kebangsaan", "PRU · National") },
+                      { icon: side === "government" ? "🏛️" : "⚖️", v: side === "government" ? t(lang, "Kerajaan", "Government") : t(lang, "Pembangkang", "Opposition") },
+                      { icon: DIFFICULTY_ICON[difficulty], v: t(lang, `setup_page.difficulty_${difficulty}_label`) },
+                      { icon: "⏩", v: SPEED_LABEL[gameSpeed][lang] },
+                      ...(electionScope === "prn" ? [{ icon: "👔", v: getPrnCandidate(prnCandidateId)?.name ?? "—" }] : []),
+                    ].map((row, i) => (
+                      <div key={i} className="flex min-w-0 items-center gap-1.5 rounded border px-2 py-1" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)" }}>
+                        <span aria-hidden>{row.icon}</span><span className="truncate font-bold text-white">{row.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex gap-3">
+                    {attributes.map(({ id, val, color }) => (
+                      <div key={id} className="text-center" title={t(lang, `setup_page.attr_${id}`)}>
+                        <div className="text-[15px] font-black" style={{ color }}>{val}</div>
+                        <div className="text-[8px] tracking-wider text-text-muted">{t(lang, `setup_page.attr_${id}`).slice(0, 4)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <button onClick={handleLaunch} disabled={isLaunching}
+                className="w-full rounded-md py-4 text-[15px] font-black tracking-[0.2em] uppercase transition-all active:scale-[.98] disabled:opacity-60 disabled:cursor-wait"
+                style={{ background: "var(--gold)", color: "#000000", fontFamily: "Space Mono, monospace", boxShadow: "0 0 24px rgb(var(--gold-rgb) / 0.45)" }}>
                 {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launchCampaign")}
               </button>
             </div>
           )}
-
         </div>
       </main>
       {/* Navigation — fixed above HUD so bottom controls are never hidden by the status/music overlays.
@@ -1191,33 +770,25 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             disabled={step === 0}
-            className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:opacity-30 sm:px-6 sm:text-[13px] sm:tracking-widest"
-            style={{
-              border: "1px solid var(--gold)",
-              color: "var(--gold)",
-              background: "transparent",
-              fontFamily: "Space Mono, monospace",
-              cursor: step === 0 ? "not-allowed" : "pointer",
-            }}
+            className="whitespace-nowrap rounded-md px-4 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-30"
+            style={{ border: "1px solid var(--gold)", color: "var(--gold)", background: "transparent", fontFamily: "Space Mono, monospace", cursor: step === 0 ? "not-allowed" : "pointer" }}
           >
             {t(lang, "setup_page.back")}
           </button>
 
-          <div className="whitespace-nowrap text-[11px] text-text-muted tracking-wider sm:text-[12px]">
-            <span className="sm:hidden">{step + 1}/6</span>
-            <span className="hidden sm:inline">{t(lang, "setup_page.step6", { step: step + 1 })}</span>
+          <div className="flex min-w-0 flex-col items-center gap-1">
+            <div className="flex gap-1">
+              {STEPS.map((s, i) => <span key={s.en} className="h-1.5 rounded-full transition-all" style={{ width: i === step ? 18 : 6, background: i <= step ? "var(--gold)" : "var(--bar-empty)" }} />)}
+            </div>
+            {nextHint && <span className="truncate text-[10px] font-bold text-amber-300">{nextHint}</span>}
           </div>
 
           {step < 5 ? (
             <button
               onClick={handleNext}
-              disabled={(step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId)}
-              className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40 sm:px-6 sm:text-[13px] sm:tracking-widest"
-              style={{
-                background: "var(--gold)",
-                color: "#000000",
-                fontFamily: "Space Mono, monospace",
-              }}
+              disabled={nextDisabled}
+              className="whitespace-nowrap rounded-md px-5 py-2 text-[12px] font-black tracking-wider uppercase transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: "var(--gold)", color: "#000000", fontFamily: "Space Mono, monospace" }}
             >
               {t(lang, "setup_page.next")}
             </button>
@@ -1225,13 +796,8 @@ export default function SetupPage() {
             <button
               onClick={handleLaunch}
               disabled={isLaunching}
-              className="whitespace-nowrap px-3 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-60 disabled:cursor-wait sm:px-6 sm:text-[13px] sm:tracking-widest"
-              style={{
-                background: "var(--gold)",
-                color: "#000000",
-                fontFamily: "Space Mono, monospace",
-                boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)",
-              }}
+              className="whitespace-nowrap rounded-md px-5 py-2 text-[12px] font-black tracking-wider uppercase transition-all disabled:opacity-60 disabled:cursor-wait"
+              style={{ background: "var(--gold)", color: "#000000", fontFamily: "Space Mono, monospace", boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)" }}
             >
               {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launch")}
             </button>
@@ -1243,11 +809,3 @@ export default function SetupPage() {
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-0.5 border-b border-white/5">
-      <span className="shrink-0 text-[12px] text-text-muted tracking-wider">{label}</span>
-      <span className="min-w-0 break-words text-right text-[12px] text-white font-bold">{value}</span>
-    </div>
-  );
-}
