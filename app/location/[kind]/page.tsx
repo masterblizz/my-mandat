@@ -17,7 +17,7 @@ import { POLICY_DATA } from "../../store/journey";
 // backdrop stays as the light fallback.
 const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
 // Locations that are Sims-style 3D buildings in the Godot world.
-const LOCATION_3D_SCENES: Record<string, "warroom" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration"> = { operations: "warroom", party: "party", media: "media", commission: "commission", calendar: "calendar", cabinet: "cabinet", administration: "administration" };
+const LOCATION_3D_SCENES: Record<string, "warroom" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration" | "national"> = { operations: "warroom", party: "party", media: "media", commission: "commission", calendar: "calendar", cabinet: "cabinet", administration: "administration", national: "national" };
 const engineKey = (kind: string) => (kind === "operations" ? "warroom-engine" : `${kind}-engine-3d`);
 const introKey = (kind: string) => (kind === "operations" ? "warroom-intro-day" : `${kind}-intro-day`);
 import { useLang, t } from "../../i18n/useLang";
@@ -1106,7 +1106,9 @@ export default function LocationPage() {
       status: state.status,
       active: !warScopePrn || state.id === warPrnState?.id,
     })),
-    seats: getTotalProjectedSeats(),
+    // PRN: the target negeri's own DUN projection (kept current by the
+    // journey store), not the 222-seat national total
+    seats: warScopePrn && warPrnState ? warPrnState.projectedSeats : getTotalProjectedSeats(),
     totalSeats: warTotalSeats,
     majority: Math.floor(warTotalSeats / 2) + 1,
     day,
@@ -1144,6 +1146,8 @@ export default function LocationPage() {
     else if (id === "poll" || id === "booth" || id === "board" || id === "transport" || id === "meeting" || id === "policy") setActivityOpen(true);
     else if (id === "lineup") router.push("/cabinet");
     else if (id === "kpi" || id === "crisis") router.push("/government");
+    else if (id === "map") router.push(scene.route);
+    else if (id === "compare") setActivityOpen(true);
   };
   useEffect(() => {
     if (!activityOpen) setActivityFeedback(null);

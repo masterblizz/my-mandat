@@ -15,6 +15,7 @@ every location; the page picks one with `?scene=`:
 | `calendar` | `/location/calendar` (30-day wall calendar, route map, transport) | `calendar.gd` |
 | `cabinet` | `/location/cabinet` (cabinet room with minister plaques, line-up) | `cabinet.gd` |
 | `administration` | `/location/administration` (policy board, KPI wall, crisis room) | `administration.gd` |
+| `national` | `/location/national` (3D map table, state comparison chart, policy briefing) | `national.gd` (extends `warroom.gd`) |
 
 `main.gd` is the base: rooms, textured floors, walls with Sims cutaway, a
 navmesh baked at start-up, the camera, click-to-walk, the walk-in intro and
@@ -55,6 +56,7 @@ godot --headless --path godot/world -- --scene=commission --selftest
 godot --headless --path godot/world -- --scene=calendar --selftest
 godot --headless --path godot/world -- --scene=cabinet --selftest
 godot --headless --path godot/world -- --scene=administration --selftest
+godot --headless --path godot/world -- --scene=national --selftest
 godot --headless --path godot/world --export-release Web ../../public/godot/world/index.html
 ```
 
