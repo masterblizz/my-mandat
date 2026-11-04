@@ -7,6 +7,7 @@ import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
 import CampaignBriefing from "./CampaignBriefing";
 import CityHubBar from "./CityHubBar";
+import CityPulseBar from "./CityPulseBar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
 import PersonalAssistant from "../components/assistant/PersonalAssistant";
@@ -3136,6 +3137,7 @@ export default function KawasanDevelopmentPage() {
               {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <CityHubBar onEnter={enterHubDestination} />
+              <CityPulseBar zones={zones} lang={lang} />
               {useGlMap && (
                 <button type="button" onClick={switchMapEngine}
                   className="city-tool city-tool--engine absolute z-[140]"

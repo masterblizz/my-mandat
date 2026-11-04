@@ -1875,3 +1875,71 @@ input[type="range"].range-red::-moz-range-thumb {
   /* with no dock rail, the floating PA sits bottom-right above the music button */
   .personal-assistant--floating { left: auto !important; right: max(12px, env(safe-area-inset-right, 0px)) !important; bottom: 30px !important; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   City-builder HUD layout for /kawasan: mood meters along the top, quick
+   tools in a left column, the destinations as a labelled tool bar at the
+   bottom, and the term/build bar as the status strip under it. Tiles are
+   translucent glass, not black boxes.
+   ───────────────────────────────────────────────────────────────────── */
+.city-pulse-bar {
+  position: absolute; z-index: 24; top: 0; left: 0; right: 0; display: flex; gap: 14px; align-items: center;
+  padding: 5px max(14px, env(safe-area-inset-right, 0px)) 5px max(14px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(180deg, rgb(var(--bg-rgb) / .72), rgb(var(--bg-rgb) / 0));
+  font-family: 'Space Mono', monospace;
+}
+.city-pulse-bar__item { display: flex; flex: 1; min-width: 0; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: .08em; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / .8); }
+.city-pulse-bar__icon { font-size: 13px; }
+.city-pulse-bar__label { white-space: nowrap; }
+.city-pulse-bar__track { position: relative; flex: 1; height: 6px; border-radius: 99px; background: rgb(255 255 255 / .22); overflow: hidden; }
+.city-pulse-bar__fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; transition: width .4s; }
+.city-pulse-bar__mid { position: absolute; left: 50%; top: -1px; bottom: -1px; width: 1px; background: rgb(255 255 255 / .6); }
+
+.kw-page-shell .city-tool,
+.kw-page-shell .city-hub-bar__item {
+  border-radius: 14px !important;
+  background: rgb(var(--bg-rgb) / .38) !important; border: 1px solid rgb(255 255 255 / .18) !important;
+  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .28) !important; filter: none !important;
+}
+.kw-page-shell .city-tool[aria-pressed="true"], .kw-page-shell .city-hub-bar__item--primary { border-color: rgb(var(--gold-rgb) / .75) !important; background: rgb(var(--gold-rgb) / .22) !important; }
+
+/* left column of quick tools */
+.kw-page-shell .city-tool--engine, .kw-page-shell .city-tool--view, .kw-page-shell .city-destination-overlay {
+  left: max(12px, env(safe-area-inset-left, 0px)) !important; right: auto !important;
+}
+.kw-page-shell .city-tool--view { top: 40px !important; }
+.kw-page-shell .city-tool--engine { top: 92px !important; }
+.kw-page-shell .city-destination-overlay { top: 144px !important; width: min(560px, calc(100% - 32px)) !important; }
+.kw-page-shell .city-destination-overlay > .city-tool { margin: 0 !important; }
+
+/* destinations as a labelled tool bar above the status strip */
+.kw-page-shell .city-hub-bar {
+  top: auto !important; bottom: 62px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important;
+  max-width: calc(100% - 180px) !important; gap: 8px; padding: 0 !important;
+  background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important;
+}
+.kw-page-shell .city-hub-bar__track { gap: 8px; overflow: visible; }
+.kw-page-shell .city-hub-bar__tag { display: none !important; }
+.kw-page-shell .city-hub-bar__item { min-width: 62px; min-height: 58px; padding: 6px 8px; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / .8); }
+.kw-page-shell .city-hub-bar__item::after { display: none; }
+.kw-page-shell .city-hub-bar__label { display: block !important; font-size: 8px; letter-spacing: .06em; }
+.kw-page-shell .city-hub-bar__icon { font-size: 22px; }
+
+/* term / build bar = the bottom status strip */
+.kw-page-shell .city-build-dock {
+  left: max(12px, env(safe-area-inset-left, 0px)) !important; right: calc(max(12px, env(safe-area-inset-right, 0px)) + 66px) !important;
+  width: auto !important; transform: none !important; bottom: 8px !important;
+}
+.kw-page-shell .city-build-dock > div:last-child { border-radius: 14px; background: rgb(var(--bg-rgb) / .62) !important; backdrop-filter: blur(10px); border-color: rgb(255 255 255 / .16) !important; }
+/* zone card sits above the tool bar */
+.kw-page-shell .kw-page-content .absolute.bottom-20.left-4 { bottom: 132px !important; border-radius: 14px; }
+.kw-page-shell .city-main-menu-button { top: 32px !important; border-radius: 12px; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .kw-page-shell .city-main-menu-button { top: 32px !important; }
+  .kw-page-shell .city-tool { width: 44px !important; height: 44px !important; }
+  .kw-page-shell .city-hub-bar__item { min-width: 54px; min-height: 50px; padding: 4px 6px; }
+  .kw-page-shell .city-hub-bar { bottom: 58px !important; }
+}
+.kw-page-shell .city-seat-status { top: 30px !important; left: 50% !important; transform: translateX(-50%); }
+.kw-page-shell .city-seat-status > div { border-radius: 12px; background: rgb(var(--bg-rgb) / .5) !important; text-align: center; }
