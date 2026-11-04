@@ -223,6 +223,9 @@ func _build() -> void:
 	var gmi := MeshInstance3D.new()
 	gmi.mesh = ground_st.commit()
 	gmi.material_override = mat_ground
+	# flat roads/plaza/river ribbons: receive shadows, never cast them
+	# (self-shadow acne flips the ground dark as the cascades move)
+	gmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	gen.add_child(gmi)
 	$Traffic.setup(self)
 	$Zones.relayout()
@@ -650,6 +653,7 @@ func _setup_environment() -> void:
 
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
+	sun.shadow_normal_bias = 2.5
 	sun.directional_shadow_max_distance = 900.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	add_child(sun)
@@ -1669,6 +1673,10 @@ func _build_ground() -> void:
 	gm.albedo_color = Color(0.27, 0.4, 0.22)
 	gm.roughness = 1.0
 	_single(g, gm, Transform3D.IDENTITY)
+	# The 16 km ground must not cast shadows onto itself: with phone-sized
+	# cascades that acne turned everything inside the shadow range grey
+	# at night, and the patch moved as the camera rotated.
+	(gen.get_child(gen.get_child_count() - 1) as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# paved downtown (a smaller town centre in towns, none in villages)
 	# warm, darker paving: the old light grey bleached to white in the sun
 	if tier in ["metro", "city"]:
