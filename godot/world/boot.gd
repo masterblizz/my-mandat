@@ -13,6 +13,7 @@ const LOCATIONS := {
 	"calendar": "res://calendar.gd",
 	"cabinet": "res://cabinet.gd",
 	"administration": "res://administration.gd",
+	"national": "res://national.gd",
 }
 
 func _ready() -> void:

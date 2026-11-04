@@ -18,7 +18,7 @@ import { t, type Lang } from "../../i18n/useLang";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
-export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration";
+export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration" | "national";
 
 // Per-scene copy: [iframe title, loading line], each [ms, en].
 const SCENE_TEXT: Record<WorldScene, { title: [string, string]; loading: [string, string] }> = {
@@ -32,6 +32,7 @@ const SCENE_TEXT: Record<WorldScene, { title: [string, string]; loading: [string
   calendar: { title: ["Pusat Jadual Kempen 3D", "3D scheduling centre"], loading: ["MEMUATKAN PUSAT JADUAL 3D…", "LOADING 3D SCHEDULING CENTRE…"] },
   cabinet: { title: ["Bangunan Kabinet 3D", "3D cabinet building"], loading: ["MEMUATKAN BANGUNAN KABINET 3D…", "LOADING 3D CABINET BUILDING…"] },
   administration: { title: ["Pusat Pentadbiran 3D", "3D administration centre"], loading: ["MEMUATKAN PUSAT PENTADBIRAN 3D…", "LOADING 3D ADMINISTRATION CENTRE…"] },
+  national: { title: ["Pusat Analisis Negara 3D", "3D national analysis centre"], loading: ["MEMUATKAN PUSAT ANALISIS 3D…", "LOADING 3D ANALYSIS CENTRE…"] },
 };
 export type OfficeInteraction = "desk" | "pa" | "meeting" | "tv" | "board" | "residents" | "files" | "pantry";
 export type WarRoomInteraction = "console" | "screens" | "pa" | "analytics" | "briefing" | "exit";

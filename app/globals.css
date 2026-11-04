@@ -1681,6 +1681,7 @@ input[type="range"].range-red::-moz-range-thumb {
   .world-3d-hint { display: none; }
   .world-intro-skip { top: 76px !important; }
   .location-main { height: 100dvh !important; min-height: 0 !important; padding-top: 32px !important; }
+  .location-main, .office-main { margin-left: env(safe-area-inset-left, 0px); margin-right: env(safe-area-inset-right, 0px); width: auto !important; }
   .location-main > .absolute.inset-0.pt-\[40px\] { padding-top: 32px !important; }
 
   /* main menu: the live intel column needs a taller screen */
