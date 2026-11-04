@@ -506,6 +506,58 @@ func chair(pos: Vector3, rot_y: float, color := "#2f3a48") -> void:
 	box(Vector3(0.5, 0.55, 0.07), Vector3(0, 0.76, -0.24), color, false, 0.0, c)
 	box(Vector3(0.06, 0.42, 0.06), Vector3(0, 0.21, 0), "#59606a", false, 0.0, c)
 
+## The street frontage most locations share: grass, paving with the
+## black-and-white kerb, road, palms, hibiscus, a facade sign, a flagpole
+## and sliding glass doors at (door_x, door_pos.z). Returns the sign label.
+func standard_frontage(x0: float, x1: float, door_x: float, sign_ms: String, sign_color: Color) -> Label3D:
+	var front := door_pos.z
+	box(Vector3(80, 0.1, 70), Vector3(0, -0.11, 2), "#5f8a4a", false)
+	floor_slab(x0 - 3.0, front, x1 + 3.0, front + 1.6, "#a9a59b", "luar", floor_mat("tiles", "#b9b1a2", "#8a8274", 0.5))
+	floor_slab(-30, front + 1.6, 30, front + 6.5, "#3a3d43", "luar", floor_mat("carpet", "#3a3d43", "#5a5d63", 2.0))
+	var n: int = int((x1 - x0 + 6.0) / 0.5)
+	for i in n:
+		box(Vector3(0.5, 0.16, 0.22), Vector3(x0 - 3.0 + i * 0.5 + 0.25, 0.08, front + 1.62), "#f2f2ee" if i % 2 == 0 else "#1c1c1c", false)
+	for x in range(-28, 30, 4):
+		box(Vector3(1.8, 0.012, 0.14), Vector3(x, 0.006, front + 4.1), "#e8e2c8", false)
+	for x in [x0 - 2.0, x1 + 2.0]:
+		palm(Vector3(x, 0, front + 0.9))
+	for x in [x0 + 2.0, x0 + 3.5, x1 - 3.5, x1 - 2.0]:
+		bunga_raya(Vector3(x, 0, front + 0.5))
+	party_mat = StandardMaterial3D.new()
+	party_mat.albedo_color = player_color
+	party_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	facade.append(box(Vector3(7.0, 0.9, 0.12), Vector3(door_x, 3.65, front + 0.12), "#0b1a2c", false))
+	var sign := label(sign_ms, Vector3(door_x, 3.7, front + 0.2), 86, sign_color, false)
+	sign.pixel_size = 0.0062
+	sign.no_depth_test = false
+	room_labels["__sign"] = sign
+	facade.append(sign)
+	box(Vector3(0.09, 6.2, 0.09), Vector3(door_x - 5.0, 3.1, front + 1.0), "#d7dbe0", false, 0.0, null, mat("#d7dbe0", 0.3, 0.7))
+	plane(Vector2(1.8, 0.9), Vector3(door_x - 4.08, 5.65, front + 1.0), jalur, true, 0.0, null, true)
+	door_l = Node3D.new()
+	door_r = Node3D.new()
+	add_child(door_l)
+	add_child(door_r)
+	var glass := mat("#9fd3ef", 0.05, 0.2)
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.albedo_color = Color(0.62, 0.83, 0.94, 0.32)
+	box(Vector3(1.2, 2.5, 0.05), Vector3(door_x - 0.6, 1.25, front), null, false, 0.0, door_l, glass)
+	box(Vector3(1.2, 2.5, 0.05), Vector3(door_x + 0.6, 1.25, front), null, false, 0.0, door_r, glass)
+	return sign
+
+## One warm lamp per room for night scenes.
+func room_night_lights(energy := 1.6) -> void:
+	for id in ROOMS:
+		var r: Array = ROOMS[id]
+		var l := OmniLight3D.new()
+		l.position = Vector3((r[0] + r[2]) / 2.0, 2.5, (r[1] + r[3]) / 2.0)
+		l.light_color = Color("#ffe2b5")
+		l.light_energy = energy
+		l.omni_range = 8.5
+		l.visible = night
+		add_child(l)
+		night_lights.append(l)
+
 func palm(pos: Vector3) -> void:
 	var lean := 0.18
 	var top := pos

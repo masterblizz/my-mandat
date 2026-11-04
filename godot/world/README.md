@@ -11,11 +11,14 @@ every location; the page picks one with `?scene=`:
 | `dewan`   | `/swearing-in` (chamber, oath) | `dewan.gd` |
 | `party`   | `/location/party` (headquarters, candidate board) | `partyhq.gd` |
 | `media`   | `/location/media` (press room, broadcast control, social desk) | `media.gd` |
+| `commission` | `/location/commission` (counting hall, polling station, data room) | `commission.gd` |
+| `calendar` | `/location/calendar` (30-day wall calendar, route map, transport) | `calendar.gd` |
 
 `main.gd` is the base: rooms, textured floors, walls with Sims cutaway, a
 navmesh baked at start-up, the camera, click-to-walk, the walk-in intro and
 the page bridge. A new location extends it (`extends "res://main.gd"`),
-sets its rooms/markers in `_init()` and overrides `_build_exterior`,
+sets its rooms/markers in `_init()` (most use `standard_frontage()` and
+`room_night_lights()` for the street side and night lamps) and overrides `_build_exterior`,
 `_build_walls`, `_build_furniture` and `_spawn_cast`. `person.gd` poses and
 walks the MakeHuman cast; `textures.gd` draws floors and Malaysian motifs.
 `data/malaysia.json` holds the state polygons for the war-room map table
@@ -38,6 +41,8 @@ godot --headless --path godot/world -- --scene=studio --selftest
 godot --headless --path godot/world -- --scene=dewan --selftest
 godot --headless --path godot/world -- --scene=party --selftest
 godot --headless --path godot/world -- --scene=media --selftest
+godot --headless --path godot/world -- --scene=commission --selftest
+godot --headless --path godot/world -- --scene=calendar --selftest
 godot --headless --path godot/world --export-release Web ../../public/godot/world/index.html
 ```
 
