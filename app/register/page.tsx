@@ -158,6 +158,7 @@ export default function RegisterPage() {
       )}
 
       <form onSubmit={handleRegister}>
+        <div className="auth-row">
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
             {t(lang, "register_page.email")}
@@ -192,6 +193,7 @@ export default function RegisterPage() {
           <div className={plexMono.className} style={{ fontSize: 10, letterSpacing: 0.5, color: TEXT_FAINT }}>
             {t(lang, "register_page.minimum6Characters")}
           </div>
+        </div>
         </div>
 
         <button
@@ -238,10 +240,10 @@ export default function RegisterPage() {
             opacity: anyLoading && !googleLoading ? 0.5 : 1,
           }}
         >
-          {googleLoading ? t(lang, "register_page.connecting") : t(lang, "register_page.signUpWithGoogle")}
+          {googleLoading ? t(lang, "register_page.connecting") : <>🔑 {t(lang, "register_page.signUpWithGoogle")}</>}
         </button>
 
-        <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
+        <div className={`auth-foot ${plexMono.className}`} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
           {t(lang, "register_page.alreadyHaveAnAccount")}
           <a href="/login" style={{ color: CYAN }}>{t(lang, "register_page.logInHere")}</a>
         </div>

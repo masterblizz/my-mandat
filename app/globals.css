@@ -1960,3 +1960,21 @@ input[type="range"].range-red::-moz-range-thumb {
 }
 .kw-page-shell .city-seat-status { top: 30px !important; left: 50% !important; transform: translateX(-50%); }
 .kw-page-shell .city-seat-status > div { border-radius: 12px; background: rgb(var(--bg-rgb) / .5) !important; text-align: center; }
+
+/* Login / register on a landscape phone: the whole card fits without
+   scrolling — fields and secondary buttons side by side, chrome trimmed. */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* narrow enough to clear the logo (left) and language/theme row (right) */
+  .auth-card { max-width: 500px !important; padding: 12px 18px !important; margin-top: 30px !important; }
+  .auth-card form > button[type=submit] { padding: 10px !important; margin-bottom: 6px !important; }
+  .auth-card form .my-3\.5 { margin-top: 6px !important; margin-bottom: 6px !important; }
+  .auth-head { margin-bottom: 10px !important; }
+  .auth-head > div:last-child { font-size: 17px !important; }
+  .auth-eyebrow, .auth-clock { display: none; }
+  .auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .auth-row > div { margin-bottom: 8px !important; }
+  .auth-row input { padding: 8px 10px !important; }
+  .auth-row--buttons > * { margin-top: 0 !important; }
+  .auth-foot { margin-top: 10px !important; }
+}
+
