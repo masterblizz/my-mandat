@@ -1979,3 +1979,15 @@ input[type="range"].range-red::-moz-range-thumb {
   .auth-foot { margin-top: 10px !important; }
 }
 
+/* Hub: the next-step chip slides in; the term clock's play button breathes
+   while time is paused so a new player notices it. */
+@keyframes mm-goal-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes mm-play-breathe { 0%, 100% { box-shadow: 0 0 0 rgb(var(--cyan-rgb) / 0); } 50% { box-shadow: 0 0 14px rgb(var(--cyan-rgb) / .75); } }
+.term-clock__play--idle { animation: mm-play-breathe 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .term-clock__play--idle, .city-next-goal { animation: none !important; } }
+@media (orientation: landscape) and (max-height: 500px) {
+  .city-next-goal { top: 40px !important; max-width: calc(100% - 260px) !important; }
+  /* the zone card ends before the centred hub bar starts */
+  .kw-page-content .city-zone-card { width: min(270px, calc(50vw - 150px)) !important; }
+}
+
