@@ -112,6 +112,9 @@ func _move_trains(dt: float) -> void:
 			var p := curve.sample_baked(sj)
 			var fwd := (curve.sample_baked(fposmod(sj + tr.dir * 2.0, L)) - p).normalized()
 			p += Vector3(fwd.z, 0, -fwd.x) * 1.5 + Vector3(0, city.LRT_Y + 1.3 + 1.6, 0)
+			if not p.is_finite() or not fwd.is_finite() or fwd.length_squared() < 1e-6:
+				p = Vector3(0, -50.0, 0)
+				fwd = Vector3.RIGHT
 			var b := Basis(Vector3.UP, atan2(-fwd.z, fwd.x))
 			train_body.set_instance_transform(i * TRAIN_CARS + j, Transform3D(b, p))
 			train_band.set_instance_transform(i * TRAIN_CARS + j, Transform3D(b, p + Vector3(0, 0.45, 0)))
@@ -154,6 +157,8 @@ func _process(dt: float) -> void:
 		var fwd: Vector3
 		var hidden := false
 		if c.road < 0:
+			if hw_len <= 0.0:
+				continue
 			c.t = fposmod(c.t + c.speed * 1.6 * c.dir * dt, hw_len)
 			var p := hw.sample_baked(c.t)
 			fwd = (hw.sample_baked(fposmod(c.t + c.dir * 2.0, hw_len)) - p).normalized()
@@ -174,6 +179,11 @@ func _process(dt: float) -> void:
 			hidden = rd.gaps[sm[2]] == 1
 		# keep left: offset to the left of the direction of travel
 		pos += Vector3(fwd.z, 0, -fwd.x) * c.lane
+		# a degenerate road segment gives a NaN / zero heading: park the car
+		# out of sight rather than hand the GPU a broken transform
+		if not pos.is_finite() or not fwd.is_finite() or fwd.length_squared() < 1e-6:
+			pos = Vector3(0, -50.0, 0)
+			fwd = Vector3.RIGHT
 		if hidden:
 			pos.y = -50.0
 		var b := Basis(Vector3.UP, atan2(-fwd.z, fwd.x))

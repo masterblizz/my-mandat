@@ -21,6 +21,8 @@ const HIGHWAY_HALF := 11.0
 const LRT_Y := 10.0             # guideway soffit height
 
 const C_CONCRETE := Color(0.72, 0.71, 0.68)
+const C_PAVING := Color(0.5, 0.46, 0.41)
+const C_KERB := Color(0.6, 0.58, 0.54)
 const C_ASPHALT := Color(0.16, 0.17, 0.18)
 
 const HOUSE_WALLS := [
@@ -83,6 +85,10 @@ var mat_lowrise: StandardMaterial3D
 var mat_landmark: StandardMaterial3D
 var mat_water: StandardMaterial3D
 var mat_ground: StandardMaterial3D
+var mat_lawn: StandardMaterial3D
+var mat_tree: StandardMaterial3D
+var tree_broadleaf_mesh: Mesh
+var tree_palm_mesh: Mesh
 
 var sun: DirectionalLight3D
 var env: Environment
@@ -194,6 +200,12 @@ func _build() -> void:
 	if has_lrt:
 		_build_lrt()
 	_frontage()
+	# lawns and shade trees on the paved centre, in whatever space the
+	# buildings left (runs after them so it never takes a lot)
+	if tier in ["metro", "city"]:
+		_plaza_greenery(r_core - 10.0)
+	elif tier == "town" and layout == "radial":
+		_plaza_greenery(r_core * 0.6)
 	_fill_trees()
 	_flush_buckets()
 	var gmi := MeshInstance3D.new()
@@ -360,6 +372,34 @@ func _triplanar(m: StandardMaterial3D, metres: float) -> void:
 	m.uv1_scale = Vector3(s, s, s)
 
 
+## Blender-baked tileable detail (multiplied over the colour) + normal map,
+## mapped in world space. See ../world/blender/materials.py.
+func _detail(m: StandardMaterial3D, name: String, metres: float, normal_scale: float) -> void:
+	var d: Texture2D = load("res://assets/tex/%s_detail.png" % name)
+	if d == null:
+		return
+	m.albedo_texture = d
+	if normal_scale > 0.0:
+		var n: Texture2D = load("res://assets/tex/%s_normal.png" % name)
+		if n:
+			m.normal_enabled = true
+			m.normal_texture = n
+			m.normal_scale = normal_scale
+	_triplanar(m, metres)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+
+
+func _glb_mesh(path: String) -> Mesh:
+	var scene: PackedScene = load(path)
+	if scene == null:
+		return null
+	var inst := scene.instantiate()
+	var found := inst.find_children("*", "MeshInstance3D", true, false)
+	var m: Mesh = (found[0] as MeshInstance3D).mesh if found.size() > 0 else null
+	inst.free()
+	return m
+
+
 func _make_materials() -> void:
 	mat_plain = StandardMaterial3D.new()
 	mat_plain.vertex_color_use_as_albedo = true
@@ -409,6 +449,22 @@ func _make_materials() -> void:
 	mat_ground.vertex_color_is_srgb = true
 	mat_ground.roughness = 0.95
 	mat_ground.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_detail(mat_ground, "concrete", 4.0, 0.5)
+
+	mat_lawn = StandardMaterial3D.new()
+	mat_lawn.vertex_color_use_as_albedo = true
+	mat_lawn.vertex_color_is_srgb = true
+	mat_lawn.roughness = 1.0
+	_detail(mat_lawn, "grass", 2.5, 0.5)
+
+	mat_tree = StandardMaterial3D.new()
+	mat_tree.vertex_color_use_as_albedo = true
+	mat_tree.vertex_color_is_srgb = true
+	mat_tree.roughness = 0.9
+	mat_tree.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_detail(mat_tree, "grass", 1.2, 0.0)
+	tree_broadleaf_mesh = _glb_mesh("res://assets/tree_far_broadleaf.glb")
+	tree_palm_mesh = _glb_mesh("res://assets/tree_far_palm.glb")
 
 	mat_water = StandardMaterial3D.new()
 	mat_water.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -498,6 +554,13 @@ func gable(pos: Vector3, w: float, d: float, rise: float, col: Color) -> void:
 
 
 func tree(pos: Vector3, palm := false) -> void:
+	var mesh := tree_palm_mesh if palm else tree_broadleaf_mesh
+	if mesh:
+		var sc := rng.randf_range(1.4, 1.9) if palm else rng.randf_range(1.1, 1.6)
+		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * sc)
+		var shade := rng.randf_range(0.88, 1.12)
+		_add(mesh, mat_tree, Transform3D(b, pos), Color(shade, shade, shade))
+		return
 	if palm:
 		var h := rng.randf_range(6.0, 9.0)
 		cyl(pos, 0.22, h, Color(0.45, 0.36, 0.26))
@@ -512,18 +575,24 @@ func tree(pos: Vector3, palm := false) -> void:
 func _flush_buckets() -> void:
 	for key in buckets:
 		var bk: Dictionary = buckets[key]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_colors = true
-		mm.mesh = bk.mesh
-		mm.instance_count = bk.xf.size()
-		for i in bk.xf.size():
-			mm.set_instance_transform(i, bk.xf[i])
-			mm.set_instance_color(i, bk.col[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.material_override = bk.mat
-		gen.add_child(mmi)
+		# chunked: very large instance buffers break on some WebGL drivers
+		var total: int = bk.xf.size()
+		var start := 0
+		while start < total:
+			var n := mini(4096, total - start)
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
+			mm.mesh = bk.mesh
+			mm.instance_count = n
+			for i in n:
+				mm.set_instance_transform(i, bk.xf[start + i])
+				mm.set_instance_color(i, bk.col[start + i])
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.material_override = bk.mat
+			gen.add_child(mmi)
+			start += n
 	buckets.clear()
 
 
@@ -1361,9 +1430,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 			"metro":
 				if x < 0.72:
 					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": rng.randf_range(2, 6)}
-				if x < 0.94:
-					return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0}
-				return trees
+				return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 3.0}
 			"city":
 				if x < 0.4:
 					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": 4.0, "h": rng.randf_range(30, 75)}
@@ -1412,12 +1479,29 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 		# condo blocks cluster along a metropolis's main roads
 		if tier == "metro" and cls == 0 and rng.randf() < lerpf(0.35, 0.08, clampf((r - r_commercial) / (r_taman - r_commercial), 0.0, 1.0)):
 			return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0}
+		if tier == "metro":
+			# a metropolis's suburbs are built up: terraces, flats, shop rows
+			if x < 0.5:
+				return _terrace()
+			if x < 0.72:
+				return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(12, 24)}
+			if x < 0.9:
+				return _shoprow(3, 6)
+			return bungalow
 		if tier == "town" and x < 0.15:
 			return kampung
 		if x < 0.56:
 			return _terrace()
 		return bungalow if x < 0.9 else trees
 	if r < r_city:
+		if tier == "metro":
+			if x < 0.45:
+				return _terrace()
+			if x < 0.7:
+				return bungalow
+			if x < 0.85:
+				return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(10, 18)}
+			return kampung
 		return kampung if x < 0.55 else skip
 	return {"kind": "skip", "w": 40.0, "d": 0.0, "gap": 0.0}
 
@@ -1425,7 +1509,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 func _build_spec(spec: Dictionary, r: float) -> void:
 	match spec.kind:
 		"tower":
-			var hmax := lerpf(165.0, 60.0, clampf(r / r_core, 0.0, 1.0))   # KLCC stays taller
+			var hmax := lerpf(90.0, 36.0, clampf(r / r_core, 0.0, 1.0))    # landmarks stay taller
 			var h: float = spec.get("h", hmax * rng.randf_range(0.55, 1.0))
 			_office_tower(Vector3.ZERO, rng.randf_range(10, 14), rng.randf_range(10, 14), h)
 		"flat":
@@ -1435,7 +1519,7 @@ func _build_spec(spec: Dictionary, r: float) -> void:
 		"shoprow":
 			_shophouse_row(spec.units)
 		"condo":
-			var top: float = spec.get("top", lerpf(120.0, 50.0, clampf((r - r_core * 0.5) / (r_taman - r_core * 0.5), 0.0, 1.0)))
+			var top: float = spec.get("top", lerpf(70.0, 32.0, clampf((r - r_core * 0.5) / (r_taman - r_core * 0.5), 0.0, 1.0)))
 			_condo(rng.randf_range(top * 0.55, top))
 		"carpark":
 			box(Vector3.ZERO, Vector3(spec.w, 0.04, spec.d), Color(0.3, 0.31, 0.32))
@@ -1464,7 +1548,8 @@ func _fill_trees() -> void:
 		var ci := _cell(p)
 		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
 			continue
-		var keep := 0.35 if r < r_core else (0.55 if r < r_city else 0.8)
+		var urban := tier in ["metro", "city"]
+		var keep := (0.08 if urban else 0.35) if r < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8)
 		var n := sin(p.x * 0.02) * sin(p.z * 0.023) + sin((p.x + p.z) * 0.011)
 		if rng.randf() > keep or (r > r_city and n < 0.1):
 			continue
@@ -1519,10 +1604,34 @@ func _build_ground() -> void:
 	gm.roughness = 1.0
 	_single(g, gm, Transform3D.IDENTITY)
 	# paved downtown (a smaller town centre in towns, none in villages)
+	# warm, darker paving: the old light grey bleached to white in the sun
 	if tier in ["metro", "city"]:
-		_disc(ground_st, Vector3.ZERO, r_core - 10.0, 0.015, Color(0.62, 0.61, 0.58))
+		_disc(ground_st, Vector3.ZERO, r_core - 10.0, 0.015, C_PAVING)
 	elif tier == "town" and layout == "radial":
-		_disc(ground_st, Vector3.ZERO, r_core * 0.6, 0.015, Color(0.62, 0.61, 0.58))
+		_disc(ground_st, Vector3.ZERO, r_core * 0.6, 0.015, C_PAVING)
+
+
+## Lawns, planters and shade trees scattered over the paved centre, kept off
+## roads and building lots.
+func _plaza_greenery(radius: float) -> void:
+	var placed := 0
+	for i in 900:
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * (radius - 6.0)
+		var p := Vector3(cos(a) * r, 0, sin(a) * r)
+		var w := rng.randf_range(10.0, 22.0)
+		var d := rng.randf_range(8.0, 16.0)
+		var yaw := rng.randf() * PI
+		if not _rect_free(p, yaw, w, d):
+			continue
+		_mark_rect(p, yaw, w, d)
+		box(p, Vector3(w, 0.08, d), Color(0.3, 0.5, 0.24).lerp(Color(0.4, 0.56, 0.28), rng.randf()), mat_lawn, yaw)
+		box(p, Vector3(w + 0.6, 0.35, 0.35), C_KERB, null, yaw)
+		for k in rng.randi_range(2, 4):
+			tree(p + Basis(Vector3.UP, yaw) * Vector3(rng.randf_range(-w, w) * 0.4, 0, rng.randf_range(-d, d) * 0.4), rng.randf() < 0.35)
+		placed += 1
+		if placed >= int(radius * 0.35):
+			break
 
 
 # ── buildings ────────────────────────────────────────────────────────
@@ -1639,15 +1748,15 @@ func _merdeka118() -> void:
 	var y := 10.0
 	for i in 9:
 		var r := lerpf(11.0, 4.5, float(i) / 8.0)
-		var h := 30.0 if i < 8 else 18.0
+		var h := 14.0 if i < 8 else 9.0
 		var b := Basis(Vector3.UP, i * 0.13) * Basis.from_scale(Vector3(r * 2.0, h, r * 2.0))
 		_single(oct_mesh, mat_landmark, Transform3D(b, Vector3(0, y + h * 0.5, 0)))
 		y += h
 	var spire := CylinderMesh.new()
 	spire.top_radius = 0.08
 	spire.bottom_radius = 1.6
-	spire.height = 70
-	_single(spire, mat_landmark, Transform3D(Basis(), Vector3(0, y + 35, 0)))
+	spire.height = 30
+	_single(spire, mat_landmark, Transform3D(Basis(), Vector3(0, y + 15, 0)))
 
 
 ## Dataran for every seat that is not Bukit Bintang: padang with its
@@ -1699,12 +1808,12 @@ func _telecom() -> void:
 	var sh := CylinderMesh.new()
 	sh.top_radius = 1.8
 	sh.bottom_radius = 3.4
-	sh.height = 150
-	_single(sh, mat_landmark, Transform3D(Basis(), Vector3(0, 6 + 75, 0)))
-	ball(Vector3(0, 128, 0), Vector3(15, 10, 15), Color(0.92, 0.93, 0.95), mat_landmark)
-	ball(Vector3(0, 136, 0), Vector3(9, 5, 9), Color(0.92, 0.93, 0.95), mat_landmark)
-	cyl(Vector3(0, 138, 0), 0.5, 38, Color(0.9, 0.9, 0.9))
-	cyl(Vector3(0, 176, 0), 0.25, 6, Color(1, 0.2, 0.2))
+	sh.height = 95
+	_single(sh, mat_landmark, Transform3D(Basis(), Vector3(0, 6 + 47.5, 0)))
+	ball(Vector3(0, 84, 0), Vector3(13, 8, 13), Color(0.92, 0.93, 0.95), mat_landmark)
+	ball(Vector3(0, 90, 0), Vector3(8, 4.5, 8), Color(0.92, 0.93, 0.95), mat_landmark)
+	cyl(Vector3(0, 92, 0), 0.4, 24, Color(0.9, 0.9, 0.9))
+	cyl(Vector3(0, 116, 0), 0.2, 4, Color(1, 0.2, 0.2))
 	for k in 4:
 		tree(Vector3([-8.5, 8.5][k % 2], 0, [-8.5, 8.5][k / 2]), true)
 
@@ -1787,7 +1896,7 @@ func _twin_towers(g: Vector3) -> void:
 		var p := g + Vector3(sx * 9.5, 9, 0)
 		var y := 0.0
 		# tiers: (radius, height) tapering towards the pinnacle
-		for tier in [[6.4, 120.0], [5.6, 16.0], [4.8, 10.0], [3.8, 8.0], [2.8, 6.0], [1.8, 5.0]]:
+		for tier in [[6.4, 82.0], [5.6, 12.0], [4.8, 8.0], [3.8, 6.0], [2.8, 5.0], [1.8, 4.0]]:
 			var r: float = tier[0]
 			var h: float = tier[1]
 			var m := oct_mesh
@@ -1797,13 +1906,13 @@ func _twin_towers(g: Vector3) -> void:
 		var spire := CylinderMesh.new()
 		spire.top_radius = 0.05
 		spire.bottom_radius = 0.9
-		spire.height = 34
-		_single(spire, mat_landmark, Transform3D(Basis(), p + Vector3(0, y + 17, 0)))
+		spire.height = 24
+		_single(spire, mat_landmark, Transform3D(Basis(), p + Vector3(0, y + 12, 0)))
 	# skybridge with its supporting legs
-	_single(box_mesh, mat_landmark, Transform3D(Basis.from_scale(Vector3(7.2, 3.4, 3.0)), g + Vector3(0, 9 + 64, 0)))
+	_single(box_mesh, mat_landmark, Transform3D(Basis.from_scale(Vector3(7.2, 3.4, 3.0)), g + Vector3(0, 9 + 44, 0)))
 	for sx in [-1.0, 1.0]:
-		var leg := Basis(Vector3.FORWARD, sx * 0.55) * Basis.from_scale(Vector3(0.6, 20, 0.6))
-		_single(box_mesh, mat_landmark, Transform3D(leg, g + Vector3(sx * 6.0, 9 + 54, 0)))
+		var leg := Basis(Vector3.FORWARD, sx * 0.55) * Basis.from_scale(Vector3(0.6, 14, 0.6))
+		_single(box_mesh, mat_landmark, Transform3D(leg, g + Vector3(sx * 6.0, 9 + 37, 0)))
 	# fountain plaza in front
 	box(g + Vector3(0, 0, 16), Vector3(18, 0.3, 4), Color.WHITE, mat_water)
 
