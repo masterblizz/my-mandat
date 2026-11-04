@@ -11,6 +11,8 @@ const LOCATIONS := {
 	"media": "res://media.gd",
 	"commission": "res://commission.gd",
 	"calendar": "res://calendar.gd",
+	"cabinet": "res://cabinet.gd",
+	"administration": "res://administration.gd",
 }
 
 func _ready() -> void:
