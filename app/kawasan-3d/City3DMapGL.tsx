@@ -16,7 +16,7 @@ import { type CamState } from "./CameraRig";
 import {
   CAM_DEFAULT, BTN_ZOOM_IN, BTN_ZOOM_OUT, clampCam, fitZoom, farPlaneFor,
   worldSize, assignZonePositions, plotXY, PLOT, worldCentre,
-  TOD_ENV, TOD_ICON, TOD_SEQUENCE, todFromClientHour, trafficProfile,
+  TOD_ENV, TOD_ICON, TOD_SEQUENCE, trafficProfile,
   CITY_OVERLAYS, scoreTintRGB,
   type Zone, type SeatTraits, type Tod, type CityOverlay,
 } from "./cityData";
@@ -102,7 +102,7 @@ export default function City3DMapGL({
   const [timeMode, setTimeMode] = useState<"auto" | "manual">("auto");
   useEffect(() => {
     if (timeMode !== "auto") return;
-    const sync = () => setTod(todFromClientHour(new Date().getHours()));
+    const sync = () => setTod("day"); // always daytime: no night mode from the real clock
     sync();
     const timer = window.setInterval(sync, 60_000);
     const onVisible = () => { if (document.visibilityState === "visible") sync(); };

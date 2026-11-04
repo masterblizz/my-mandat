@@ -276,14 +276,9 @@ func _build_hud() -> void:
 	bar.position = Vector2(12, 12)
 	if embedded:
 		# Inside the game its own HUD owns the screen: no buttons here, and
-		# the time of day follows the real clock like the WebGL map does.
+		# it is always daytime (night mode from the real clock was removed).
 		bar.visible = false
-		_follow_clock()
-		var timer := Timer.new()
-		timer.wait_time = 60.0
-		timer.autostart = true
-		timer.timeout.connect(_follow_clock)
-		add_child(timer)
+		set_tod(0)
 	bar.add_theme_constant_override("separation", 8)
 	layer.add_child(bar)
 	_tod_btn = Button.new()

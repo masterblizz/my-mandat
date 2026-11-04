@@ -1670,16 +1670,6 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
 const TOD_SEQUENCE = ["dusk", "night", "day"] as const;
 type Tod = (typeof TOD_SEQUENCE)[number];
 const TOD_ICON: Record<Tod, string> = { day: "☀", dusk: "🌆", night: "🌙" };
-// Matches the scene to the player's actual local clock on load — roughly
-// Malaysia's real sunrise/sunset (~7am/~7pm) with a one-hour dusk window
-// right after sunset, rather than always opening on a fixed "dusk" preset.
-// The 🕐/☀/🌆/🌙 toggle button still lets the player override it manually
-// afterwards; this only sets where the scene starts.
-function todFromClientHour(hour: number): Tod {
-  if (hour >= 7 && hour < 19) return "day";
-  if (hour >= 19 && hour < 20) return "dusk";
-  return "night";
-}
 
 const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
 const MINIMAP_CELL = 12;
@@ -1983,7 +1973,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
 
   useEffect(() => {
-    setTod(todFromClientHour(new Date().getHours()));
+    setTod("day"); // always daytime: no night mode from the real clock
   }, []);
 
   const applyCam = useCallback(() => {
@@ -2641,18 +2631,12 @@ export default function KawasanDevelopmentPage() {
   const [zonePanelOpen, setZonePanelOpen] = useState(true);
   const [buildTab, setBuildTab] = useState<DockTab>("all");
   const [overlay, setOverlay] = useState<CityOverlay>("none");
-  const [mapEngine, setMapEngine] = useState<MapEngine>("godot");
+  // The city always uses the Godot map; the WebGL toggle was removed. Clear
+  // an old "webgl" choice so nobody is stuck on it without a button.
+  const mapEngine: MapEngine = "godot";
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(MAP_ENGINE_KEY);
-      if (saved === "godot" || saved === "webgl") setMapEngine(saved);
-    } catch { /* storage blocked: keep the default */ }
+    try { window.localStorage.removeItem(MAP_ENGINE_KEY); } catch { /* storage blocked */ }
   }, []);
-  const switchMapEngine = () => setMapEngine((current) => {
-    const next: MapEngine = current === "godot" ? "webgl" : "godot";
-    try { window.localStorage.setItem(MAP_ENGINE_KEY, next); } catch { /* not persisted */ }
-    return next;
-  });
   const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
   // Representative career: the term (either bench) is lived in the kawasan.
   const repTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
@@ -3158,14 +3142,6 @@ export default function KawasanDevelopmentPage() {
               <CityHubBar onEnter={enterHubDestination} />
               <CityPulseBar zones={zones} lang={lang} />
               {!dockOpen && <NextGoal lang={lang} goal={nextGoal} />}
-              {useGlMap && (
-                <button type="button" onClick={switchMapEngine}
-                  className="city-tool city-tool--engine absolute z-[140]"
-                  aria-label={`${t(lang, "Enjin peta", "Map engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}
-                  data-tip={`${t(lang, "Enjin", "Engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}>
-                  <span aria-hidden>{mapEngine === "godot" ? "🎮" : "🧊"}</span>
-                </button>
-              )}
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-tool city-tool--view city-hud-toggle absolute z-[140]"
                 aria-label={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}

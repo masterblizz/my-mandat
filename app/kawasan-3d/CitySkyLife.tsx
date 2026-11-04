@@ -10,10 +10,8 @@ import { useEffect, useState } from "react";
 
 type Phase = "day" | "dusk" | "night";
 
-function phaseNow(date = new Date()): Phase {
-  const h = date.getHours();
-  if (h >= 19 || h < 6) return "night";
-  if (h >= 17) return "dusk";
+// Always daytime: night mode from the real clock was removed.
+function phaseNow(): Phase {
   return "day";
 }
 

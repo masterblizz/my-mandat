@@ -25,7 +25,7 @@ export function homeSeatProfile(
   return { areaType, isRural: areaType === "rural", seatName: seat?.name ?? leader.homeConstituencyName };
 }
 
-export function currentLocalTimeIsNight(date = new Date()): boolean {
-  const hour = date.getHours();
-  return hour >= 19 || hour < 6;
+/** Night mode from the real clock was removed: scenes are always daytime. */
+export function currentLocalTimeIsNight(): boolean {
+  return false;
 }
