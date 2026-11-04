@@ -100,6 +100,7 @@ export default function LoginPage() {
       )}
 
       <form onSubmit={handleLogin}>
+        <div className="auth-row">
         <div className="mb-4 flex flex-col gap-1.5">
           <label className={plexMono.className} style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>
             {t(lang, "login_page.email")}
@@ -130,6 +131,7 @@ export default function LoginPage() {
             className={plexMono.className}
             style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT, padding: "11px 12px", fontSize: 13, outline: "none" }}
           />
+        </div>
         </div>
 
         <div className="mb-5 flex items-center justify-between">
@@ -163,6 +165,8 @@ export default function LoginPage() {
             cursor: anyLoading ? "not-allowed" : "pointer",
             opacity: anyLoading && !loading ? 0.5 : 1,
             marginBottom: 12,
+            borderRadius: 4,
+            boxShadow: "0 0 18px rgb(var(--auth-gold-rgb) / 0.35)",
           }}
         >
           {loading ? t(lang, "login_page.verifying") : t(lang, "login_page.startCampaign")}
@@ -174,6 +178,7 @@ export default function LoginPage() {
           <div style={{ flex: 1, height: 1, background: BORDER }} />
         </div>
 
+        <div className="auth-row auth-row--buttons">
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -191,7 +196,7 @@ export default function LoginPage() {
             opacity: anyLoading && !googleLoading ? 0.5 : 1,
           }}
         >
-          {googleLoading ? t(lang, "login_page.connecting") : t(lang, "login_page.signInWithGoogle")}
+          {googleLoading ? t(lang, "login_page.connecting") : <>🔑 {t(lang, "login_page.signInWithGoogle")}</>}
         </button>
 
         <Link
@@ -199,10 +204,11 @@ export default function LoginPage() {
           className={plexMono.className}
           style={{ display: "block", width: "100%", marginTop: 10, border: `1px solid ${CYAN}`, color: CYAN, padding: 10, textAlign: "center", fontSize: 11, letterSpacing: 1 }}
         >
-          {t(lang, "login_page.tryCityDemo")}
+          🏙️ {t(lang, "login_page.tryCityDemo")}
         </Link>
+        </div>
 
-        <div className={plexMono.className} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
+        <div className={`auth-foot ${plexMono.className}`} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
           {t(lang, "login_page.noAccount")}
           <Link href="/register" style={{ color: CYAN }}>{t(lang, "login_page.registerNow")}</Link>
         </div>

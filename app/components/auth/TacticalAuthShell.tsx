@@ -7,8 +7,6 @@ import { useUIStore, type Lang } from "../../store/uiStore";
 import AuthBackground from "./AuthBackground";
 import { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN, ERROR_TEXT } from "./theme";
 import { plexMono, inter } from "./fonts";
-import { getNationalStats } from "../../data/states";
-import { formatNumber } from "../../utils/format";
 
 // Shared chrome for /login and /register: "tactical map + centered card" —
 // ported from the Claude Design canvas "Login Page.dc.html", variant 5a
@@ -26,7 +24,7 @@ function LangToggle() {
   const setLanguage = useUIStore((s) => s.setLanguage);
   const codes: Lang[] = ["ms", "en"];
   return (
-    <div className="absolute right-8 z-20 flex gap-1" style={{ top: 96 }}>
+    <div className="flex gap-1">
       {codes.map((code) => {
         const active = lang === code;
         return (
@@ -65,9 +63,7 @@ function ThemeToggle() {
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       aria-label={theme === "dark" ? t(lang, "components_auth_TacticalAuthShell.switchToLight") : t(lang, "components_auth_TacticalAuthShell.switchToDark")}
       title={theme === "dark" ? t(lang, "components_auth_TacticalAuthShell.switchToLight") : t(lang, "components_auth_TacticalAuthShell.switchToDark")}
-      className="absolute right-8 z-20"
       style={{
-        top: 128,
         padding: "3px 8px",
         fontSize: 11,
         border: `1px solid ${BORDER}`,
@@ -123,58 +119,6 @@ function NewsTicker({ lang }: { lang: Lang }) {
   );
 }
 
-// National facts only — no simulated/campaign data (mandat/lawan support,
-// win probability) belongs here; this panel sits above the login card as a
-// neutral "who is Malaysia" strip, not a game readout.
-function MalaysiaInfoPanel({ lang, maxWidth }: { lang: Lang; maxWidth: number }) {
-  const stats = getNationalStats();
-  const { ethnic } = stats;
-
-  return (
-    <div
-      className={plexMono.className}
-      style={{
-        width: "100%",
-        maxWidth,
-        margin: "0 24px",
-        background: PANEL,
-        backdropFilter: "blur(6px)",
-        border: `1px solid ${BORDER}`,
-        padding: "12px 16px",
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-      }}
-    >
-      <Image
-        src="/flags/malaysia.svg"
-        alt="Malaysia"
-        width={42}
-        height={26}
-        unoptimized
-        style={{ objectFit: "cover", border: `1px solid ${BORDER}`, flexShrink: 0 }}
-      />
-      <div style={{ display: "flex", flex: 1, flexWrap: "wrap", gap: "8px 18px" }}>
-        <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.population")}</div>
-          <div style={{ fontSize: 13, color: CYAN, fontWeight: 700 }}>{formatNumber(stats.population, 0)}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.area")}</div>
-          <div style={{ fontSize: 13, color: CYAN, fontWeight: 700 }}>{formatNumber(stats.area, 0)} km²</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: TEXT_FAINT, letterSpacing: 1 }}>{t(lang, "components_auth_TacticalAuthShell.ethnicBreakdown")}</div>
-          <div style={{ fontSize: 11, color: TEXT, fontWeight: 600 }}>
-            {t(lang, "components_auth_TacticalAuthShell.malay")} {formatNumber(ethnic.malay)}% · {t(lang, "components_auth_TacticalAuthShell.chinese")} {formatNumber(ethnic.chinese)}% ·{" "}
-            {t(lang, "components_auth_TacticalAuthShell.indian")} {formatNumber(ethnic.indian)}% · {t(lang, "components_auth_TacticalAuthShell.other")} {formatNumber(ethnic.others)}%
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface TacticalAuthShellProps {
   eyebrow: string;
   heading: string;
@@ -216,36 +160,31 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
         </div>
       </div>
 
-      <div
-        className={plexMono.className}
-        style={{ position: "absolute", top: 60, right: 32, fontSize: 11, color: TEXT_FAINT, letterSpacing: 1 }}
-      >
-        {time} ·{" "}
-        <span style={{ color: GREEN }}>
-          <span className="mm-auth-live-blink" style={{ display: "inline-block" }}>
-            ●
-          </span>{" "}
-          {t(lang, "components_auth_TacticalAuthShell.sysOnline")}
+      {/* One top-right row: clock, language, theme */}
+      <div className={`${plexMono.className} absolute z-20 flex items-center gap-3`} style={{ top: 50, right: 24, fontSize: 11, color: TEXT_FAINT, letterSpacing: 1 }}>
+        <span className="auth-clock">
+          {time} ·{" "}
+          <span style={{ color: GREEN }}>
+            <span className="mm-auth-live-blink" style={{ display: "inline-block" }}>●</span>{" "}
+            {t(lang, "components_auth_TacticalAuthShell.sysOnline")}
+          </span>
         </span>
+        <LangToggle />
+        <ThemeToggle />
       </div>
 
-      <LangToggle />
-      <ThemeToggle />
-
-      <div className="relative z-10 flex w-full flex-col items-center" style={{ gap: 14 }}>
-        <MalaysiaInfoPanel lang={lang} maxWidth={cardWidth} />
-
+      <div className="relative z-10 flex w-full flex-col items-center">
         <div
-          className="mm-auth-card-glow relative w-full"
-          style={{ maxWidth: cardWidth, margin: "0 24px", background: PANEL, backdropFilter: "blur(6px)", border: `1px solid ${BORDER}`, padding: 36 }}
+          className="auth-card mm-auth-card-glow relative w-full"
+          style={{ maxWidth: cardWidth, margin: "0 24px", background: PANEL, backdropFilter: "blur(6px)", border: `1px solid ${BORDER}`, padding: 32, borderRadius: 6 }}
         >
           <span className="pointer-events-none absolute" style={{ top: -1, left: -1, width: 18, height: 18, borderTop: `2px solid ${CYAN}`, borderLeft: `2px solid ${CYAN}` }} />
           <span className="pointer-events-none absolute" style={{ top: -1, right: -1, width: 18, height: 18, borderTop: `2px solid ${CYAN}`, borderRight: `2px solid ${CYAN}` }} />
           <span className="pointer-events-none absolute" style={{ bottom: -1, left: -1, width: 18, height: 18, borderBottom: `2px solid ${CYAN}`, borderLeft: `2px solid ${CYAN}` }} />
           <span className="pointer-events-none absolute" style={{ bottom: -1, right: -1, width: 18, height: 18, borderBottom: `2px solid ${CYAN}`, borderRight: `2px solid ${CYAN}` }} />
 
-          <div className="mb-6 text-center">
-            <div className={plexMono.className} style={{ fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 10 }}>
+          <div className="auth-head mb-5 text-center">
+            <div className={`auth-eyebrow ${plexMono.className}`} style={{ fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 8 }}>
               {eyebrow}
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: TEXT }}>{heading}</div>

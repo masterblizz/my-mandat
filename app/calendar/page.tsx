@@ -198,9 +198,10 @@ function DetailPanel({
         <button
           onClick={onClose}
           className="text-text-muted hover:text-cyan text-xs"
-          style={{ fontFamily: "'Space Mono', monospace" }}
+          style={{ fontFamily: "'Space Mono', monospace", minHeight: "40px", minWidth: "40px", padding: "0 8px", border: "1px solid rgb(var(--cyan-rgb) / 0.25)" }}
+          aria-label={t(lang, "calendar_page.close")}
         >
-          [{t(lang, "calendar_page.close")}]
+          ✕ {t(lang, "calendar_page.close")}
         </button>
       </div>
 
@@ -246,17 +247,19 @@ function DetailPanel({
         {/* Info rows */}
         <div className="space-y-2">
           {[
-            [t(lang, "calendar_page.date"), ev.date],
-            [t(lang, "calendar_page.time"), ev.time],
-            [t(lang, "calendar_page.location"), ev.location],
-            [t(lang, "calendar_page.operatives"), ev.operatives > 0 ? t(lang, "calendar_page.deployed", { evOperatives: ev.operatives }) : "—"],
-          ].map(([label, val]) => (
+            ["📅", t(lang, "calendar_page.date"), lang === "ms" ? ev.date.replace(/^(MON|TUE|WED|THU|FRI|SAT|SUN)\b/, (d) => DAYS_MS[DAYS.indexOf(d)]) : ev.date],
+            ["⏰", t(lang, "calendar_page.time"), ev.time === "All Day" ? t(lang, "SEHARIAN", "ALL DAY") : ev.time],
+            ["📍", t(lang, "calendar_page.location"), ev.location],
+            ["👥", t(lang, "calendar_page.operatives"), ev.operatives > 0 ? `${ev.operatives}` : "—"],
+          ].map(([icon, label, val]) => (
             <div key={label} className="flex gap-2">
               <span
-                className="text-text-muted uppercase shrink-0"
-                style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", minWidth: "80px" }}
+                className="shrink-0"
+                title={label}
+                aria-label={label}
+                style={{ fontSize: "13px", minWidth: "22px" }}
               >
-                {label}
+                {icon}
               </span>
               <span
                 className="text-white"
@@ -276,12 +279,6 @@ function DetailPanel({
             padding: "10px",
           }}
         >
-          <div
-            className="text-text-muted mb-1 uppercase"
-            style={{ fontSize: "12px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.1em" }}
-          >
-            {t(lang, "calendar_page.briefing")}
-          </div>
           <div
             className="text-white"
             style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", lineHeight: "1.6" }}
@@ -367,10 +364,10 @@ export default function CalendarPage() {
       >
         {/* Title */}
         <div
-          className="text-gold font-bold uppercase tracking-widest"
+          className="text-gold font-bold uppercase tracking-widest whitespace-nowrap"
           style={{ fontSize: "13px" }}
         >
-          {t(lang, "calendar_page.calendarSchedulePlanExecuteWin")}
+          📅 {t(lang, "KALENDAR", "CALENDAR")}
         </div>
 
         {/* Controls */}
@@ -400,7 +397,7 @@ export default function CalendarPage() {
 
           {/* Today button */}
           <button
-            className="btn-primary"
+            className="btn-primary whitespace-nowrap"
             style={{ padding: "4px 12px", fontSize: "12px", opacity: weekOffset === 0 ? 0.5 : 1 }}
             onClick={() => setWeekOffset(0)}
           >
@@ -417,14 +414,17 @@ export default function CalendarPage() {
               &lt;
             </button>
             <span
-              className="text-white uppercase tracking-widest"
-              style={{ fontSize: "12px", minWidth: "140px", textAlign: "center" }}
+              className="text-white uppercase tracking-wider whitespace-nowrap"
+              style={{ fontSize: "12px", textAlign: "center" }}
             >
               {(() => {
                 const base = new Date(2025, 5, 16 + weekOffset * 7);
                 const end = new Date(2025, 5, 22 + weekOffset * 7);
-                const fmt = (d: Date) => `${d.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]}`;
-                return t(lang, "calendar_page.wk", { weekOffset: 23 + weekOffset, fmtBase: fmt(base), fmtEnd: fmt(end) });
+                const months = lang === "ms"
+                  ? ["JAN","FEB","MAC","APR","MEI","JUN","JUL","OGO","SEP","OKT","NOV","DIS"]
+                  : ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+                const fmt = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
+                return `${fmt(base)}–${fmt(end)}`;
               })()}
             </span>
             <button
@@ -443,7 +443,7 @@ export default function CalendarPage() {
         className="flex flex-col"
         style={{
           minHeight: "calc(100vh - 40px - 36px - 48px - 48px)",
-          padding: "16px 24px",
+          padding: "16px 24px 64px",
           paddingRight: selectedEvent ? "364px" : "24px",
           transition: "padding-right 0.25s ease",
         }}
@@ -731,24 +731,25 @@ export default function CalendarPage() {
         }}
       >
         {[
-          { value: totalEvents, labelKey: "calendar_page.rowEvents" },
-          { value: totalMedia, labelKey: "calendar_page.statMediaAppearances" },
-          { value: totalOps, labelKey: "calendar_page.rowOperations" },
-          { value: totalOperatives, labelKey: "calendar_page.statOperativesDeployed" },
-        ].map(({ value, labelKey }, i, arr) => (
-          <div key={labelKey} className="flex items-center">
-            <div className="flex items-center gap-2 px-6">
+          { icon: "🎤", value: totalEvents, label: t(lang, "calendar_page.rowEvents") },
+          { icon: "📺", value: totalMedia, label: t(lang, "calendar_page.rowMedia") },
+          { icon: "⚙", value: totalOps, label: t(lang, "calendar_page.rowOperations") },
+          { icon: "👥", value: totalOperatives, label: t(lang, "PETUGAS", "CREW") },
+        ].map(({ icon, value, label }, i, arr) => (
+          <div key={label} className="flex items-center">
+            <div className="flex items-center gap-2 px-5" title={label}>
+              <span style={{ fontSize: "15px", lineHeight: 1 }}>{icon}</span>
               <span
                 className="text-gold font-bold"
-                style={{ fontSize: "22px", lineHeight: 1 }}
+                style={{ fontSize: "20px", lineHeight: 1 }}
               >
                 {value}
               </span>
               <span
                 className="text-text-muted uppercase"
-                style={{ fontSize: "12px", letterSpacing: "0.1em" }}
+                style={{ fontSize: "11px", letterSpacing: "0.1em" }}
               >
-                {t(lang, labelKey)}
+                {label}
               </span>
             </div>
             {i < arr.length - 1 && (
@@ -764,8 +765,8 @@ export default function CalendarPage() {
       )}
 
       <StatusBar
-        leftText={t(lang, "calendar_page.calendarScheduleDayDaysToElection", { gameDay: gameDay, totalDays: totalDays, totalDaysGameDay: totalDays - gameDay })}
-        rightText={t(lang, "calendar_page.clickEventForDetailsEscTo")}
+        leftText={`📅 ${t(lang, "HARI", "DAY")} ${gameDay}/${totalDays} · ⏳ ${totalDays - gameDay}`}
+        rightText={t(lang, "KETIK UNTUK BUTIRAN", "TAP FOR DETAILS")}
       />
     </div>
   );

@@ -187,67 +187,67 @@ const LOCATION_HOSTS: Record<string, LocationHost> = {
     roleMs: "Setiausaha Parti",
     roleEn: "Party Secretary",
     welcomeMs:
-      "Selamat datang ke Ibu Pejabat Parti. Saya sudah sediakan ringkasan calon dan manifesto untuk keputusan anda.",
+      "Calon & manifesto sedia untuk anda.",
     welcomeEn:
-      "Welcome to Party Headquarters. I have prepared the candidate and manifesto brief for your decision.",
+      "Candidates & manifesto are ready.",
     asset: "/party-secretary-standing.png",
   },
   operations: {
     roleMs: "Pegawai Operasi",
     roleEn: "Operations Officer",
     welcomeMs:
-      "Peta lapangan dan pasukan jentera sudah bersedia untuk arahan anda.",
-    welcomeEn: "The field map and campaign teams are ready for your direction.",
+      "Jentera sedia. Arahan anda?",
+    welcomeEn: "Teams ready. Your orders?",
     asset: "/personal-assistant-standing.png",
   },
   calendar: {
     roleMs: "Penyelaras Kempen",
     roleEn: "Campaign Coordinator",
-    welcomeMs: "Slot lawatan dan masa pasukan sedang menunggu pengesahan anda.",
-    welcomeEn: "Visit slots and team time are waiting for your confirmation.",
+    welcomeMs: "Slot lawatan menunggu pengesahan.",
+    welcomeEn: "Visit slots await your go.",
     asset: "/personal-assistant-standing.png",
   },
   media: {
     roleMs: "Pengurus Media",
     roleEn: "Media Manager",
     welcomeMs:
-      "Bilik siaran sedia. Kita boleh semak mesej sebelum ia sampai kepada orang ramai.",
+      "Bilik siaran sedia. Semak mesej dulu?",
     welcomeEn:
-      "The broadcast room is ready. We can review the message before it reaches the public.",
+      "Studio ready. Check the message?",
     asset: "/personal-assistant-standing.png",
   },
   commission: {
     roleMs: "Penganalisis Tinjauan",
     roleEn: "Polling Analyst",
     welcomeMs:
-      "Data sokongan terkini sudah masuk. Saya boleh bantu anda baca perubahan di kawasan.",
+      "Data sokongan terkini sudah masuk.",
     welcomeEn:
-      "The latest support data is in. I can help you read constituency changes.",
+      "Fresh support data is in.",
     asset: "/personal-assistant-standing.png",
   },
   cabinet: {
     roleMs: "Setiausaha Kabinet",
     roleEn: "Cabinet Secretary",
-    welcomeMs: "Portfolio dan arahan kerajaan tersedia untuk semakan anda.",
+    welcomeMs: "Portfolio kerajaan sedia disemak.",
     welcomeEn:
-      "Government portfolios and directives are ready for your review.",
+      "Portfolios ready for review.",
     asset: "/personal-assistant-standing.png",
   },
   administration: {
     roleMs: "Pegawai Pentadbiran",
     roleEn: "Administration Officer",
     welcomeMs:
-      "Fail pelaksanaan dasar sudah disusun mengikut keutamaan penggal ini.",
-    welcomeEn: "Policy delivery files are arranged by this term's priorities.",
+      "Fail dasar disusun ikut keutamaan.",
+    welcomeEn: "Policy files sorted by priority.",
     asset: "/personal-assistant-standing.png",
   },
   national: {
     roleMs: "Penganalisis Negara",
     roleEn: "National Analyst",
     welcomeMs:
-      "Saya sudah buka perbandingan negeri untuk langkah strategik anda yang seterusnya.",
+      "Perbandingan negeri sudah dibuka.",
     welcomeEn:
-      "I have opened the state comparison for your next strategic move.",
+      "State comparison is open.",
     asset: "/personal-assistant-standing.png",
   },
 };
@@ -711,8 +711,8 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
               <p className="mt-1 text-xs font-black text-white">
                 {t(
                   lang,
-                  "Peta nasional, radar Borneo dan telemetri medan dikemas kini secara langsung.",
-                  "National map, Borneo radar and field telemetry update live.",
+                  "Peta & radar langsung",
+                  "Live map & radar",
                 )}
               </p>
             </div>
@@ -1688,26 +1688,12 @@ export default function LocationPage() {
                     <h3 className="mt-3 max-w-2xl text-2xl font-black leading-tight text-white">
                       {detail}
                     </h3>
-                    <p className="mt-3 max-w-xl text-[11px] leading-relaxed text-text-muted">
-                      {t(
-                        lang,
-                        "Gunakan paparan ini untuk menilai keadaan semasa sebelum mengesahkan keputusan politik anda.",
-                        "Use this display to assess the current situation before confirming your political decision.",
-                      )}
-                    </p>
                   </div>
                 </div>
                 <aside className="flex min-h-[420px] flex-col p-5">
                   <div className="text-[9px] font-black tracking-[.2em] text-gold">
                     {t(lang, "KEPUTUSAN POLITIK", "POLITICAL DECISION")}
                   </div>
-                  <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
-                    {t(
-                      lang,
-                      "Tindakan dibuat terus dari lokasi ini. Sumber, tenaga dan rekod karier akan dikemas kini sebaik keputusan disahkan.",
-                      "The action is made directly from this location. Resources, energy and your career record update when the decision is confirmed.",
-                    )}
-                  </p>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <div
                       className="border p-3"
@@ -2043,165 +2029,55 @@ export default function LocationPage() {
             }}
           >
             <section
-              className="w-[min(720px,100%)] overflow-hidden border shadow-2xl"
+              className="w-[min(420px,100%)] overflow-hidden rounded-lg border shadow-2xl"
               style={{
                 borderColor: `${scene.accent}aa`,
                 background: "#07111c",
                 boxShadow: `0 0 52px ${scene.accent}33`,
               }}
             >
-              <div
-                className="flex items-start justify-between border-b px-5 py-4"
-                style={{ borderColor: `${scene.accent}55` }}
-              >
-                <div>
-                  <div
-                    className="text-[9px] font-black tracking-[.22em]"
-                    style={{ color: scene.accent }}
-                  >
-                    📍{" "}
-                    {t(
-                      lang,
-                      "KETIBAAN LOKASI · PETA 3D",
-                      "LOCATION ARRIVAL · 3D MAP",
-                    )}
-                  </div>
-                  <h2 className="mt-1 text-lg font-black text-white">
-                    {scene.icon} {label}
-                  </h2>
-                  <p className="mt-1 text-[10px] text-text-muted">{detail}</p>
-                </div>
+              {/* Arrival card: the place, four icon stats, one button. */}
+              <div className="flex items-center justify-between gap-3 px-5 pt-4">
+                <h2 className="text-xl font-black text-white">
+                  {scene.icon} {label}
+                </h2>
                 <button
                   type="button"
                   onClick={() => setArrivalOpen(false)}
-                  className="text-text-muted"
+                  aria-label={t(lang, "Tutup", "Close")}
+                  className="h-9 w-9 text-lg text-text-muted"
                 >
                   ×
                 </button>
               </div>
-              <div className="grid gap-5 p-5 md:grid-cols-[1.2fr_.8fr]">
-                <div
-                  className="relative h-56 overflow-hidden border"
-                  style={{
-                    borderColor: `${scene.accent}66`,
-                    background: "linear-gradient(155deg,#152d3d,#07111c)",
-                  }}
+              <div className="grid grid-cols-4 gap-2 px-5 pt-3">
+                {[
+                  { icon: "🤝", label: t(lang, "Kepercayaan", "Trust"), value: `${journey.trust}` },
+                  { icon: "⚡", label: t(lang, "Tenaga", "Energy"), value: `${journey.decisions}/3` },
+                  { icon: "📅", label: t(lang, "Hari", "Day"), value: `${day}/${totalDays}` },
+                  { icon: "📍", label: t(lang, "Lokasi", "Location"), value: t(lang, "Aktif", "Active") },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    title={stat.label}
+                    className="flex flex-col items-center rounded-md border py-2"
+                    style={{ borderColor: `${scene.accent}44`, background: `${scene.accent}10` }}
+                  >
+                    <span className="text-lg leading-none">{stat.icon}</span>
+                    <b className="mt-1 text-[13px] text-white">{stat.value}</b>
+                    <span className="text-[8px] font-bold tracking-wider text-text-muted">{stat.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-5">
+                <button
+                  type="button"
+                  onClick={() => setArrivalOpen(false)}
+                  className="w-full rounded-md py-3 text-[12px] font-black tracking-widest text-[#07111c]"
+                  style={{ background: scene.accent, boxShadow: `0 0 18px ${scene.accent}55` }}
                 >
-                  <div
-                    className="absolute left-1/2 top-1/2 h-40 w-64 -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      transform:
-                        "translate(-50%,-50%) rotateX(58deg) rotateZ(-42deg)",
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    <div
-                      className="absolute inset-0 border"
-                      style={{
-                        borderColor: `${scene.accent}77`,
-                        background:
-                          "repeating-linear-gradient(0deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),repeating-linear-gradient(90deg,rgba(79,214,236,.10) 0 1px,transparent 1px 24px),#183849",
-                      }}
-                    />
-                    {[18, 58, 98, 142, 184].map((left, index) => (
-                      <i
-                        key={left}
-                        className="absolute bottom-8 w-8 border"
-                        style={{
-                          left,
-                          height: 28 + (index % 3) * 18,
-                          transform: "translateZ(18px)",
-                          background: index === 2 ? scene.accent : "#253f54",
-                          borderColor: index === 2 ? "#fff" : "#4c7892",
-                          boxShadow:
-                            index === 2
-                              ? `0 0 20px ${scene.accent}`
-                              : undefined,
-                        }}
-                      />
-                    ))}
-                    <i
-                      className="absolute left-[105px] top-[36px] h-10 w-10 border-2"
-                      style={{
-                        borderColor: "#fff",
-                        background: scene.accent,
-                        transform: "translateZ(48px)",
-                        boxShadow: `0 0 24px ${scene.accent}`,
-                      }}
-                    />
-                  </div>
-                  <div
-                    className="absolute bottom-3 left-3 border px-2 py-1 text-[8px] font-black tracking-widest"
-                    style={{
-                      borderColor: `${scene.accent}88`,
-                      color: scene.accent,
-                      background: "rgba(2,7,15,.82)",
-                    }}
-                  >
-                    ◆ {t(lang, "BANGUNAN ANDA", "YOUR BUILDING")}
-                  </div>
-                </div>
-                <div className="flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div
-                      className="border p-3"
-                      style={{
-                        borderColor: `${scene.accent}55`,
-                        background: `${scene.accent}12`,
-                      }}
-                    >
-                      <div
-                        className="text-[9px] font-black tracking-widest"
-                        style={{ color: scene.accent }}
-                      >
-                        {t(lang, "STATUS SEMASA", "CURRENT STATUS")}
-                      </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-                        <span className="text-text-muted">
-                          {t(lang, "KEPERCAYAAN", "TRUST")}{" "}
-                          <b className="ml-1 text-white">{journey.trust}</b>
-                        </span>
-                        <span className="text-text-muted">
-                          {t(lang, "TENAGA", "ENERGY")}{" "}
-                          <b className="ml-1 text-white">
-                            {journey.decisions}/3
-                          </b>
-                        </span>
-                        <span className="text-text-muted">
-                          {t(lang, "HARI", "DAY")}{" "}
-                          <b className="ml-1 text-white">
-                            {day}/{totalDays}
-                          </b>
-                        </span>
-                        <span className="text-text-muted">
-                          {t(lang, "LOKASI", "LOCATION")}{" "}
-                          <b className="ml-1 text-white">
-                            {t(lang, "AKTIF", "ACTIVE")}
-                          </b>
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-[10px] leading-relaxed text-text-muted">
-                      {t(
-                        lang,
-                        "Klik hotspot di dalam scene untuk mula tugasan khusus lokasi ini.",
-                        "Click a hotspot in the scene to begin this location's focused task.",
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setArrivalOpen(false)}
-                    className="mt-4 border px-4 py-3 text-[10px] font-black tracking-widest"
-                    style={{
-                      borderColor: scene.accent,
-                      color: scene.accent,
-                      background: `${scene.accent}12`,
-                    }}
-                  >
-                    {t(lang, "MASUK LOKASI", "ENTER LOCATION")} →
-                  </button>
-                </div>
+                  {t(lang, "MASUK", "ENTER")} →
+                </button>
               </div>
             </section>
           </div>
@@ -2213,15 +2089,7 @@ export default function LocationPage() {
             background: "rgba(6,14,24,.9)",
           }}
         >
-          <div
-            className="text-[9px] font-black tracking-[.2em]"
-            style={{ color: scene.accent }}
-          >
-            {isRural
-              ? t(lang, "LOKASI LUAR BANDAR · AKTIF", "RURAL LOCATION · ACTIVE")
-              : t(lang, "LOKASI BANDAR · AKTIF", "CITY LOCATION · ACTIVE")}
-          </div>
-          <h1 className="mt-1 text-lg font-black text-white">
+          <h1 className="text-lg font-black text-white">
             {scene.icon} {label}
           </h1>
           {scene3d && (
@@ -2231,11 +2099,9 @@ export default function LocationPage() {
               {war3d ? t(lang, "PAPARAN RINGAN", "LIGHT VIEW") : t(lang, "BANGUNAN 3D", "3D BUILDING")}
             </button>
           )}
-          <p className="mt-1 text-[9px] text-text-muted">
-            {isRural
-              ? `${localProfile.seatName} · ${t(lang, "pusat pekan & komuniti", "town and community hub")}`
-              : detail}
-          </p>
+          {isRural && (
+            <p className="mt-1 text-[9px] text-text-muted">📍 {localProfile.seatName}</p>
+          )}
         </div>
         {kind === "operations" && hotUpdate && (
           <button
@@ -2261,8 +2127,8 @@ export default function LocationPage() {
             <span className="mt-1 block text-[9px] text-text-muted">
               {t(
                 lang,
-                "Klik untuk buka Command Console",
-                "Click to open Command Console",
+                "Buka konsol",
+                "Open console",
               )}{" "}
               →
             </span>
@@ -2371,13 +2237,6 @@ export default function LocationPage() {
                   {scene.icon} {hotspot.toUpperCase()}
                 </div>
                 <h2 className="mt-1 text-sm font-black text-white">{detail}</h2>
-                <p className="mt-2 text-[10px] leading-relaxed text-text-muted">
-                  {t(
-                    lang,
-                    "Aktiviti ini berjalan terus dalam lokasi semasa. Setiap pilihan menggunakan tenaga, sumber dan direkod dalam jurnal karier.",
-                    "This activity runs directly in the current location. Each choice uses energy, resources and is recorded in the career journal.",
-                  )}
-                </p>
               </div>
               <button
                 type="button"
@@ -2553,8 +2412,8 @@ export default function LocationPage() {
           <span className="whitespace-nowrap px-5 text-[10px] text-text-muted">
             {t(
               lang,
-              "Lokasi aktif: semua keputusan akan memberi kesan kepada perjalanan politik anda.",
-              "Active location: every decision affects your political journey.",
+              "Setiap keputusan dikira",
+              "Every decision counts",
             )}
           </span>
         </footer>
@@ -2563,8 +2422,8 @@ export default function LocationPage() {
         leftText={`${scene.icon} ${label.toUpperCase()}`}
         rightText={t(
           lang,
-          "Klik hotspot untuk mula berinteraksi",
-          "Click the hotspot to begin interacting",
+          "👆 Ketik titik bercahaya",
+          "👆 Tap a glowing spot",
         )}
       />
     </div>

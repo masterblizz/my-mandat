@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import { RED, CYAN, GOLD, TEXT, TEXT_DIM, TEXT_FAINT, PANEL, BORDER } from "./theme";
 import { plexMono } from "./fonts";
 import { useLang, t } from "../../i18n/useLang";
 import { states } from "../../data/states";
-import { generateConstituencies } from "../../data/constituencies";
 import { formatNumber } from "../../utils/format";
 
 // Full-bleed decorative backdrop for /login and /register — ported from the
@@ -65,59 +63,6 @@ interface PathData {
 
 const stateById = Object.fromEntries(states.map((s) => [s.id, s]));
 
-// State flag artwork isn't part of this repo yet — drop files in here as
-// public/flags/<id>.svg (or .png) and this starts rendering them
-// automatically; until then the corner panel just quietly shows nothing
-// where the flag would go (onError below), no broken-image icon.
-function StateFlag({ stateId }: { stateId: string }) {
-  // "loading" renders the img at opacity 0 (not display:none — a hidden
-  // img still fires load/error, an unrendered one wouldn't) so neither a
-  // slow load nor a 404 ever flashes a broken-image icon; only flips
-  // visible once the browser confirms the file actually decoded.
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  useEffect(() => {
-    setStatus("loading");
-    // A cached or same-origin/local image can finish loading (and fire its
-    // native 'load' event) before React has attached the onLoad handler
-    // below, which otherwise leaves the flag stuck invisible forever —
-    // .complete here catches that case on the next tick.
-    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
-      setStatus("loaded");
-    }
-  }, [stateId]);
-
-  if (status === "error") return null;
-  return (
-    <Image
-      ref={imgRef}
-      src={`/flags/${stateId}.svg`}
-      alt=""
-      width={384}
-      height={240}
-      unoptimized
-      priority={stateId === AUTO_CYCLE_ORDER[0]}
-      onLoad={() => setStatus("loaded")}
-      onError={() => setStatus("error")}
-      style={{
-        // "cover" was cropping several flags (Terengganu, Johor, Sabah,
-        // Sarawak, Kedah, Negeri Sembilan) — their source SVGs' own
-        // aspect ratio (and, for some, padding around the flag rectangle
-        // within their canvas) doesn't match this box's 384:240 (1.6:1),
-        // so cover's crop-to-fill cut real flag content off. "contain"
-        // always shows the whole flag, letterboxed on PANEL instead.
-        objectFit: "contain",
-        background: PANEL,
-        border: `1px solid ${BORDER}`,
-        boxShadow: "0 0 12px rgb(var(--auth-cyan-rgb) / 0.15)",
-        opacity: status === "loaded" ? 1 : 0,
-        transition: "opacity 0.2s",
-      }}
-    />
-  );
-}
-
 export default function AuthBackground() {
   const lang = useLang();
   const [pathData, setPathData] = useState<PathData[]>([]);
@@ -167,20 +112,6 @@ export default function AuthBackground() {
   const hoveredState = hoveredId ? stateById[hoveredId] : null;
   const openLeft = tooltipPos.x > (typeof window !== "undefined" ? window.innerWidth : 1440) - 230;
   const openUp = tooltipPos.y > (typeof window !== "undefined" ? window.innerHeight : 900) - 210;
-
-  // Real seat names (PARLIAMENT_NAMES/DUN_NAMES) + a deterministic
-  // per-seat voter figure derived from the state's real population —
-  // deliberately NOT reading generateConstituencies()'s mandat/lawan/
-  // winner/safety fields here, since those are seeded from the same
-  // "flavor" support numbers MalaysiaMap.tsx's own pre-game tooltip mode
-  // already avoids for exactly this reason: showing them here would read
-  // as a fake in-progress campaign before the player has even logged in.
-  const seatLists = useMemo(() => {
-    if (!activeState) return { parlimen: [] };
-    return {
-      parlimen: generateConstituencies(activeState, "parliament").map((c) => ({ code: c.code, name: c.name, voters: c.voters })),
-    };
-  }, [activeState]);
 
   return (
     <>
@@ -331,64 +262,14 @@ export default function AuthBackground() {
         </div>
       )}
 
-      {/* State flag, bottom-right — tracks whichever state is currently
-          highlighted (auto-cycle, or hover overriding it). */}
+      {/* Name of the state the map is highlighting — a small chip instead
+          of the old flag + seat-list panels, which crowded the login card. */}
       {activeState && (
         <div
-          className={`${plexMono.className} fixed z-10`}
-          style={{
-            bottom: 74,
-            right: 24,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-            pointerEvents: "none",
-          }}
+          className={`${plexMono.className} pointer-events-none fixed z-10`}
+          style={{ bottom: 18, left: 24, fontSize: 10, letterSpacing: 2, color: GOLD }}
         >
-          <StateFlag stateId={activeState.id} />
-          <div style={{ fontSize: 9, color: GOLD, letterSpacing: 1 }}>{activeState.name.toUpperCase()}</div>
-        </div>
-      )}
-
-      {/* DUN & Parlimen seat list + voter counts, bottom-left — same
-          "currently highlighted state" source as the flag above. */}
-      {activeState && (
-        <div
-          className={`${plexMono.className} fixed z-10`}
-          style={{
-            bottom: 74,
-            left: 24,
-            width: 260,
-            background: PANEL,
-            backdropFilter: "blur(6px)",
-            border: `1px solid ${BORDER}`,
-            borderLeft: `2px solid ${GOLD}`,
-            padding: "10px 12px",
-            boxShadow: "0 0 24px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div style={{ fontSize: 11, fontWeight: 700, color: TEXT, marginBottom: 2 }}>{activeState.name}</div>
-          <div style={{ fontSize: 9, color: CYAN, marginBottom: 8 }}>
-            {formatNumber(activeState.registeredVoters)} {t(lang, "components_auth_AuthBackground.totalVoters")}
-          </div>
-          <div>
-            {seatLists.parlimen.length > 0 && (
-              <>
-                <div style={{ fontSize: 7, color: TEXT_FAINT, letterSpacing: 0.5, marginTop: 2 }}>
-                  {t(lang, "components_auth_AuthBackground.parliament")}
-                </div>
-                {seatLists.parlimen.map((s) => (
-                  <div key={s.code} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 9, color: TEXT_DIM, padding: 0, lineHeight: "13px" }}>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                      {s.code} {s.name}
-                    </span>
-                    <span style={{ color: GOLD, flexShrink: 0 }}>{formatNumber(s.voters)}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
+          📍 {activeState.name.toUpperCase()}
         </div>
       )}
     </>
