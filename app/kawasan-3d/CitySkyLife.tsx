@@ -18,13 +18,15 @@ function phaseNow(date = new Date()): Phase {
 }
 
 // Deterministic layout so the sky does not reshuffle on every render.
+// Thin, high clouds kept to the top band of the frame (where the sky is at
+// the default camera); the band fades out downwards so a cloud never sits
+// as a solid blot on the ground.
 const CLOUDS = [
-  { top: 4, scale: 1.25, duration: 150, delay: -20, opacity: 0.9 },
-  { top: 12, scale: 0.8, duration: 115, delay: -70, opacity: 0.8 },
-  { top: 2, scale: 0.95, duration: 170, delay: -110, opacity: 0.75 },
-  { top: 18, scale: 0.6, duration: 95, delay: -40, opacity: 0.65 },
-  { top: 9, scale: 1.05, duration: 135, delay: -125, opacity: 0.85 },
-  { top: 22, scale: 0.7, duration: 105, delay: -5, opacity: 0.6 },
+  { top: 1, scale: 1.2, duration: 150, delay: -20, opacity: 0.7 },
+  { top: 7, scale: 0.8, duration: 115, delay: -70, opacity: 0.55 },
+  { top: 0, scale: 0.95, duration: 170, delay: -110, opacity: 0.6 },
+  { top: 10, scale: 0.6, duration: 95, delay: -40, opacity: 0.45 },
+  { top: 4, scale: 1.05, duration: 135, delay: -125, opacity: 0.6 },
 ];
 
 const FLOCKS = [
@@ -46,6 +48,7 @@ function Bird({ x, y, delay }: { x: number; y: number; delay: number }) {
 
 export default function CitySkyLife() {
   const [phase, setPhase] = useState<Phase>("day");
+
   useEffect(() => {
     const update = () => setPhase(phaseNow());
     update();
@@ -53,12 +56,13 @@ export default function CitySkyLife() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const cloudColor = phase === "night" ? "rgb(150 165 190 / .22)" : phase === "dusk" ? "rgb(255 214 190 / .85)" : "rgb(255 255 255 / .92)";
+  const cloudColor = phase === "night" ? "rgb(150 165 190 / .22)" : phase === "dusk" ? "rgb(255 214 190 / .8)" : "rgb(255 255 255 / .85)";
   const clouds = phase === "night" ? CLOUDS.slice(0, 3) : CLOUDS;
   const flocks = phase === "night" ? [] : phase === "dusk" ? FLOCKS.slice(0, 2) : FLOCKS;
 
   return (
     <div aria-hidden className="city-sky-life pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="sky-cloud-band">
       {clouds.map((c, i) => (
         <div key={i} className="sky-cloud" style={{
           top: `${c.top}%`, opacity: c.opacity, animationDuration: `${c.duration}s`, animationDelay: `${c.delay}s`,
@@ -67,6 +71,7 @@ export default function CitySkyLife() {
           <span /><span /><span /><span />
         </div>
       ))}
+      </div>
       {flocks.map((f, i) => (
         <svg key={i} className={`sky-flock ${f.dir < 0 ? "sky-flock--west" : ""}`} viewBox="-40 -20 80 40"
           style={{ top: `${f.top}%`, width: 60 + f.size * 6, animationDuration: `${f.duration}s`, animationDelay: `${f.delay}s`,

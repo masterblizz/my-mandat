@@ -80,7 +80,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       />
       {/* deepen the pale sky and darken the frame edges for depth; never takes input */}
       <div aria-hidden className="pointer-events-none absolute inset-0"
-        style={{ background: "linear-gradient(180deg, rgb(96 150 214) 0%, rgb(132 178 228) 14%, rgb(184 212 240) 26%, rgb(226 238 250) 36%, rgb(255 255 255) 46%)", mixBlendMode: "multiply", opacity: 0.85 }} />
+        style={{ background: "linear-gradient(180deg, rgb(96 150 214) 0%, rgb(132 178 228) 14%, rgb(184 212 240) 26%, rgb(226 238 250) 36%, rgb(255 255 255) 46%)", mixBlendMode: "multiply", opacity: 0.45 }} />
       <CitySkyLife />
       <div aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse 80% 85% at 50% 48%, transparent 62%, rgb(6 14 26 / .18) 82%, rgb(6 14 26 / .42) 100%)" }} />
