@@ -10,14 +10,17 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { computeElectionOutcome, type MandateStatus } from "../utils/electionOutcome";
 import { getGovernmentTerms, type GovernmentTerms } from "../utils/governmentTerms";
 import { getPrnCandidate } from "../data/prnCandidates";
+import { HudButton, InfoFold, NumTile, PageHead, StatChip } from "../components/formation/Hud";
 
-type StatusCopy = { color: string; text: string; action: string; route: string };
+type StatusCopy = { color: string; icon: string; short: string; text: string; action: string; route: string };
 
 function getStatusCopy(lang: Lang, terms: GovernmentTerms): Record<MandateStatus, StatusCopy> {
   const prn = terms.isPrn;
   return {
     majority: {
       color: "var(--neon-green)",
+      icon: "🏆",
+      short: t(lang, `Sahkan sokongan di ${terms.appointingAuthority}`, `Confirm support at ${terms.appointingAuthority}`),
       text: prn
         ? t(lang, "mandate_page.stateVotersHaveGivenYourParty", { termsAppointingAuthority: terms.appointingAuthority, termsHeadTitle: terms.headTitle })
         : t(lang, "mandate_page.votersHaveGivenYourPartyA"),
@@ -26,6 +29,8 @@ function getStatusCopy(lang: Lang, terms: GovernmentTerms): Record<MandateStatus
     },
     hung: {
       color: "var(--gold)",
+      icon: "🤝",
+      short: t(lang, "Runding rakan untuk capai majoriti", "Negotiate partners to reach majority"),
       text: prn
         ? t(lang, "mandate_page.noBlocReachedADunMajority")
         : t(lang, "mandate_page.noBlocReachedMajorityYourParty"),
@@ -34,6 +39,8 @@ function getStatusCopy(lang: Lang, terms: GovernmentTerms): Record<MandateStatus
     },
     opposition: {
       color: "var(--warn-orange)",
+      icon: "⚖️",
+      short: prn ? t(lang, "Pimpin pembangkang DUN", "Lead the DUN opposition") : t(lang, "Pimpin pembangkang", "Lead the opposition"),
       text: prn
         ? t(lang, "mandate_page.youFailedToFormTheState")
         : t(lang, "mandate_page.youFailedToFormFederalGovernment"),
@@ -42,6 +49,8 @@ function getStatusCopy(lang: Lang, terms: GovernmentTerms): Record<MandateStatus
     },
     collapse: {
       color: "var(--neon-red)",
+      icon: "🩹",
+      short: t(lang, "Bina semula parti", "Rebuild the party"),
       text: t(lang, "mandate_page.theResultRejectsThePartyMandate"),
       action: t(lang, "mandate_page.partyPostMortem"),
       route: "/postmortem",
@@ -61,46 +70,52 @@ export default function MandatePage() {
   const scopeName = terms.scopeLabel;
   const prnCandidate = isPrn ? getPrnCandidate(journey.prnCandidateId) : undefined;
 
+  const confirm = () => { finishElection(); const repRoute = useGameStore.getState().continueRepresentativeCareer(); if (repRoute) { navigate(repRoute); return; } if (outcome.status === "opposition" || outcome.status === "collapse") enterTerm(outcome.status === "collapse" ? "rebuilding" : "opposition"); navigate(copy.route); };
+  const leadsGovernment = outcome.status === "majority" || outcome.status === "hung";
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
       <main className="w-full px-3 pb-[58px] pt-[56px] sm:px-6">
-        <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row">
-          <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "mandate_page.postResultMandateStatus")}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "mandate_page.confirmMandate")}</h1>
-            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>{scopeName} · {leader.partyAbbr} · {outcome.seatsWon}/{outcome.totalSeats} {t(lang, "mandate_page.seats")}</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => router.push("/results")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "mandate_page.results")}</button>
-            <button onClick={() => { finishElection(); const repRoute = useGameStore.getState().continueRepresentativeCareer(); if (repRoute) { navigate(repRoute); return; } if (outcome.status === "opposition" || outcome.status === "collapse") enterTerm(outcome.status === "collapse" ? "rebuilding" : "opposition"); navigate(copy.route); }} disabled={isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-60 disabled:cursor-wait" style={{ border: `1px solid ${copy.color}88`, color: copy.color, background: `${copy.color}14` }}>{isPending ? t(lang, "mandate_page.loading") : copy.action}</button>
-          </div>
-        </div>
+        <PageHead
+          title={t(lang, "mandate_page.confirmMandate")}
+          chips={<>
+            <StatChip icon="🗳️">{scopeName}</StatChip>
+            <StatChip icon="🪑" color="var(--cyan)">{leader.partyAbbr} {outcome.seatsWon}/{outcome.totalSeats}</StatChip>
+          </>}
+          actions={<>
+            <HudButton onClick={() => router.push("/results")}>← {t(lang, "mandate_page.results")}</HudButton>
+            <HudButton color={copy.color} onClick={confirm} disabled={isPending}>{isPending ? t(lang, "mandate_page.loading") : `${copy.action} →`}</HudButton>
+          </>}
+        />
 
-        <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <TacticalPanel title={t(lang, "mandate_page.mandateVerdict")}>
-            <div className="text-[11px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "mandate_page.officialStatus")}</div>
-            <div className="mt-2 text-3xl font-black leading-tight" style={{ color: copy.color }}>{t(lang, outcome.statusLabelKey)}</div>
-            <div className="mt-2 text-[11px] tracking-wider" style={{ color: "var(--gold)" }}>{terms.governmentName} · {terms.assemblyName}</div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="border p-3" style={{ borderColor: `${leader.partyColor}66` }}><div className="text-[10px] text-text-muted">{leader.partyAbbr}</div><div className="text-4xl font-black" style={{ color: leader.partyColor }}>{outcome.seatsWon}</div></div>
-              <div className="border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.36)" }}><div className="text-[10px] text-text-muted">{t(lang, "mandate_page.majority")}</div><div className="text-4xl font-black text-white">{outcome.majorityTarget}</div></div>
-              <div className="border p-3" style={{ borderColor: "rgb(255 176 0 / 0.28)" }}><div className="text-[10px] text-text-muted">LAWAN</div><div className="text-2xl font-black" style={{ color: "var(--warn-orange)" }}>{outcome.lawanSeats}</div></div>
-              <div className="border p-3" style={{ borderColor: "rgba(255,255,255,0.14)" }}><div className="text-[10px] text-text-muted">{t(lang, "mandate_page.others")}</div><div className="text-2xl font-black text-text-muted">{outcome.othersSeats}</div></div>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] min-[1280px]:grid-cols-[380px_minmax(0,1fr)]">
+          <TacticalPanel title={`${copy.icon} ${t(lang, "mandate_page.mandateVerdict")}`}>
+            <div className="text-2xl font-black leading-tight sm:text-3xl" style={{ color: copy.color }}>{t(lang, outcome.statusLabelKey)}</div>
+            <div className="mt-1 text-[12px] font-bold text-text-muted">➡️ {copy.short}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <NumTile icon="🪑" label={leader.partyAbbr} value={outcome.seatsWon} color={leader.partyColor} />
+              <NumTile icon="🎯" label={t(lang, "mandate_page.majority")} value={outcome.majorityTarget} color="#fff" border="rgb(var(--gold-rgb)/0.36)" />
+              <NumTile icon="⚔️" label="LAWAN" value={outcome.lawanSeats} color="var(--warn-orange)" />
+              <NumTile icon="◽" label={t(lang, "mandate_page.others")} value={outcome.othersSeats} color="var(--text-muted)" border="rgba(255,255,255,0.14)" />
             </div>
           </TacticalPanel>
 
-          <TacticalPanel title={t(lang, "mandate_page.storylineDirection")}>
-            <div className="text-[15px] leading-relaxed text-text-muted">{copy.text}</div>
-            {prnCandidate && <div className="mt-4 border p-4" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}><div className="text-[9px] font-black tracking-[0.22em] text-text-muted">{outcome.status === "majority" || outcome.status === "hung" ? t(lang, `CALON ${terms.headTitle.toUpperCase()}`, `${terms.headTitle.toUpperCase()} NOMINEE`) : t(lang, "KETUA PEMBANGKANG NEGERI", "STATE OPPOSITION LEAD")}</div><div className="mt-1 text-lg font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><p className="mt-1 text-[11px] text-text-muted">{prnCandidate.archetype[lang]} · {prnCandidate.pitch[lang]}</p></div>}
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <div className="border p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.22)" }}><div className="text-[10px] text-text-muted tracking-widest">{isPrn ? t(lang, "mandate_page.stateSupport") : t(lang, "mandate_page.nationalSupport")}</div><div className="mt-2 text-3xl font-black" style={{ color: "var(--cyan)" }}>{outcome.nationalSupport}</div></div>
-              <div className="border p-4" style={{ borderColor: "rgb(var(--gold-rgb)/0.22)" }}><div className="text-[10px] text-text-muted tracking-widest">{isPrn ? t(lang, "mandate_page.stateStatus") : t(lang, "mandate_page.statesWon")}</div><div className="mt-2 text-3xl font-black" style={{ color: "var(--gold)" }}>{outcome.statesWon}</div></div>
-              <div className="border p-4" style={{ borderColor: "rgb(255 68 68 / 0.22)" }}><div className="text-[10px] text-text-muted tracking-widest">{isPrn ? t(lang, "mandate_page.stateLost") : t(lang, "mandate_page.statesLost")}</div><div className="mt-2 text-3xl font-black" style={{ color: "var(--neon-red)" }}>{outcome.statesLost}</div></div>
+          <TacticalPanel title={`🧭 ${terms.governmentName}`}>
+            {prnCandidate && <div className="mb-3 flex items-center justify-between gap-3 border p-2.5" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}>
+              <div className="min-w-0"><div className="text-[9px] font-black tracking-[0.22em] text-text-muted">👤 {leadsGovernment ? terms.headAbbr : t(lang, "KETUA PEMBANGKANG", "OPPOSITION LEAD")}</div><div className="truncate text-lg font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div></div>
+              <span className="shrink-0 text-[10px] font-bold text-text-muted">{prnCandidate.archetype[lang]}</span>
+            </div>}
+            <div className="grid grid-cols-3 gap-2">
+              <NumTile icon="📣" label={isPrn ? t(lang, "mandate_page.stateSupport") : t(lang, "mandate_page.nationalSupport")} value={outcome.nationalSupport} color="var(--cyan)" />
+              <NumTile icon="🏳️" label={isPrn ? t(lang, "mandate_page.stateStatus") : t(lang, "mandate_page.statesWon")} value={outcome.statesWon} color="var(--gold)" />
+              <NumTile icon="📉" label={isPrn ? t(lang, "mandate_page.stateLost") : t(lang, "mandate_page.statesLost")} value={outcome.statesLost} color="var(--neon-red)" />
             </div>
-            <div className="mt-5 text-[12px] leading-relaxed text-text-muted">
-              {t(lang, "mandate_page.warRoomRemainsAvailableOnlyFor")}
-            </div>
+            <InfoFold label={t(lang, "Butiran", "Details")}>
+              <p>{copy.text}</p>
+              {prnCandidate && <p className="mt-2">{prnCandidate.pitch[lang]}</p>}
+              <p className="mt-2">{t(lang, "mandate_page.warRoomRemainsAvailableOnlyFor")}</p>
+            </InfoFold>
           </TacticalPanel>
         </div>
       </main>

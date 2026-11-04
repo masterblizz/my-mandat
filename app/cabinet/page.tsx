@@ -16,6 +16,7 @@ import { buildCabinetReaction } from "../data/politicalReactions";
 import { computeElectionOutcome } from "../utils/electionOutcome";
 import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
+import { HudButton, InfoFold, PageHead, StatChip } from "../components/formation/Hud";
 
 type AssignmentMap = Record<string, string | null>;
 
@@ -334,32 +335,31 @@ export default function CabinetPage() {
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <Header />
       <main className="w-full px-3 pb-[58px] pt-[56px] sm:px-6">
-        <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row">
-          <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "cabinet_page.formationAfter", { termsGovernmentName: terms.governmentName, termsScopeLabel: terms.scopeLabel })}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "cabinet_page.form", { termsExecutiveBody: terms.executiveBody })}</h1>
-            <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>
-              {leader.partyAbbr} · {seatsWon}/{totalSeats} {t(lang, "cabinet_page.seats", { termsSeatLabel: terms.seatLabel })} · {capacityLabel}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => router.push("/formation")} className="px-4 py-2 text-[11px] font-bold tracking-widest" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.32)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.06)" }}>← {t(lang, "cabinet_page.formation")}</button>
-            <button onClick={() => navigate("/swearing-in")} disabled={!canFormGovernment || isPending} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-40 disabled:cursor-wait" style={{ border: "1px solid rgb(var(--neon-green-rgb,0 255 136)/0.42)", color: "var(--neon-green)", background: "rgb(0 255 136 / 0.06)" }}>{isPending ? t(lang, "cabinet_page.loading") : t(lang, "cabinet_page.swearingIn")}</button>
-            <button onClick={autoFillCabinet} disabled={!canFormGovernment} className="px-4 py-2 text-[11px] font-bold tracking-widest disabled:opacity-40" style={{ border: "1px solid rgb(var(--gold-rgb)/0.42)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}>{t(lang, "cabinet_page.aiAdvisorAutoFill")}</button>
-          </div>
-        </div>
+        <PageHead
+          title={t(lang, "cabinet_page.form", { termsExecutiveBody: terms.executiveBody })}
+          chips={<>
+            <StatChip icon="🗳️">{terms.scopeLabel}</StatChip>
+            <StatChip icon="🪑" color="var(--cyan)">{leader.partyAbbr} {seatsWon}/{totalSeats} {terms.seatLabel}</StatChip>
+            {canFormGovernment && <StatChip icon="✅" color="var(--neon-green)">{filledPosts}/{activePosts.length}</StatChip>}
+          </>}
+          actions={<>
+            <HudButton onClick={() => router.push("/formation")}>← {t(lang, "RUNDING", "TALKS")}</HudButton>
+            <HudButton tone="gold" onClick={autoFillCabinet} disabled={!canFormGovernment}>🤖 {t(lang, "ISI AUTO", "AUTO-FILL")}</HudButton>
+            <HudButton tone="green" onClick={() => navigate("/swearing-in")} disabled={!canFormGovernment || isPending}>{isPending ? t(lang, "cabinet_page.loading") : `${t(lang, "cabinet_page.swearingIn")} →`}</HudButton>
+          </>}
+        />
 
         {!canFormGovernment ? (
-          <TacticalPanel title={t(lang, "cabinet_page.locked", { termsExecutiveBody: terms.executiveBody })}>
-            <div className="py-8 text-center">
-              <div className="text-4xl font-black" style={{ color: "var(--neon-red)" }}>{seatsWon}/{majorityTarget}</div>
-              <div className="mt-3 text-sm text-text-muted tracking-wider">{t(lang, "cabinet_page.playerDidNotReachTheSeat", { majorityTarget: majorityTarget, termsSeatLabel: terms.seatLabel, termsExecutiveBody: terms.executiveBody })}</div>
+          <TacticalPanel title={`🔒 ${t(lang, "cabinet_page.locked", { termsExecutiveBody: terms.executiveBody })}`}>
+            <div className="py-6 text-center">
+              <div className="text-4xl font-black" style={{ color: "var(--neon-red)" }}>🪑 {seatsWon}/{majorityTarget}</div>
+              <div className="mt-2 text-sm text-text-muted tracking-wider">{t(lang, `Perlu ${majorityTarget} kerusi ${terms.seatLabel}`, `Need ${majorityTarget} ${terms.seatLabel} seats`)}</div>
             </div>
           </TacticalPanel>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)_380px]">
-            <div className="space-y-4">
-              <TacticalPanel title={t(lang, "cabinet_page.mandateSize")}>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)_minmax(0,1.1fr)] min-[1280px]:grid-cols-[300px_minmax(0,1fr)_380px]">
+            <div className="space-y-3">
+              <TacticalPanel title={`🪑 ${t(lang, "cabinet_page.mandateSize")}`}>
                 <div className="space-y-3">
                   <div className="flex items-end justify-between">
                     <div>
@@ -374,22 +374,11 @@ export default function CabinetPage() {
                   <div className="h-3 overflow-hidden" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.2)", background: "rgba(255,255,255,0.04)" }}>
                     <div className="h-full" style={{ width: `${Math.min(100, (seatsWon / Math.max(1, totalSeats)) * 100)}%`, background: `linear-gradient(90deg, ${leader.partyColor}, var(--gold))` }} />
                   </div>
-                  <div className="text-[12px] text-text-muted leading-relaxed">{capacityNote}</div>
+                  <div className="text-[11px] font-bold tracking-wider" style={{ color: "var(--gold)" }} title={capacityNote}>{capacityLabel}</div>
                 </div>
               </TacticalPanel>
 
-              <TacticalPanel title={terms.headTitle}>
-                <div className="flex items-center gap-3 border p-3" style={{ borderColor: "rgb(var(--gold-rgb)/0.32)", background: "rgb(var(--gold-rgb)/0.07)" }}>
-                  <CabinetPortrait src={LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0]} alt={`${leader.name} avatar`} size="md" tone="var(--gold)" partyColor={leader.partyColor} label={terms.headAbbr} />
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold tracking-[0.24em]" style={{ color: "var(--gold)" }}>{isPrn ? terms.headTitle : postTitle(PM_POST)}</div>
-                    <div className="mt-2 text-lg font-black text-white tracking-wider">{leader.name}</div>
-                    <div className="text-[11px] text-text-muted tracking-wider">{leader.position} · {leader.partyAbbr}</div>
-                  </div>
-                </div>
-              </TacticalPanel>
-
-              <TacticalPanel title={t(lang, "cabinet_page.score", { termsExecutiveBody: terms.executiveBody })}>
+              <TacticalPanel title={`⭐ ${t(lang, "cabinet_page.score", { termsExecutiveBody: terms.executiveBody })}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-text-muted tracking-widest">{t(lang, "cabinet_page.filledPosts")}</div>
@@ -400,38 +389,36 @@ export default function CabinetPage() {
                     <div className="text-4xl font-black" style={{ color: grade.color }}>{grade.grade}</div>
                   </div>
                 </div>
-                <div className="mt-3 text-[12px] font-bold tracking-wider" style={{ color: grade.color }}>{t(lang, grade.labelMS, grade.labelEN)}</div>
+                <div className="mt-1 text-[11px] font-bold tracking-wider" style={{ color: grade.color }}>{t(lang, grade.labelMS, grade.labelEN)}</div>
               </TacticalPanel>
 
-              <TacticalPanel title={t(lang, "cabinet_page.effects", { termsExecutiveBody: terms.executiveBody })}>
-                <div className="text-sm text-cyan">{t(lang, "Kepercayaan setiap suku tahun", "Trust each quarter")}: {(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta >= 0 ? "+" : ""}{(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta}</div>
-                <p className="mt-2 text-xs leading-relaxed text-text-muted">{t(lang, `Skor berkesan ${effectiveCabinetScore}${coalitionPenalty ? ` selepas penalti portfolio koalisi −${coalitionPenalty}` : ""}. Skor 70 ke atas meningkatkan keyakinan.`, `Effective score ${effectiveCabinetScore}${coalitionPenalty ? ` after coalition portfolio penalty −${coalitionPenalty}` : ""}. A score of 70 or above builds confidence.`)}</p>
-                <div className="mt-4 border-t pt-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)" }}>
-                  <div className="flex items-end justify-between">
-                    <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{t(lang, "KESEIMBANGAN WAKIL", "REPRESENTATION BALANCE")}</div>
-                    <div className="text-2xl font-black" style={{ color: cabinetBalance.score >= 65 ? "var(--neon-green)" : cabinetBalance.score >= 50 ? "var(--gold)" : "var(--warn-orange)" }}>{cabinetBalance.score}</div>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-text-muted">
-                    <span>{t(lang, "Wanita", "Women")} <b className="text-white">{cabinetBalance.women}</b></span>
-                    <span>{t(lang, "Pelapis", "Emerging")} <b className="text-white">{cabinetBalance.emerging}</b></span>
-                    <span>{isPrn ? t(lang, "Wakil negeri", "State-based") : t(lang, "Sabah/Sarawak", "Sabah/Sarawak")} <b className="text-white">{cabinetBalance.territorial}</b></span>
-                    <span>{t(lang, "Komuniti", "Communities")} <b className="text-white">{cabinetBalance.communities}</b></span>
-                  </div>
-                  <div className="mt-3 text-[10px] text-text-muted">{t(lang, "Kesetiaan purata", "Average loyalty")} <b style={{ color: cabinetBalance.averageLoyalty >= 65 ? "var(--neon-green)" : "var(--warn-orange)" }}>{cabinetBalance.averageLoyalty}</b> · {t(lang, "Kestabilan", "Stability")} {cabinetBalance.stabilityDelta >= 0 ? "+" : ""}{cabinetBalance.stabilityDelta}/{t(lang, "suku", "quarter")}</div>
+              <TacticalPanel title={`📈 ${t(lang, "cabinet_page.effects", { termsExecutiveBody: terms.executiveBody })}`}>
+                <div className="flex flex-wrap gap-1.5">
+                  <StatChip icon="🤝" color="var(--cyan)" title={t(lang, "Kepercayaan setiap suku tahun", "Trust each quarter")}>{(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta >= 0 ? "+" : ""}{(effectiveCabinetScore >= 70 ? 1 : -1) + cabinetBalance.trustDelta}/{t(lang, "suku", "qtr")}</StatChip>
+                  <StatChip icon="⭐" color={effectiveCabinetScore >= 70 ? "var(--neon-green)" : "var(--warn-orange)"} title={t(lang, "Skor berkesan (70+ meningkatkan keyakinan)", "Effective score (70+ builds confidence)")}>{effectiveCabinetScore}{coalitionPenalty ? ` (−${coalitionPenalty})` : ""}</StatChip>
+                  <StatChip icon="⚖️" color={cabinetBalance.score >= 65 ? "var(--neon-green)" : cabinetBalance.score >= 50 ? "var(--gold)" : "var(--warn-orange)"} title={t(lang, "Keseimbangan wakil", "Representation balance")}>{cabinetBalance.score}</StatChip>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-text-muted">
+                  <span>👩 {t(lang, "Wanita", "Women")} <b className="text-white">{cabinetBalance.women}</b></span>
+                  <span>🌱 {t(lang, "Pelapis", "Emerging")} <b className="text-white">{cabinetBalance.emerging}</b></span>
+                  <span>📍 {isPrn ? t(lang, "Negeri", "State") : t(lang, "Sabah/Sarawak", "Sabah/Sarawak")} <b className="text-white">{cabinetBalance.territorial}</b></span>
+                  <span>👥 {t(lang, "Komuniti", "Communities")} <b className="text-white">{cabinetBalance.communities}</b></span>
+                  <span>💙 {t(lang, "Setia", "Loyalty")} <b style={{ color: cabinetBalance.averageLoyalty >= 65 ? "var(--neon-green)" : "var(--warn-orange)" }}>{cabinetBalance.averageLoyalty}</b></span>
+                  <span>🛡️ {t(lang, "Stabil", "Stability")} <b className="text-white">{cabinetBalance.stabilityDelta >= 0 ? "+" : ""}{cabinetBalance.stabilityDelta}</b></span>
                 </div>
               </TacticalPanel>
             </div>
 
-            <TacticalPanel title={t(lang, "cabinet_page.hierarchySelectAPost", { termsExecutiveBody: terms.executiveBody })} noPadding>
-              <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-4">
+            <TacticalPanel title={`🏛️ ${terms.executiveBody}`} noPadding>
+              <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-3">
                 <div className="relative mx-auto max-w-[980px]">
                   <div className="flex justify-center">
-                    <div className="relative flex min-w-[280px] items-center gap-3 border p-4 text-left" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--bg-rgb) / 0.88))", boxShadow: "0 0 24px rgb(var(--gold-rgb)/0.13)" }}>
+                    <div className="relative flex w-full min-w-0 max-w-[340px] items-center gap-3 border p-3 text-left" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--bg-rgb) / 0.88))", boxShadow: "0 0 24px rgb(var(--gold-rgb)/0.13)" }}>
                       <CabinetPortrait src={LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0]} alt={`${leader.name} avatar`} size="lg" tone="var(--gold)" partyColor={leader.partyColor} label={terms.headAbbr} />
                       <div className="min-w-0">
                         <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>{isPrn ? terms.headTitle : postTitle(PM_POST)}</div>
-                        <div className="mt-2 text-xl font-black tracking-wider text-white">{leader.name}</div>
-                        <div className="mt-1 text-[11px] tracking-wider text-text-muted">{leader.position} · {leader.partyAbbr}</div>
+                        <div className="mt-1 truncate text-xl font-black tracking-wider text-white">{leader.name}</div>
+                        <div className="mt-1 truncate text-[11px] tracking-wider text-text-muted">{leader.partyAbbr}</div>
                       </div>
                     </div>
                   </div>
@@ -456,12 +443,11 @@ export default function CabinetPage() {
                                 boxShadow: active ? "0 0 22px rgb(var(--gold-rgb)/0.18)" : "inset 0 0 16px rgb(var(--cyan-rgb)/0.035)",
                               }}
                             >
-                              <div className="text-[9px] font-bold tracking-[0.24em]" style={{ color: sectorColor }}>{t(lang, "cabinet_page.executive")}</div>
-                              <div className="mt-1 flex items-start justify-between gap-3">
+                              <div className="flex items-start justify-between gap-3">
                                 {member && <CabinetPortrait src={memberPortrait(member)} alt={`${member.name} profile photo`} size="md" tone={sectorColor} partyColor={leader.partyColor} label="DPM" />}
                                 <div className="min-w-0 flex-1">
                                   <div className="text-[15px] font-black tracking-wider text-white">{postTitle(post)}</div>
-                                  <div className="mt-1 text-[10px] text-text-muted">{t(lang, "cabinet_page.need")}: {specialtyLabel(post.requiredSpecialty)}</div>
+                                  <div className="mt-1 text-[10px] text-text-muted">🎯 {specialtyLabel(post.requiredSpecialty)}</div>
                                   <div className="mt-2 truncate text-[12px]" style={{ color: member ? "var(--cyan)" : "var(--neon-red)" }}>{member ? member.name : t(lang, "cabinet_page.vacant")}</div>
                                 </div>
                                 <div className="text-right">
@@ -477,14 +463,14 @@ export default function CabinetPage() {
 
                   <div className="mx-auto h-8 w-px" style={{ background: "linear-gradient(180deg, rgb(var(--cyan-rgb)/0.45), rgb(var(--cyan-rgb)/0.16))" }} />
 
-                  <div className="grid gap-4 2xl:grid-cols-4 xl:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 min-[1280px]:grid-cols-2 2xl:grid-cols-4">
                     {ministrySectors.map(({ sector, posts }) => {
                       const sectorColor = SECTOR_COLORS[sector];
                       return (
-                        <div key={sector} className="border p-3" style={{ borderColor: `${sectorColor}55`, background: "linear-gradient(180deg, rgba(255,255,255,0.026), rgb(var(--bg-rgb) / 0.64))" }}>
+                        <div key={sector} className="min-w-0 border p-3" style={{ borderColor: `${sectorColor}55`, background: "linear-gradient(180deg, rgba(255,255,255,0.026), rgb(var(--bg-rgb) / 0.64))" }}>
                           <div className="mb-3 flex items-center justify-between border-b pb-2" style={{ borderColor: `${sectorColor}33` }}>
                             <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: sectorColor }}>{sectorLabel(sector)}</div>
-                            <div className="text-[9px] text-text-muted">{posts.length} {t(lang, "cabinet_page.portfolio")}</div>
+                            <div className="shrink-0 text-[10px] text-text-muted" title={t(lang, "cabinet_page.portfolio")}>💼 {posts.length}</div>
                           </div>
                           <div className="space-y-2">
                             {posts.map((post) => {
@@ -503,12 +489,11 @@ export default function CabinetPage() {
                                   }}
                                 >
                                   <div className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: leader.partyColor, boxShadow: `0 0 10px ${leader.partyColor}` }} />
-                                  <div className="absolute right-2 top-1 text-[7px] font-black tracking-[0.22em] opacity-40" style={{ color: sectorColor }}>{t(lang, "cabinet_page.official")}</div>
-                                  <div className="flex items-start justify-between gap-2">
+                                                                    <div className="flex items-start justify-between gap-2">
                                     {member && <CabinetPortrait src={memberPortrait(member)} alt={`${member.name} profile photo`} size="md" tone={sectorColor} partyColor={leader.partyColor} label={isPrn ? "EXCO" : "MIN"} />}
                                     <div className="min-w-0 flex-1">
                                       <div className="truncate text-[11px] font-black leading-tight tracking-wide text-white">{postTitle(post)}</div>
-                                      <div className="mt-1 text-[9px] text-text-muted">{t(lang, "cabinet_page.need")}: {specialtyLabel(post.requiredSpecialty)}</div>
+                                      <div className="mt-1 text-[9px] text-text-muted">🎯 {specialtyLabel(post.requiredSpecialty)}</div>
                                       <div className="mt-1 truncate text-[11px]" style={{ color: member ? "var(--cyan)" : "var(--neon-red)" }}>{member ? member.name : t(lang, "cabinet_page.vacant")}</div>
                                     </div>
                                     <div className="text-right">
@@ -527,13 +512,12 @@ export default function CabinetPage() {
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={selectedPost ? `${t(lang, "cabinet_page.appointmentPanel")} · ${postTitle(selectedPost)}` : t(lang, "cabinet_page.appointmentPanel")} noPadding>
+            <TacticalPanel title={selectedPost ? `👤 ${postTitle(selectedPost)}` : `👤 ${t(lang, "cabinet_page.appointmentPanel")}`} noPadding>
               {selectedPost && (
                 <div className="flex h-[calc(100vh-190px)] flex-col">
-                  <div className="border-b p-4" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)" }}>
-                    <div className="text-[11px] text-text-muted tracking-widest">{t(lang, "cabinet_page.requiredSpecialty")}</div>
-                    <div className="mt-1 font-black tracking-wider" style={{ color: SECTOR_COLORS[selectedPost.sector] }}>{specialtyLabel(selectedPost.requiredSpecialty)}</div>
-                    <button onClick={() => clearPost(selectedPost.id)} className="mt-3 px-3 py-1.5 text-[10px] font-bold tracking-widest" style={{ border: "1px solid rgb(255 68 68 / 0.32)", color: "var(--neon-red)", background: "rgb(255 68 68 / 0.06)" }}>{t(lang, "cabinet_page.clearPost")}</button>
+                  <div className="flex items-center justify-between gap-2 border-b px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb)/0.14)" }}>
+                    <div className="min-w-0 truncate font-black tracking-wider" style={{ color: SECTOR_COLORS[selectedPost.sector] }} title={t(lang, "cabinet_page.requiredSpecialty")}>🎯 {specialtyLabel(selectedPost.requiredSpecialty)}</div>
+                    <button onClick={() => clearPost(selectedPost.id)} className="min-h-[36px] shrink-0 px-3 py-1.5 text-[10px] font-bold tracking-widest" style={{ border: "1px solid rgb(255 68 68 / 0.32)", color: "var(--neon-red)", background: "rgb(255 68 68 / 0.06)" }}>✕ {t(lang, "KOSONGKAN", "CLEAR")}</button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
                     {candidatePool.map((member) => {
@@ -565,16 +549,16 @@ export default function CabinetPage() {
                                 <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider" style={{ color: "var(--text-muted)", border: "1px solid rgba(255,255,255,0.1)" }}>{member.homeState.toUpperCase()}</span>
                                 {electedMemberIds.has(member.id) && <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider" style={{ color: "var(--gold)", border: "1px solid rgb(var(--gold-rgb)/0.3)" }}>{t(lang, "cabinet_page.elected", { termsLegislatorTitle: terms.legislatorTitle })}</span>}
                               </div>
-                              <div className="mt-2 grid grid-cols-5 gap-1 text-[8px] font-bold tracking-wider text-text-muted">
+                              {appointedHere && <div className="mt-2 grid grid-cols-5 gap-1 text-[8px] font-bold tracking-wider text-text-muted">
                                 <span>{t(lang, "cabinet_page.spc")} +{breakdown.specialty}</span>
                                 <span>{t(lang, "cabinet_page.exp")} +{breakdown.experience}</span>
                                 <span>{t(lang, "cabinet_page.inf")} +{breakdown.influence}</span>
                                 <span>{t(lang, "cabinet_page.cred")} +{breakdown.credibility}</span>
                                 <span>{t(lang, "cabinet_page.cha")} +{breakdown.charisma}</span>
-                              </div>
+                              </div>}
                             </div>
                             <div className="text-right">
-                              <div className="text-2xl font-black leading-none" style={{ color: score >= 80 ? "var(--neon-green)" : score >= 65 ? "var(--gold)" : "var(--warn-orange)" }}>{score}</div>
+                              <div className="text-2xl font-black leading-none" title={`${t(lang, "cabinet_page.spc")} +${breakdown.specialty} · ${t(lang, "cabinet_page.exp")} +${breakdown.experience} · ${t(lang, "cabinet_page.inf")} +${breakdown.influence} · ${t(lang, "cabinet_page.cred")} +${breakdown.credibility} · ${t(lang, "cabinet_page.cha")} +${breakdown.charisma}`} style={{ color: score >= 80 ? "var(--neon-green)" : score >= 65 ? "var(--gold)" : "var(--warn-orange)" }}>{score}</div>
                             </div>
                           </div>
                         </button>
@@ -632,13 +616,12 @@ export default function CabinetPage() {
                   {t(lang, "Kepakaran", "Specialty")}: <b className="text-white">{specialtyLabel(profileMember.specialty)}</b>
                 </div>
               </div>
-              <div className="border p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.2)" }}>
-                <div className="text-[9px] font-bold tracking-[0.2em] text-cyan">{t(lang, "PENILAIAN PENASIHAT", "ADVISER ASSESSMENT")}</div>
-                <p className="mt-2 leading-relaxed text-text-muted">{t(lang,
+              <InfoFold label={t(lang, "PENILAIAN PENASIHAT", "ADVISER ASSESSMENT")}>
+                <p>{t(lang,
                   `${profileMember.name} membawa kekuatan ${specialtyLabel(profileMember.specialty).toLowerCase()} dari ${profileMember.homeState}. Kesetiaan rendah atau cita-cita tinggi boleh mencetuskan peletakan jawatan ketika kerajaan goyah.`,
                   `${profileMember.name} brings ${specialtyLabel(profileMember.specialty).toLowerCase()} strength from ${profileMember.homeState}. Low loyalty or high ambition can trigger a resignation when the government weakens.`
                 )}</p>
-              </div>
+              </InfoFold>
             </div>
           </div>
         </div>
