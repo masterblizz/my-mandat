@@ -664,7 +664,7 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
     ],
   ];
   return (
-    <div className="absolute inset-0 z-[80] flex items-center justify-center bg-[#020814]/95 p-0 backdrop-blur-md">
+    <div className="ops-desk absolute inset-x-0 bottom-0 top-[40px] z-[80] flex items-center justify-center bg-[#020814]/95 p-0 backdrop-blur-md">
       <section
         className="flex h-full w-full flex-col overflow-hidden border shadow-2xl"
         style={{ borderColor: "#ff6b5caa", background: "#06101b" }}

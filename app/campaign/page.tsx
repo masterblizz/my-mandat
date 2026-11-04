@@ -1314,7 +1314,7 @@ export default function CampaignPage() {
       <main className="min-h-screen px-3 pb-[52px] pt-[56px] sm:px-6">
 
         {/* Tab Row */}
-        <div className="mb-4 flex gap-0 overflow-x-auto border-b" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
+        <div className="screen-tabs mb-4 flex gap-0 overflow-x-auto border-b" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
           {TABS.map((tab) => (
             <button
               key={tab}
