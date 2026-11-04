@@ -34,7 +34,7 @@ export function TermClockControls({ lang, running, onToggle, speed, onSpeed, onS
   return (
     <div className="term-clock flex min-w-0 shrink-0 items-stretch gap-1" aria-label={t(lang, "Jam penggal", "Term clock")}>
       <button type="button" onClick={onToggle} aria-pressed={running} aria-label={running ? t(lang, "Jeda", "Pause") : t(lang, "Main", "Play")}
-        className="w-9 border text-[13px] font-black"
+        className={`w-9 border text-[13px] font-black ${running ? "" : "term-clock__play--idle"}`}
         style={{ borderColor: running ? "rgb(var(--gold-rgb) / .7)" : "rgb(var(--cyan-rgb) / .6)", color: running ? "var(--gold)" : "var(--cyan)", background: running ? "rgb(var(--gold-rgb) / .12)" : "rgb(var(--cyan-rgb) / .1)" }}>
         {running ? "⏸" : "▶"}
       </button>
@@ -53,7 +53,7 @@ export function TermClockControls({ lang, running, onToggle, speed, onSpeed, onS
       <div className="min-w-0 px-1 text-[8px] font-bold leading-tight tracking-wider">
         <div className="whitespace-nowrap text-white">{t(lang, `HARI ${cal.day} · MGG ${cal.week}`, `DAY ${cal.day} · WK ${cal.week}`)}</div>
         <div className="whitespace-nowrap" style={{ color: sitting ? "var(--gold)" : "var(--text-muted)" }}>
-          {t(lang, `S${cal.quarter}/20`, `Q${cal.quarter}/20`)}{sitting ? ` · 🏛️ ${t(lang, "DEWAN", "DEWAN")}` : ""}
+          {t(lang, `S${cal.quarter}/20`, `Q${cal.quarter}/20`)}{sitting ? ` · 🏛️ ${t(lang, "DEWAN", "DEWAN")}` : ` · ${SPEED_LABEL[speed][lang].toUpperCase()}`}
         </div>
         <div className="mt-0.5 h-0.5 w-full" style={{ background: "var(--bar-empty)" }}><div className="h-full" style={{ width: `${(termDay / TERM_DAYS) * 100}%`, background: "var(--cyan)" }} /></div>
       </div>
@@ -124,7 +124,7 @@ export function YbAgendaPanel({ lang, service, activities, issues, zoneLabel, on
             </div>
             <div className="mt-1 line-clamp-2 min-h-[24px] text-[9px] font-black leading-tight text-white">{activity.title[lang]}</div>
             <div className="mt-0.5 text-[8px] font-bold text-gold">{activity.cost ? `RM ${formatNumber(activity.cost)}` : t(lang, "Percuma", "Free")}{activity.zone && zoneLabel ? ` · ${zoneLabel}` : ""}</div>
-            <div className="mt-0.5 line-clamp-2 min-h-[20px] text-[8px] leading-tight" style={{ color: blocker ? "var(--warn-orange)" : "var(--text-muted)" }}>{blocker ? blocker[lang] : activity.detail[lang]}</div>
+            {blocker && <div className="mt-0.5 line-clamp-2 text-[8px] leading-tight" style={{ color: "var(--warn-orange)" }}>⚠ {blocker[lang]}</div>}
           </button>
         ))}
       </div>

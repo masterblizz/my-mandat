@@ -21,6 +21,7 @@ import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
+import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -3087,6 +3088,25 @@ export default function KawasanDevelopmentPage() {
     const zone = zones.find((item) => item.id === issue.zone);
     return { ...issue, zoneLabel: zone ? zoneName(lang, zone) : issue.zone, daysLeft: Math.max(0, issue.expires - journey.termDay) };
   });
+  // One suggested next step for the YB, in priority order: start the
+  // clock, answer the most urgent complaint, build an affordable fix for
+  // the weakest zone, use a free weekly slot, or let time run.
+  const nextGoal: NextGoalItem | null = (() => {
+    if (!repTerm) return null;
+    if (termEnded) return { key: "report", icon: "📜", text: t(lang, "Lihat kad laporan penggal", "See your term report card"), run: () => router.push("/report-card") };
+    if (!clockRunning && journey.termDay <= 1) return { key: "start", icon: "▶", text: t(lang, "Mulakan masa penggal", "Start the term clock"), run: () => setClockRunning(true) };
+    const state = useGameStore.getState();
+    const urgent = [...agendaIssues].sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    if (urgent && !ybActivityBlocker(state, "visit", urgent.zone)) {
+      const title = YB_ISSUES[urgent.type].title[lang];
+      return { key: `issue:${urgent.id}`, icon: "🚨", text: t(lang, `${title} · ${urgent.zoneLabel} · ${urgent.daysLeft} hari`, `${title} · ${urgent.zoneLabel} · ${urgent.daysLeft} days`), run: () => { focusZone(urgent.zone); runActivity("visit", urgent.zone); } };
+    }
+    const fix = dockProblems.find((problem) => problem.suggestion?.affordable);
+    if (fix?.suggestion) return { key: `build:${fix.zoneId}:${fix.suggestion.id}`, icon: fix.suggestion.icon, text: t(lang, `Bina ${fix.suggestion.title} · ${fix.zoneLabel}`, `Build ${fix.suggestion.title} · ${fix.zoneLabel}`), run: () => { setDockMode("build"); focusZone(fix.zoneId); } };
+    if (journey.service.slots > 0 && !ybActivityBlocker(state, "clinic")) return { key: "clinic", icon: "🗂️", text: t(lang, "Buka sesi khidmat rakyat", "Hold a meet-the-people session"), run: () => runActivity("clinic") };
+    if (!clockRunning) return { key: "resume", icon: "⏩", text: t(lang, "Teruskan masa", "Let time run"), run: () => setClockRunning(true) };
+    return null;
+  })();
   const mapAlerts = repTerm ? Object.fromEntries(agendaIssues.map((issue) => [issue.zone, {
     icon: YB_ISSUES[issue.type].icon,
     label: `${YB_ISSUES[issue.type].title[lang]} · ${t(lang, `${issue.daysLeft}h`, `${issue.daysLeft}d`)}`,
@@ -3137,6 +3157,7 @@ export default function KawasanDevelopmentPage() {
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <CityHubBar onEnter={enterHubDestination} />
               <CityPulseBar zones={zones} lang={lang} />
+              {!dockOpen && <NextGoal lang={lang} goal={nextGoal} />}
               {useGlMap && (
                 <button type="button" onClick={switchMapEngine}
                   className="city-tool city-tool--engine absolute z-[140]"
@@ -3157,7 +3178,7 @@ export default function KawasanDevelopmentPage() {
               {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
               {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box city-zone-card ${unlocked ? "city-zone-card--raised" : ""} absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div><button type="button" onClick={() => { setZonePanelOpen(false); setDockMode(null); }} className="shrink-0 px-1 text-sm leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup panel zon", "Close zone panel")}>×</button></div>
-                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setDockMode((mode) => mode === "build" ? null : "build")} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{t(lang, "BINA", "BUILD")}</button>}</div>
+                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="min-w-0 flex-1 truncate border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setDockMode((mode) => mode === "build" ? null : "build")} className="shrink-0 border px-3 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>🏗 {t(lang, "BINA", "BUILD")}</button>}</div>
               </div>}
               {unlocked && <BuildDock
                 lang={lang}
