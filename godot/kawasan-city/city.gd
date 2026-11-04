@@ -56,6 +56,16 @@ var lrt_curves := []                  # Curve3D per elevated LRT line
 # ── seat profile ── set from the game for each constituency (apply_profile)
 var tier := "metro"                    # metro | city | town | rural
 var view_scale := 1.0                  # 1 = full KL metropolis footprint
+## Kuala Lumpur landmarks keep their real layout at one map scale:
+## 1 real km = KL_SCALE game metres, for distances and heights alike.
+## Real positions (WGS84): Petronas 3.15785 N 101.71165 E, Menara KL
+## 3.15278 N 101.70384 E, Merdeka 118 3.14194 N 101.70028 E. Game x is
+## east, z is south, the twin towers at the origin.
+const KL_SCALE := 250.0
+const KL_TOWER_KM := Vector2(-0.868, 0.561)    # 1.03 km WSW of KLCC
+const MERDEKA_KM := Vector2(-1.264, 1.759)     # 2.17 km SSW of KLCC
+const KLCC_PARK_KM := Vector2(0.24, 0.2)       # the park just SE of the towers
+var cbd_axis := Vector3.ZERO                    # KLCC -> Merdeka high-rise corridor
 var r_core := 175.0                    # zone radii from the centre
 var r_commercial := 265.0
 var r_taman := 430.0
@@ -151,7 +161,8 @@ func _configure(p: Dictionary) -> void:
 		tier = "rural"
 	if not kl and tier == "city" and (bool(traits.get("paddy", false)) or bool(traits.get("coastal", false))):
 		tier = "town"
-	view_scale = {"metro": 1.0, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
+	view_scale = {"metro": 1.2, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
+	cbd_axis = Vector3(MERDEKA_KM.x, 0, MERDEKA_KM.y) * KL_SCALE if landmarks else Vector3.ZERO
 	r_core = 175.0 * view_scale
 	r_commercial = 265.0 * view_scale
 	r_taman = 430.0 * view_scale
@@ -1304,9 +1315,30 @@ func _place(c: Vector3, yaw: float, kind := "", w := 0.0, d := 0.0) -> void:
 		lots.append({"p": Vector3(c.x, 0, c.z), "kind": kind, "yaw": yaw, "w": w, "d": d})
 
 
+## A landmark on the free lot nearest its real map position (spiral
+## search out from it in 4 m steps).
+func _landmark_at(kind: String, target: Vector3, size: float) -> void:
+	for ring in 30:
+		var steps := maxi(1, ring * 8)
+		for k in steps:
+			var c := target + _polar(ring * 4.0, TAU * k / steps)
+			var yaw := atan2(c.x, c.z)
+			if not _rect_free(c, yaw, size, size):
+				continue
+			_mark_rect(c, yaw, size, size)
+			_place(c, yaw, kind, size, size)
+			match kind:
+				"telecom": _telecom()
+				"park": _park(Vector3.ZERO, false)
+				_: _merdeka118()
+			frame = Transform3D.IDENTITY
+			return
+
+
 func _special(kind: String, r: float, deg: float, w: float, d: float) -> void:
 	for attempt in 40:
-		var a := deg_to_rad(deg) + (attempt / 2) * 0.06 * (1.0 if attempt % 2 == 0 else -1.0)
+		# step a fixed ~10 m sideways, so far landmarks stay near their real spot
+		var a := deg_to_rad(deg) + (attempt / 2) * minf(0.06, 10.0 / maxf(r, 1.0)) * (1.0 if attempt % 2 == 0 else -1.0)
 		var rr := r + float(attempt % 3 - 1) * 14.0
 		var c := _polar(rr, a)
 		var yaw := atan2(c.x, c.z)
@@ -1337,8 +1369,9 @@ func _build_specials() -> void:
 		_twin_towers(Vector3.ZERO)
 		town_centre = Vector3(0, 0, -4)
 		frame = Transform3D.IDENTITY
-		_special("telecom", 82.0, 205.0, 20, 20)
-		_special("merdeka118", 132.0, 330.0, 30, 30)
+		for lm in [["park", KLCC_PARK_KM, 38.0], ["telecom", KL_TOWER_KM, 20.0], ["merdeka118", MERDEKA_KM, 30.0]]:
+			var v: Vector2 = lm[1] * KL_SCALE
+			_landmark_at(lm[0], Vector3(v.x, 0, v.y), lm[2])
 	else:
 		# everywhere else the centre is the town's own dataran, on the
 		# nearest open ground to the middle so no street runs through it
@@ -1400,7 +1433,7 @@ func _frontage() -> void:
 				if spec.kind != "skip" and _rect_free(c, yaw, spec.w, spec.d):
 					_mark_rect(c, yaw, spec.w, spec.d)
 					_place(c, yaw, spec.kind, spec.w, spec.d)
-					_build_spec(spec, p0.length())
+					_build_spec(spec, _urban_r(p0))
 					frame = Transform3D.IDENTITY
 					s += spec.w + spec.gap
 				else:
@@ -1417,10 +1450,23 @@ func _terrace() -> Dictionary:
 	return {"kind": "terrace", "units": u, "w": u * 6.0, "d": 14.0, "gap": rng.randf_range(2, 6)}
 
 
+## How "central" a point is: distance to the centre, or on Bukit Bintang
+## to the KLCC -> Merdeka corridor, so the real CBD's towers run between
+## the two instead of stopping at a ring round the twin towers.
+func _urban_r(p: Vector3) -> float:
+	var r := Vector2(p.x, p.z).length()
+	if cbd_axis == Vector3.ZERO:
+		return r
+	var ax := Vector2(cbd_axis.x, cbd_axis.z)
+	var q := Vector2(p.x, p.z)
+	var t := clampf(q.dot(ax) / ax.length_squared(), 0.0, 1.0)
+	return minf(r, q.distance_to(ax * t) * 1.25 + 30.0)
+
+
 func _pick_building(p: Vector3, cls: int) -> Dictionary:
 	# zone edges wander with the bearing so the bands aren't perfect rings
 	var a := atan2(p.z, p.x)
-	var r := p.length() + 26.0 * view_scale * sin(a * 3.0 + 1.3) + 14.0 * view_scale * sin(a * 7.0)
+	var r := _urban_r(p) + 26.0 * view_scale * sin(a * 3.0 + 1.3) + 14.0 * view_scale * sin(a * 7.0)
 	var x := rng.randf()
 	var bungalow := {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": rng.randf_range(1, 5)}
 	var trees := {"kind": "trees", "w": 12.0, "d": 12.0, "gap": 3.0}
@@ -1513,7 +1559,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 func _build_spec(spec: Dictionary, r: float) -> void:
 	match spec.kind:
 		"tower":
-			var hmax := lerpf(90.0, 36.0, clampf(r / r_core, 0.0, 1.0))    # landmarks stay taller
+			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0))    # ~240 m real at most: landmarks stay taller
 			var h: float = spec.get("h", hmax * rng.randf_range(0.55, 1.0))
 			_office_tower(Vector3.ZERO, rng.randf_range(10, 14), rng.randf_range(10, 14), h)
 		"flat":
@@ -1523,7 +1569,7 @@ func _build_spec(spec: Dictionary, r: float) -> void:
 		"shoprow":
 			_shophouse_row(spec.units)
 		"condo":
-			var top: float = spec.get("top", lerpf(70.0, 32.0, clampf((r - r_core * 0.5) / (r_taman - r_core * 0.5), 0.0, 1.0)))
+			var top: float = spec.get("top", lerpf(60.0, 30.0, clampf((r - r_core * 0.5) / (r_taman - r_core * 0.5), 0.0, 1.0)))
 			_condo(rng.randf_range(top * 0.55, top))
 		"carpark":
 			box(Vector3.ZERO, Vector3(spec.w, 0.04, spec.d), Color(0.3, 0.31, 0.32))
@@ -1553,7 +1599,8 @@ func _fill_trees() -> void:
 		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
 			continue
 		var urban := tier in ["metro", "city"]
-		var keep := (0.08 if urban else 0.35) if r < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8)
+		var ur := _urban_r(p)
+		var keep := (0.08 if urban else 0.35) if ur < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8)
 		var n := sin(p.x * 0.02) * sin(p.z * 0.023) + sin((p.x + p.z) * 0.011)
 		if rng.randf() > keep or (r > r_city and n < 0.1):
 			continue
@@ -1767,15 +1814,15 @@ func _merdeka118() -> void:
 	var y := 10.0
 	for i in 9:
 		var r := lerpf(11.0, 4.5, float(i) / 8.0)
-		var h := 14.0 if i < 8 else 9.0
+		var h := 13.2 if i < 8 else 9.4
 		var b := Basis(Vector3.UP, i * 0.13) * Basis.from_scale(Vector3(r * 2.0, h, r * 2.0))
 		_single(oct_mesh, mat_landmark, Transform3D(b, Vector3(0, y + h * 0.5, 0)))
 		y += h
 	var spire := CylinderMesh.new()
 	spire.top_radius = 0.08
 	spire.bottom_radius = 1.6
-	spire.height = 30
-	_single(spire, mat_landmark, Transform3D(Basis(), Vector3(0, y + 15, 0)))
+	spire.height = 45
+	_single(spire, mat_landmark, Transform3D(Basis(), Vector3(0, y + 22.5, 0)))
 
 
 ## Dataran for every seat that is not Bukit Bintang: padang with its
@@ -1827,12 +1874,12 @@ func _telecom() -> void:
 	var sh := CylinderMesh.new()
 	sh.top_radius = 1.8
 	sh.bottom_radius = 3.4
-	sh.height = 95
-	_single(sh, mat_landmark, Transform3D(Basis(), Vector3(0, 6 + 47.5, 0)))
-	ball(Vector3(0, 84, 0), Vector3(13, 8, 13), Color(0.92, 0.93, 0.95), mat_landmark)
-	ball(Vector3(0, 90, 0), Vector3(8, 4.5, 8), Color(0.92, 0.93, 0.95), mat_landmark)
-	cyl(Vector3(0, 92, 0), 0.4, 24, Color(0.9, 0.9, 0.9))
-	cyl(Vector3(0, 116, 0), 0.2, 4, Color(1, 0.2, 0.2))
+	sh.height = 66
+	_single(sh, mat_landmark, Transform3D(Basis(), Vector3(0, 6 + 33, 0)))
+	ball(Vector3(0, 69, 0), Vector3(12, 7, 12), Color(0.92, 0.93, 0.95), mat_landmark)
+	ball(Vector3(0, 74, 0), Vector3(7, 4, 7), Color(0.92, 0.93, 0.95), mat_landmark)
+	cyl(Vector3(0, 76, 0), 0.4, 26, Color(0.9, 0.9, 0.9))
+	cyl(Vector3(0, 102, 0), 0.2, 3, Color(1, 0.2, 0.2))
 	for k in 4:
 		tree(Vector3([-8.5, 8.5][k % 2], 0, [-8.5, 8.5][k / 2]), true)
 
@@ -1915,7 +1962,7 @@ func _twin_towers(g: Vector3) -> void:
 		var p := g + Vector3(sx * 9.5, 9, 0)
 		var y := 0.0
 		# tiers: (radius, height) tapering towards the pinnacle
-		for tier in [[6.4, 82.0], [5.6, 12.0], [4.8, 8.0], [3.8, 6.0], [2.8, 5.0], [1.8, 4.0]]:
+		for tier in [[6.4, 60.0], [5.6, 9.0], [4.8, 6.0], [3.8, 4.5], [2.8, 3.5], [1.8, 2.5]]:
 			var r: float = tier[0]
 			var h: float = tier[1]
 			var m := oct_mesh
@@ -1925,13 +1972,13 @@ func _twin_towers(g: Vector3) -> void:
 		var spire := CylinderMesh.new()
 		spire.top_radius = 0.05
 		spire.bottom_radius = 0.9
-		spire.height = 24
-		_single(spire, mat_landmark, Transform3D(Basis(), p + Vector3(0, y + 12, 0)))
+		spire.height = 18.5
+		_single(spire, mat_landmark, Transform3D(Basis(), p + Vector3(0, y + 9.25, 0)))
 	# skybridge with its supporting legs
-	_single(box_mesh, mat_landmark, Transform3D(Basis.from_scale(Vector3(7.2, 3.4, 3.0)), g + Vector3(0, 9 + 44, 0)))
+	_single(box_mesh, mat_landmark, Transform3D(Basis.from_scale(Vector3(7.2, 3.4, 3.0)), g + Vector3(0, 42.5, 0)))
 	for sx in [-1.0, 1.0]:
-		var leg := Basis(Vector3.FORWARD, sx * 0.55) * Basis.from_scale(Vector3(0.6, 14, 0.6))
-		_single(box_mesh, mat_landmark, Transform3D(leg, g + Vector3(sx * 6.0, 9 + 37, 0)))
+		var leg := Basis(Vector3.FORWARD, sx * 0.55) * Basis.from_scale(Vector3(0.6, 11, 0.6))
+		_single(box_mesh, mat_landmark, Transform3D(leg, g + Vector3(sx * 6.0, 37.0, 0)))
 	# fountain plaza in front
 	box(g + Vector3(0, 0, 16), Vector3(18, 0.3, 4), Color.WHITE, mat_water)
 
