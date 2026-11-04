@@ -49,10 +49,10 @@ function SidebarTab({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-4 py-3 transition-all"
+      className="w-full text-left px-3 py-3 transition-all whitespace-nowrap overflow-hidden text-ellipsis"
       style={{
         fontFamily: "'Space Mono', monospace",
-        fontSize: "13px",
+        fontSize: "12px",
         letterSpacing: "0.1em",
         textTransform: "uppercase",
         color: active ? "var(--text-primary)" : "var(--text-muted)",
@@ -71,11 +71,11 @@ function SidebarTab({
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
-      <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>
+    <div className="flex items-center justify-between gap-3 py-2.5" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
+      <span className="text-text-muted uppercase whitespace-nowrap" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>
         {label}
       </span>
-      <div className="flex items-center gap-2">{children}</div>
+      <div className="flex min-w-0 items-center justify-end gap-2">{children}</div>
     </div>
   );
 }
@@ -85,7 +85,7 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 function VolumeSlider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-4 py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
-      <span className="text-text-muted uppercase shrink-0" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em", minWidth: "140px" }}>
+      <span className="text-text-muted uppercase shrink-0 whitespace-nowrap" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em", minWidth: "110px" }}>
         {label}
       </span>
       <input type="range" min={0} max={100} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--cyan)" }} />
@@ -121,16 +121,16 @@ function GameplayTab() {
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
         <TacticalPanel title={t(lang, "settings_page.gameplaySettings")}>
-          <SettingRow label={t(lang, "settings_page.campaignLength")}>
-            <select value={settings.campaignLength} onChange={(e) => updateSettings({ campaignLength: e.target.value as "full" | "short" | "custom" })} style={{ minWidth: "200px" }}>
+          <SettingRow label={t(lang, "⏱ TEMPOH", "⏱ LENGTH")}>
+            <select value={settings.campaignLength} onChange={(e) => updateSettings({ campaignLength: e.target.value as "full" | "short" | "custom" })} style={{ minWidth: "170px", maxWidth: "100%" }}>
               <option value="full">{t(lang, "settings_page.fullCampaign")}</option>
               <option value="short">{t(lang, "settings_page.shortCampaign")}</option>
               <option value="custom">{t(lang, "settings_page.custom")}</option>
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "settings_page.electionMode")}>
-            <div className="flex flex-col gap-2" style={{ minWidth: "260px" }}>
+          <SettingRow label={t(lang, "🗳 MOD", "🗳 MODE")}>
+            <div className="flex min-w-0 flex-col gap-2" style={{ width: "220px", maxWidth: "100%" }}>
               <select value={hasPremium ? (settings.electionScope ?? "pru") : "prn"} disabled={!hasPremium && !premiumLoading} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
                 <option value="pru" disabled={!hasPremium}>{t(lang, "settings_page.geGeneralElection")}{!hasPremium ? " · PREMIUM" : ""}</option>
                 <option value="prn">{t(lang, "settings_page.stateElection")}</option>
@@ -140,25 +140,25 @@ function GameplayTab() {
                   {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "settings_page.seats")}</option>)}
                 </select>
               )}
-              {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "FREE: satu PRN di negeri pilihan.", "FREE: one PRN in your selected state.")}</span>}
+              {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "🔒 PERCUMA: 1 PRN", "🔒 FREE: 1 PRN")}</span>}
             </div>
           </SettingRow>
 
-          <SettingRow label={t(lang, "Kelajuan jam penggal", "Term clock speed")}>
-            <select value={settings.gameSpeed ?? "week"} onChange={(e) => updateSettings({ gameSpeed: e.target.value as GameSpeed })} style={{ minWidth: "200px" }}>
+          <SettingRow label={t(lang, "⏩ KELAJUAN", "⏩ SPEED")}>
+            <select value={settings.gameSpeed ?? "week"} onChange={(e) => updateSettings({ gameSpeed: e.target.value as GameSpeed })} style={{ minWidth: "170px", maxWidth: "100%" }}>
               {GAME_SPEEDS.map((option) => <option key={option} value={option}>{SPEED_LABEL[option][lang]} · {t(lang, `${SPEED_DAYS[option]} hari/saat`, `${SPEED_DAYS[option]} days/sec`)}</option>)}
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "Pihak permulaan (permainan baharu)", "Starting bench (new games)")}>
-            <select value={settings.side ?? "government"} onChange={(e) => updateSettings({ side: e.target.value as "government" | "opposition" })} style={{ minWidth: "200px" }}>
+          <SettingRow label={t(lang, "🪑 PIHAK", "🪑 SIDE")}>
+            <select value={settings.side ?? "government"} onChange={(e) => updateSettings({ side: e.target.value as "government" | "opposition" })} style={{ minWidth: "170px", maxWidth: "100%" }}>
               <option value="government">{t(lang, "Kerajaan", "Government")}</option>
               <option value="opposition">{t(lang, "Pembangkang", "Opposition")}</option>
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "settings_page.difficulty")}>
-            <select value={settings.difficulty} onChange={(e) => updateSettings({ difficulty: e.target.value as DifficultyKey })} style={{ minWidth: "200px" }}>
+          <SettingRow label={t(lang, "🎚 KESUKARAN", "🎚 DIFFICULTY")}>
+            <select value={settings.difficulty} onChange={(e) => updateSettings({ difficulty: e.target.value as DifficultyKey })} style={{ minWidth: "170px", maxWidth: "100%" }}>
               <option value="easy">{t(lang, "settings_page.easy")}</option>
               <option value="normal">{t(lang, "settings_page.normal")}</option>
               <option value="hard">{t(lang, "settings_page.hard")}</option>
@@ -166,23 +166,23 @@ function GameplayTab() {
             </select>
           </SettingRow>
 
-          <SettingRow label={t(lang, "settings_page.startingFund")}>
+          <SettingRow label={t(lang, "💰 DANA", "💰 FUNDS")}>
             <div className="flex items-center gap-2">
-              <button onClick={() => adjustFund(-100000)} style={{ fontFamily: "'Space Mono', monospace", fontSize: "19px", background: "rgb(var(--cyan-rgb) / 0.1)", border: "1px solid rgb(var(--cyan-rgb) / 0.3)", padding: "2px 10px", cursor: "pointer", color: "var(--cyan)" }}>−</button>
-              <span className="text-white font-bold tabular-nums" style={{ fontSize: "16px", fontFamily: "'Space Mono', monospace", minWidth: "130px", textAlign: "center" }}>RM {localFund.toLocaleString()}</span>
-              <button onClick={() => adjustFund(100000)} style={{ fontFamily: "'Space Mono', monospace", fontSize: "19px", background: "rgb(var(--cyan-rgb) / 0.1)", border: "1px solid rgb(var(--cyan-rgb) / 0.3)", padding: "2px 10px", cursor: "pointer", color: "var(--cyan)" }}>+</button>
+              <button onClick={() => adjustFund(-100000)} style={{ fontFamily: "'Space Mono', monospace", fontSize: "19px", background: "rgb(var(--cyan-rgb) / 0.1)", border: "1px solid rgb(var(--cyan-rgb) / 0.3)", padding: "2px 10px", minHeight: "40px", minWidth: "40px", cursor: "pointer", color: "var(--cyan)" }}>−</button>
+              <span className="text-white font-bold tabular-nums whitespace-nowrap" style={{ fontSize: "15px", fontFamily: "'Space Mono', monospace", minWidth: "120px", textAlign: "center" }}>RM {localFund.toLocaleString()}</span>
+              <button onClick={() => adjustFund(100000)} style={{ fontFamily: "'Space Mono', monospace", fontSize: "19px", background: "rgb(var(--cyan-rgb) / 0.1)", border: "1px solid rgb(var(--cyan-rgb) / 0.3)", padding: "2px 10px", minHeight: "40px", minWidth: "40px", cursor: "pointer", color: "var(--cyan)" }}>+</button>
             </div>
           </SettingRow>
 
           <div className="py-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.1)" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>{t(lang, "settings_page.oppositionStrength")}</span>
+              <span className="text-text-muted uppercase" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>{t(lang, "⚔ LAWAN", "⚔ OPPOSITION")}</span>
               <span className="text-cyan font-bold tabular-nums" style={{ fontSize: "14px", fontFamily: "'Space Mono', monospace" }}>{settings.oppositionStrength}</span>
             </div>
             <input type="range" min={0} max={100} value={settings.oppositionStrength} onChange={(e) => updateSettings({ oppositionStrength: Number(e.target.value) })} className="w-full" style={{ accentColor: "var(--neon-red)" }} />
           </div>
 
-          <SettingRow label={t(lang, "settings_page.mediaBias")}>
+          <SettingRow label={t(lang, "📰 MEDIA", "📰 MEDIA")}>
             <div className="flex" style={{ border: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
               {(["pro", "balanced", "hostile"] as const).map((bias) => {
                 const labels = {
@@ -192,7 +192,7 @@ function GameplayTab() {
                 };
                 const active = settings.mediaBias === bias;
                 return (
-                  <button key={bias} onClick={() => updateSettings({ mediaBias: bias })} style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.06em", padding: "5px 10px", background: active ? "var(--gold)" : "transparent", color: active ? "#000" : "var(--text-muted)", border: "none", cursor: "pointer", transition: "all 0.15s" }}>
+                  <button key={bias} onClick={() => updateSettings({ mediaBias: bias })} style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.06em", padding: "5px 10px", minHeight: "36px", whiteSpace: "nowrap", background: active ? "var(--gold)" : "transparent", color: active ? "#000" : "var(--text-muted)", border: "none", cursor: "pointer", transition: "all 0.15s" }}>
                     {labels[bias]}
                   </button>
                 );
@@ -200,22 +200,22 @@ function GameplayTab() {
             </div>
           </SettingRow>
 
-          <SettingRow label={t(lang, "settings_page.realisticPolls")}>
+          <SettingRow label={`📊 ${t(lang, "settings_page.realisticPolls")}`}>
             <Toggle value={settings.realisticPolls} onChange={(v) => updateSettings({ realisticPolls: v })} />
           </SettingRow>
-          <SettingRow label={t(lang, "settings_page.eventRandomness")}>
+          <SettingRow label={`🎲 ${t(lang, "settings_page.eventRandomness")}`}>
             <Toggle value={settings.eventRandomness} onChange={(v) => updateSettings({ eventRandomness: v })} />
           </SettingRow>
-          <SettingRow label={t(lang, "settings_page.permanentConsequences")}>
+          <SettingRow label={`🔒 ${t(lang, "settings_page.permanentConsequences")}`}>
             <Toggle value={settings.permanentConsequences} onChange={(v) => updateSettings({ permanentConsequences: v })} />
           </SettingRow>
         </TacticalPanel>
       </div>
 
-      <div style={{ width: "280px", flexShrink: 0 }}>
-        <TacticalPanel title={t(lang, "settings_page.difficultyPreview")} goldBorder>
+      <div className="w-[280px] [@media(orientation:landscape)_and_(max-height:500px)]:w-[210px]" style={{ flexShrink: 0 }}>
+        <TacticalPanel title={t(lang, "🎚 KESUKARAN", "🎚 DIFFICULTY")} goldBorder>
           <div className="flex flex-col items-center mb-4">
-            <div className="text-gold font-bold uppercase tracking-widest mb-2" style={{ fontSize: "34px", fontFamily: "'Space Mono', monospace" }}>
+            <div className="text-gold font-bold uppercase tracking-widest mb-2 [@media(orientation:landscape)_and_(max-height:500px)]:!text-[24px]" style={{ fontSize: "34px", fontFamily: "'Space Mono', monospace" }}>
               {t(lang, `settings_page.preset_${difficulty}_label`)}
             </div>
             <div className="text-text-muted text-center" style={{ fontSize: "13px", fontFamily: "'Space Mono', monospace", lineHeight: "1.6" }}>
@@ -265,9 +265,10 @@ function AudioTab() {
       <SettingRow label={t(lang, "settings_page.uiSoundEffects")}>
         <Toggle value={uiSfx} onChange={setUiSfx} />
       </SettingRow>
-      <p className="mt-4 text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
-        {t(lang, "settings_page.musicStartsAfterTheFirstClick")}
-      </p>
+      <details className="mt-3 text-[11px] leading-5" style={{ color: "var(--text-muted)" }}>
+        <summary className="cursor-pointer select-none font-bold tracking-widest" style={{ color: "var(--cyan)" }}>ⓘ {t(lang, "MUZIK TIDAK BERBUNYI?", "NO MUSIC?")}</summary>
+        <p className="mt-1">{t(lang, "settings_page.musicStartsAfterTheFirstClick")}</p>
+      </details>
     </TacticalPanel>
   );
 }
@@ -321,7 +322,7 @@ function DisplayTab() {
         </TacticalPanel>
       </div>
 
-      <div style={{ width: "220px", flexShrink: 0 }}>
+      <div className="w-[220px] [@media(orientation:landscape)_and_(max-height:500px)]:w-[180px]" style={{ flexShrink: 0 }}>
         <TacticalPanel title={t(lang, "settings_page.themePreview")} goldBorder>
           <div className="text-center py-2">
             <div className="font-bold uppercase tracking-widest mb-1" style={{ fontSize: "13px", color: "var(--gold)" }}>
@@ -478,6 +479,10 @@ function AboutTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const TAB_ICONS: Record<SettingsTab, string> = {
+  GAMEPLAY: "🎮", AUDIO: "🔊", DISPLAY: "🖥", CONTROLS: "⌨", NOTIFICATIONS: "🔔", LANGUAGE: "🌐", ABOUT: "ⓘ",
+};
+
 const TAB_IDS: SettingsTab[] = [
   "GAMEPLAY", "AUDIO", "DISPLAY", "CONTROLS", "NOTIFICATIONS", "LANGUAGE", "ABOUT",
 ];
@@ -502,16 +507,16 @@ export default function SettingsPage() {
 
       <div className="flex items-center px-4" style={{ height: "44px", background: "var(--panel)", borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)", fontFamily: "'Space Mono', monospace" }}>
         <span className="text-gold font-bold uppercase tracking-widest" style={{ fontSize: "13px" }}>
-          {t(lang, "settings_page.settingsConfigurationCalibrateOptimiseDeploy")}
+          ⚙ {t(lang, "TETAPAN", "SETTINGS")}
         </span>
       </div>
 
       <div className="flex gap-6 px-6 py-4" style={{ minHeight: "calc(100vh - 40px - 36px - 44px)" }}>
-        <div style={{ width: "220px", flexShrink: 0 }}>
+        <div className="w-[220px] [@media(orientation:landscape)_and_(max-height:500px)]:w-[150px]" style={{ flexShrink: 0 }}>
           <TacticalPanel noPadding>
             <div>
               {TAB_IDS.map((tab) => (
-                <SidebarTab key={tab} id={tab} label={TAB_LABELS[tab]} active={activeTab === tab} onClick={() => setActiveTab(tab)} />
+                <SidebarTab key={tab} id={tab} label={`${TAB_ICONS[tab]} ${TAB_LABELS[tab]}`} active={activeTab === tab} onClick={() => setActiveTab(tab)} />
               ))}
             </div>
           </TacticalPanel>
@@ -529,7 +534,7 @@ export default function SettingsPage() {
       </div>
 
       <StatusBar
-        leftText={t(lang, "settings_page.settingsGameplayActive")}
+        leftText={`⚙ ${TAB_LABELS[activeTab]}`}
         rightText={t(lang, "settings_page.navigateSelectEscBack")}
       />
     </main>

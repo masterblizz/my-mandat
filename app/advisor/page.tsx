@@ -19,6 +19,15 @@ type ChatMessage = { role: "user" | "assistant"; content: string; source?: "ai" 
 
 const QUICK_PROMPT_KEYS = ["situation", "focusStates", "funds", "finalDays"] as const;
 
+// Short bilingual role labels for the roster/header (the advisors dataset
+// itself only carries English display text).
+const ADVISOR_ROLE: Record<string, { ms: string; en: string }> = {
+  strategist: { ms: "PENGARAH STRATEGI", en: "STRATEGY DIRECTOR" },
+  media: { ms: "STRATEGI MEDIA", en: "MEDIA STRATEGIST" },
+  analyst: { ms: "PENGANALISIS UNDI", en: "POLL ANALYST" },
+  fieldops: { ms: "OPERASI LAPANGAN", en: "FIELD OPS" },
+};
+
 export default function AdvisorPage() {
   const mounted = useHasMounted();
   const router = useRouter();
@@ -189,7 +198,7 @@ export default function AdvisorPage() {
   const modeLabel = effectiveMode === "ai"
     ? t(lang, "advisor_page.aiOnline")
     : effectiveMode === "offline"
-    ? t(lang, "advisor_page.simulationModeOffline")
+    ? t(lang, "LUAR TALIAN", "OFFLINE")
     : aiAvailable === null
     ? t(lang, "advisor_page.checkingStatus")
     : t(lang, "advisor_page.ready");
@@ -201,24 +210,23 @@ export default function AdvisorPage() {
     <div className="min-h-screen" style={{ background: "radial-gradient(circle at 15% 0%, rgb(var(--cyan-rgb)/0.10), transparent 32%), var(--bg)" }}>
       <Header />
       <main className="px-6 pb-[54px] pt-[56px]">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: "rgb(var(--cyan-rgb) / .55)", background: "rgb(var(--cyan-rgb) / .08)", boxShadow: "0 0 22px rgb(var(--cyan-rgb) / .2)" }}>
-              <Image src="/avatars/dr-azman-advisor.png" alt={alpha.name} fill priority sizes="64px" style={{ objectFit: "cover", objectPosition: "center top" }} />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: "rgb(var(--cyan-rgb) / .55)", background: "rgb(var(--cyan-rgb) / .08)", boxShadow: "0 0 22px rgb(var(--cyan-rgb) / .2)" }}>
+              <Image src="/avatars/dr-azman-advisor.png" alt={alpha.name} fill priority sizes="48px" style={{ objectFit: "cover", objectPosition: "center top" }} />
             </div>
-            <div>
-            <div className="mb-1 text-[12px] tracking-widest text-text-muted">◇ {t(lang, "advisor_page.warRoomStrategicAdvisor")}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>
+            <div className="min-w-0">
+            <h1 className="truncate text-xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>
               {alpha.name} <span style={{ color: "var(--cyan)" }}>· {alpha.codename}</span>
             </h1>
-            <div className="mt-1 text-[11px] tracking-wider" style={{ color: "var(--gold)" }}>{alpha.role} · {alpha.specialty}</div>
+            <div className="mt-0.5 text-[11px] font-bold tracking-widest" style={{ color: "var(--gold)" }}>{t(lang, ADVISOR_ROLE[alpha.id].ms, ADVISOR_ROLE[alpha.id].en)}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: "rgb(var(--gold-rgb)/0.4)", color: "var(--gold)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
-              {isPrn ? `${t(lang, "advisor_page.stateFocus")} · ${prnState?.name?.toUpperCase() ?? settings.prnStateId.toUpperCase()}` : t(lang, "advisor_page.nationalFocusPru")}
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="whitespace-nowrap border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: "rgb(var(--gold-rgb)/0.4)", color: "var(--gold)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
+              {isPrn ? `📍 PRN · ${prnState?.name?.toUpperCase() ?? settings.prnStateId.toUpperCase()}` : "🇲🇾 PRU · 222"}
             </div>
-            <div className="border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: `color-mix(in srgb, ${modeColor} 45%, transparent)`, color: modeColor, background: "rgb(var(--bg-rgb) / 0.6)" }}>
+            <div className="whitespace-nowrap border px-3 py-2 text-[10px] font-black tracking-[0.2em]" style={{ borderColor: `color-mix(in srgb, ${modeColor} 45%, transparent)`, color: modeColor, background: "rgb(var(--bg-rgb) / 0.6)" }}>
               <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full align-middle" style={{ background: modeColor }} />
               {modeLabel}
             </div>
@@ -229,11 +237,11 @@ export default function AdvisorPage() {
           <TacticalPanel title={t(lang, "advisor_page.strategyBriefing")} noPadding>
             <div ref={scrollRef} className="h-[calc(100vh-330px)] min-h-[380px] space-y-3 overflow-y-auto p-4">
               {messages.length === 0 && (
-                <div className="border p-4 text-[12px] leading-relaxed text-text-muted" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "rgb(var(--cyan-rgb)/0.04)" }}>
-                  <div className="mb-1 font-black tracking-widest" style={{ color: "var(--cyan)" }}>{alpha.codename} · {t(lang, "advisor_page.sessionOpen")}</div>
+                <div className="border px-4 py-3 text-[12px] text-text-muted" style={{ borderColor: "rgb(var(--cyan-rgb)/0.18)", background: "rgb(var(--cyan-rgb)/0.04)" }}>
+                  <span className="mr-2 font-black tracking-widest" style={{ color: "var(--cyan)" }}>💬 {alpha.codename}</span>
                   {isPrn
-                    ? t(lang, "advisor_page.askMeAnythingAboutThePrn", { alphaQuote: alpha.quote, prnStateNameSettings: prnState?.name ?? settings.prnStateId })
-                    : t(lang, "advisor_page.askMeAnythingAboutCampaignStrategy", { alphaQuote: alpha.quote })}
+                    ? t(lang, `Tanya strategi PRN ${prnState?.name ?? settings.prnStateId}.`, `Ask about the ${prnState?.name ?? settings.prnStateId} PRN.`)
+                    : t(lang, "Tanya strategi kempen PRU.", "Ask about your PRU campaign.")}
                 </div>
               )}
               {messages.map((message, index) => (
@@ -262,8 +270,8 @@ export default function AdvisorPage() {
             <div className="border-t p-3" style={{ borderColor: "rgb(var(--cyan-rgb)/0.16)" }}>
               {aiAvailable === false ? (
                 <>
-                  <div className="mb-2 text-[10px] leading-relaxed text-text-muted">
-                    {t(lang, "advisor_page.aiUnavailablePickQuestion")}
+                  <div className="mb-2 text-[10px] font-bold tracking-widest text-text-muted">
+                    ⚡ {t(lang, "PILIH SOALAN", "PICK A QUESTION")}
                   </div>
                   {availablePoolEntries.length > 0 ? (
                     <div className="mb-2 flex flex-wrap gap-2">
@@ -271,7 +279,7 @@ export default function AdvisorPage() {
                         <button
                           key={entry.id}
                           onClick={() => askPoolQuestion(entry)}
-                          className="border px-2 py-1 text-[10px] font-bold tracking-wider"
+                          className="min-h-[36px] border px-2 py-1 text-[10px] font-bold tracking-wider"
                           style={{ borderColor: "rgb(var(--gold-rgb)/0.35)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.05)" }}
                         >
                           {t(lang, entry.questionMS, entry.questionEN)}
@@ -291,7 +299,7 @@ export default function AdvisorPage() {
                           key={promptKey}
                           onClick={() => send(t(lang, `advisor_page.quickPrompt_${promptKey}`))}
                           disabled={busy}
-                          className="border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
+                          className="min-h-[36px] border px-2 py-1 text-[10px] font-bold tracking-wider disabled:opacity-40"
                           style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb)/0.05)" }}
                         >
                           {t(lang, `advisor_page.quickPrompt_${promptKey}`)}
@@ -304,14 +312,14 @@ export default function AdvisorPage() {
                       value={input}
                       onChange={(event) => setInput(event.target.value)}
                       placeholder={t(lang, "advisor_page.typeAnOrderOrStrategyQuestion")}
-                      className="min-w-0 flex-1 border bg-transparent px-3 py-2 text-[12px] text-white outline-none disabled:opacity-40"
+                      className="min-h-[40px] min-w-0 flex-1 border bg-transparent px-3 py-2 text-[12px] text-white outline-none disabled:opacity-40"
                       style={{ borderColor: "rgb(var(--cyan-rgb)/0.3)", fontFamily: "Space Mono, monospace" }}
                       disabled={freeTextDisabled}
                     />
                     <button
                       type="submit"
                       disabled={freeTextDisabled || !input.trim()}
-                      className="border px-4 py-2 text-[11px] font-black tracking-widest disabled:opacity-40"
+                      className="min-h-[40px] border px-4 py-2 text-[11px] font-black tracking-widest disabled:opacity-40"
                       style={{ borderColor: "rgb(var(--gold-rgb)/0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb)/0.08)" }}
                     >
                       {t(lang, "advisor_page.send")}
@@ -323,36 +331,32 @@ export default function AdvisorPage() {
           </TacticalPanel>
 
           <div className="space-y-4">
-            <TacticalPanel title={t(lang, "advisor_page.liveCampaignFeed")}>
-              <div className="space-y-2 text-[11px] tracking-wider">
+            <TacticalPanel title={t(lang, "📡 DATA LANGSUNG", "📡 LIVE DATA")}>
+              <div className="grid grid-cols-2 gap-2 text-[11px] tracking-wider">
                 {[
-                  [t(lang, "advisor_page.scope"), isPrn ? `PRN · ${prnState?.name ?? settings.prnStateId}` : "PRU · NASIONAL", "var(--gold)"],
-                  [t(lang, "advisor_page.day"), `${day}/${totalDays}`, "var(--cyan)"],
-                  [t(lang, "advisor_page.funds"), `RM ${formatNumber(resources.funds)}`, "var(--gold)"],
-                  [t(lang, "advisor_page.projectedSeats"), `${projectedSeats} / ${majorityTarget}`, projectedSeats >= majorityTarget ? "var(--neon-green)" : "var(--neon-red)"],
-                  [t(lang, "advisor_page.support"), `${support.mandat}%`, "var(--cyan)"],
-                  [t(lang, "advisor_page.media"), mediaSentiment.toUpperCase(), mediaSentiment === "positive" ? "var(--neon-green)" : mediaSentiment === "negative" ? "var(--neon-red)" : "var(--gold)"],
-                  [t(lang, "advisor_page.lawanThreat"), t(lang, threatLevel.labelMS, threatLevel.label), threatLevel.color],
-                ].map(([label, value, color], index) => (
-                  <div key={index} className="flex items-center justify-between border-b pb-2" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <span className="text-text-muted">{label as string}</span>
-                    <span className="font-black" style={{ color: color as string }}>{value as string}</span>
+                  ["📅", t(lang, "HARI", "DAY"), `${day}/${totalDays}`, "var(--cyan)"],
+                  ["💰", t(lang, "DANA", "FUNDS"), `RM ${formatNumber(resources.funds)}`, "var(--gold)"],
+                  ["🏛", isPrn ? "DUN" : t(lang, "KERUSI", "SEATS"), `${projectedSeats}/${majorityTarget}`, projectedSeats >= majorityTarget ? "var(--neon-green)" : "var(--neon-red)"],
+                  ["📊", t(lang, "SOKONGAN", "SUPPORT"), `${support.mandat}%`, "var(--cyan)"],
+                  ["📰", "MEDIA", mediaSentiment === "positive" ? t(lang, "POSITIF", "POSITIVE") : mediaSentiment === "negative" ? t(lang, "NEGATIF", "NEGATIVE") : t(lang, "NEUTRAL", "NEUTRAL"), mediaSentiment === "positive" ? "var(--neon-green)" : mediaSentiment === "negative" ? "var(--neon-red)" : "var(--gold)"],
+                  ["⚔", t(lang, "ANCAMAN", "THREAT"), t(lang, threatLevel.labelMS, threatLevel.label), threatLevel.color],
+                ].map(([icon, label, value, color], index) => (
+                  <div key={index} className="min-w-0 border px-2 py-1.5" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgb(var(--bg-rgb) / 0.4)" }}>
+                    <div className="text-[9px] text-text-muted">{icon} {label}</div>
+                    <div className="truncate font-black" style={{ color }}>{value}</div>
                   </div>
                 ))}
-                <div className="pt-1 text-[10px] leading-relaxed text-text-muted">
-                  {t(lang, "advisor_page.theAdvisorReadsThisDataOn")}
-                </div>
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, "advisor_page.advisorRoster")}>
+            <TacticalPanel title={t(lang, "👥 PASUKAN", "👥 TEAM")}>
               <div className="space-y-2">
                 {advisors.slice(0, 4).map((advisor) => (
                   <div key={advisor.id} className="flex items-center justify-between border p-2 text-[10px] tracking-wider" style={{ borderColor: advisor.id === alpha.id ? "rgb(var(--cyan-rgb)/0.4)" : "rgba(255,255,255,0.08)", background: advisor.id === alpha.id ? "rgb(var(--cyan-rgb)/0.06)" : "transparent" }}>
                     <div className="flex items-center gap-2">
                       {advisor.id === alpha.id && <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "rgb(var(--cyan-rgb)/.45)" }}><Image src="/avatars/dr-azman-advisor.png" alt="" fill sizes="28px" style={{ objectFit: "cover", objectPosition: "center top" }} /></div>}
                       <div><div className="font-black text-white">{advisor.id === alpha.id ? "" : `${advisor.icon} `}{advisor.name}</div>
-                      <div className="text-text-muted">{advisor.role}</div>
+                      <div className="text-text-muted">{ADVISOR_ROLE[advisor.id] ? t(lang, ADVISOR_ROLE[advisor.id].ms, ADVISOR_ROLE[advisor.id].en) : advisor.role}</div>
                       </div>
                     </div>
                     <span className="font-black" style={{ color: advisor.id === alpha.id ? "var(--neon-green)" : "var(--text-muted)" }}>
@@ -366,8 +370,8 @@ export default function AdvisorPage() {
         </div>
       </main>
       <StatusBar
-        leftText={t(lang, "advisor_page.aiAdvisorAlpha1WarRoom")}
-        rightText={effectiveMode === "ai" ? "MANDAT//AI · CLAUDE" : t(lang, "advisor_page.localSimulationMode")}
+        leftText={`💬 ${alpha.codename}`}
+        rightText={effectiveMode === "ai" ? "AI · CLAUDE" : t(lang, "SIMULASI", "SIMULATION")}
       />
     </div>
   );
