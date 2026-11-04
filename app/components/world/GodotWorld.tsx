@@ -18,7 +18,7 @@ import { t, type Lang } from "../../i18n/useLang";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
-export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media" | "commission" | "calendar";
+export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration";
 
 // Per-scene copy: [iframe title, loading line], each [ms, en].
 const SCENE_TEXT: Record<WorldScene, { title: [string, string]; loading: [string, string] }> = {
@@ -30,6 +30,8 @@ const SCENE_TEXT: Record<WorldScene, { title: [string, string]; loading: [string
   media: { title: ["Pusat Media 3D", "3D media centre"], loading: ["MEMUATKAN PUSAT MEDIA 3D…", "LOADING 3D MEDIA CENTRE…"] },
   commission: { title: ["Suruhanjaya Pilihan Raya 3D", "3D election commission"], loading: ["MEMUATKAN SPR 3D…", "LOADING 3D ELECTION COMMISSION…"] },
   calendar: { title: ["Pusat Jadual Kempen 3D", "3D scheduling centre"], loading: ["MEMUATKAN PUSAT JADUAL 3D…", "LOADING 3D SCHEDULING CENTRE…"] },
+  cabinet: { title: ["Bangunan Kabinet 3D", "3D cabinet building"], loading: ["MEMUATKAN BANGUNAN KABINET 3D…", "LOADING 3D CABINET BUILDING…"] },
+  administration: { title: ["Pusat Pentadbiran 3D", "3D administration centre"], loading: ["MEMUATKAN PUSAT PENTADBIRAN 3D…", "LOADING 3D ADMINISTRATION CENTRE…"] },
 };
 export type OfficeInteraction = "desk" | "pa" | "meeting" | "tv" | "board" | "residents" | "files" | "pantry";
 export type WarRoomInteraction = "console" | "screens" | "pa" | "analytics" | "briefing" | "exit";
@@ -67,6 +69,10 @@ export type GodotWorldState = {
   partyAbbr?: string;
   candidates?: { id: string; name: string; role: string; influence: number; specialty: string; seats: number }[];
   selected?: string;
+  // government buildings extras
+  headTitle?: string;
+  policies?: { name: string; active: boolean }[];
+  kpis?: { label: string; value: string; pct: number }[];
 };
 
 // Room names shown as a toast when the player walks in (both scenes).
@@ -99,6 +105,18 @@ const CALENDAR_ROOM_NAMES: Record<string, [string, string]> = {
   jadual: ["Bilik Jadual", "Schedule Room"],
   laluan: ["Bilik Laluan Lawatan", "Visit Route Room"],
   logistik: ["Meja Logistik", "Transport Desk"],
+  lobi: ["Lobi", "Lobby"],
+};
+const CABINET_ROOM_NAMES: Record<string, [string, string]> = {
+  kabinet: ["Bilik Mesyuarat Kabinet", "Cabinet Room"],
+  taklimat: ["Bilik Taklimat Portfolio", "Portfolio Briefing Room"],
+  menunggu: ["Ruang Menunggu", "Waiting Lounge"],
+  lobi: ["Lobi", "Lobby"],
+};
+const ADMIN_ROOM_NAMES: Record<string, [string, string]> = {
+  dasar: ["Unit Penyampaian Dasar", "Policy Delivery Unit"],
+  kpi: ["Bilik Prestasi", "Performance Room"],
+  krisis: ["Bilik Krisis", "Crisis Room"],
   lobi: ["Lobi", "Lobby"],
 };
 const MEDIA_ROOM_NAMES: Record<string, [string, string]> = {
@@ -152,7 +170,7 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
   onPickRef.current = onPick;
   onReadyRef.current = onReady;
   onStateClickRef.current = onStateClick;
-  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : scene === "media" ? MEDIA_ROOM_NAMES[id] : scene === "commission" ? COMMISSION_ROOM_NAMES[id] : scene === "calendar" ? CALENDAR_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
+  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : scene === "media" ? MEDIA_ROOM_NAMES[id] : scene === "commission" ? COMMISSION_ROOM_NAMES[id] : scene === "calendar" ? CALENDAR_ROOM_NAMES[id] : scene === "cabinet" ? CABINET_ROOM_NAMES[id] : scene === "administration" ? ADMIN_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
   const lang = state.lang;
   const onOpenRef = useRef(onOpen);
   const onErrorRef = useRef(onError);

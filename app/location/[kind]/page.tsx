@@ -11,11 +11,13 @@ import dynamic from "next/dynamic";
 import type { GodotWorldState } from "../../components/world/GodotWorld";
 import { assistantGender } from "../../lib/assistantAvatar";
 import { PARTY_MEMBERS } from "../../data/members";
+import { DPM_POSTS, EXCO_POSTS, MINISTER_POSTS } from "../../data/cabinet";
+import { POLICY_DATA } from "../../store/journey";
 // The operations centre is a Sims-style 3D war room (Godot); the painted
 // backdrop stays as the light fallback.
 const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
 // Locations that are Sims-style 3D buildings in the Godot world.
-const LOCATION_3D_SCENES: Record<string, "warroom" | "party" | "media" | "commission" | "calendar"> = { operations: "warroom", party: "party", media: "media", commission: "commission", calendar: "calendar" };
+const LOCATION_3D_SCENES: Record<string, "warroom" | "party" | "media" | "commission" | "calendar" | "cabinet" | "administration"> = { operations: "warroom", party: "party", media: "media", commission: "commission", calendar: "calendar", cabinet: "cabinet", administration: "administration" };
 const engineKey = (kind: string) => (kind === "operations" ? "warroom-engine" : `${kind}-engine-3d`);
 const introKey = (kind: string) => (kind === "operations" ? "warroom-intro-day" : `${kind}-intro-day`);
 import { useLang, t } from "../../i18n/useLang";
@@ -1076,6 +1078,15 @@ export default function LocationPage() {
     return out;
   }, [nominations]);
   const candidate = candidateId ? PARTY_MEMBERS.find((member) => member.id === candidateId) : undefined;
+  const careerMonth = useGameStore((state) => state.careerProgress?.month ?? 1);
+  // cabinet room plaques: the player's actual appointments, in post order
+  const appointedMinisters = useMemo(() => {
+    const posts = (settings.electionScope ?? "pru") === "prn" ? EXCO_POSTS : [...DPM_POSTS, ...MINISTER_POSTS];
+    return posts.flatMap((post) => {
+      const member = PARTY_MEMBERS.find((item) => item.id === journey.appointments[post.id]);
+      return member ? [{ name: member.name, post: t(lang, post.titleMS, post.titleEN) }] : [];
+    }).slice(0, 12);
+  }, [journey.appointments, lang, settings.electionScope]);
   const warScopePrn = (settings.electionScope ?? "pru") === "prn";
   const warPrnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
   const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
@@ -1108,7 +1119,16 @@ export default function LocationPage() {
       seats: candidateSeats[member.id] ?? 0,
     })) : undefined,
     selected: candidateId ?? "",
-  }), [lang, leader.avatarIndex, leader.name, leader.partyColor, leader.party, leader.partyAbbr, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id, scene3d, candidateSeats, candidateId]); // eslint-disable-line react-hooks/exhaustive-deps
+    ministers: scene3d === "cabinet" ? appointedMinisters : undefined,
+    headTitle: (settings.electionScope ?? "pru") === "prn" ? t(lang, "MENTERI BESAR", "CHIEF MINISTER") : t(lang, "PERDANA MENTERI", "PRIME MINISTER"),
+    policies: scene3d === "administration" ? POLICY_DATA.map((policy) => ({ name: t(lang, policy.ms, policy.en), active: journey.policies.includes(policy.id) })) : undefined,
+    kpis: scene3d === "administration" ? [
+      { label: t(lang, "KEPERCAYAAN AWAM", "PUBLIC TRUST"), value: `${journey.trust}`, pct: journey.trust / 100 },
+      { label: t(lang, "KESTABILAN GABUNGAN", "COALITION STABILITY"), value: `${journey.stability}`, pct: journey.stability / 100 },
+      { label: t(lang, "BAJET AWAM", "PUBLIC BUDGET"), value: `RM ${Math.round(journey.publicBudget / 1000)}k`, pct: journey.publicBudget / 900000 },
+      { label: t(lang, "PENGGAL", "TERM"), value: t(lang, `Bulan ${careerMonth}/60`, `Month ${careerMonth}/60`), pct: careerMonth / 60 },
+    ] : undefined,
+  }), [appointedMinisters, journey.policies, journey.trust, journey.stability, journey.publicBudget, careerMonth, lang, leader.avatarIndex, leader.name, leader.partyColor, leader.party, leader.partyAbbr, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id, scene3d, candidateSeats, candidateId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Each 3D marker opens the panel or screen that already does that job.
   const openWarInteraction = (id: string) => {
     if (id === "console" || id === "screens") setOperationsDeskOpen(true);
@@ -1121,7 +1141,9 @@ export default function LocationPage() {
     else if (id === "control") router.push("/messaging");
     else if (id === "count") router.push("/polling");
     else if (id === "route") router.push("/calendar");
-    else if (id === "poll" || id === "booth" || id === "board" || id === "transport") setActivityOpen(true);
+    else if (id === "poll" || id === "booth" || id === "board" || id === "transport" || id === "meeting" || id === "policy") setActivityOpen(true);
+    else if (id === "lineup") router.push("/cabinet");
+    else if (id === "kpi" || id === "crisis") router.push("/government");
   };
   useEffect(() => {
     if (!activityOpen) setActivityFeedback(null);
