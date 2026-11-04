@@ -9,6 +9,28 @@ import { keyMessages, messagePerformanceHistory, channelEffectiveness, Message }
 import { useGameStore, Operation } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 
+// The messages dataset carries English-only detail text; Malay display
+// copies live here, keyed by message id.
+const MESSAGE_MS: Record<string, { description: string; target: string }> = {
+  msg01: { description: "Tangani kos sara hidup melalui subsidi bersasar, reformasi gaji dan penstrukturan semula ekonomi untuk isi rumah B40 dan M40.", target: "Pengundi bandar & separa bandar, B40-M40" },
+  msg02: { description: "Cipta 500,000 pekerjaan berkualiti melalui ekonomi hijau, transformasi digital dan pelaburan asing.", target: "Belia (18-35), Graduan" },
+  msg03: { description: "Reformasi pendidikan daripada hafalan kepada kurikulum berasaskan kemahiran, guru berkualiti dan laluan TVET.", target: "Ibu bapa, Guru, Pelajar" },
+  msg04: { description: "Perkukuh kesihatan awam dengan pelaburan RM 3B, kurangkan masa menunggu dan tambah klinik komuniti.", target: "Warga emas, Keluarga" },
+  msg05: { description: "Sifar toleransi rasuah: SPRM bebas, perolehan telus dan pengisytiharan harta wajib untuk semua menteri.", target: "Profesional bandar, Masyarakat sivil" },
+  msg06: { description: "Malaysia di mana semua komuniti maju — memelihara hak istimewa Melayu sambil memastikan keadilan untuk semua.", target: "Pelbagai kaum, Melayu luar bandar" },
+};
+
+const CHANNEL_ICON: Record<string, string> = {
+  "TV": "📺", "SOCIAL MEDIA": "📱", "CERAMAH": "🎤", "PRINT": "📰", "RADIO": "📻", "DIGITAL": "💻",
+};
+const CHANNEL_MS: Record<string, string> = {
+  "SOCIAL MEDIA": "MEDIA SOSIAL", "PRINT": "CETAK",
+};
+function channelLabel(lang: Lang, channel: string): string {
+  const key = channel.toUpperCase();
+  return `${CHANNEL_ICON[key] ?? "•"} ${lang === "ms" ? CHANNEL_MS[key] ?? key : key}`;
+}
+
 function opStatusColor(status: string): string {
   if (status === "active") return "var(--neon-green)";
   if (status === "ongoing") return "var(--cyan)";
@@ -43,28 +65,28 @@ export default function MessagingPage() {
     .sort((a, b) => b.swingProbability - a.swingProbability)
     .slice(0, 3);
 
+  const weakState = states.find((s) => s.mandatSupport < 45);
   const recommendations = [
     topSwingStates[0]
-      ? t(lang, "messaging_page.focusCeramahInSwingProbability", { topSwingStatesName: topSwingStates[0].name, topSwingStatesSwingProbability: topSwingStates[0].swingProbability })
-      : t(lang, "messaging_page.increaseCeramahFrequencyInContestedStates"),
-    t(lang, "messaging_page.daysRemainAccelerateDigitalOutreachIn", { totalDaysDay: totalDays - day }),
-    states.find((s) => s.mandatSupport < 45)
-      ? t(lang, "messaging_page.boostMessagingInSupportBelow45", { statesFilterS: states.filter((s) => s.mandatSupport < 45)[0]?.name })
-      : t(lang, "messaging_page.maintainMomentumAllStatesHoldingAbove"),
+      ? `🎤 ${t(lang, "Fokus ceramah", "Focus ceramah")} · ${topSwingStates[0].name} (${topSwingStates[0].swingProbability}%)`
+      : `🎤 ${t(lang, "Lebih ceramah di kawasan sengit", "More ceramah in contested areas")}`,
+    `📱 ${t(lang, "Gandakan digital", "Boost digital")} · ⏳ ${totalDays - day} ${t(lang, "hari", "days")}`,
+    weakState
+      ? `⚠ ${t(lang, "Kuatkan mesej", "Boost messaging")} · ${weakState.name} < 45%`
+      : `✓ ${t(lang, "Semua negeri ≥ 45%", "All states ≥ 45%")}`,
   ];
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
-      <StatusBar leftText={t(lang, "messaging_page.messagingCenterNarrativeCommand")} rightText={t(lang, "messaging_page.selectMessageDeployCampaign")} />
+      <StatusBar leftText={`📣 ${t(lang, "messaging_page.messagingCenter")}`} rightText={`📅 ${day}/${totalDays}`} />
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
         {/* Title Bar */}
-        <div className="mb-4 py-3" style={{ borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)" }}>
+        <div className="mb-3 py-2" style={{ borderBottom: "1px solid rgb(var(--gold-rgb) / 0.3)" }}>
           <h1 className="text-[19px] font-bold tracking-widest uppercase" style={{ color: "var(--gold)" }}>
-            {t(lang, "messaging_page.messagingCenter")}
-            <span className="text-[14px] font-normal ml-3" style={{ color: "var(--text-muted)" }}>— {t(lang, "messaging_page.shapeTheNarrative")}</span>
+            📣 {t(lang, "messaging_page.messagingCenter")}
           </h1>
         </div>
 
@@ -105,7 +127,7 @@ export default function MessagingPage() {
               </div>
               <div className="p-3" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.12)" }}>
                 <button
-                  className="w-full py-2 text-[12px] tracking-widest uppercase transition-colors"
+                  className="min-h-[40px] w-full py-2 text-[12px] tracking-widest uppercase transition-colors"
                   style={{
                     border: "1px dashed rgb(var(--cyan-rgb) / 0.3)",
                     color: "var(--text-muted)",
@@ -130,16 +152,18 @@ export default function MessagingPage() {
             {/* Selected Message Expanded */}
             {selectedMsg && (
               <TacticalPanel goldBorder={true}>
-                <div className="text-[11px] tracking-widest mb-1" style={{ color: "var(--gold)" }}>{t(lang, "messaging_page.selectedMessage")}</div>
                 <div className="text-[14px] font-bold tracking-wider mb-1" style={{ color: "var(--gold)" }}>
                   {lang === "ms" ? selectedMsg.titleBM : selectedMsg.titleEN}
                 </div>
-                <div className="text-[12px] mb-3" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
-                  {selectedMsg.description}
-                </div>
                 <div className="text-[11px] mb-1.5" style={{ color: "var(--text-muted)" }}>
-                  <span style={{ color: "var(--cyan)" }}>{t(lang, "messaging_page.target")}</span> {selectedMsg.targetDemographic}
+                  🎯 {lang === "ms" ? MESSAGE_MS[selectedMsg.id]?.target ?? selectedMsg.targetDemographic : selectedMsg.targetDemographic}
                 </div>
+                <details className="mb-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  <summary className="cursor-pointer select-none text-[11px] font-bold tracking-widest" style={{ color: "var(--cyan)" }}>ⓘ {t(lang, "BUTIRAN", "DETAILS")}</summary>
+                  <div className="mt-1" style={{ lineHeight: 1.6 }}>
+                    {lang === "ms" ? MESSAGE_MS[selectedMsg.id]?.description ?? selectedMsg.description : selectedMsg.description}
+                  </div>
+                </details>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedMsg.channels.map((ch) => (
                     <span
@@ -151,7 +175,7 @@ export default function MessagingPage() {
                         background: "rgb(var(--cyan-rgb) / 0.08)",
                       }}
                     >
-                      {ch}
+                      {channelLabel(lang, ch)}
                     </span>
                   ))}
                 </div>
@@ -165,9 +189,9 @@ export default function MessagingPage() {
               <TrendLine
                 data={messagePerformanceHistory}
                 lines={[
-                  { key: "ekonomi",    color: "var(--cyan)", label: "EKONOMI" },
-                  { key: "peluang",    color: "var(--gold)", label: "PELUANG" },
-                  { key: "pendidikan", color: "var(--neon-green)", label: "PENDIDIKAN" },
+                  { key: "ekonomi",    color: "var(--cyan)", label: t(lang, "EKONOMI", "ECONOMY") },
+                  { key: "peluang",    color: "var(--gold)", label: t(lang, "PELUANG", "JOBS") },
+                  { key: "pendidikan", color: "var(--neon-green)", label: t(lang, "PENDIDIKAN", "EDUCATION") },
                 ]}
                 xKey="week"
                 height={200}
@@ -232,7 +256,7 @@ export default function MessagingPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2 text-[13px]">
                           <span>{ch.icon}</span>
-                          <span className="tracking-wider uppercase text-white">{ch.channel}</span>
+                          <span className="tracking-wider uppercase text-white">{lang === "ms" ? CHANNEL_MS[ch.channel] ?? ch.channel : ch.channel}</span>
                         </div>
                         <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{reach}</span>
                       </div>
@@ -264,7 +288,7 @@ export default function MessagingPage() {
               </ul>
               <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
                 <button
-                  className="w-full py-2 text-[13px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80"
+                  className="min-h-[40px] w-full py-2 text-[13px] tracking-widest uppercase font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
                   style={{ background: deployedAll ? "var(--neon-green)" : "var(--gold)", color: "#000", cursor: "pointer" }}
                   disabled={journey.chapter !== "campaign" || day >= totalDays || journey.decisions < 1 || !operations.some(op => op.status === "planned")}
                   onClick={() => {

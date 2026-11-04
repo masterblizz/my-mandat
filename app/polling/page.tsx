@@ -20,6 +20,13 @@ import { useLang, t } from "../i18n/useLang";
 
 type Tab = "POLLING" | "DEMOGRAPHICS" | "SWING VOTERS" | "ISSUES" | "FORECAST";
 const TABS: Tab[] = ["POLLING", "DEMOGRAPHICS", "SWING VOTERS", "ISSUES", "FORECAST"];
+const TAB_ICON: Record<Tab, string> = {
+  "POLLING": "◉",
+  "DEMOGRAPHICS": "👥",
+  "SWING VOTERS": "⇄",
+  "ISSUES": "⚠",
+  "FORECAST": "🔮",
+};
 const TAB_LABEL_KEYS: Record<Tab, string> = {
   "POLLING": "polling_page.tabPolling",
   "DEMOGRAPHICS": "polling_page.tabDemographics",
@@ -121,7 +128,7 @@ export default function PollingPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
-      <StatusBar leftText={t(lang, "polling_page.pollingAnalyticsIntelCommand")} rightText={t(lang, "polling_page.tabSwitchPanelSortClickHeader")} />
+      <StatusBar leftText={isPrn && prnState ? `📊 PRN · ${prnState.name.toUpperCase()}` : "📊 PRU · 222"} rightText={t(lang, "KETIK NEGERI UNTUK SUSUN", "TAP STATE TO SORT")} />
 
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
@@ -131,7 +138,7 @@ export default function PollingPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
+              className="min-h-[40px] whitespace-nowrap px-4 py-2 text-[13px] tracking-widest uppercase transition-colors"
               style={{
                 color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
                 borderBottom: activeTab === tab ? "2px solid var(--gold)" : "2px solid transparent",
@@ -140,7 +147,7 @@ export default function PollingPage() {
                 cursor: "pointer",
               }}
             >
-              {t(lang, TAB_LABEL_KEYS[tab])}
+              {TAB_ICON[tab]} {t(lang, TAB_LABEL_KEYS[tab])}
             </button>
           ))}
         </div>
@@ -195,9 +202,8 @@ export default function PollingPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-3 pt-2" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-                    <div className="text-[11px] tracking-wider" style={{ color: "var(--text-muted)" }}>{t(lang, "polling_page.latest27May2024")}</div>
-                    <div className="text-[12px] font-bold mt-1" style={{ color: "var(--neon-green)" }}>{t(lang, "polling_page._21VsPrevPoll")}</div>
+                  <div className="mt-3 pt-2 text-[12px] font-bold" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)", color: "var(--neon-green)" }}>
+                    ▲ +2.1%
                   </div>
                 </TacticalPanel>
               </div>
@@ -227,7 +233,7 @@ export default function PollingPage() {
                   <div style={{ maxHeight: "280px", overflowY: "auto" }}>
                     {sortedStates.map((s) => {
                       const maxVal = Math.max(s.mandatSupport, s.lawanSupport, s.othersSupport);
-                      const leaderParty = s.mandatSupport === maxVal ? "MANDAT" : s.lawanSupport === maxVal ? "LAWAN" : t(lang, "polling_page.others");
+                      const leaderParty = s.mandatSupport === maxVal ? leader.partyAbbr : s.lawanSupport === maxVal ? "LAWAN" : t(lang, "polling_page.others");
                       const margin = s.mandatSupport === maxVal
                         ? s.mandatSupport - Math.max(s.lawanSupport, s.othersSupport)
                         : s.lawanSupport === maxVal
@@ -266,16 +272,14 @@ export default function PollingPage() {
                 <TacticalPanel title={t(lang, "polling_page.swingVoters")}>
                   <div className="text-center mb-3">
                     <div className="font-bold" style={{ color: "var(--gold)", fontSize: "77px", lineHeight: 1 }}>22%</div>
-                    <div className="text-[11px] tracking-widest mt-1" style={{ color: "var(--text-muted)" }}>{isPrn ? t(lang, "polling_page.undecidedInState") : t(lang, "polling_page.undecidedNationally")}</div>
-                    <div className="text-[12px] font-bold mt-1" style={{ color: "var(--neon-green)" }}>{t(lang, "polling_page._8VsLastPoll")}</div>
+                    <div className="text-[11px] tracking-widest mt-1" style={{ color: "var(--text-muted)" }}>{t(lang, "BELUM PASTI", "UNDECIDED")} · <span className="font-bold" style={{ color: "var(--neon-green)" }}>▲ 8%</span></div>
                   </div>
 
                   <div className="mt-3 pt-2" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
                     <div className="text-[11px] tracking-widest mb-2" style={{ color: "var(--gold)" }}>{t(lang, "polling_page.keyFactors")}</div>
-                    <ul className="flex flex-col gap-1">
+                    <ul className="flex flex-wrap gap-1">
                       {KEY_FACTORS.map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-[12px]" style={{ color: "var(--text-muted)" }}>
-                          <span style={{ color: "var(--gold)" }}>•</span>
+                        <li key={f} className="px-1.5 py-0.5 text-[11px]" style={{ color: "var(--text-muted)", border: "1px solid rgb(var(--gold-rgb) / 0.25)" }}>
                           {t(lang, f)}
                         </li>
                       ))}
@@ -324,9 +328,6 @@ export default function PollingPage() {
                     <StatBar key={d.group} label={d.group} value={d.value} max={100} color="var(--cyan)" animate={true} />
                   ))}
                 </div>
-                <div className="mt-3 text-[11px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-                  {t(lang, "polling_page.mandatSupportByAgeGroup")}
-                </div>
               </TacticalPanel>
             </div>
             <div style={{ flex: 1 }}>
@@ -335,9 +336,6 @@ export default function PollingPage() {
                   {DEMO_ETHNICITY.map((d) => (
                     <StatBar key={d.labelKey} label={t(lang, d.labelKey)} value={d.value} max={100} color="var(--gold)" animate={true} />
                   ))}
-                </div>
-                <div className="mt-3 text-[11px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-                  {t(lang, "polling_page.mandatSupportByEthnicity")}
                 </div>
               </TacticalPanel>
             </div>
@@ -360,8 +358,8 @@ export default function PollingPage() {
                       <div className="mm-bar h-2" style={{ width: "41%", background: "var(--gold)" }} />
                     </div>
                   </div>
-                  <div className="text-[11px] tracking-widest mt-2" style={{ color: "var(--text-muted)" }}>
-                    {t(lang, "polling_page.mandatStrongerInUrbanAreas")}<br />{t(lang, "polling_page.ruralOutreachNeeded")}
+                  <div className="text-[11px] tracking-widest mt-2" style={{ color: "var(--gold)" }}>
+                    ⚠ {t(lang, "Luar bandar perlu digarap", "Rural outreach needed")}
                   </div>
                 </div>
               </TacticalPanel>
@@ -432,15 +430,15 @@ export default function PollingPage() {
 
         {/* ISSUES TAB */}
         {activeTab === "ISSUES" && (
-          <TacticalPanel title={t(lang, "polling_page.keyIssuesImportanceVsMandatStrength")}>
+          <TacticalPanel title={t(lang, "⚠ ISU UTAMA", "⚠ KEY ISSUES")}>
             <div className="flex flex-col gap-4 mt-2">
               {ISSUES_DATA.map((d) => (
                 <div key={d.labelKey} className="flex flex-col gap-1.5">
                   <div className="flex justify-between text-[12px] tracking-widest">
                     <span className="text-white uppercase">{t(lang, d.labelKey)}</span>
                     <div className="flex gap-4">
-                      <span style={{ color: "var(--text-muted)" }}>{t(lang, "polling_page.importance")}: <span className="text-white font-bold">{d.importance}%</span></span>
-                      <span style={{ color: "var(--text-muted)" }}>{t(lang, "polling_page.mandatStr")}: <span className="font-bold" style={{ color: d.mandat >= 60 ? "var(--neon-green)" : d.mandat >= 50 ? "var(--gold)" : "var(--neon-red)" }}>{d.mandat}%</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>⚠ <span className="text-white font-bold">{d.importance}%</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>💪 <span className="font-bold" style={{ color: d.mandat >= 60 ? "var(--neon-green)" : d.mandat >= 50 ? "var(--gold)" : "var(--neon-red)" }}>{d.mandat}%</span></span>
                     </div>
                   </div>
                   <div className="flex gap-2 items-center">
@@ -459,8 +457,8 @@ export default function PollingPage() {
               ))}
             </div>
             <div className="mt-3 flex gap-4 text-[11px] tracking-widest" style={{ color: "var(--text-muted)" }}>
-              <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-1.5" style={{ background: "var(--text-muted)", opacity: 0.5 }} /> {t(lang, "polling_page.issueImportance")}</div>
-              <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-1.5" style={{ background: "var(--cyan)" }} /> {t(lang, "polling_page.mandatStrength")}</div>
+              <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-1.5" style={{ background: "var(--text-muted)", opacity: 0.5 }} /> ⚠ {t(lang, "KEPENTINGAN", "IMPORTANCE")}</div>
+              <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-1.5" style={{ background: "var(--cyan)" }} /> 💪 {t(lang, `KEKUATAN ${leader.partyAbbr}`, `${leader.partyAbbr} STRENGTH`)}</div>
             </div>
           </TacticalPanel>
         )}
