@@ -18,6 +18,7 @@ import ElectionNightCount from "../components/results/ElectionNightCount";
 import Fold from "../components/results/Fold";
 import { buildElectionNightTimeline } from "../data/electionNight";
 import { getPrnCandidate } from "../data/prnCandidates";
+import { isRulerState } from "../utils/governmentTerms";
 
 const TOTAL_SEATS = 222;
 const MAJORITY = 112;
@@ -276,7 +277,10 @@ export default function ResultsPage() {
   const totalOpsCost = operations
     .filter((op) => op.status !== "planned")
     .reduce((sum, op) => sum + op.fundsCost, 0);
-  const fundsSpent = 2_300_000 - resources.funds + totalOpsCost;
+  // The run's real opening war chest (settings.startingFund seeds resetGame,
+  // scenario packs and each new election), not a fixed RM 2.3M.
+  const startingFunds = settings.startingFund;
+  const fundsSpent = Math.max(0, startingFunds - resources.funds + totalOpsCost);
 
   const borneoWon = !isPrn &&
     states.find((s) => s.id === "sabah")?.status === "winning" &&
@@ -286,10 +290,20 @@ export default function ResultsPage() {
 
   const achievements: { labelKey: string; achieved: boolean }[] = [
     { labelKey: isPrn ? "results_page.achievementStateGovernment" : "results_page.achievementMajorityGovernment", achieved: mandatSeats >= majorityTarget },
-    { labelKey: "results_page.achievementBorneoSecured", achieved: !!borneoWon },
-    { labelKey: "results_page.achievementKlangValleyHeld", achieved: !!klWon && !!selangorWon },
+    // Borneo / Klang Valley span several negeri and can only be earned in a PRU;
+    // a PRN run gets negeri-scoped goals instead.
+    ...(isPrn
+      ? [
+          { labelKey: "results_page.achievementDunTwoThirds", achieved: mandatSeats >= Math.ceil(totalSeats * (2 / 3)) },
+          { labelKey: "results_page.achievementOwnSeatHeld", achieved: !!wonOwnSeat },
+        ]
+      : [
+          { labelKey: "results_page.achievementBorneoSecured", achieved: !!borneoWon },
+          { labelKey: "results_page.achievementKlangValleyHeld", achieved: !!klWon && !!selangorWon },
+        ]),
     { labelKey: "results_page.achievementAbove50Support", achieved: nationalSupport >= 50 },
-    { labelKey: "results_page.achievementFiscalDiscipline", achieved: resources.funds > 500_000 },
+    // Same ~22% reserve as the old RM 500k-of-2.3M line, scaled to the run's start.
+    { labelKey: "results_page.achievementFiscalDiscipline", achieved: resources.funds > startingFunds * 0.22 },
     { labelKey: isPrn ? "results_page.achievementPrnCampaignComplete" : "results_page.achievementFullCampaignComplete", achieved: day >= totalDays },
   ];
 
@@ -347,7 +361,7 @@ export default function ResultsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black tracking-widest">
             <span className="rounded-full border px-2.5 py-1 text-white" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)" }}>👤 {leader.name} · <span style={{ color: leader.partyColor }}>{leader.partyAbbr}</span></span>
-            {prnCandidate && <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${prnCandidate.color}88`, color: prnCandidate.color }} title={prnCandidate.archetype[lang]}>🎖 {t(lang, "CALON MB", "MB PICK")}: {prnCandidate.name}</span>}
+            {prnCandidate && <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${prnCandidate.color}88`, color: prnCandidate.color }} title={prnCandidate.archetype[lang]}>🎖 {isRulerState(settings.prnStateId) ? t(lang, "CALON MB", "MB PICK") : t(lang, "CALON KM", "CM PICK")}: {prnCandidate.name}</span>}
           </div>
         </div>
 

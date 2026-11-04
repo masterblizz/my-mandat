@@ -26,12 +26,16 @@ export type GodotCityMapProps = {
   profile: GodotSeatProfile;
   zones: Zone[];
   selectedZoneId: string;
+  /** Localised zone names shown over each lot in the city. */
+  zoneNames?: Record<string, string>;
+  /** Project placement mode: zone names turn gold and larger. */
+  placing?: boolean;
   setSelectedZoneId: (id: string) => void;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%" }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false }: GodotCityMapProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const origin = useMemo(() => typeof window === "undefined" ? "" : new URL(GODOT_CITY_URL, window.location.href).origin, []);
@@ -40,12 +44,13 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   const state = useMemo(() => ({
     profile,
     zones: zones.map((z) => ({
-      id: z.id, kind: z.kind, archetype: z.archetype,
+      id: z.id, kind: z.kind, archetype: z.archetype, name: zoneNames?.[z.id] ?? "",
       sentiment: z.sentiment, infra: z.infra, welfare: z.welfare, economy: z.economy,
       projects: z.projects.length, building: z.building?.length ?? 0,
     })),
     selected: selectedZoneId,
-  }), [profile, zones, selectedZoneId]);
+    placing,
+  }), [profile, zones, selectedZoneId, zoneNames, placing]);
 
   const send = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-state", state }, origin);

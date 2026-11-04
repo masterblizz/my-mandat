@@ -8,7 +8,10 @@ extends Node3D
 ## Outside the game a Bukit Bintang demo profile is used instead.
 ##
 ## Messages (window.postMessage):
-##   game -> city  {type: "kawasan-state", state: {profile, zones, selected}}
+##   game -> city  {type: "kawasan-state", state: {profile, zones, selected, placing}}
+##                 zones carry a localised `name`: the selected zone's name
+##                 floats over its lot, and while the player is placing a
+##                 project every zone's name shows (gold) so they can aim.
 ##   city -> game  {type: "kawasan-godot-ready"} once loaded
 ##                 {type: "kawasan-zone-click", id}
 
@@ -26,6 +29,8 @@ var _t := 0.0
 var _js_cb: JavaScriptObject
 var _press := Vector2.ZERO
 var _embedded := false
+var zone_labels: Array[Label3D] = []
+var placing := false
 
 
 func setup(c: Node3D) -> void:
@@ -111,7 +116,44 @@ func apply_state(d: Dictionary) -> void:
 	var sel := str(d.get("selected", ""))
 	var moved := sel != selected
 	selected = sel
+	placing = bool(d.get("placing", false))
+	_refresh_labels()
 	_focus_selected(moved)
+
+
+## Floating city-builder style labels: always face the camera, keep a
+## readable on-screen size and read through buildings.
+func _make_label(size: int, col: Color) -> Label3D:
+	var l := Label3D.new()
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.fixed_size = true
+	l.pixel_size = 0.0011
+	l.font_size = size
+	l.outline_size = 10
+	l.outline_modulate = Color(0.02, 0.05, 0.1, 0.9)
+	l.modulate = col
+	l.no_depth_test = true
+	l.render_priority = 11
+	add_child(l)
+	return l
+
+
+func _refresh_labels() -> void:
+	for i in zones.size():
+		if i >= zone_labels.size():
+			zone_labels.append(_make_label(24, Color.WHITE))
+		var l: Label3D = zone_labels[i]
+		var z: Dictionary = zones[i]
+		l.text = str(z.get("name", ""))
+		var is_sel := str(z.get("id", "")) == selected
+		# all names only while aiming a project; otherwise just the selected zone
+		l.visible = l.text != "" and i < centres.size() and (placing or is_sel)
+		if i < centres.size():
+			l.position = (centres[i] as Vector3) + Vector3(0, 14.0, 0)
+		l.modulate = Color(0.98, 0.8, 0.3)
+		l.font_size = 17 if placing else 26
+	for i in range(zones.size(), zone_labels.size()):
+		zone_labels[i].visible = false
 
 
 ## Which lot kinds can stand for each game zone archetype, best first.
@@ -194,6 +236,7 @@ func relayout() -> void:
 		else:
 			centres.append(want)
 			zone_lots.append({})
+	_refresh_labels()
 	_focus_selected(false)
 
 

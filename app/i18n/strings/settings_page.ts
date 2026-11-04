@@ -17,7 +17,7 @@ const settings_page = {
   startingFund: { ms: "DANA PERMULAAN", en: "STARTING FUND" },
   oppositionStrength: { ms: "KEKUATAN PEMBANGKANG", en: "OPPOSITION STRENGTH" },
   mediaBias: { ms: "BERAT SEBELAH MEDIA", en: "MEDIA BIAS" },
-  proMandat: { ms: "PRO-MANDAT", en: "PRO-MANDAT" },
+  proMandat: { ms: "PRO-PARTI ANDA", en: "PRO-YOUR PARTY" },
   balanced: { ms: "SEIMBANG", en: "BALANCED" },
   hostile: { ms: "BERMUSUHAN", en: "HOSTILE" },
   realisticPolls: { ms: "TINJAUAN REALISTIK", en: "REALISTIC POLLS" },

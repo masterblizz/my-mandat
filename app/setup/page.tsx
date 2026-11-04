@@ -13,6 +13,7 @@ import { REP_OPENING_ALLOCATION, REP_QUARTER_GRANT, STARTING_SIDES, type Startin
 import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, type GameSpeed } from "../data/ybService";
 import { formatNumber } from "../utils/format";
 import { states } from "../data/states";
+import { isRulerState } from "../utils/governmentTerms";
 import { generateConstituencies } from "../data/constituencies";
 import { type DatasetKind, availableDatasets, getDatasetById } from "../data/datasets";
 import { usePendingNav } from "../hooks/usePendingNav";
@@ -226,6 +227,8 @@ export default function SetupPage() {
   // constituency list and silently falls back to the first DUN seat.
   const homeStateData = useMemo(() => states.find((s) => s.id === homeState) ?? states[0], [homeState]);
   const prnStateData = useMemo(() => states.find((s) => s.id === prnStateId) ?? states[0], [prnStateId]);
+  // Head-of-government badge for the PRN negeri: MB in ruler states, KM (CM) elsewhere.
+  const prnHeadAbbr = isRulerState(prnStateId) ? "MB" : t(lang, "KM", "CM");
   const homeConstituencies = useMemo(
     () => electionScope === "prn" ? generateConstituencies(prnStateData, "dun") : generateConstituencies(homeStateData),
     [electionScope, prnStateData, homeStateData]
@@ -344,7 +347,8 @@ export default function SetupPage() {
       negotiation,
       strategy,
       experience,
-      homeState,
+      // PRN: the seat is an N.xxx in the PRN negeri, so that negeri is home.
+      homeState: campaignScope === "prn" ? prnStateId : homeState,
       homeConstituencyId: contestConstituencyId,
       homeConstituencyName: contestConstituency?.name ?? "",
       ideology: { economic: economicIdeology, social: socialIdeology },
@@ -378,7 +382,7 @@ export default function SetupPage() {
   const nextHint = step === 1 && !leaderName.trim()
     ? t(lang, "Masukkan nama", "Enter a name")
     : step === 2 && electionScope === "prn" && !prnCandidateId
-      ? t(lang, "Pilih calon MB", "Pick an MB candidate")
+      ? t(lang, `Pilih calon ${prnHeadAbbr}`, `Pick a${prnHeadAbbr === "MB" ? "n" : ""} ${prnHeadAbbr} candidate`)
       : null;
   const safetyColor = (safety: string) => safety === "safe" ? "var(--neon-green)" : safety === "marginal" ? "var(--gold)" : "var(--neon-red)";
   const attributes = [
@@ -549,7 +553,7 @@ export default function SetupPage() {
                     </select>
                   </div>
                   <div>
-                    <Label icon="👔" right={!prnCandidateId ? <span className="text-[10px] font-black text-amber-300">{t(lang, "WAJIB PILIH", "REQUIRED")}</span> : undefined}>{t(lang, "CALON MB", "MB CANDIDATE")}</Label>
+                    <Label icon="👔" right={!prnCandidateId ? <span className="text-[10px] font-black text-amber-300">{t(lang, "WAJIB PILIH", "REQUIRED")}</span> : undefined}>{t(lang, `CALON ${prnHeadAbbr}`, `${prnHeadAbbr} CANDIDATE`)}</Label>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                       {PRN_CANDIDATES.map((candidate) => {
                         const active = prnCandidateId === candidate.id;

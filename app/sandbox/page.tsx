@@ -9,7 +9,7 @@ import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
 
-const TOTAL_SEATS = 222;
+const PARLIAMENT_SEATS = 222;
 
 type LeverId = "subsidy" | "ma63" | "antiCorruption" | "mediaFreedom" | "foreignInvestment" | "parliamentReform";
 
@@ -126,6 +126,11 @@ export default function SandboxPage() {
   const lang = useLang();
   const { states, resources, leader, settings, difficulty, sandboxProgress, setSandboxProgress } = useGameStore();
   const { activeLevers, simulationTick } = sandboxProgress;
+  // Effective majority is counted against the house the run is about: the
+  // selected negeri's DUN in PRN, the 222-seat Dewan Rakyat in PRU.
+  const isPrn = settings.electionScope === "prn";
+  const prnState = isPrn ? states.find((state) => state.id === settings.prnStateId) : undefined;
+  const houseSeats = isPrn && prnState?.dunSeats ? prnState.dunSeats : PARLIAMENT_SEATS;
 
   const selectedLevers = LEVERS.filter((lever) => activeLevers.includes(lever.id));
   const federalBase = Math.round(states.reduce((sum, state) => sum + state.mandatSupport, 0) / Math.max(1, states.length));
@@ -243,7 +248,7 @@ export default function SandboxPage() {
 
             <TacticalPanel title={t(lang, "sandbox_page.parliamentInstitutions")}>
               <div className="space-y-2 text-[11px] leading-relaxed text-text-muted">
-                <div>{t(lang, "sandbox_page.effectiveMajority")}: <span className="font-black text-white">{Math.round((parliament / 100) * TOTAL_SEATS)}</span></div>
+                <div>{t(lang, "sandbox_page.effectiveMajority")}: <span className="font-black text-white">{Math.round((parliament / 100) * houseSeats)}/{houseSeats} {isPrn ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT")}</span></div>
                 <div>{t(lang, "sandbox_page.fiscalSpaceAfterPolicy")}: <span className="font-black" style={{ color: resources.funds - policyCost >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>RM {formatNumber(resources.funds - policyCost)}</span></div>
                 <div>{t(lang, "sandbox_page.mediaCourtPressure")}: <span className="font-black" style={{ color: institution >= 65 ? "var(--neon-green)" : "var(--warn-orange)" }}>{institution >= 65 ? t(lang, "sandbox_page.managed") : t(lang, "sandbox_page.high")}</span></div>
                 <div>{t(lang, "sandbox_page.electionMode")}: <span className="font-black text-white">{settings.electionScope.toUpperCase()}</span></div>

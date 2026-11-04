@@ -41,7 +41,9 @@ export default function ElectedPage() {
   const homeState = states.find((s) => s.id === (isPrn ? settings.prnStateId : leader.homeState)) ?? states[0];
   const partyDisplay = leader.partyAbbr || leader.party || "PLAYER";
   const stateSeatDetails = homeState ? computeSeatDetails(homeState, partyDisplay, isPrn ? "dun" : "parliament") : [];
-  const ownSeat = stateSeatDetails.find((seat) => seat.constituency.id === leader.homeConstituencyId) ?? stateSeatDetails.find((seat) => seat.result === "WIN");
+  // Only the player's own seat: another seat the party won is not "your"
+  // win, so a lost own seat falls through to the lost-seat state below.
+  const ownSeat = stateSeatDetails.find((seat) => seat.constituency.id === leader.homeConstituencyId);
   const seatKind = isPrn ? "DUN" : t(lang, "elected_page.parliament");
   const officeTitle = isPrn ? "ADUN" : t(lang, "elected_page.memberOfParliament");
   const wonOwnSeat = ownSeat?.constituency.id === leader.homeConstituencyId && ownSeat.result === "WIN";
@@ -60,7 +62,18 @@ export default function ElectedPage() {
       <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
         <Header />
         <main className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
-          <div className="text-[13px] text-text-muted tracking-widest uppercase">{t(lang, "elected_page.noPersonalSeatResultToDisplay")}</div>
+          {ownSeat ? (
+            <div className="flex flex-col items-center gap-1 text-center">
+              <div className="text-[18px] font-black tracking-widest" style={{ color: "var(--warn-orange)" }}>
+                {t(lang, `${ownSeat.constituency.code} ${ownSeat.constituency.name} TEWAS`, `${ownSeat.constituency.code} ${ownSeat.constituency.name} LOST`)}
+              </div>
+              <div className="text-[12px] tracking-wider text-text-muted">
+                {t(lang, `Anda tidak memenangi kerusi sendiri di ${homeState?.name ?? ""}. Parti masih boleh membentuk atau menentang kerajaan.`, `You did not win your own seat in ${homeState?.name ?? ""}. The party can still form or oppose the government.`)}
+              </div>
+            </div>
+          ) : (
+            <div className="text-[13px] text-text-muted tracking-widest uppercase">{t(lang, "elected_page.noPersonalSeatResultToDisplay")}</div>
+          )}
           <button
             onClick={() => navigate("/mandate")}
             disabled={isPending}

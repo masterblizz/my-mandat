@@ -567,4 +567,38 @@ test('repeated scrutiny and very high trust no longer pin government trust at 10
   assert.ok(trust() < 95, `trust should erode under rising expectations, got ${trust()}`);
   assert.match(store.getState().journey.journal[0].en, /Public expectations rise/);
 });
+test('gameplay settings have real effects and survive resetGame', () => {
+  const { processDay } = require('../app/store/electionEngine.ts');
+  const { pollReading } = require('../app/lib/pollReading.ts');
+  const defaults = { ...store.getState().settings };
+  try {
+    store.getState().updateSettings({ startingFund: 1_700_000, difficulty: 'hard', realisticPolls: false });
+    store.getState().resetGame();
+    assert.equal(store.getState().settings.startingFund, 1_700_000);
+    assert.equal(store.getState().settings.realisticPolls, false);
+    assert.equal(store.getState().resources.funds, 1_700_000);
+    assert.equal(store.getState().difficulty, 'hard');
+
+    const base = { ...store.getState(), operations: [], day: 5 };
+    const run = (settings) => processDay({ ...base, settings: { ...base.settings, ...settings } });
+    const realRandom = Math.random;
+    Math.random = () => 0; // every eligible event would fire
+    try {
+      assert.ok(run({ eventRandomness: true }).triggeredEvent, 'events fire when randomness is on');
+      assert.equal(run({ eventRandomness: false }).triggeredEvent, null);
+      const hit = (pc) => run({ eventRandomness: true, permanentConsequences: pc, mediaBias: 'balanced' }).stateUpdates.find(u => u.id === 'selangor').trend;
+      assert.ok(hit(false) >= hit(true), 'softened consequences never hurt more');
+      Math.random = () => 0.99; // opponent AI deterministic, so only the bias differs
+      const drift = (bias) => run({ eventRandomness: false, mediaBias: bias }).stateUpdates.find(u => u.id === 'johor').trend;
+      assert.ok(drift('pro') > drift('balanced') && drift('balanced') > drift('hostile'), `${drift('pro')} ${drift('balanced')} ${drift('hostile')}`);
+    } finally { Math.random = realRandom; }
+
+    const truth = { mandat: 50, lawan: 35, others: 15 };
+    assert.deepEqual(pollReading(truth, { realistic: false, seed: 'x', day: 3 }), truth);
+    const noisy = pollReading(truth, { realistic: true, seed: 'x', day: 3 });
+    assert.ok(Math.abs(noisy.mandat - 50) <= 2.5 && Math.abs(noisy.mandat + noisy.lawan + noisy.others - 100) < 0.2);
+  } finally {
+    store.getState().updateSettings(defaults);
+  }
+});
 console.log(`${passed} journey regression tests passed.`);

@@ -84,6 +84,8 @@ export function startAsRepresentative(state: GameState): Partial<GameState> {
   return {
     phase: "playing",
     states: settled.states,
+    // The campaign is already settled; no campaign operations carry into the term.
+    operations: [],
     day: state.totalDays,
     hasWonElection: true,
     careerProgress: { ...state.careerProgress, month: 1 },

@@ -12,7 +12,10 @@ import { states as initialStates } from "../data/states";
 import { hubRoute, newJourney, normalizeJourney } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot, type SavedGameSlot } from "../store/saveGame";
-import { useLang, t } from "../i18n/useLang";
+import { useLang, t, type Lang } from "../i18n/useLang";
+import { inTerm, termQuarter } from "../store/termClock";
+import { TERM_QUARTERS } from "../data/ybService";
+import { isRulerState } from "../utils/governmentTerms";
 import { createClient } from "../utils/supabase/client";
 
 type MenuItemConfig = {
@@ -61,6 +64,28 @@ const LIVE_NEWS_EN = [
   "ANALYSTS SAY 112-SEAT THRESHOLD IS STILL WITHIN REACH",
 ];
 
+// PRN ticker: the selected negeri's own state-election headlines.
+function prnLiveNews(lang: Lang, stateId: string, name: string, dunSeats: number) {
+  const upper = name.toUpperCase();
+  const majority = Math.floor(dunSeats / 2) + 1;
+  const head = isRulerState(stateId) ? "MB" : t(lang, "KM", "CM");
+  return lang === "ms"
+    ? [
+        `DUN ${upper} DIBUBAR — NEGERI MASUK MOD KEMPEN PRN`,
+        `${dunSeats} KERUSI DUN ${upper} DIREBUT`,
+        `PENGANALISIS: MAJORITI ${majority} KERUSI DIPERLUKAN UNTUK MEMBENTUK KERAJAAN NEGERI`,
+        `CALON ${head} ${upper} JADI TUMPUAN PENGUNDI`,
+        `WAR ROOM PRN ${upper} KESAN SWING SENTIMEN TEMPATAN`,
+      ]
+    : [
+        `${upper} STATE ASSEMBLY DISSOLVED — STATE ENTERS PRN CAMPAIGN MODE`,
+        `${dunSeats} ${upper} DUN SEATS UP FOR GRABS`,
+        `ANALYSTS: ${majority}-SEAT MAJORITY NEEDED TO FORM THE STATE GOVERNMENT`,
+        `${upper} ${head} CANDIDATES IN VOTERS' SPOTLIGHT`,
+        `${upper} PRN WAR ROOM DETECTS LOCAL SENTIMENT SWING`,
+      ];
+}
+
 function CornerFrame() {
   return (
     <>
@@ -89,7 +114,7 @@ export default function MainMenuPage() {
 
   const {
     leader, day, totalDays, states: liveStates, getTotalProjectedSeats, getNationalSupport, settings,
-    resetGame,
+    resetGame, journey, careerProgress,
   } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   // Live campaign state (restored from the active save), not the static starting data.
@@ -100,6 +125,9 @@ export default function MainMenuPage() {
     ? { mandat: Math.round(prnState.mandatSupport), lawan: Math.round(prnState.lawanSupport), others: Math.round(prnState.othersSupport) }
     : getNationalSupport();
   const daysLeft = Math.max(0, totalDays - day + 1);
+  // In the term the campaign day is frozen at its last value; the term
+  // quarter is the clock that moves.
+  const termStat = inTerm(journey) ? { value: `${termQuarter({ journey, careerProgress })}/${TERM_QUARTERS}`, label: t(lang, "SUKU PENGGAL", "TERM QUARTER") } : null;
 
   // With a save, CONTINUE leads the solo list; without one, START NEW does and the disabled CONTINUE drops below it.
   const menuItems: MenuItem[] = useMemo(() => MENU_ITEMS_CONFIG
@@ -112,7 +140,9 @@ export default function MainMenuPage() {
       disabled: item.id === "02" && !hasSave,
     })), [lang, hasSave, soloOpen]);
 
-  const liveNewsItems = lang === "ms" ? LIVE_NEWS_MS : LIVE_NEWS_EN;
+  const liveNewsItems = isPrn && prnState
+    ? prnLiveNews(lang, prnState.id, prnState.name, prnState.dunSeats)
+    : lang === "ms" ? LIVE_NEWS_MS : LIVE_NEWS_EN;
 
   // Always the full 14-state map, even in PRN mode — this is the ambient
   // "state of the nation" backdrop, not literally the player's campaign
@@ -358,7 +388,7 @@ export default function MainMenuPage() {
               {[
                 { icon: "🪑", value: `${projectedSeats}/${seatTotal}`, label: t(lang, "menu_page.seats"), color: "var(--cyan)" },
                 { icon: "📈", value: `${nationalSupport.mandat}%`, label: t(lang, "menu_page.support"), color: "var(--text-primary)" },
-                { icon: "📅", value: `${daysLeft}`, label: t(lang, "menu_page.daysLeft"), color: "var(--gold)" },
+                { icon: "📅", value: termStat?.value ?? `${daysLeft}`, label: termStat?.label ?? t(lang, "menu_page.daysLeft"), color: "var(--gold)" },
               ].map((stat) => (
                 <div key={stat.label} className="rounded-md border px-2 py-1.5 text-center" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
                   <div className="text-[15px] font-black" style={{ color: stat.color }}><span className="mr-1 text-[12px]">{stat.icon}</span>{stat.value}</div>

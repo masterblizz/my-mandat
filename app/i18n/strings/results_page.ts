@@ -71,6 +71,8 @@ const results_page = {
   achievementMajorityGovernment: { ms: "KERAJAAN MAJORITI", en: "MAJORITY GOVERNMENT" },
   achievementBorneoSecured: { ms: "BORNEO DIKUASAI", en: "BORNEO SECURED" },
   achievementKlangValleyHeld: { ms: "LEMBAH KLANG DIKEKALKAN", en: "KLANG VALLEY HELD" },
+  achievementDunTwoThirds: { ms: "DUA PERTIGA DUN", en: "TWO-THIRDS OF THE DUN" },
+  achievementOwnSeatHeld: { ms: "KERUSI SENDIRI DIMENANGI", en: "OWN SEAT WON" },
   achievementAbove50Support: { ms: "SOKONGAN MELEBIHI 50%", en: "ABOVE 50% SUPPORT" },
   achievementFiscalDiscipline: { ms: "DISIPLIN FISKAL", en: "FISCAL DISCIPLINE" },
   achievementPrnCampaignComplete: { ms: "KEMPEN PRN SELESAI", en: "PRN CAMPAIGN COMPLETE" },

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import TacticalPanel from "../components/layout/TacticalPanel";
@@ -100,16 +100,19 @@ function VolumeSlider({ label, value, onChange }: { label: string; value: number
 
 function GameplayTab() {
   const lang = useLang();
-  const { settings, updateSettings } = useGameStore();
+  const { settings, updateSettings, phase } = useGameStore();
   const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
   const difficulty = settings.difficulty as DifficultyKey;
   const preset = DIFFICULTY_PRESETS[difficulty];
   const [localFund, setLocalFund] = useState(settings.startingFund);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!premiumLoading && !hasPremium && settings.electionScope !== "prn") updateSettings({ electionScope: "prn" });
-  }, [hasPremium, premiumLoading, settings.electionScope, updateSettings]);
+  // Scope and PRN negeri belong to the run in progress (the store ignores
+  // changes to them while playing), so they are read-only until it ends.
+  // Nothing here writes the scope from the premium check: that check can
+  // time out or fail offline, and the setup wizard already launches free
+  // accounts in PRN.
+  const runLocked = phase === "playing";
+  const lockedPrnState = states.find((state) => state.id === settings.prnStateId);
 
   const adjustFund = (delta: number) => {
     const next = Math.max(500000, Math.min(10000000, localFund + delta));
@@ -130,6 +133,16 @@ function GameplayTab() {
           </SettingRow>
 
           <SettingRow label={t(lang, "🗳 MOD", "🗳 MODE")}>
+            {runLocked ? (
+              <div className="flex min-w-0 flex-col items-end gap-1 text-right" style={{ width: "220px", maxWidth: "100%" }}>
+                <span className="text-[13px] font-black tracking-[0.08em] text-cyan">
+                  {settings.electionScope === "prn"
+                    ? `PRN · ${lockedPrnState?.name ?? settings.prnStateId} · ${lockedPrnState?.dunSeats ?? "—"} DUN`
+                    : t(lang, "PRU · 222 Parlimen", "GE · 222 Parliament")}
+                </span>
+                <span className="text-[9px] leading-relaxed text-gold">{t(lang, "🔒 Dikunci untuk larian semasa. Mulakan permainan baharu untuk menukar.", "🔒 Locked for the current run. Start a new game to change it.")}</span>
+              </div>
+            ) : (
             <div className="flex min-w-0 flex-col gap-2" style={{ width: "220px", maxWidth: "100%" }}>
               <select value={hasPremium ? (settings.electionScope ?? "pru") : "prn"} disabled={!hasPremium && !premiumLoading} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
                 <option value="pru" disabled={!hasPremium}>{t(lang, "settings_page.geGeneralElection")}{!hasPremium ? " · PREMIUM" : ""}</option>
@@ -142,6 +155,7 @@ function GameplayTab() {
               )}
               {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "🔒 PERCUMA: 1 PRN", "🔒 FREE: 1 PRN")}</span>}
             </div>
+            )}
           </SettingRow>
 
           <SettingRow label={t(lang, "⏩ KELAJUAN", "⏩ SPEED")}>

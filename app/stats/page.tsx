@@ -144,9 +144,13 @@ export default function StatsPage() {
   const totalGames  = records.length;
   const wins        = records.filter((r) => r.outcome === "WIN").length;
   const winRate     = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-  const bestSeats   = records.length > 0 ? Math.max(...records.map((r) => r.seatsWon)) : 0;
-  const bestRecord  = records.find((r) => r.seatsWon === bestSeats);
-  const avgSeats    = totalGames > 0 ? Math.round(records.reduce((s, r) => s + r.seatsWon, 0) / totalGames) : 0;
+  // PRU (/222) and PRN (/DUN) runs share this history, so seat stats are
+  // compared as a share of the seats each run contested, not raw counts.
+  const seatShare   = (r: GameRecord) => (r.totalSeats > 0 ? (r.seatsWon / r.totalSeats) * 100 : 0);
+  const bestShare   = records.length > 0 ? Math.max(...records.map(seatShare)) : 0;
+  const bestSeats   = `${Math.round(bestShare)}%`;
+  const bestRecord  = records.find((r) => seatShare(r) === bestShare);
+  const avgSeats    = `${totalGames > 0 ? Math.round(records.reduce((s, r) => s + seatShare(r), 0) / totalGames) : 0}%`;
   const avgSupport  = totalGames > 0 ? Math.round(records.reduce((s, r) => s + r.nationalSupport, 0) / totalGames) : 0;
 
   const tableHeaders = [
@@ -217,7 +221,7 @@ export default function StatsPage() {
             </span>
             <span className="text-[12px] font-bold text-white">{bestRecord.leaderName}</span>
             <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{bestRecord.electionName} · {bestRecord.date}</span>
-            <span className="font-black text-[14px]" style={{ color: "var(--neon-green)" }}>{bestRecord.seatsWon} {t(lang, "stats_page.seats")}</span>
+            <span className="font-black text-[14px]" style={{ color: "var(--neon-green)" }}>{bestRecord.seatsWon}/{bestRecord.totalSeats} {t(lang, "stats_page.seats")}</span>
             <span className="text-[10px]" style={{ color: "var(--gold)" }}>+{bestRecord.seatsWon - bestRecord.majorityTarget} {t(lang, "stats_page.surplus")}</span>
           </div>
         )}

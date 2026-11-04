@@ -6,7 +6,7 @@ const state__id__page = {
   low: { ms: "RENDAH", en: "LOW" },
   margin: { ms: "MARGIN", en: "MARGIN" },
   neutral: { ms: "NEUTRAL", en: "NEUTRAL" },
-  proMandat: { ms: "PRO-MANDAT", en: "PRO-MANDAT" },
+  proMandat: { ms: "PRO-PARTI ANDA", en: "PRO-YOUR PARTY" },
   contested: { ms: "BERTANDING", en: "CONTESTED" },
   mainstreamTv: { ms: "TV ARUS PERDANA", en: "MAINSTREAM TV" },
   socialMedia: { ms: "MEDIA SOSIAL", en: "SOCIAL MEDIA" },

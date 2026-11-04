@@ -21,6 +21,7 @@ import { formatNumber } from "../utils/format";
 import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
+import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -1669,16 +1670,6 @@ const ZonePlot = memo(function ZonePlot({ zone, selected, onSelect, movedRef, la
 const TOD_SEQUENCE = ["dusk", "night", "day"] as const;
 type Tod = (typeof TOD_SEQUENCE)[number];
 const TOD_ICON: Record<Tod, string> = { day: "☀", dusk: "🌆", night: "🌙" };
-// Matches the scene to the player's actual local clock on load — roughly
-// Malaysia's real sunrise/sunset (~7am/~7pm) with a one-hour dusk window
-// right after sunset, rather than always opening on a fixed "dusk" preset.
-// The 🕐/☀/🌆/🌙 toggle button still lets the player override it manually
-// afterwards; this only sets where the scene starts.
-function todFromClientHour(hour: number): Tod {
-  if (hour >= 7 && hour < 19) return "day";
-  if (hour >= 19 && hour < 20) return "dusk";
-  return "night";
-}
 
 const CAM_DEFAULT = { rz: 45, rx: 57, zoom: 0.9 };
 const MINIMAP_CELL = 12;
@@ -1982,7 +1973,7 @@ const City3DMap = memo(function City3DMap({ zones, selectedZoneId, setSelectedZo
   const [weather, setWeather] = useState<"clear" | "rain">("clear");
 
   useEffect(() => {
-    setTod(todFromClientHour(new Date().getHours()));
+    setTod("day"); // always daytime: no night mode from the real clock
   }, []);
 
   const applyCam = useCallback(() => {
@@ -2640,18 +2631,12 @@ export default function KawasanDevelopmentPage() {
   const [zonePanelOpen, setZonePanelOpen] = useState(true);
   const [buildTab, setBuildTab] = useState<DockTab>("all");
   const [overlay, setOverlay] = useState<CityOverlay>("none");
-  const [mapEngine, setMapEngine] = useState<MapEngine>("godot");
+  // The city always uses the Godot map; the WebGL toggle was removed. Clear
+  // an old "webgl" choice so nobody is stuck on it without a button.
+  const mapEngine: MapEngine = "godot";
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(MAP_ENGINE_KEY);
-      if (saved === "godot" || saved === "webgl") setMapEngine(saved);
-    } catch { /* storage blocked: keep the default */ }
+    try { window.localStorage.removeItem(MAP_ENGINE_KEY); } catch { /* storage blocked */ }
   }, []);
-  const switchMapEngine = () => setMapEngine((current) => {
-    const next: MapEngine = current === "godot" ? "webgl" : "godot";
-    try { window.localStorage.setItem(MAP_ENGINE_KEY, next); } catch { /* not persisted */ }
-    return next;
-  });
   const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
   // Representative career: the term (either bench) is lived in the kawasan.
   const repTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
@@ -2701,6 +2686,10 @@ export default function KawasanDevelopmentPage() {
   const godotProfile = useMemo(
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, traits }),
     [ownSeat?.code, ownSeat?.name, density, traits],
+  );
+  const godotZoneNames = useMemo(
+    () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
+    [zones, lang],
   );
   const traitLabels = [
     traits.coastal ? t(lang, "kawasan_page.coastal") : null,
@@ -3087,6 +3076,25 @@ export default function KawasanDevelopmentPage() {
     const zone = zones.find((item) => item.id === issue.zone);
     return { ...issue, zoneLabel: zone ? zoneName(lang, zone) : issue.zone, daysLeft: Math.max(0, issue.expires - journey.termDay) };
   });
+  // One suggested next step for the YB, in priority order: start the
+  // clock, answer the most urgent complaint, build an affordable fix for
+  // the weakest zone, use a free weekly slot, or let time run.
+  const nextGoal: NextGoalItem | null = (() => {
+    if (!repTerm) return null;
+    if (termEnded) return { key: "report", icon: "📜", text: t(lang, "Lihat kad laporan penggal", "See your term report card"), run: () => router.push("/report-card") };
+    if (!clockRunning && journey.termDay <= 1) return { key: "start", icon: "▶", text: t(lang, "Mulakan masa penggal", "Start the term clock"), run: () => setClockRunning(true) };
+    const state = useGameStore.getState();
+    const urgent = [...agendaIssues].sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    if (urgent && !ybActivityBlocker(state, "visit", urgent.zone)) {
+      const title = YB_ISSUES[urgent.type].title[lang];
+      return { key: `issue:${urgent.id}`, icon: "🚨", text: t(lang, `${title} · ${urgent.zoneLabel} · ${urgent.daysLeft} hari`, `${title} · ${urgent.zoneLabel} · ${urgent.daysLeft} days`), run: () => { focusZone(urgent.zone); runActivity("visit", urgent.zone); } };
+    }
+    const fix = dockProblems.find((problem) => problem.suggestion?.affordable);
+    if (fix?.suggestion) return { key: `build:${fix.zoneId}:${fix.suggestion.id}`, icon: fix.suggestion.icon, text: t(lang, `Bina ${fix.suggestion.title} · ${fix.zoneLabel}`, `Build ${fix.suggestion.title} · ${fix.zoneLabel}`), run: () => { setDockMode("build"); focusZone(fix.zoneId); } };
+    if (journey.service.slots > 0 && !ybActivityBlocker(state, "clinic")) return { key: "clinic", icon: "🗂️", text: t(lang, "Buka sesi khidmat rakyat", "Hold a meet-the-people session"), run: () => runActivity("clinic") };
+    if (!clockRunning) return { key: "resume", icon: "⏩", text: t(lang, "Teruskan masa", "Let time run"), run: () => setClockRunning(true) };
+    return null;
+  })();
   const mapAlerts = repTerm ? Object.fromEntries(agendaIssues.map((issue) => [issue.zone, {
     icon: YB_ISSUES[issue.type].icon,
     label: `${YB_ISSUES[issue.type].title[lang]} · ${t(lang, `${issue.daysLeft}h`, `${issue.daysLeft}d`)}`,
@@ -3121,7 +3129,8 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
-                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%" />
+                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
+                  zoneNames={godotZoneNames} placing={!!pendingProject} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3137,14 +3146,12 @@ export default function KawasanDevelopmentPage() {
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
               <CityHubBar onEnter={enterHubDestination} />
               <CityPulseBar zones={zones} lang={lang} />
-              {useGlMap && (
-                <button type="button" onClick={switchMapEngine}
-                  className="city-tool city-tool--engine absolute z-[140]"
-                  aria-label={`${t(lang, "Enjin peta", "Map engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}
-                  data-tip={`${t(lang, "Enjin", "Engine")}: ${mapEngine === "godot" ? "Godot" : "WebGL"}`}>
-                  <span aria-hidden>{mapEngine === "godot" ? "🎮" : "🧊"}</span>
-                </button>
-              )}
+              {!dockOpen && <NextGoal lang={lang} goal={nextGoal} />}
+              {/* the seat (kawasan) the player represents, always in view */}
+              <div className="city-seat-chip city-hud-box pointer-events-none absolute z-20 rounded-full border px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-xl"
+                style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(10px)", fontFamily: "'Space Mono', monospace" }}>
+                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span>
+              </div>
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-tool city-tool--view city-hud-toggle absolute z-[140]"
                 aria-label={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}
@@ -3154,10 +3161,10 @@ export default function KawasanDevelopmentPage() {
               <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
               {/* the PA is not shown over the city: it would cover the map */}
               <CampaignBriefing />
-              {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
-              {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box city-zone-card ${unlocked ? "city-zone-card--raised" : ""} absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
+              {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-zone-chip city-hud-box absolute left-1/2 top-[88px] z-20 -translate-x-1/2 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▾</button>}
+              {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box city-zone-card ${unlocked ? "city-zone-card--raised" : ""} absolute left-1/2 top-[88px] z-20 w-[min(380px,calc(100%-32px))] -translate-x-1/2 border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div><button type="button" onClick={() => { setZonePanelOpen(false); setDockMode(null); }} className="shrink-0 px-1 text-sm leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup panel zon", "Close zone panel")}>×</button></div>
-                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="flex-1 border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setDockMode((mode) => mode === "build" ? null : "build")} className="border px-2 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>{t(lang, "BINA", "BUILD")}</button>}</div>
+                <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="min-w-0 flex-1 truncate border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setDockMode((mode) => mode === "build" ? null : "build")} className="shrink-0 border px-3 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>🏗 {t(lang, "BINA", "BUILD")}</button>}</div>
               </div>}
               {unlocked && <BuildDock
                 lang={lang}
