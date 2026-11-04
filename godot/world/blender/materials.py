@@ -138,6 +138,20 @@ def build(name, plane):
         pits = ramp(nt, v.outputs["Distance"], 0.55, 1.0, 0.0, 0.12)
         col = mix(nt, ramp(nt, a.outputs[0], 0.58, 1.0, 0.25, 0.8).outputs[0], pits.outputs[0])
         height = a.outputs[0]
+    elif name == "grass":
+        # blades: fine streaks, clumped by voronoi, with dry patches
+        blades = nt.nodes.new("ShaderNodeTexNoise")
+        blades.noise_dimensions = "4D"
+        blades.inputs["Scale"].default_value = 90.0
+        blades.inputs["Detail"].default_value = 2.0
+        st = stretch(nt, vec, 1.0, 1.0, 1.0)
+        nt.links.new(st.outputs[0], blades.inputs["Vector"])
+        nt.links.new(w.outputs[0], blades.inputs["W"])
+        clumps = noise(nt, vec, w, 10.0, kind="ShaderNodeTexVoronoi")
+        patches = noise(nt, vec, w, 3.0, 6, 0.6)
+        c1 = mix(nt, ramp(nt, blades.outputs[0], 0.55, 1.0, 0.3, 0.7).outputs[0], ramp(nt, clumps.outputs["Distance"], 0.75, 1.0, 0.0, 0.6).outputs[0])
+        col = mix(nt, c1, ramp(nt, patches.outputs[0], 0.8, 1.0, 0.35, 0.65).outputs[0])
+        height = blades.outputs[0]
     else:  # metal: brushed streaks
         sv = stretch(nt, vec, 1.0, 1.0, 1.0)
         n = nt.nodes.new("ShaderNodeTexNoise")
@@ -185,7 +199,8 @@ def bake(name, plane, mat, nt, kind):
 
 
 if __name__ == "__main__":
-    for name in ["plaster", "wood", "fabric", "concrete", "metal"]:
+    names = sys.argv[-2].split(",") if len(sys.argv) > 2 and "," in sys.argv[-2] else ["plaster", "wood", "fabric", "concrete", "metal", "grass"]
+    for name in names:
         plane = reset()
         mat, nt = build(name, plane)
         bake(name, plane, mat, nt, "detail")

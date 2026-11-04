@@ -197,7 +197,7 @@ func _surface(m: StandardMaterial3D, metal: float) -> void:
 		kind = "wood"
 	elif c.s > 0.3:
 		kind = "fabric"
-	var t := _surface_tex("concrete" if kind == "grass" else kind)
+	var t := _surface_tex(kind)
 	if t[0] == null:
 		return
 	m.albedo_texture = t[0]
@@ -205,7 +205,7 @@ func _surface(m: StandardMaterial3D, metal: float) -> void:
 	m.normal_texture = t[1]
 	m.normal_scale = {"wood": 0.45, "fabric": 0.3, "metal": 0.25, "grass": 0.4}.get(kind, 0.6)
 	m.uv1_triplanar = true
-	var metres: float = {"wood": 1.6, "fabric": 0.8, "metal": 1.2, "concrete": 2.0, "grass": 4.0}.get(kind, 2.4)
+	var metres: float = {"wood": 1.6, "fabric": 0.8, "metal": 1.2, "concrete": 2.0, "grass": 2.5}.get(kind, 2.4)
 	m.uv1_scale = Vector3.ONE / metres
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
@@ -406,9 +406,8 @@ func _build_exterior() -> void:
 		w.rotation.x = PI / 2
 	# trees and lamps along the sidewalk
 	for x in [-8.5, 8.5]:
-		box(Vector3(0.22, 1.8, 0.22), Vector3(x, 0.9, 9.8), "#5a4030", true)
-		sphere(1.05, Vector3(x, 2.5, 9.8), "#3f7a3a")
-		sphere(0.8, Vector3(x + 0.5, 2.9, 9.6), "#4b8a43")
+		box(Vector3(0.22, 0.4, 0.22), Vector3(x, 0.2, 9.8), "#5a4030", true)   # nav obstacle at the trunk
+		broadleaf(Vector3(x, 0, 9.8), 0.75)
 	for x in [-14.0, 14.0, -18.0, 18.0]:
 		palm(Vector3(x, 0, 9.9 if abs(x) < 16 else 8.0))
 	# hibiscus (bunga raya) hedges along the facade
@@ -558,9 +557,18 @@ func _add_landscape() -> void:
 	vc.vertex_color_use_as_albedo = true
 	vc.roughness = 0.95
 	vc.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var gt := _surface_tex("grass")
+	if gt[0]:
+		vc.albedo_texture = gt[0]
+		vc.normal_enabled = true
+		vc.normal_texture = gt[1]
+		vc.normal_scale = 0.5
+		vc.uv1_triplanar = true
+		vc.uv1_scale = Vector3.ONE / 3.0
 	for m in land.find_children("*", "MeshInstance3D", true, false):
 		(m as MeshInstance3D).material_override = vc
 		(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_add_forest()
 	env.fog_enabled = true
 	env.fog_light_color = Color("#b9d2e2") if not night else Color("#0c1426")
 	# depth fog only on the far ridges, so the lot itself stays crisp
@@ -570,6 +578,34 @@ func _add_landscape() -> void:
 	env.fog_depth_curve = 1.6
 	env.fog_density = 0.55
 	env.fog_sky_affect = 0.0
+
+## The hill forest: Blender-made far trees, one MultiMesh per kind, placed
+## from assets/landscape_trees.json ([x, y, z, scale, yaw, kind]).
+func _add_forest() -> void:
+	var f := FileAccess.open("res://assets/landscape_trees.json", FileAccess.READ)
+	if not f:
+		return
+	var list = JSON.parse_string(f.get_as_text())
+	if typeof(list) != TYPE_ARRAY:
+		return
+	for kind in 2:
+		var mesh := _veg_mesh("tree_far_broadleaf" if kind == 0 else "tree_far_palm")
+		if mesh == null:
+			continue
+		var rows: Array = list.filter(func(r): return int(r[5]) == kind)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = rows.size()
+		for i in rows.size():
+			var r: Array = rows[i]
+			var b := Basis(Vector3.UP, float(r[4])).scaled(Vector3.ONE * float(r[3]))
+			mm.set_instance_transform(i, Transform3D(b, Vector3(float(r[0]), float(r[1]), float(r[2]))))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = _veg_material()
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
 
 ## The street frontage most locations share: grass, paving with the
 ## black-and-white kerb, road, palms, hibiscus, a facade sign, a flagpole
@@ -623,25 +659,59 @@ func room_night_lights(energy := 1.6) -> void:
 		add_child(l)
 		night_lights.append(l)
 
+## Trees and shrubs modelled in Blender (blender/trees.py): leafy
+## broadleaf canopies, palms with drooping fronds, lumpy shrubs.
+var _veg := {}
+var _veg_mat: StandardMaterial3D
+func _veg_mesh(name: String) -> Mesh:
+	if not _veg.has(name):
+		var scene: PackedScene = load("res://assets/%s.glb" % name)
+		var mesh: Mesh = null
+		if scene:
+			var inst := scene.instantiate()
+			var found := inst.find_children("*", "MeshInstance3D", true, false)
+			if found.size() > 0:
+				mesh = (found[0] as MeshInstance3D).mesh
+			inst.free()
+		_veg[name] = mesh
+	return _veg[name]
+
+func _veg_material() -> StandardMaterial3D:
+	if not _veg_mat:
+		_veg_mat = StandardMaterial3D.new()
+		_veg_mat.vertex_color_use_as_albedo = true
+		_veg_mat.roughness = 0.9
+		_veg_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_veg_mat.albedo_color = Color(1.15, 1.15, 1.1)   # lift the leaf grain multiply
+		var t := _surface_tex("grass")
+		if t[0]:
+			# leaf grain on the canopies
+			_veg_mat.albedo_texture = t[0]
+			_veg_mat.uv1_triplanar = true
+			_veg_mat.uv1_scale = Vector3.ONE / 1.2
+	return _veg_mat
+
+func vegetation(name: String, pos: Vector3, scale := 1.0, yaw := -1.0) -> MeshInstance3D:
+	var mesh := _veg_mesh(name)
+	if mesh == null:
+		return null
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = _veg_material()
+	mi.position = pos
+	mi.rotation.y = yaw if yaw >= 0.0 else randf() * TAU
+	mi.scale = Vector3.ONE * scale
+	region.add_child(mi)
+	return mi
+
 func palm(pos: Vector3) -> void:
-	var lean := 0.18
-	var top := pos
-	for i in 6:
-		var seg := cyl(0.13 - i * 0.01, 0.75, pos + Vector3(lean * i * 0.25, 0.38 + i * 0.72, 0), "#8a7356")
-		seg.rotation.z = -lean * 0.4
-		top = pos + Vector3(lean * i * 0.25, 0.75 + i * 0.72, 0)
-	for k in 8:
-		var frond := Node3D.new()
-		frond.position = top
-		frond.rotation = Vector3(0, k * TAU / 8.0, 0)
-		region.add_child(frond)
-		var leaf := box(Vector3(0.32, 0.04, 1.9), Vector3(0, -0.25, 0.85), "#3f7f35", false, 0.0, frond)
-		leaf.rotation.x = 0.5
-	for k in 3:
-		sphere(0.13, top + Vector3(0.12 * cos(k * 2.1), -0.2, 0.12 * sin(k * 2.1)), "#6b5a2a")
+	vegetation("tree_palm", pos, randf_range(0.9, 1.1))
+
+func broadleaf(pos: Vector3, scale := 0.8) -> void:
+	vegetation("tree_broadleaf", pos, scale)
 
 func bunga_raya(pos: Vector3) -> void:
-	sphere(0.42, pos + Vector3(0, 0.4, 0), "#2f6a30")
+	vegetation("shrub", pos, 0.7)
 	for k in 5:
 		var a := k * 1.3
 		sphere(0.08, pos + Vector3(cos(a) * 0.33, 0.55 + (k % 2) * 0.15, sin(a) * 0.33), "#d4142a")
@@ -660,8 +730,7 @@ func desk_flag(pos: Vector3, tex: Texture2D) -> void:
 
 func plant(pos: Vector3) -> void:
 	box(Vector3(0.4, 0.45, 0.4), pos + Vector3(0, 0.22, 0), "#d8d2c4", true)
-	sphere(0.32, pos + Vector3(0, 0.75, 0), "#3f7a3a")
-	sphere(0.24, pos + Vector3(0.12, 1.02, 0.05), "#2f6430")
+	vegetation("shrub", pos + Vector3(0, 0.42, 0), 0.55)
 
 func _build_furniture() -> void:
 	# ── Bilik YB ──
