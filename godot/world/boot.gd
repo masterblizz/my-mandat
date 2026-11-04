@@ -9,6 +9,8 @@ const LOCATIONS := {
 	"dewan": "res://dewan.gd",
 	"party": "res://partyhq.gd",
 	"media": "res://media.gd",
+	"commission": "res://commission.gd",
+	"calendar": "res://calendar.gd",
 }
 
 func _ready() -> void:

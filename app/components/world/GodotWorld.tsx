@@ -18,7 +18,19 @@ import { t, type Lang } from "../../i18n/useLang";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
-export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media";
+export type WorldScene = "office" | "warroom" | "studio" | "dewan" | "party" | "media" | "commission" | "calendar";
+
+// Per-scene copy: [iframe title, loading line], each [ms, en].
+const SCENE_TEXT: Record<WorldScene, { title: [string, string]; loading: [string, string] }> = {
+  office: { title: ["Pusat Khidmat 3D", "3D service centre"], loading: ["MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…"] },
+  warroom: { title: ["Pusat Operasi 3D", "3D operations centre"], loading: ["MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…"] },
+  studio: { title: ["Studio Malam Keputusan 3D", "3D election night studio"], loading: ["MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…"] },
+  dewan: { title: ["Dewan 3D", "3D chamber"], loading: ["MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…"] },
+  party: { title: ["Ibu Pejabat Parti 3D", "3D party headquarters"], loading: ["MEMUATKAN IBU PEJABAT 3D…", "LOADING 3D HEADQUARTERS…"] },
+  media: { title: ["Pusat Media 3D", "3D media centre"], loading: ["MEMUATKAN PUSAT MEDIA 3D…", "LOADING 3D MEDIA CENTRE…"] },
+  commission: { title: ["Suruhanjaya Pilihan Raya 3D", "3D election commission"], loading: ["MEMUATKAN SPR 3D…", "LOADING 3D ELECTION COMMISSION…"] },
+  calendar: { title: ["Pusat Jadual Kempen 3D", "3D scheduling centre"], loading: ["MEMUATKAN PUSAT JADUAL 3D…", "LOADING 3D SCHEDULING CENTRE…"] },
+};
 export type OfficeInteraction = "desk" | "pa" | "meeting" | "tv" | "board" | "residents" | "files" | "pantry";
 export type WarRoomInteraction = "console" | "screens" | "pa" | "analytics" | "briefing" | "exit";
 
@@ -77,6 +89,18 @@ const PARTY_ROOM_NAMES: Record<string, [string, string]> = {
   manifesto: ["Bilik Manifesto", "Manifesto Room"],
   lobi: ["Lobi Parti", "Party Lobby"],
 };
+const COMMISSION_ROOM_NAMES: Record<string, [string, string]> = {
+  kiraan: ["Dewan Pengiraan Undi", "Counting Hall"],
+  data: ["Bilik Data Tinjauan", "Polling Data Room"],
+  saluran: ["Saluran Mengundi", "Polling Station"],
+  lobi: ["Lobi SPR", "Commission Lobby"],
+};
+const CALENDAR_ROOM_NAMES: Record<string, [string, string]> = {
+  jadual: ["Bilik Jadual", "Schedule Room"],
+  laluan: ["Bilik Laluan Lawatan", "Visit Route Room"],
+  logistik: ["Meja Logistik", "Transport Desk"],
+  lobi: ["Lobi", "Lobby"],
+};
 const MEDIA_ROOM_NAMES: Record<string, [string, string]> = {
   sidang: ["Bilik Sidang Media", "Press Briefing Room"],
   kawalan: ["Bilik Kawalan Siaran", "Broadcast Control"],
@@ -128,7 +152,7 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
   onPickRef.current = onPick;
   onReadyRef.current = onReady;
   onStateClickRef.current = onStateClick;
-  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : scene === "media" ? MEDIA_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
+  const roomName = (id: string) => (scene === "warroom" ? WARROOM_ROOM_NAMES[id] : scene === "dewan" ? DEWAN_ROOM_NAMES[id] : scene === "party" ? PARTY_ROOM_NAMES[id] : scene === "media" ? MEDIA_ROOM_NAMES[id] : scene === "commission" ? COMMISSION_ROOM_NAMES[id] : scene === "calendar" ? CALENDAR_ROOM_NAMES[id] : undefined) ?? ROOM_NAMES[id];
   const lang = state.lang;
   const onOpenRef = useRef(onOpen);
   const onErrorRef = useRef(onError);
@@ -176,13 +200,13 @@ export default function GodotWorld({ scene, state, onOpen, onError, onStateClick
       <iframe
         ref={frameRef}
         src={`${GODOT_WORLD_URL}?scene=${scene}`}
-        title={scene === "warroom" ? t(lang, "Pusat Operasi 3D", "3D operations centre") : scene === "studio" ? t(lang, "Studio Malam Keputusan 3D", "3D election night studio") : scene === "dewan" ? t(lang, "Dewan 3D", "3D chamber") : scene === "party" ? t(lang, "Ibu Pejabat Parti 3D", "3D party headquarters") : scene === "media" ? t(lang, "Pusat Media 3D", "3D media centre") : t(lang, "Pusat Khidmat 3D", "3D service centre")}
+        title={t(lang, ...SCENE_TEXT[scene].title)}
         className="absolute inset-0 h-full w-full border-0"
         allow="fullscreen"
       />
       {!ready && (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
-          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{scene === "warroom" ? t(lang, "MEMUATKAN PUSAT OPERASI 3D…", "LOADING 3D OPERATIONS CENTRE…") : scene === "studio" ? t(lang, "MEMUATKAN STUDIO 3D…", "LOADING 3D STUDIO…") : scene === "dewan" ? t(lang, "MEMUATKAN DEWAN 3D…", "LOADING 3D CHAMBER…") : scene === "party" ? t(lang, "MEMUATKAN IBU PEJABAT 3D…", "LOADING 3D HEADQUARTERS…") : scene === "media" ? t(lang, "MEMUATKAN PUSAT MEDIA 3D…", "LOADING 3D MEDIA CENTRE…") : t(lang, "MEMUATKAN PEJABAT 3D…", "LOADING 3D OFFICE…")} {Math.round(progress * 100)}%</span>
+          <span className="text-[9px] font-black tracking-[.22em] text-cyan">{t(lang, ...SCENE_TEXT[scene].loading)} {Math.round(progress * 100)}%</span>
           <span className="block h-1 w-[min(280px,70vw)] border" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
             <span className="block h-full bg-gold transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
           </span>
