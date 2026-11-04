@@ -10,6 +10,7 @@ the location's own ground slab; hills rise from ~45 m out. Colours are
 baked into vertex colours (no textures) so the file stays small.
 """
 import math
+import os
 import random
 import sys
 
@@ -155,11 +156,12 @@ def tree(bm, col, pos, kind, scale):
             loop[col] = c
 
 
-def build_trees(terrain):
-    """Dense forest on the hills (clustered by noise), a few on the flats."""
-    bm = bmesh.new()
-    col = bm.loops.layers.color.new("Col")
-    count = 0
+def place_trees():
+    """Dense forest on the hills, written as instance placements for Godot's
+    MultiMesh (assets/landscape_trees.json): [x, y, z, scale, yaw, kind]
+    in game coordinates (y up), kind 0 = broadleaf, 1 = palm."""
+    import json
+    out = []
     for _ in range(40000):
         x = random.uniform(-SIZE_X / 2 + 3, SIZE_X / 2 - 3)
         z = random.uniform(-SIZE_Z / 2 + 3, SIZE_Z / 2 - 3)
@@ -170,21 +172,16 @@ def build_trees(terrain):
         if h < 0.8:
             continue
         clump = noise.noise(Vector((x * 0.05, z * 0.05, 3.0))) * 0.5 + 0.5
-        density = min(1.0, h / 6.0) * (0.35 + 0.65 * clump)
-        if random.random() > density:
+        if random.random() > min(1.0, h / 6.0) * (0.35 + 0.65 * clump):
             continue
-        kind = "palm" if h < 4.0 and random.random() < 0.5 else "forest"
-        tree(bm, col, (x, -z, height(x, z) - 0.15), kind, random.uniform(1.0, 1.8))
-        count += 1
-        if count >= 5000:
+        kind = 1 if h < 4.0 and random.random() < 0.5 else 0
+        out.append([round(x, 2), round(height(x, z) - 0.15, 2), round(z, 2), round(random.uniform(0.9, 1.6), 2), round(random.uniform(0, math.tau), 2), kind])
+        if len(out) >= 4500:
             break
-    me = bpy.data.meshes.new("Trees")
-    bm.to_mesh(me)
-    bm.free()
-    _activate_colours(me)
-    obj = bpy.data.objects.new("Trees", me)
-    bpy.context.collection.objects.link(obj)
-    return obj, count
+    path = os.path.join(os.path.dirname(OUT), "landscape_trees.json")
+    with open(path, "w") as f:
+        json.dump(out, f, separators=(",", ":"))
+    return len(out)
 
 
 def material():
@@ -202,10 +199,9 @@ def material():
 if __name__ == "__main__":
     clear()
     land = build_terrain()
-    trees, n = build_trees(land)
     m = material()
-    for o in (land, trees):
-        o.data.materials.append(m)
+    land.data.materials.append(m)
+    n = place_trees()
     bpy.ops.export_scene.gltf(
         filepath=OUT, export_format="GLB", export_apply=True,
         export_vertex_color="ACTIVE", export_normals=True, export_materials="EXPORT",
