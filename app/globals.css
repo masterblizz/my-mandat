@@ -1992,3 +1992,11 @@ input[type="range"].range-red::-moz-range-thumb {
   .kw-page-content .city-zone-card { width: min(360px, calc(100% - 200px)) !important; padding: 8px 10px !important; }
 }
 
+/* Hub: seat name chip bottom-left above the dock (replaces the old
+   top-centre seat box, which now collides with the next-step chip). */
+.kw-page-shell .city-seat-status { display: none !important; }
+.city-seat-chip { left: 16px; bottom: 84px; max-width: calc(50% - 160px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .city-seat-chip { left: 16px; bottom: 58px; max-width: calc(50% - 150px); font-size: 9px !important; }
+}
+

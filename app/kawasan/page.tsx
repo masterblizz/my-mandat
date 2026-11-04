@@ -2687,6 +2687,10 @@ export default function KawasanDevelopmentPage() {
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, traits }),
     [ownSeat?.code, ownSeat?.name, density, traits],
   );
+  const godotZoneNames = useMemo(
+    () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
+    [zones, lang],
+  );
   const traitLabels = [
     traits.coastal ? t(lang, "kawasan_page.coastal") : null,
     traits.paddy ? t(lang, "kawasan_page.riceBowl") : null,
@@ -3125,7 +3129,8 @@ export default function KawasanDevelopmentPage() {
           <TacticalPanel noPadding className="h-full overflow-hidden">
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
-                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%" />
+                <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
+                  zoneNames={godotZoneNames} placing={!!pendingProject} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3142,6 +3147,11 @@ export default function KawasanDevelopmentPage() {
               <CityHubBar onEnter={enterHubDestination} />
               <CityPulseBar zones={zones} lang={lang} />
               {!dockOpen && <NextGoal lang={lang} goal={nextGoal} />}
+              {/* the seat (kawasan) the player represents, always in view */}
+              <div className="city-seat-chip city-hud-box pointer-events-none absolute z-20 rounded-full border px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-xl"
+                style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(10px)", fontFamily: "'Space Mono', monospace" }}>
+                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span>
+              </div>
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-tool city-tool--view city-hud-toggle absolute z-[140]"
                 aria-label={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}
