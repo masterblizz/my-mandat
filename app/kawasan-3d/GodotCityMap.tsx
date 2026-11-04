@@ -76,14 +76,14 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
         allow="fullscreen"
         // The hosted Godot city renders a flat, over-bright daylight; grade it
         // here (its source is a separate project) so it sits with the HUD.
-        style={{ filter: "brightness(0.8) contrast(1.22) saturate(0.98)" }}
+        style={{ filter: "brightness(0.9) contrast(1.12) saturate(1.06)" }}
       />
       {/* deepen the pale sky and darken the frame edges for depth; never takes input */}
       <div aria-hidden className="pointer-events-none absolute inset-0"
-        style={{ background: "linear-gradient(180deg, rgb(40 95 160 / .55) 0%, rgb(40 95 160 / 0) 42%)", mixBlendMode: "multiply" }} />
+        style={{ background: "linear-gradient(180deg, rgb(96 150 214) 0%, rgb(132 178 228) 14%, rgb(184 212 240) 26%, rgb(226 238 250) 36%, rgb(255 255 255) 46%)", mixBlendMode: "multiply", opacity: 0.85 }} />
       <CitySkyLife />
       <div aria-hidden className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 72% 78% at 50% 50%, transparent 55%, rgb(4 10 20 / .6) 100%)" }} />
+        style={{ background: "radial-gradient(ellipse 80% 85% at 50% 48%, transparent 62%, rgb(6 14 26 / .18) 82%, rgb(6 14 26 / .42) 100%)" }} />
       {!ready && (
         <div
           className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 border px-3 py-1.5 text-[9px] font-black tracking-[.2em] text-cyan"

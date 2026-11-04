@@ -10,7 +10,6 @@ import CityHubBar from "./CityHubBar";
 import CityPulseBar from "./CityPulseBar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
-import PersonalAssistant from "../components/assistant/PersonalAssistant";
 import { resumeRoute } from "../store/journey";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -3153,7 +3152,7 @@ export default function KawasanDevelopmentPage() {
                 <span aria-hidden>{hudHidden ? "▣" : "👁"}</span>
               </button>
               <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
-              <PersonalAssistant embedded cityContext={selectedZone ? { selectedName: zoneName(lang, selectedZone), selectedSentiment: selectedZone.sentiment, overall } : undefined} />
+              {/* the PA is not shown over the city: it would cover the map */}
               <CampaignBriefing />
               {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-hud-box absolute bottom-20 left-4 z-20 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▴</button>}
               {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box city-zone-card ${unlocked ? "city-zone-card--raised" : ""} absolute bottom-20 left-4 z-20 w-[min(330px,calc(100%-32px))] border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>

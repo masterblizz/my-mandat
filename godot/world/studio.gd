@@ -42,6 +42,10 @@ func _init() -> void:
 	overview_target = Vector3(-0.5, 1.2, -1.6)
 	overview_dist = Vector2(19.5, 27.0)
 
+# an indoor TV studio at night: no hills outside
+func _add_landscape() -> void:
+	pass
+
 func _build_exterior() -> void:
 	box(Vector3(60, 0.1, 50), Vector3(0, -0.11, 0), "#0b0f16", false)
 
