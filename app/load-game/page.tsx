@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   MAX_SAVE_SLOTS,
   deleteSavedGame,
+  formatSaveLabel,
   getActiveSaveSlotId,
   getSavedGames,
   saveGameToSlot,
@@ -185,7 +186,7 @@ export default function LoadGamePage() {
                           {activeCampaignSlot && <span className="rounded-full border px-2 py-0.5 text-[8px]" style={{ borderColor: "rgb(var(--gold-rgb) / 0.5)", color: "var(--gold)" }}>⟳ AUTO</span>}
                         </div>
                         <div className="mt-1 truncate text-[16px] font-black tracking-[0.1em] text-white sm:text-[20px]">
-                          {slot ? t(lang, "load_game_page.day", { slotStateLeader: slot.state.leader.partyAbbr, slotStateDay: slot.state.day, slotStateTotalDays: slot.state.totalDays }) : t(lang, "load_game_page.emptySlot")}
+                          {slot ? formatSaveLabel(slot.state, lang).toUpperCase() : t(lang, "load_game_page.emptySlot")}
                         </div>
                         {slot && (
                           <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] tracking-[0.1em]" style={{ color: "var(--text-muted)" }}>

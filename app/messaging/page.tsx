@@ -7,6 +7,7 @@ import StatBar from "../components/ui/StatBar";
 import TrendLine from "../components/charts/TrendLine";
 import { keyMessages, messagePerformanceHistory, channelEffectiveness, Message } from "../data/messages";
 import { useGameStore, Operation } from "../store/gameStore";
+import { generateConstituencies } from "../data/constituencies";
 import { useLang, t, type Lang } from "../i18n/useLang";
 
 // The messages dataset carries English-only detail text; Malay display
@@ -55,18 +56,33 @@ export default function MessagingPage() {
   const lang = useLang();
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(keyMessages[0]);
   const [deployedAll, setDeployedAll] = useState(false);
-  const { operations, states, day, totalDays, journey } = useGameStore();
+  const { operations, states, day, totalDays, journey, settings } = useGameStore();
 
   const sortedChannels = [...channelEffectiveness].sort((a, b) => b.effectiveness - a.effectiveness);
 
   const activeCampaigns = operations.filter((op) => op.status !== "completed");
+
+  // PRN: the battlefield is the selected negeri's DUN seats, so targets are
+  // its closest and weakest N.xxx seats rather than other states.
+  const prnState = settings.electionScope === "prn" ? states.find((s) => s.id === settings.prnStateId) : undefined;
+  const prnSeats = prnState ? generateConstituencies(prnState, "dun") : [];
+  const swingSeat = [...prnSeats].sort((a, b) => Math.abs(a.mandat - a.lawan) - Math.abs(b.mandat - b.lawan))[0];
+  const weakSeat = [...prnSeats].sort((a, b) => a.mandat - b.mandat).find((seat) => seat.mandat < 45);
 
   const topSwingStates = [...states]
     .sort((a, b) => b.swingProbability - a.swingProbability)
     .slice(0, 3);
 
   const weakState = states.find((s) => s.mandatSupport < 45);
-  const recommendations = [
+  const recommendations = prnState ? [
+    swingSeat
+      ? `🎤 ${t(lang, "Fokus ceramah", "Focus ceramah")} · ${swingSeat.code} ${swingSeat.name} (±${Math.abs(swingSeat.mandat - swingSeat.lawan).toFixed(1)}%)`
+      : `🎤 ${t(lang, `Lebih ceramah di DUN sengit ${prnState.name}`, `More ceramah in ${prnState.name}'s close DUN seats`)}`,
+    `📱 ${t(lang, "Gandakan digital", "Boost digital")} · ${prnState.name} · ⏳ ${totalDays - day} ${t(lang, "hari", "days")}`,
+    weakSeat
+      ? `⚠ ${t(lang, "Kuatkan mesej", "Boost messaging")} · ${weakSeat.code} ${weakSeat.name} < 45%`
+      : `✓ ${t(lang, `Semua DUN ${prnState.name} ≥ 45%`, `All ${prnState.name} DUN seats ≥ 45%`)}`,
+  ] : [
     topSwingStates[0]
       ? `🎤 ${t(lang, "Fokus ceramah", "Focus ceramah")} · ${topSwingStates[0].name} (${topSwingStates[0].swingProbability}%)`
       : `🎤 ${t(lang, "Lebih ceramah di kawasan sengit", "More ceramah in contested areas")}`,

@@ -19,7 +19,7 @@ import { getPrnCandidate, prnCandidateChannelBonus } from "../data/prnCandidates
 import { applyScenarioState, getScenarioPack, type ScenarioPackId } from "../data/scenarioPacks";
 import { getRankPerks, playerXp } from "../lib/playerRank";
 import { nextAssistantAvatar } from "../lib/assistantAvatar";
-import { continueRepresentativeCareer, startAsRepresentative, type StartingSide } from "./representative";
+import { continueRepresentativeCareer, seatStateId, startAsRepresentative, type StartingSide } from "./representative";
 import { advanceTerm, performYbActivity } from "./termClock";
 import type { GameSpeed, YbActivityId } from "../data/ybService";
 
@@ -259,13 +259,16 @@ export function readPersistedAiNews(): LiveNewsItem[] {
   }
 }
 
-const defaultOperations: Operation[] = [
-  { id: "op1", name: "DOOR TO DOOR", type: "door-to-door", location: "Selangor · Johor", stateIds: ["selangor", "johor"], status: "active", manpowerCost: 120, fundsCost: 50000, supportGain: 1.5 },
-  { id: "op2", name: "CERAMAH MEGA", type: "ceramah", location: "Pahang (6 events)", stateIds: ["pahang"], status: "active", manpowerCost: 80, fundsCost: 120000, supportGain: 2.2 },
-  { id: "op3", name: "YOUTH OUTREACH", type: "youth", location: "Klang Valley", stateIds: ["selangor", "wp"], status: "active", manpowerCost: 60, fundsCost: 40000, supportGain: 1.8 },
-  { id: "op4", name: "RURAL ENGAGEMENT", type: "rural", location: "Perak · Kedah", stateIds: ["perak", "kedah"], status: "ongoing", manpowerCost: 100, fundsCost: 80000, supportGain: 1.2 },
-  { id: "op5", name: "DIGITAL CAMPAIGN", type: "digital", location: "Nationwide", stateIds: ["selangor", "wp", "johor", "penang"], status: "planned", manpowerCost: 30, fundsCost: 200000, supportGain: 1.0 },
-];
+// A new run starts with no operations: every operation is one the player
+// deployed (addOperation), so none can sit outside the PRN negeri or cost
+// nothing. (National demo operations used to be seeded here.)
+const defaultOperations: Operation[] = [];
+
+// Seats a state contributes in the current scope: its DUN seats for the PRN
+// negeri, its parliament seats otherwise.
+function scopeSeatTotal(state: StateData, settings: GameState["settings"]) {
+  return settings.electionScope === "prn" && state.id === settings.prnStateId ? state.dunSeats : state.seats;
+}
 
 export const useGameStore = create<GameState>((set, get) => ({
   journey: newJourney(),
@@ -347,7 +350,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (state.journey.decisions < 1 || state.resources.funds < actionFunds || state.resources.manpower + manpowerChange < 0) return {};
       const verb = action === "prepare" ? "Persediaan" : "Tindakan";
       const nextStates = supportGain ? shiftSupport(state, supportGain, true) : state.states;
-      const homeSupport = nextStates.find((item) => item.id === state.leader.homeState)?.mandatSupport ?? 0;
+      const homeSupport = nextStates.find((item) => item.id === seatStateId(state))?.mandatSupport ?? 0;
       const objectiveId = "campaign:home-support-60";
       const earnedObjective = homeSupport >= 60 && state.day <= Math.min(10, state.totalDays) && !state.journey.locationObjectives.includes(objectiveId);
       const reward = earnedObjective ? 75000 : 0;
@@ -549,7 +552,15 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   updateSettings: (updates) =>
     set((state) => {
-      const settings = { ...state.settings, ...updates };
+      // A run's election scope and PRN negeri are fixed at launch: the seat,
+      // nominations and projections all belong to them. Changing either
+      // mid-run would orphan the seat, so they only change between runs.
+      const locked = state.phase === "playing";
+      const settings = {
+        ...state.settings,
+        ...updates,
+        ...(locked ? { electionScope: state.settings.electionScope, prnStateId: state.settings.prnStateId } : {}),
+      };
       if (typeof window !== "undefined") {
         localStorage.setItem("mymandat-game-settings", JSON.stringify(settings));
       }
@@ -659,6 +670,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   runNominationDecision: (stateId, candidateType) =>
     set((state) => {
+      if (state.settings.electionScope === "prn" && stateId !== state.settings.prnStateId) return {};
       const profile = {
         local: { support: 1.8, win: 4, funds: 35_000, manpower: 18, label: "LOCAL CHAMPION" },
         technocrat: { support: 1.2, win: 6, funds: 55_000, manpower: 8, label: "TECHNOCRAT" },
@@ -679,7 +691,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lawanSupport,
             othersSupport,
             winProbability: Math.min(95, Math.round((s.winProbability + profile.win) * 100) / 100),
-            projectedSeats: Math.max(0, Math.min(s.seats, s.projectedSeats + (margin > 5 ? 1 : 0))),
+            projectedSeats: Math.max(0, Math.min(scopeSeatTotal(s, state.settings), s.projectedSeats + (margin > 5 ? 1 : 0))),
             status: margin >= 8 ? "winning" : margin <= -8 ? "losing" : "contested",
             trend: Math.round(profile.support * 100) / 100,
           };
@@ -751,7 +763,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lawanSupport,
             othersSupport,
             winProbability: Math.min(95, Math.round((s.winProbability + gain * 1.8) * 100) / 100),
-            projectedSeats: Math.max(0, Math.min(s.seats, s.projectedSeats + (gain >= 1.8 && margin > 0 ? 1 : 0))),
+            projectedSeats: Math.max(0, Math.min(scopeSeatTotal(s, state.settings), s.projectedSeats + (gain >= 1.8 && margin > 0 ? 1 : 0))),
             status: margin >= 8 ? "winning" : margin <= -8 ? "losing" : "contested",
             trend: gain,
           };
