@@ -23,6 +23,9 @@ export default function StatusBar({
   // follow the language setting too, not just caller-supplied text.
   const resolvedLeftText = leftText ?? t(lang, "components_layout_StatusBar.readyAwaitingCommand");
   const resolvedRightText = rightText ?? t(lang, "components_layout_StatusBar.navigateSelect");
+  // Keyboard hints ("↑↓ NAVIGATE · ↵ SELECT", "ESC ...") mean nothing on a
+  // touch screen: only show them where there is a fine pointer.
+  const keyHint = rightText === undefined || /↵|↑↓|\bESC\b/.test(resolvedRightText);
   const reducedMotion = useReducedMotion();
   const scrolling = ticker && !reducedMotion;
   // Scroll duration proportional to headline length, clamped to ~4-6s.
@@ -58,7 +61,7 @@ export default function StatusBar({
           them. min-w-0 lets it actually shrink below its content size;
           truncate turns that shrink into a clean ellipsis instead of a
           raw clip/overlap. */}
-      <span className="text-gold min-w-0 shrink truncate text-xs tracking-wider uppercase">{resolvedRightText}</span>
+      <span className={`text-gold min-w-0 shrink truncate text-xs tracking-wider uppercase ${keyHint ? "hidden [@media(pointer:fine)]:inline" : ""}`}>{resolvedRightText}</span>
     </footer>
   );
 }
