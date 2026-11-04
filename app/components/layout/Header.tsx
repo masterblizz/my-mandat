@@ -129,6 +129,14 @@ export default function Header() {
           </Link>
         )}
 
+        {/* Phones in landscape have no side dock: Intel and Menu live here. */}
+        <Link href="/polling" className="app-header__phone-nav hidden px-2 py-1 text-[11px] font-bold tracking-[0.16em] text-cyan" style={{ border: "1px solid rgb(var(--cyan-rgb) / 0.32)" }}>
+          ⌁ {t(lang, "INTEL", "INTEL")}
+        </Link>
+        <Link href="/menu" className="app-header__phone-nav hidden px-2 py-1 text-[11px] font-bold tracking-[0.16em] text-text-muted" style={{ border: "1px solid rgb(var(--cyan-rgb) / 0.25)" }}>
+          ☰ {t(lang, "MENU", "MENU")}
+        </Link>
+
         {showCityHub && (
           <Link
             href="/kawasan"

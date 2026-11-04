@@ -135,6 +135,7 @@ func _ready() -> void:
 	region = NavigationRegion3D.new()
 	add_child(region)
 	_build_exterior()
+	_add_landscape()
 	_build_floors()
 	_build_walls()
 	_build_furniture()
@@ -169,8 +170,44 @@ func mat(c, rough := 0.85, metal := 0.0, emission = null, energy := 1.0) -> Stan
 		m.emission_enabled = true
 		m.emission = emission if emission is Color else Color(emission)
 		m.emission_energy_multiplier = energy
+	else:
+		_surface(m, metal)
 	_mat_cache[key] = m
 	return m
+
+## Surface textures baked in Blender (blender/materials.py): a tileable
+## greyscale detail map multiplied over the colour, plus a normal map,
+## projected triplanar so every box gets grain at a real-world scale.
+var _tex := {}
+func _surface_tex(name: String) -> Array:
+	if not _tex.has(name):
+		_tex[name] = [load("res://assets/tex/%s_detail.png" % name), load("res://assets/tex/%s_normal.png" % name)]
+	return _tex[name]
+
+func _surface(m: StandardMaterial3D, metal: float) -> void:
+	var c := m.albedo_color
+	var kind := "plaster"
+	if metal >= 0.3:
+		kind = "metal"
+	elif c.s < 0.12:
+		kind = "plaster" if c.v > 0.7 else "concrete"
+	elif c.h > 0.18 and c.h < 0.45:
+		kind = "grass"        # lawns, hedges, foliage: soft mottle, no weave
+	elif c.h > 0.02 and c.h < 0.12 and c.v < 0.75:
+		kind = "wood"
+	elif c.s > 0.3:
+		kind = "fabric"
+	var t := _surface_tex("concrete" if kind == "grass" else kind)
+	if t[0] == null:
+		return
+	m.albedo_texture = t[0]
+	m.normal_enabled = true
+	m.normal_texture = t[1]
+	m.normal_scale = {"wood": 0.45, "fabric": 0.3, "metal": 0.25, "grass": 0.4}.get(kind, 0.6)
+	m.uv1_triplanar = true
+	var metres: float = {"wood": 1.6, "fabric": 0.8, "metal": 1.2, "concrete": 2.0, "grass": 4.0}.get(kind, 2.4)
+	m.uv1_scale = Vector3.ONE / metres
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 ## A box. solid=true also makes it a navmesh obstacle.
 func box(size: Vector3, pos: Vector3, color, solid := true, rot_y := 0.0, parent: Node3D = null, m: Material = null) -> MeshInstance3D:
@@ -335,6 +372,8 @@ func _apply_daylight() -> void:
 		sun.light_color = Color("#fff3df")
 	for l in night_lights:
 		l.visible = night
+	if env.fog_enabled:
+		env.fog_light_color = Color("#0c1426") if night else Color("#b9d2e2")
 
 func _build_exterior() -> void:
 	# grass (decor only, not walkable), sidewalk and road (walkable)
@@ -505,6 +544,32 @@ func chair(pos: Vector3, rot_y: float, color := "#2f3a48") -> void:
 	box(Vector3(0.5, 0.08, 0.5), Vector3(0, 0.45, 0), color, false, 0.0, c)
 	box(Vector3(0.5, 0.55, 0.07), Vector3(0, 0.76, -0.24), color, false, 0.0, c)
 	box(Vector3(0.06, 0.42, 0.06), Vector3(0, 0.21, 0), "#59606a", false, 0.0, c)
+
+## Rolling hills, plantations and forest around the lot, made in Blender
+## (blender/landscape.py -> assets/landscape.glb). Decor only: no collider,
+## so it never joins the navmesh. A light distance fog softens the far ridges.
+func _add_landscape() -> void:
+	var scene: PackedScene = load("res://assets/landscape.glb")
+	if scene == null:
+		return
+	var land := scene.instantiate()
+	add_child(land)
+	var vc := StandardMaterial3D.new()
+	vc.vertex_color_use_as_albedo = true
+	vc.roughness = 0.95
+	vc.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for m in land.find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).material_override = vc
+		(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	env.fog_enabled = true
+	env.fog_light_color = Color("#b9d2e2") if not night else Color("#0c1426")
+	# depth fog only on the far ridges, so the lot itself stays crisp
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_depth_begin = 70.0
+	env.fog_depth_end = 210.0
+	env.fog_depth_curve = 1.6
+	env.fog_density = 0.55
+	env.fog_sky_affect = 0.0
 
 ## The street frontage most locations share: grass, paving with the
 ## black-and-white kerb, road, palms, hibiscus, a facade sign, a flagpole
@@ -795,7 +860,7 @@ func _build_camera() -> void:
 	cam = Camera3D.new()
 	cam.fov = 40
 	cam.near = 0.1
-	cam.far = 120
+	cam.far = 220
 	add_child(cam)
 	player_ring = MeshInstance3D.new()
 	var tm := TorusMesh.new()
@@ -1064,7 +1129,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
 			dist_goal = clamp(dist_goal * 0.9, 6.0, 36.0)
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-			dist_goal = clamp(dist_goal * 1.1, 6.0, 36.0)
+			dist_goal = clamp(dist_goal * 1.1, 6.0, 60.0)
 		elif mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				_press_pos = mb.position
@@ -1112,7 +1177,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var d: float = (pts[0] as Vector2).distance_to(pts[1])
 			var a: float = ((pts[1] as Vector2) - (pts[0] as Vector2)).angle()
 			if _pinch_d > 0.0:
-				dist_goal = clamp(dist_goal * _pinch_d / max(d, 1.0), 6.0, 36.0)
+				dist_goal = clamp(dist_goal * _pinch_d / max(d, 1.0), 6.0, 60.0)
 				yaw_goal -= angle_difference(_pinch_a, a)
 			_pinch_d = d
 			_pinch_a = a
@@ -1235,7 +1300,7 @@ func _on_js_message(args) -> void:
 					var sv := cam.unproject_position(wp)
 					pts[key] = [sv.x, sv.y]
 			var vsz := get_viewport().get_visible_rect().size
-			_post({"type": "world-probe", "markers": pts, "room": current_room, "intro": intro_playing, "size": [vsz.x, vsz.y],
+			_post({"type": "world-probe", "markers": pts, "room": current_room, "intro": intro_playing, "size": [vsz.x, vsz.y], "dist": dist, "land": get_node_or_null("Landscape") != null or find_children("Landscape", "", true, false).size() > 0,
 				"player": [player.global_position.x, player.global_position.z] if player else []})
 
 ## Extra world points a test may click (the war room's states).
