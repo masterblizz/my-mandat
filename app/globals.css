@@ -1826,3 +1826,52 @@ input[type="range"].range-red::-moz-range-thumb {
   .sky-cloud, .sky-flock, .sky-bird-wing { animation: none; }
   .sky-flock { display: none; }
 }
+
+/* Landscape phones: no side dock rail. Navigation lives in the header
+   (City Hub, Intel, Menu) and the city is a full-screen game view with
+   bare floating icons. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-game-dock { display: none !important; }
+  body:has(.mobile-game-dock) main { margin-left: 0 !important; }
+  body:has(.app-header) main:not(.kw-page-content):not(.office-main):not(.location-main):not(.setup-screen) { left: 0 !important; padding-left: max(14px, calc(env(safe-area-inset-left, 0px) + 10px)) !important; }
+  .app-statusbar { padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 12px)) !important; }
+  .app-header__phone-nav { display: inline-block !important; }
+  .state-sidebar { left: 0 !important; }
+  body:has(.state-sidebar) main { left: calc(140px + env(safe-area-inset-left, 0px)) !important; }
+  .ops-desk { left: 0 !important; }
+
+  /* the city fills the whole screen */
+  body:has(.kw-page-shell) .app-header,
+  body:has(.kw-page-shell) .app-statusbar { display: none !important; }
+  .kw-page-content { padding: 0 !important; }
+  .kw-map-frame { height: 100dvh !important; }
+  .kw-map-frame > div { border: 0 !important; box-shadow: none !important; }
+  .kw-page-shell .city-main-menu-button {
+    display: block !important; top: max(8px, env(safe-area-inset-top, 0px)) !important;
+    right: max(12px, env(safe-area-inset-right, 0px)) !important; left: auto !important;
+  }
+  .kw-page-shell .city-tool--engine { top: 52px !important; right: max(12px, env(safe-area-inset-right, 0px)) !important; }
+  .kw-page-shell .city-tool--view { top: 52px !important; right: calc(max(12px, env(safe-area-inset-right, 0px)) + 46px) !important; }
+  .kw-page-shell .city-destination-overlay { top: 52px !important; right: calc(max(12px, env(safe-area-inset-right, 0px)) + 92px) !important; }
+  .kw-page-shell .city-hub-bar { top: max(8px, env(safe-area-inset-top, 0px)) !important; left: max(12px, env(safe-area-inset-left, 0px)) !important; }
+}
+
+/* City: icons float over the map without black boxes; a soft shadow keeps
+   them readable against sky and buildings. */
+.kw-page-shell .city-tool,
+.kw-page-shell .city-main-menu-button {
+  background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / .7)) drop-shadow(0 0 6px rgb(0 0 0 / .35));
+}
+.kw-page-shell .city-tool:hover, .kw-page-shell .city-tool[aria-pressed="true"] { background: rgb(var(--gold-rgb) / .16) !important; border-color: rgb(var(--gold-rgb) / .6) !important; }
+.kw-page-shell .city-tool span { font-size: 24px; }
+.kw-page-shell .city-main-menu-button { color: #fff !important; text-shadow: 0 1px 3px rgb(0 0 0 / .9); }
+.kw-page-shell .city-hub-bar { background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
+.kw-page-shell .city-hub-bar__item { border-right-color: transparent !important; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .9); }
+.kw-page-shell .city-hub-bar__icon { font-size: 22px; filter: drop-shadow(0 1px 2px rgb(0 0 0 / .7)) drop-shadow(0 0 6px rgb(0 0 0 / .35)); }
+.kw-page-shell .city-hub-bar__item:hover, .kw-page-shell .city-hub-bar__item--primary { background: rgb(var(--gold-rgb) / .16) !important; }
+.kw-page-shell .city-hub-bar__tag { background: transparent !important; color: var(--gold); text-shadow: 0 1px 3px rgb(0 0 0 / .9); }
+@media (orientation: landscape) and (max-height: 500px) {
+  /* with no dock rail, the floating PA sits bottom-right above the music button */
+  .personal-assistant--floating { left: auto !important; right: max(12px, env(safe-area-inset-right, 0px)) !important; bottom: 30px !important; }
+}
