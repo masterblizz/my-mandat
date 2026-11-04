@@ -165,58 +165,53 @@ export default function StatsPage() {
     <div className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "'Space Mono', monospace" }}>
       <Header />
       <StatusBar
-        leftText={t(lang, "stats_page.gameHistoryPastCampaignRecords")}
-        rightText={t(lang, "stats_page.clickRecordForDetails")}
+        leftText={`📜 ${t(lang, "stats_page.gameHistory")} · ${totalGames}`}
+        rightText={totalGames > 0 ? t(lang, "▶ TEKAN REKOD = BUTIRAN", "▶ TAP A RECORD FOR DETAILS") : ""}
       />
 
-      <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
+      <main className="pt-[52px] pb-[52px] px-4 sm:px-6 min-h-screen">
         {/* Title */}
-        <div className="mb-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
+        <div className="mb-3 py-2 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.3)" }}>
           <h1 className="text-[19px] font-bold tracking-widest uppercase" style={{ color: "var(--cyan)" }}>
-            {t(lang, "stats_page.gameHistory")}
-            <span className="text-[14px] font-normal ml-3" style={{ color: "var(--text-muted)" }}>
-              — {t(lang, "stats_page.pastCampaignRecords")}
-            </span>
+            📜 {t(lang, "stats_page.gameHistory")}
           </h1>
           {confirmClear ? (
             <div className="flex items-center gap-2">
               <span className="text-[11px]" style={{ color: "var(--neon-red)" }}>{t(lang, "stats_page.confirmClear")}</span>
-              <button onClick={() => { clearHistory(); setConfirmClear(false); setSelectedId(null); }} className="text-[11px] px-2 py-1 font-bold" style={{ border: "1px solid var(--neon-red)", color: "var(--neon-red)", background: "none", cursor: "pointer" }}>
+              <button onClick={() => { clearHistory(); setConfirmClear(false); setSelectedId(null); }} className="min-h-[40px] text-[11px] px-3 py-1 font-bold" style={{ border: "1px solid var(--neon-red)", color: "var(--neon-red)", background: "none", cursor: "pointer" }}>
                 {t(lang, "stats_page.yes")}
               </button>
-              <button onClick={() => setConfirmClear(false)} className="text-[11px] px-2 py-1" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "var(--text-muted)", background: "none", cursor: "pointer" }}>
+              <button onClick={() => setConfirmClear(false)} className="min-h-[40px] text-[11px] px-3 py-1" style={{ border: "1px solid rgb(var(--cyan-rgb)/0.3)", color: "var(--text-muted)", background: "none", cursor: "pointer" }}>
                 {t(lang, "stats_page.cancel")}
               </button>
             </div>
           ) : (
-            <button onClick={() => setConfirmClear(true)} className="text-[11px] px-3 py-1.5 transition-colors" style={{ border: "1px solid rgb(var(--neon-red-rgb,255 68 68) / 0.3)", color: "var(--text-muted)", background: "none", cursor: "pointer" }}>
-              {t(lang, "stats_page.clearHistory")}
+            <button onClick={() => setConfirmClear(true)} disabled={totalGames === 0} className="min-h-[40px] text-[11px] px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ border: "1px solid rgb(var(--neon-red-rgb,255 68 68) / 0.3)", color: "var(--text-muted)", background: "none", cursor: "pointer" }}>
+              🗑 {t(lang, "PADAM", "CLEAR")}
             </button>
           )}
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-5 gap-3 mb-5">
+        <div className="grid grid-cols-5 gap-2 mb-3 sm:gap-3">
           {[
-            { id: "totalGames", value: totalGames,       color: "var(--cyan)",       unit: "" },
-            { id: "winRate",    value: `${winRate}%`,    color: "var(--neon-green)", unit: "" },
-            { id: "bestSeats",  value: bestSeats,        color: "var(--gold)",       unit: `/ ${bestRecord?.electionName ?? ""}` },
-            { id: "avgSeats",   value: avgSeats,         color: "var(--cyan)",       unit: "/ 222" },
-            { id: "avgSupport", value: `${avgSupport}%`, color: "var(--gold)",       unit: "" },
+            { id: "totalGames", icon: "🎮", label: t(lang, "MAIN", "PLAYED"),   value: totalGames,       color: "var(--cyan)" },
+            { id: "winRate",    icon: "🏆", label: t(lang, "MENANG", "WIN"),     value: `${winRate}%`,    color: "var(--neon-green)" },
+            { id: "bestSeats",  icon: "⭐", label: t(lang, "TERBAIK", "BEST"),   value: bestSeats,        color: "var(--gold)" },
+            { id: "avgSeats",   icon: "🪑", label: t(lang, "PURATA", "AVG"),     value: avgSeats,         color: "var(--cyan)" },
+            { id: "avgSupport", icon: "📊", label: t(lang, "SOKONGAN", "SUPPORT"), value: `${avgSupport}%`, color: "var(--gold)" },
           ].map((card) => (
-            <div key={card.id} className="border px-4 py-3" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "rgb(var(--cyan-rgb) / 0.03)" }}>
-              <div className="text-[9px] tracking-[0.22em] mb-1" style={{ color: "var(--text-muted)" }}>{t(lang, `stats_page.card_${card.id}`)}</div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[26px] font-black leading-none" style={{ color: card.color }}>{card.value}</span>
-                {card.unit && <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{card.unit}</span>}
-              </div>
+            <div key={card.id} title={t(lang, `stats_page.card_${card.id}`)} className="flex flex-col items-center border px-2 py-2 text-center" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "rgb(var(--cyan-rgb) / 0.03)" }}>
+              <span className="text-[16px] leading-none" aria-hidden>{card.icon}</span>
+              <span className="mt-1 text-[22px] font-black leading-none" style={{ color: card.color }}>{card.value}</span>
+              <span className="mt-1 max-w-full truncate text-[8px] font-bold tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{card.label}</span>
             </div>
           ))}
         </div>
 
         {/* Best Run Banner */}
         {bestRecord && (
-          <div className="mb-4 px-5 py-3 flex items-center gap-6" style={{ border: "1px solid rgb(var(--gold-rgb) / 0.35)", background: "linear-gradient(90deg, rgb(var(--gold-rgb) / 0.07), rgb(var(--gold-rgb) / 0.02))" }}>
+          <div className="mb-3 px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1" style={{ border: "1px solid rgb(var(--gold-rgb) / 0.35)", background: "linear-gradient(90deg, rgb(var(--gold-rgb) / 0.07), rgb(var(--gold-rgb) / 0.02))" }}>
             <span className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)", whiteSpace: "nowrap" }}>
               ★ {t(lang, "stats_page.bestRecord")}
             </span>
@@ -224,14 +219,13 @@ export default function StatsPage() {
             <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{bestRecord.electionName} · {bestRecord.date}</span>
             <span className="font-black text-[14px]" style={{ color: "var(--neon-green)" }}>{bestRecord.seatsWon} {t(lang, "stats_page.seats")}</span>
             <span className="text-[10px]" style={{ color: "var(--gold)" }}>+{bestRecord.seatsWon - bestRecord.majorityTarget} {t(lang, "stats_page.surplus")}</span>
-            {bestRecord.notes && <span className="text-[10px] italic" style={{ color: "#657585" }}>&ldquo;{bestRecord.notes}&rdquo;</span>}
           </div>
         )}
 
         {/* History Table */}
         {records.length === 0 ? (
           <TacticalPanel>
-            <div className="text-center py-16">
+            <div className="text-center py-10">
               <div className="text-[38px] mb-3" style={{ opacity: 0.3 }}>📜</div>
               <div className="text-[14px] font-bold tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>
                 {t(lang, "stats_page.noGameHistory")}
@@ -306,10 +300,6 @@ export default function StatsPage() {
                     </div>
                   </div>
                 ))}
-                <div className="mt-1 flex items-center gap-2 text-[9px]" style={{ color: "var(--text-muted)" }}>
-                  <div className="w-2 h-2" style={{ background: "rgb(var(--cyan-rgb)/0.35)" }} />
-                  {t(lang, "stats_page.majorityLine")} 112 {t(lang, "stats_page.seats2")}
-                </div>
               </div>
             </TacticalPanel>
 

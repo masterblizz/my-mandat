@@ -15,6 +15,7 @@ import { computeSeatDetails, type SeatDetail } from "../utils/seatDetails";
 import { computeElectionOutcome } from "../utils/electionOutcome";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import ElectionNightCount from "../components/results/ElectionNightCount";
+import Fold from "../components/results/Fold";
 import { buildElectionNightTimeline } from "../data/electionNight";
 import { getPrnCandidate } from "../data/prnCandidates";
 
@@ -181,11 +182,7 @@ export default function ResultsPage() {
   const governmentLabel = isPrn ? t(lang, "results_page.stateGovernmentFormed") : t(lang, "results_page.governmentFormed");
   const hungLabel = isPrn ? t(lang, "results_page.hungStateAssembly") : t(lang, "results_page.hungParliament");
   const resultScopeLabel = isPrn ? `PRN ${resultStates[0]?.name ?? "NEGERI"}` : t(lang, "results_page.ge16National");
-  const stateResultsTitle = isPrn ? t(lang, "results_page.prnStateResultDunDetails") : t(lang, "results_page.stateResultsClickStateForSeat");
-  const detailTitle = isPrn ? "DETAIL KAWASAN DUN" : "DETAIL KAWASAN PARLIMEN";
-  const supportLabel = isPrn ? t(lang, "results_page.stateSupport") : t(lang, "results_page.nationalSupport");
-  const statesWonLabel = isPrn ? t(lang, "results_page.prnStateWon") : t(lang, "results_page.statesWon");
-  const statesLostLabel = isPrn ? t(lang, "results_page.prnStateLost") : t(lang, "results_page.statesLost");
+  const stateResultsTitle = isPrn ? t(lang, "KEPUTUSAN NEGERI", "STATE RESULT") : t(lang, "KEPUTUSAN NEGERI · PILIH", "STATE RESULTS · TAP ONE");
   const majorityText = isPrn ? t(lang, "results_page.stateAssemblyMajority") : t(lang, "results_page.parliamentaryMajority");
   const totalSeats = electionOutcome.totalSeats;
   const majorityTarget = electionOutcome.majorityTarget;
@@ -227,8 +224,8 @@ export default function ResultsPage() {
   const verdictSub = verdict === "WIN"
     ? t(lang, "results_page.hasSecuredA", { partyDisplay: partyDisplay, majorityText: majorityText })
     : verdict === "KINGMAKER"
-      ? t(lang, "results_page.noSinglePartyHoldsAMajority", { isPrn: isPrn ? "Dewan Negeri" : "Parlimen", partyDisplay: partyDisplay, isPrn2: isPrn ? "DUN" : "Parliament" })
-      : t(lang, "results_page.finishedInOppositionLawanWillForm", { partyDisplay: partyDisplay, isPrn: isPrn ? "negeri" : "persekutuan", isPrn2: isPrn ? "state" : "federal" });
+      ? t(lang, `${partyDisplay} perlu rundingan gabungan.`, `${partyDisplay} must negotiate a coalition.`)
+      : t(lang, `LAWAN bentuk kerajaan ${isPrn ? "negeri" : "persekutuan"}.`, `LAWAN forms the ${isPrn ? "state" : "federal"} government.`);
 
   const nationalSupport = electionOutcome.nationalSupport;
 
@@ -337,43 +334,37 @@ export default function ResultsPage() {
           transition: skipAnim ? "none" : "opacity 0.5s ease, transform 0.5s ease",
         }}
       >
-        {/* Page title */}
-        <div className="mb-5 mt-2 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {isPrn ? t(lang, "results_page.prnResultsNightDunByDun") : t(lang, "results_page.resultsNightSeatBySeatCount")}</div>
+        {/* Page title — scope chip + leader, no kicker line */}
+        <div className="mb-3 mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1
-              className="text-2xl font-bold tracking-widest"
+              className="text-xl font-bold tracking-widest sm:text-2xl"
               style={{ fontFamily: "Space Mono, monospace", color: "var(--text-primary)" }}
             >
               {t(lang, "results_page.officialResults")}
             </h1>
+            <span className="rounded-full border px-2.5 py-1 text-[10px] font-black tracking-widest" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.5)", color: "var(--cyan)" }}>{resultScopeLabel}</span>
           </div>
-          <div className="text-right">
-            <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "results_page.campaignLeader")}</div>
-            <div className="text-sm font-bold text-white tracking-widest mt-0.5">{leader.name}</div>
-            <div className="text-[12px] text-gold tracking-wider">{leader.position} · {leader.partyAbbr}</div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black tracking-widest">
+            <span className="rounded-full border px-2.5 py-1 text-white" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)" }}>👤 {leader.name} · <span style={{ color: leader.partyColor }}>{leader.partyAbbr}</span></span>
+            {prnCandidate && <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${prnCandidate.color}88`, color: prnCandidate.color }} title={prnCandidate.archetype[lang]}>🎖 {t(lang, "CALON MB", "MB PICK")}: {prnCandidate.name}</span>}
           </div>
         </div>
 
-        {prnCandidate && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border px-4 py-3" style={{ borderColor: `${prnCandidate.color}66`, background: `${prnCandidate.color}0c` }}>
-          <div><div className="text-[9px] font-black tracking-[0.24em] text-text-muted">{t(lang, "CALON KETUA KERAJAAN NEGERI", "STATE GOVERNMENT LEAD CANDIDATE")}</div><div className="mt-1 text-base font-black" style={{ color: prnCandidate.color }}>{prnCandidate.name}</div><div className="text-[11px] text-text-muted">{prnCandidate.archetype[lang]} · {resultStates[0]?.name}</div></div>
-          <div className="max-w-xl text-[11px] leading-relaxed text-text-muted">{verdict === "WIN" ? t(lang, `${prnCandidate.name} membawa mandat untuk dilantik sebagai ketua kerajaan negeri.`, `${prnCandidate.name} carries the mandate to be appointed head of the state government.`) : t(lang, `${prnCandidate.name} akan mengetuai tindak balas parti terhadap keputusan ini.`, `${prnCandidate.name} will lead the party's response to this result.`)}</div>
-        </div>}
-
         {/* Verdict banner */}
         <div
-          className="px-6 py-5 mb-5"
+          className="mb-3 px-4 py-3 sm:px-6 sm:py-4"
           style={{
             background: cfg.bgColor,
             border: `1px solid ${cfg.borderColor}`,
             borderLeft: `4px solid ${cfg.color}`,
           }}
         >
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               {/* WIN: spring in with a slight overshoot. Otherwise: plain muted fade. */}
               <motion.div
-                className="text-2xl font-bold tracking-widest"
+                className="text-xl font-bold tracking-widest sm:text-2xl"
                 style={{ color: cfg.color, fontFamily: "Space Mono, monospace", textShadow: `0 0 20px ${cfg.color}55` }}
                 initial={verdict === "WIN" ? { opacity: 0, scale: 0.8 } : { opacity: 0 }}
                 animate={showAnim ? (verdict === "WIN" ? { opacity: 1, scale: 1 } : { opacity: 1 }) : undefined}
@@ -385,64 +376,51 @@ export default function ResultsPage() {
                       : { duration: 0.8, ease: "easeOut" }
                 }
               >
-                {cfg.label}
+                {verdict === "WIN" ? "🏆 " : verdict === "KINGMAKER" ? "⚖️ " : "❌ "}{cfg.label}
               </motion.div>
-              <div className="text-[13px] text-text-muted mt-1.5 tracking-wide">{verdictSub}</div>
+              <div className="mt-1 text-[12px] tracking-wide text-text-muted">{verdictSub}</div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div
-                className="text-[12px] font-bold tracking-widest px-4 py-2"
-                style={{ border: `1px solid ${cfg.color}66`, color: cfg.color, background: `${cfg.color}11` }}
-              >
-                {cfg.badge}
-              </div>
-              <button
-                onClick={() => setShowShare(true)}
-                className="text-[11px] font-bold tracking-widest px-3 py-1.5 uppercase"
-                style={{ border: "1px solid rgb(var(--gold-rgb) / 0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / 0.08)" }}
-              >
-                {t(lang, "results_page.shareResult")}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowShare(true)}
+              className="min-h-[40px] shrink-0 px-3 py-2 text-[11px] font-bold uppercase tracking-widest"
+              style={{ border: "1px solid rgb(var(--gold-rgb) / 0.5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / 0.08)" }}
+            >
+              ↗ {t(lang, "KONGSI", "SHARE")}
+            </button>
           </div>
         </div>
 
-        {/* Seat counts + bar */}
-        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {[
-            { party: partyDisplay, seats: mandatSeats, color: leader.partyColor, target: t(lang, "results_page.target", { majorityTarget: majorityTarget }) },
-            { party: "LAWAN", seats: lawanSeats, color: "var(--warn-orange)", target: t(lang, "results_page.seats") },
-            { party: t(lang, "results_page.others"), seats: othersSeats, color: "var(--text-muted)", target: t(lang, "results_page.seats") },
-          ].map(({ party, seats, color, target }) => (
-            <TacticalPanel key={party}>
-              <div className="flex flex-col items-center py-3">
+        {/* Seat counts + bar in one panel */}
+        <TacticalPanel title={`${chamberLabel} · ${totalSeats} ${t(lang, "KERUSI", "SEATS")}`} className="mb-3">
+          <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              { party: partyDisplay, seats: mandatSeats, color: leader.partyColor, target: `🎯 ${majorityTarget}` },
+              { party: "LAWAN", seats: lawanSeats, color: "var(--warn-orange)", target: "" },
+              { party: t(lang, "results_page.others"), seats: othersSeats, color: "var(--text-muted)", target: "" },
+            ].map(({ party, seats, color, target }) => (
+              <div key={party} className="flex flex-col items-center">
                 <div
                   className="font-bold leading-none"
-                  style={{ fontSize: "62px", color, fontFamily: "Space Mono, monospace", textShadow: `0 0 16px ${color}44` }}
+                  style={{ fontSize: "clamp(34px, 7vw, 62px)", color, fontFamily: "Space Mono, monospace", textShadow: `0 0 16px ${color}44` }}
                 >
                   <CountUpNumber value={seats} duration={1200} />
                 </div>
-                <div className="text-[11px] text-text-muted tracking-widest mt-2">{party} {target}</div>
+                <div className="mt-1 truncate text-[10px] tracking-widest text-text-muted">{party}{target ? ` · ${target}` : ""}</div>
               </div>
-            </TacticalPanel>
-          ))}
-        </div>
-
-        <TacticalPanel title={t(lang, "results_page.seatDistributionSeats", { chamberLabel: chamberLabel, totalSeats: totalSeats, seatTypeLabel: seatTypeLabel })} className="mb-4">
-          <div className="mt-2">
-            <SeatBar mandat={mandatSeats} lawan={lawanSeats} others={othersSeats} partyName={partyDisplay} partyColor={leader.partyColor} animPhase={animPhase} totalSeats={totalSeats} majorityTarget={majorityTarget} lang={lang} />
+            ))}
           </div>
+          <SeatBar mandat={mandatSeats} lawan={lawanSeats} others={othersSeats} partyName={partyDisplay} partyColor={leader.partyColor} animPhase={animPhase} totalSeats={totalSeats} majorityTarget={majorityTarget} lang={lang} />
         </TacticalPanel>
 
         {/* State results + Campaign stats side by side */}
-        <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* State Results */}
           <TacticalPanel title={stateResultsTitle} noPadding>
             <div className="overflow-auto" style={{ maxHeight: "210px" }}>
               <table className="w-full text-[12px]" style={{ fontFamily: "Space Mono, monospace" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-                    {(isPrn ? ["NEGERI", "DUN", t(lang, "results_page.support"), t(lang, "results_page.result")] : [t(lang, "results_page.state"), t(lang, "results_page.seats2"), t(lang, "results_page.support"), t(lang, "results_page.result")]).map((h) => (
+                    {(isPrn ? [t(lang, "results_page.state"), "DUN",t(lang, "results_page.support"), t(lang, "results_page.result")] : [t(lang, "results_page.state"), t(lang, "results_page.seats2"), t(lang, "results_page.support"), t(lang, "results_page.result")]).map((h) => (
                       <th key={h} className="text-left py-2 px-3 text-text-muted font-normal text-[11px] tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -509,125 +487,117 @@ export default function ResultsPage() {
             </div>
 
             <div className="px-3 py-3" style={{ borderTop: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <div className="text-[11px] text-text-muted tracking-widest">{detailTitle}</div>
-                  <div className="text-lg font-black text-white tracking-widest">{selectedState?.name ?? "-"}</div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[14px] font-black tracking-widest text-white">📍 {selectedState?.name ?? "-"}</div>
+                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
                   {[
-                    { label: t(lang, "results_page.win"), value: selectedSeatSummary.wins, color: "var(--cyan)" },
-                    { label: t(lang, "results_page.loss"), value: selectedSeatSummary.losses, color: "var(--warn-orange)" },
-                    { label: t(lang, "results_page.oth"), value: selectedSeatSummary.others, color: "var(--text-muted)" },
-                    { label: t(lang, "results_page.turnout"), value: formatPercent(selectedSeatSummary.avgTurnout), color: "var(--neon-green)" },
+                    { icon: "✓", value: selectedSeatSummary.wins, color: "var(--cyan)", title: t(lang, "results_page.win") },
+                    { icon: "✗", value: selectedSeatSummary.losses, color: "var(--warn-orange)", title: t(lang, "results_page.loss") },
+                    { icon: "◌", value: selectedSeatSummary.others, color: "var(--text-muted)", title: t(lang, "results_page.oth") },
+                    { icon: "👥", value: formatPercent(selectedSeatSummary.avgTurnout), color: "var(--neon-green)", title: t(lang, "results_page.turnout") },
+                    { icon: "🗳️", value: formatNumber(selectedSeatSummary.totalVotes), color: "var(--text-primary)", title: t(lang, "results_page.totalValidVotesCounted") },
                   ].map((item) => (
-                    <div key={item.label} className="px-2 py-1" style={{ border: `1px solid ${item.color}33`, background: `${item.color}0f` }}>
-                      <div className="text-[10px] text-text-muted tracking-wider">{item.label}</div>
-                      <div className="text-[12px] font-bold" style={{ color: item.color }}>{item.value}</div>
-                    </div>
+                    <span key={item.title} title={item.title} className="rounded-full px-2.5 py-1" style={{ border: `1px solid ${item.color}44`, color: item.color, background: `${item.color}0f` }}>
+                      {item.icon} {item.value}
+                    </span>
                   ))}
                 </div>
               </div>
-              <div className="overflow-auto" style={{ maxHeight: "280px" }}>
-                <table className="w-full text-[11px]" style={{ fontFamily: "Space Mono, monospace" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
-                      {["KAWASAN", t(lang, "results_page.result"), "MAJORITI", t(lang, "results_page.turnout"), partyDisplay, "LAWAN", t(lang, "results_page.oth")].map((h) => (
-                        <th key={h} className="text-left py-2 pr-2 text-text-muted font-normal text-[10px] tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedSeatDetails.map((seat) => {
-                      const color = resultColor(seat.result);
-                      return (
-                        <tr key={seat.constituency.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                          <td className="py-2 pr-2 text-white font-bold">
-                            <div>{seat.constituency.name}</div>
-                            <div className="text-[9px] text-text-muted">{seat.constituency.code} · {formatNumber(seat.registeredVoters)} {t(lang, "results_page.voters")}</div>
-                          </td>
-                          <td className="py-2 pr-2">
-                            <span className="px-1.5 py-0.5 font-bold" style={{ color, border: `1px solid ${color}44`, background: `${color}16` }}>{resultLabel(lang, seat.result)}</span>
-                            <div className="text-[9px] text-text-muted mt-1">{seat.winnerLabel} {t(lang, "results_page.vs")} {seat.runnerUpLabel}</div>
-                          </td>
-                          <td className="py-2 pr-2 text-white">
-                            <div>{formatNumber(seat.majorityVotes)}</div>
-                            <div className="text-[9px]" style={{ color }}>{formatPercent(seat.majorityPct)} pts</div>
-                          </td>
-                          <td className="py-2 pr-2" style={{ color: seat.turnoutPct >= 75 ? "var(--neon-green)" : "var(--gold)" }}>
-                            <div>{formatPercent(seat.turnoutPct)}</div>
-                            <div className="text-[9px] text-text-muted">{t(lang, "results_page.votes", { formatNumberSeatVotesCast: formatNumber(seat.votesCast) })}</div>
-                          </td>
-                          <td className="py-2 pr-2" style={{ color: leader.partyColor }}>{formatPercent(seat.constituency.mandat)}</td>
-                          <td className="py-2 pr-2" style={{ color: "var(--warn-orange)" }}>{formatPercent(seat.constituency.lawan)}</td>
-                          <td className="py-2 pr-2 text-text-muted">{formatPercent(seat.constituency.others)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-2 text-[10px] text-text-muted tracking-wider">
-                {t(lang, "results_page.totalValidVotesCounted")}: {formatNumber(selectedSeatSummary.totalVotes)} · {isPrn ? t(lang, "results_page.focusedOnTheSelectedPrnState") : t(lang, "results_page.clickAnotherStateToSwitchConstituency")}
-              </div>
+              <Fold className="rounded-md border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)" }} summaryClassName="px-3 py-2 text-text-muted" summary={<>📋 {t(lang, `${selectedSeatDetails.length} KAWASAN ${seatTypeLabel}`, `${selectedSeatDetails.length} ${seatTypeLabel} SEATS`)}</>}>
+                <div className="overflow-auto px-2 pb-2" style={{ maxHeight: "280px" }}>
+                  <table className="w-full text-[11px]" style={{ fontFamily: "Space Mono, monospace" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgb(var(--cyan-rgb) / 0.15)" }}>
+                        {[t(lang, "KAWASAN", "SEAT"), t(lang, "results_page.result"), t(lang, "MAJORITI", "MAJORITY"), t(lang, "results_page.turnout"), partyDisplay, "LAWAN", t(lang, "results_page.oth")].map((h) => (
+                          <th key={h} className="text-left py-2 pr-2 text-text-muted font-normal text-[10px] tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedSeatDetails.map((seat) => {
+                        const color = resultColor(seat.result);
+                        return (
+                          <tr key={seat.constituency.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                            <td className="py-2 pr-2 text-white font-bold">
+                              <div>{seat.constituency.name}</div>
+                              <div className="text-[9px] text-text-muted">{seat.constituency.code} · {formatNumber(seat.registeredVoters)} {t(lang, "results_page.voters")}</div>
+                            </td>
+                            <td className="py-2 pr-2">
+                              <span className="px-1.5 py-0.5 font-bold" style={{ color, border: `1px solid ${color}44`, background: `${color}16` }}>{resultLabel(lang, seat.result)}</span>
+                              <div className="text-[9px] text-text-muted mt-1">{seat.winnerLabel} {t(lang, "results_page.vs")} {seat.runnerUpLabel}</div>
+                            </td>
+                            <td className="py-2 pr-2 text-white">
+                              <div>{formatNumber(seat.majorityVotes)}</div>
+                              <div className="text-[9px]" style={{ color }}>{formatPercent(seat.majorityPct)} {t(lang, "mata", "pts")}</div>
+                            </td>
+                            <td className="py-2 pr-2" style={{ color: seat.turnoutPct >= 75 ? "var(--neon-green)" : "var(--gold)" }}>
+                              <div>{formatPercent(seat.turnoutPct)}</div>
+                              <div className="text-[9px] text-text-muted">{t(lang, "results_page.votes", { formatNumberSeatVotesCast: formatNumber(seat.votesCast) })}</div>
+                            </td>
+                            <td className="py-2 pr-2" style={{ color: leader.partyColor }}>{formatPercent(seat.constituency.mandat)}</td>
+                            <td className="py-2 pr-2" style={{ color: "var(--warn-orange)" }}>{formatPercent(seat.constituency.lawan)}</td>
+                            <td className="py-2 pr-2 text-text-muted">{formatPercent(seat.constituency.others)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Fold>
             </div>
           </TacticalPanel>
 
           {/* Campaign Stats + Achievements */}
-          <div className="flex flex-col gap-4">
-            <TacticalPanel title={isPrn ? t(lang, "results_page.prnCampaignStatistics") : t(lang, "results_page.campaignStatistics")}>
-              <div className="space-y-3 mt-1">
+          <div className="flex flex-col gap-3">
+            <TacticalPanel title={t(lang, "STATISTIK KEMPEN", "CAMPAIGN STATS")}>
+              <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: supportLabel, value: <CountUpNumber value={nationalSupport} duration={1200} format={(n) => `${n}%`} />, color: nationalSupport >= 50 ? "var(--neon-green)" : "var(--gold)" },
-                  { label: t(lang, "results_page.daysCampaigned"), value: `${day} / ${totalDays}`, color: "var(--text-primary)" },
-                  { label: statesWonLabel, value: isPrn ? `${statesWon} / 1` : `${statesWon} / 14`, color: "var(--cyan)" },
-                  { label: t(lang, "results_page.statesContested"), value: `${statesContested}`, color: "var(--gold)" },
-                  { label: statesLostLabel, value: `${statesLost}`, color: "var(--neon-red)" },
-                  { label: t(lang, "results_page.fundsSpent"), value: `RM ${(fundsSpent / 1_000_000).toFixed(2)}M`, color: "var(--text-muted)" },
-                  { label: t(lang, "results_page.fundsRemaining"), value: `RM ${(resources.funds / 1_000_000).toFixed(2)}M`, color: "var(--gold)" },
-                  { label: t(lang, "results_page.groundStrength"), value: t(lang, "results_page.workers", { resourcesManpower: resources.manpower }), color: "var(--text-primary)" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "6px" }}>
-                    <span className="text-[12px] text-text-muted tracking-wider">{label}</span>
-                    <span className="text-[12px] font-bold" style={{ color, fontFamily: "Space Mono, monospace" }}>{value}</span>
+                  { icon: "📊", label: t(lang, "SOKONGAN", "SUPPORT"), value: <CountUpNumber value={nationalSupport} duration={1200} format={(n) => `${n}%`} />, color: nationalSupport >= 50 ? "var(--neon-green)" : "var(--gold)" },
+                  { icon: "📅", label: t(lang, "HARI", "DAYS"), value: `${day}/${totalDays}`, color: "var(--text-primary)" },
+                  { icon: "💸", label: t(lang, "BELANJA", "SPENT"), value: `RM ${(fundsSpent / 1_000_000).toFixed(2)}M`, color: "var(--text-muted)" },
+                  { icon: "💰", label: t(lang, "BAKI", "LEFT"), value: `RM ${(resources.funds / 1_000_000).toFixed(2)}M`, color: "var(--gold)" },
+                  { icon: "👷", label: t(lang, "JENTERA", "WORKERS"), value: formatNumber(resources.manpower), color: "var(--text-primary)" },
+                  ...(isPrn ? [] : [
+                    { icon: "🏴", label: t(lang, "NEGERI MENANG", "STATES WON"), value: `${statesWon}/${resultStates.length}`, color: "var(--cyan)" },
+                    { icon: "⚔️", label: t(lang, "SENGIT", "CONTESTED"), value: `${statesContested}`, color: "var(--gold)" },
+                    { icon: "🏳️", label: t(lang, "NEGERI KALAH", "STATES LOST"), value: `${statesLost}`, color: "var(--neon-red)" },
+                  ]),
+                ].map(({ icon, label, value, color }) => (
+                  <div key={label} className="flex flex-col items-center rounded-md border px-1 py-2 text-center" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                    <span className="text-[15px] leading-none" aria-hidden>{icon}</span>
+                    <span className="mt-1 text-[13px] font-black" style={{ color, fontFamily: "Space Mono, monospace" }}>{value}</span>
+                    <span className="mt-0.5 max-w-full truncate text-[8px] font-bold tracking-widest text-text-muted">{label}</span>
                   </div>
                 ))}
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, "results_page.achievements")}>
-              <div className="space-y-2 mt-1">
+            <Fold className="rounded-md border" style={{ borderColor: "rgb(var(--gold-rgb) / 0.25)", background: "rgb(var(--gold-rgb) / 0.03)" }} summaryClassName="px-3 py-2" summaryStyle={{ color: "var(--gold)" }} summary={<>🏅 {t(lang, "results_page.achievements")} {achievements.filter((item) => item.achieved).length}/{achievements.length}</>}>
+              <div className="flex flex-wrap gap-1.5 px-3 pb-3">
                 {achievements.map(({ labelKey, achieved }) => (
-                  <div key={labelKey} className="flex items-center gap-2.5">
-                    <div
-                      className="w-4 h-4 shrink-0 flex items-center justify-center text-[12px] font-bold"
-                      style={{
-                        background: achieved ? "rgb(var(--neon-green-rgb,21 128 61) / 0.15)" : "rgba(255,255,255,0.05)",
-                        border: `1px solid ${achieved ? "rgb(0 255 136 / 0.4)" : "rgba(255,255,255,0.1)"}`,
-                        color: achieved ? "var(--neon-green)" : "#4a5568",
-                      }}
-                    >
-                      {achieved ? "✓" : "✗"}
-                    </div>
-                    <span
-                      className="text-[12px] tracking-wider"
-                      style={{ color: achieved ? "var(--text-primary)" : "#4a5568" }}
-                    >
-                      {t(lang, labelKey)}
-                    </span>
-                  </div>
+                  <span
+                    key={labelKey}
+                    className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider"
+                    style={{
+                      border: `1px solid ${achieved ? "rgb(0 255 136 / 0.4)" : "rgba(255,255,255,0.1)"}`,
+                      background: achieved ? "rgb(var(--neon-green-rgb,21 128 61) / 0.12)" : "transparent",
+                      color: achieved ? "var(--neon-green)" : "#4a5568",
+                    }}
+                  >
+                    {achieved ? "✓" : "✗"} {t(lang, labelKey)}
+                  </span>
                 ))}
               </div>
-            </TacticalPanel>
+            </Fold>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <button
             onClick={handleRestart}
             disabled={isPending}
-            className="px-6 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
+            className="min-h-[44px] px-4 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
             style={{
               background: "transparent",
               border: "1px solid rgb(var(--cyan-rgb) / 0.3)",
@@ -635,7 +605,20 @@ export default function ResultsPage() {
               fontFamily: "Space Mono, monospace",
             }}
           >
-            {isPending ? t(lang, "results_page.loading") : t(lang, "results_page.returnToMenu")}
+            {isPending ? t(lang, "results_page.loading") : `☰ ${t(lang, "MENU", "MENU")}`}
+          </button>
+          <button
+            onClick={handleNewCampaign}
+            disabled={isPending}
+            className="min-h-[44px] px-4 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
+            style={{
+              background: "rgb(var(--cyan-rgb) / 0.08)",
+              border: "1px solid rgb(var(--cyan-rgb) / 0.45)",
+              color: "var(--cyan)",
+              fontFamily: "Space Mono, monospace",
+            }}
+          >
+            {isPending ? t(lang, "results_page.loading") : `↻ ${t(lang, "KEMPEN BARU", "NEW CAMPAIGN")}`}
           </button>
           <button
             onClick={() => {
@@ -645,30 +628,15 @@ export default function ResultsPage() {
               navigate(repRoute ?? (wonOwnSeat ? "/elected" : "/mandate"));
             }}
             disabled={isPending}
-            className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
+            className="min-h-[44px] min-w-[200px] px-6 py-3 text-[12px] font-black tracking-widest uppercase transition-all active:scale-[.97] hover:opacity-90 disabled:opacity-50 disabled:cursor-wait"
             style={{
-              background: "rgb(var(--gold-rgb) / 0.13)",
-              border: "1px solid rgb(var(--gold-rgb) / 0.55)",
-              color: "var(--gold)",
+              background: "var(--gold)",
+              color: "#05080e",
               fontFamily: "Space Mono, monospace",
-              boxShadow: "0 0 18px rgb(var(--gold-rgb) / 0.16)",
+              boxShadow: "0 0 22px rgb(var(--gold-rgb) / 0.3)",
             }}
           >
             {isPending ? t(lang, "results_page.loading") : journey.rank ? t(lang, "▶ PENGGAL SETERUSNYA", "▶ NEXT TERM") : t(lang, "♛ SAHKAN MANDAT", "♛ CONFIRM MANDATE")}
-          </button>
-          <button
-            onClick={handleNewCampaign}
-            disabled={isPending}
-            className="px-8 py-3 text-[12px] font-bold tracking-widest uppercase transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
-            style={{
-              background: "rgb(var(--cyan-rgb) / 0.12)",
-              border: "1px solid rgb(var(--cyan-rgb) / 0.5)",
-              color: "var(--cyan)",
-              fontFamily: "Space Mono, monospace",
-              boxShadow: "0 0 16px rgb(var(--cyan-rgb) / 0.15)",
-            }}
-          >
-            {isPending ? t(lang, "results_page.loading") : t(lang, "results_page.newCampaign")}
           </button>
         </div>
       </main>
