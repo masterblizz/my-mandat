@@ -1746,6 +1746,11 @@ input[type="range"].range-red::-moz-range-thumb {
     position: fixed; top: 32px; bottom: 68px; left: 0; right: 0; overflow-y: auto; min-height: 0 !important;
     padding-top: 6px !important; padding-bottom: 8px !important;
   }
+  /* the Ultimate upsell shrinks to one line so the step's own choices show */
+  .setup-ultimate { margin-bottom: 8px !important; padding: 6px 12px !important; gap: 8px !important; flex-wrap: nowrap !important; }
+  .setup-ultimate h2 { font-size: 13px !important; margin-top: 0 !important; }
+  .setup-ultimate__desc { display: none; }
+  .setup-ultimate button { padding: 6px 12px !important; }
   .settings-screen > div:nth-of-type(2) { height: 32px !important; }
   .settings-screen > div:nth-of-type(3) { min-height: 0 !important; padding-top: 8px !important; padding-bottom: 8px !important; gap: 12px !important; }
   .load-game-screen { height: 100dvh; min-height: 0 !important; overflow-y: auto !important; padding: 10px 16px !important; }

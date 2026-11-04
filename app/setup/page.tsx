@@ -68,11 +68,11 @@ function UltimatePlanCard({ hasUltimate, isLoading }: { hasUltimate: boolean; is
   if (hasUltimate || isLoading) return null;
 
   return (
-    <section className="mb-5 flex w-full max-w-[1100px] flex-wrap items-center justify-between gap-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgb(var(--bg-rgb) / 0.9))" }}>
+    <section className="setup-ultimate mb-5 flex w-full max-w-[1100px] flex-wrap items-center justify-between gap-4 border p-4" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)", background: "linear-gradient(135deg, rgb(var(--gold-rgb) / 0.12), rgb(var(--bg-rgb) / 0.9))" }}>
       <div>
         <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>✦ {t(lang, "setup_page.ultimatePlan")}</div>
         <h2 className="mt-1 text-lg font-black text-white">{t(lang, "setup_page.ultimateTitle")}</h2>
-        <p className="mt-1 max-w-2xl text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t(lang, "setup_page.ultimateDescription")}</p>
+        <p className="setup-ultimate__desc mt-1 max-w-2xl text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t(lang, "setup_page.ultimateDescription")}</p>
       </div>
       <UpgradeButton priceId={PREMIUM_PRICE_IDS.ultimateMonthly} mode="subscription" label={t(lang, "setup_page.getUltimate")} className="border border-gold bg-gold px-5 py-3 text-xs font-black tracking-wider text-black disabled:opacity-50" />
     </section>
@@ -1174,68 +1174,70 @@ export default function SetupPage() {
             </div>
           )}
 
-          {/* Navigation — fixed above HUD so bottom controls are never hidden by the status/music overlays */}
-          <div
-            className="setup-nav fixed left-0 right-0 z-[70] px-4 py-3"
-            style={{
-              bottom: "36px",
-              background: "linear-gradient(180deg, rgba(8,12,20,0.82), var(--bg))",
-              borderTop: "1px solid rgb(var(--cyan-rgb) / 0.18)",
-            }}
-          >
-            <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-2">
-              <button
-                onClick={handleBack}
-                disabled={step === 0}
-                className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:opacity-30 sm:px-6 sm:text-[13px] sm:tracking-widest"
-                style={{
-                  border: "1px solid var(--gold)",
-                  color: "var(--gold)",
-                  background: "transparent",
-                  fontFamily: "Space Mono, monospace",
-                  cursor: step === 0 ? "not-allowed" : "pointer",
-                }}
-              >
-                {t(lang, "setup_page.back")}
-              </button>
-
-              <div className="whitespace-nowrap text-[11px] text-text-muted tracking-wider sm:text-[12px]">
-                <span className="sm:hidden">{step + 1}/6</span>
-                <span className="hidden sm:inline">{t(lang, "setup_page.step6", { step: step + 1 })}</span>
-              </div>
-
-              {step < 5 ? (
-                <button
-                  onClick={handleNext}
-                  disabled={(step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId)}
-                  className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40 sm:px-6 sm:text-[13px] sm:tracking-widest"
-                  style={{
-                    background: "var(--gold)",
-                    color: "#000000",
-                    fontFamily: "Space Mono, monospace",
-                  }}
-                >
-                  {t(lang, "setup_page.next")}
-                </button>
-              ) : (
-                <button
-                  onClick={handleLaunch}
-                  disabled={isLaunching}
-                  className="whitespace-nowrap px-3 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-60 disabled:cursor-wait sm:px-6 sm:text-[13px] sm:tracking-widest"
-                  style={{
-                    background: "var(--gold)",
-                    color: "#000000",
-                    fontFamily: "Space Mono, monospace",
-                    boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)",
-                  }}
-                >
-                  {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launch")}
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       </main>
+      {/* Navigation — fixed above HUD so bottom controls are never hidden by the status/music overlays.
+          Kept outside <main>: in landscape <main> is itself a fixed scroll container,
+          and iOS Safari clips fixed children of such a scroller (the buttons vanished). */}
+      <div
+        className="setup-nav fixed left-0 right-0 z-[70] px-4 py-3"
+        style={{
+          bottom: "36px",
+          background: "linear-gradient(180deg, rgba(8,12,20,0.82), var(--bg))",
+          borderTop: "1px solid rgb(var(--cyan-rgb) / 0.18)",
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-2">
+          <button
+            onClick={handleBack}
+            disabled={step === 0}
+            className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:opacity-30 sm:px-6 sm:text-[13px] sm:tracking-widest"
+            style={{
+              border: "1px solid var(--gold)",
+              color: "var(--gold)",
+              background: "transparent",
+              fontFamily: "Space Mono, monospace",
+              cursor: step === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            {t(lang, "setup_page.back")}
+          </button>
+
+          <div className="whitespace-nowrap text-[11px] text-text-muted tracking-wider sm:text-[12px]">
+            <span className="sm:hidden">{step + 1}/6</span>
+            <span className="hidden sm:inline">{t(lang, "setup_page.step6", { step: step + 1 })}</span>
+          </div>
+
+          {step < 5 ? (
+            <button
+              onClick={handleNext}
+              disabled={(step === 1 && !leaderName.trim()) || (step === 2 && electionScope === "prn" && !prnCandidateId) || (step === 3 && !contestConstituencyId)}
+              className="whitespace-nowrap px-3 py-2 text-[12px] tracking-wider uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40 sm:px-6 sm:text-[13px] sm:tracking-widest"
+              style={{
+                background: "var(--gold)",
+                color: "#000000",
+                fontFamily: "Space Mono, monospace",
+              }}
+            >
+              {t(lang, "setup_page.next")}
+            </button>
+          ) : (
+            <button
+              onClick={handleLaunch}
+              disabled={isLaunching}
+              className="whitespace-nowrap px-3 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-60 disabled:cursor-wait sm:px-6 sm:text-[13px] sm:tracking-widest"
+              style={{
+                background: "var(--gold)",
+                color: "#000000",
+                fontFamily: "Space Mono, monospace",
+                boxShadow: "0 0 16px rgb(var(--gold-rgb) / 0.35)",
+              }}
+            >
+              {isLaunching ? t(lang, "setup_page.loading") : t(lang, "setup_page.launch")}
+            </button>
+          )}
+        </div>
+      </div>
       <StatusBar />
     </div>
   );
