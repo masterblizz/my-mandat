@@ -8,6 +8,7 @@ import ConfettiCanvas from "../ui/ConfettiCanvas";
 import { useGameStore } from "../../store/gameStore";
 import { useLang, t } from "../../i18n/useLang";
 import { governingSeats, outcomeOf, resumeRoute, type Chapter } from "../../store/journey";
+import { HudButton, InfoFold, NumTile, PageHead, StatChip } from "../formation/Hud";
 
 export default function TermDashboard({ expected }: { expected?: Chapter }) {
   const s = useGameStore();
@@ -26,19 +27,26 @@ export default function TermDashboard({ expected }: { expected?: Chapter }) {
   const term = ["government", "opposition", "rebuilding"].includes(j.chapter);
   const title = j.chapter === "government" ? t(lang, "TUNAIKAN MANDAT", "DELIVER YOUR MANDATE") : j.chapter === "opposition" ? t(lang, "BINA GERAKAN KEMBALI", "BUILD YOUR COMEBACK") : j.rank ? t(lang, `REBUT SEMULA ${s.leader.homeConstituencyName.toUpperCase()}`, `WIN BACK ${s.leader.homeConstituencyName.toUpperCase()}`) : t(lang, "BINA SEMULA PARTI", "REBUILD THE PARTY");
   return <div className="min-h-screen bg-[var(--bg)]"><Header />{celebrate && <ConfettiCanvas colors={["#00e5ff", "#ffca28", "#ffffff"]} duration={2000} particleCount={60} />}<main className="mx-auto max-w-7xl px-4 pb-16 pt-16">
-    {!term || (expected && expected !== j.chapter) ? <section className="border border-cyan/30 p-6"><h1 className="text-xl font-bold text-gold">{t(lang, "Ikuti bab semasa", "Continue your current chapter")}</h1><p className="my-3 text-text-muted">{t(lang, "Selesaikan pilihan raya dan sahkan peranan anda sebelum mengurus penggal.", "Complete the election and confirm your role before managing a term.")}</p><Link className="text-cyan underline" href={resumeRoute(s)}>{t(lang, "Teruskan →", "Continue →")}</Link></section> : <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><div className="text-xs tracking-widest text-gold">{s.settings.electionScope.toUpperCase()} {s.settings.electionScope === "prn" ? s.states.find(x => x.id === s.settings.prnStateId)?.name : ""} · {s.leader.partyAbbr}</div><h1 className="mt-2 text-2xl font-black text-white">{title}</h1><p className="mt-2 text-text-muted">{t(lang, `Penggal ${s.careerProgress.term} · Bulan ${s.careerProgress.month}/60`, `Term ${s.careerProgress.term} · Month ${s.careerProgress.month}/60`)}</p></div>
-      <button className="border border-gold/60 bg-gold/10 px-5 py-3 font-bold text-gold hover:bg-gold/20" onClick={() => { if (s.careerProgress.month >= 60) router.push("/report-card"); else s.journeyAction({ type: "quarter" }); }}>{s.careerProgress.month >= 60 ? t(lang, "Buka kad laporan penggal →", "Open term report card →") : t(lang, "Majukan suku tahun →", "Advance quarter →")}</button></div>
-      <div className="mb-4 h-2 bg-white/10"><div className="h-2 bg-[var(--gold)]" style={{ width: `${s.careerProgress.month / 60 * 100}%` }} /></div>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="border border-gold/30 p-4"><div className="text-xs text-text-muted">{t(lang, "JANJI SIAP", "PROMISES DELIVERED")}</div><div className="mt-2 text-3xl font-bold text-gold">{delivered}/{j.pledges.length}</div></div>
-        <div className="border border-cyan/30 p-4"><div className="text-xs text-text-muted">{j.chapter === "government" ? t(lang, "SOKONGAN DEWAN", "ASSEMBLY SUPPORT") : t(lang, "SASARAN JENTERA", "ORGANISATION TARGET")}</div><div className="mt-2 text-3xl font-bold text-cyan">{j.chapter === "government" ? `${governingSeats(s)}/${outcomeOf(s).majorityTarget}` : `${j.organisation}/65`}</div></div>
-        <div className="border border-cyan/30 p-4"><div className="text-xs text-text-muted">{t(lang, "KEPERCAYAAN AWAM", "PUBLIC TRUST")}</div><div className="mt-2 text-3xl font-bold text-cyan">{j.trust}%</div></div>
+    {!term || (expected && expected !== j.chapter) ? <section className="border border-cyan/30 p-5 text-center"><h1 className="text-xl font-bold text-gold">🧭 {t(lang, "Ikuti bab semasa", "Continue your current chapter")}</h1><Link className="mt-4 inline-flex min-h-[40px] items-center border border-cyan/40 bg-cyan/5 px-5 font-black tracking-widest text-cyan" href={resumeRoute(s)}>{t(lang, "TERUSKAN →", "CONTINUE →")}</Link></section> : <>
+      <PageHead
+        title={title}
+        chips={<>
+          <StatChip icon="🗳️">{s.settings.electionScope.toUpperCase()}{s.settings.electionScope === "prn" ? ` ${s.states.find(x => x.id === s.settings.prnStateId)?.name ?? ""}` : ""}</StatChip>
+          <StatChip icon="🏳️" color="var(--cyan)">{s.leader.partyAbbr}</StatChip>
+          <StatChip icon="📅" color="var(--cyan)">{t(lang, `P${s.careerProgress.term} · ${s.careerProgress.month}/60`, `T${s.careerProgress.term} · ${s.careerProgress.month}/60`)}</StatChip>
+        </>}
+        actions={<HudButton tone="gold" onClick={() => { if (s.careerProgress.month >= 60) router.push("/report-card"); else s.journeyAction({ type: "quarter" }); }}>{s.careerProgress.month >= 60 ? `📋 ${t(lang, "KAD LAPORAN", "REPORT CARD")} →` : `⏩ ${t(lang, "SUKU SETERUSNYA", "NEXT QUARTER")}`}</HudButton>}
+      />
+      <div className="mb-3 h-2 bg-white/10"><div className="h-2 bg-[var(--gold)]" style={{ width: `${s.careerProgress.month / 60 * 100}%` }} /></div>
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        <NumTile icon="✅" label={t(lang, "JANJI SIAP", "DELIVERED")} value={`${delivered}/${j.pledges.length}`} color="var(--gold)" />
+        <NumTile icon={j.chapter === "government" ? "🏛️" : "⚙️"} label={j.chapter === "government" ? t(lang, "SOKONGAN DEWAN", "ASSEMBLY") : t(lang, "JENTERA", "ORGANISATION")} value={j.chapter === "government" ? `${governingSeats(s)}/${outcomeOf(s).majorityTarget}` : `${j.organisation}/65`} />
+        <NumTile icon="🤝" label={t(lang, "KEPERCAYAAN", "TRUST")} value={`${j.trust}%`} />
       </div>
-      <p className="mb-4 text-sm text-text-muted">{j.chapter === "government" ? t(lang, "Matlamat: siapkan janji, jaga gabungan dan pertahankan rekod. Projek memerlukan dua suku tahun; prestasi kabinet mempengaruhi kepercayaan.", "Objective: deliver commitments, maintain the coalition and defend your record. Projects take two quarters; cabinet performance affects trust.") : t(lang, "Matlamat: capai jentera 65 dan kepercayaan 60 sebelum pilihan raya. Bina cawangan, latih calon dan semak dasar kerajaan untuk memperkukuh sokongan.", "Objective: reach organisation 65 and trust 60 before the election. Build branches, train candidates and scrutinise government policy to strengthen support.")}</p>
+      <div className="mb-3"><InfoFold label={t(lang, "Matlamat", "Objective")}>{j.chapter === "government" ? t(lang, "Siapkan janji, jaga gabungan dan pertahankan rekod. Projek memerlukan dua suku tahun; prestasi kabinet mempengaruhi kepercayaan.", "Deliver commitments, maintain the coalition and defend your record. Projects take two quarters; cabinet performance affects trust.") : t(lang, "Capai jentera 65 dan kepercayaan 60 sebelum pilihan raya. Bina cawangan, latih calon dan semak dasar kerajaan.", "Reach organisation 65 and trust 60 before the election. Build branches, train candidates and scrutinise government policy.")}</InfoFold></div>
       <JourneyPanel />
-      {j.records.length > 0 && <section className="border border-gold/30 p-4"><h2 className="font-bold text-gold">{t(lang, "Legasi politik", "Political legacy")}</h2>{j.records.map(r => <p key={r.term} className="mt-2 text-sm text-text-muted">{t(lang, `Penggal ${r.term}: ${r.seats} kerusi · ${r.delivered} janji siap · kepercayaan ${r.trust}`, `Term ${r.term}: ${r.seats} seats · ${r.delivered} commitments delivered · trust ${r.trust}`)}</p>)}</section>}
-      <Link className="mt-4 inline-block text-cyan underline" href="/sandbox">{t(lang, "Teroka simulasi negara", "Explore national simulation")}</Link>
+      {j.records.length > 0 && <section className="border border-gold/30 p-4"><h2 className="font-bold text-gold">🏅 {t(lang, "Legasi politik", "Political legacy")}</h2>{j.records.map(r => <p key={r.term} className="mt-2 text-sm text-text-muted">{t(lang, `Penggal ${r.term}`, `Term ${r.term}`)}: 🪑 {r.seats} · ✅ {r.delivered} · 🤝 {r.trust}</p>)}</section>}
+      <Link className="mt-4 inline-flex min-h-[40px] items-center text-cyan underline" href="/sandbox">🌐 {t(lang, "Simulasi negara", "National simulation")}</Link>
     </>}
   </main></div>;
 }
