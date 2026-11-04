@@ -1802,3 +1802,27 @@ input[type="range"].range-red::-moz-range-thumb {
   .city-build-dock > div { flex-wrap: nowrap; min-width: 0; }
   .city-build-dock * { min-width: 0; }
 }
+
+/* Sky life over the Godot city (CitySkyLife.tsx). */
+.sky-cloud {
+  position: absolute; left: 0; width: 220px; height: 70px;
+  transform: scale(var(--cloud-scale, 1));
+  animation: skyCloudDrift linear infinite;
+  filter: blur(6px);
+}
+.sky-cloud span { position: absolute; border-radius: 999px; background: var(--cloud-color, #fff); }
+.sky-cloud span:nth-child(1) { left: 10px; top: 28px; width: 190px; height: 38px; }
+.sky-cloud span:nth-child(2) { left: 38px; top: 8px; width: 80px; height: 56px; }
+.sky-cloud span:nth-child(3) { left: 96px; top: 0; width: 92px; height: 64px; }
+.sky-cloud span:nth-child(4) { left: 150px; top: 18px; width: 58px; height: 42px; }
+@keyframes skyCloudDrift { from { translate: -260px 0; } to { translate: calc(100vw + 40px) 0; } }
+.sky-flock { position: absolute; left: 0; height: auto; animation: skyFlockEast linear infinite both; opacity: 0; }
+.sky-flock--west { animation-name: skyFlockWest; }
+@keyframes skyFlockEast { 0% { translate: -120px 0; opacity: 0; } 4% { opacity: 1; } 55% { translate: 105vw -30px; opacity: 1; } 56%, 100% { translate: 105vw -30px; opacity: 0; } }
+@keyframes skyFlockWest { 0% { translate: 105vw 0; opacity: 0; scale: -1 1; } 4% { opacity: 1; scale: -1 1; } 55% { translate: -120px -24px; opacity: 1; scale: -1 1; } 56%, 100% { translate: -120px -24px; opacity: 0; scale: -1 1; } }
+.sky-bird-wing { transform-box: fill-box; transform-origin: center bottom; animation: skyWingFlap 0.42s ease-in-out infinite alternate; }
+@keyframes skyWingFlap { from { transform: scaleY(1); } to { transform: scaleY(-0.35); } }
+@media (prefers-reduced-motion: reduce) {
+  .sky-cloud, .sky-flock, .sky-bird-wing { animation: none; }
+  .sky-flock { display: none; }
+}
