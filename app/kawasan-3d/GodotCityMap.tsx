@@ -18,7 +18,7 @@ import type { SeatTraits, Zone } from "./cityData";
 import { t, type Lang } from "../i18n/useLang";
 import CitySkyLife from "./CitySkyLife";
 
-export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "https://kawasan-3d-city.surge.sh/";
+export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "/godot/kawasan-city/index.html";
 
 export type GodotSeatProfile = { code: string; name: string; density: number; traits: SeatTraits };
 
@@ -34,7 +34,7 @@ export type GodotCityMapProps = {
 export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%" }: GodotCityMapProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
-  const origin = useMemo(() => new URL(GODOT_CITY_URL).origin, []);
+  const origin = useMemo(() => typeof window === "undefined" ? "" : new URL(GODOT_CITY_URL, window.location.href).origin, []);
 
   // Only the fields the city draws; projects/building lists stay page-side.
   const state = useMemo(() => ({

@@ -1,0 +1,2022 @@
+extends Node3D
+## Procedural Malaysian city, the Godot take on the MY MANDAT Kawasan 3D map.
+##
+## No street grid: radial arterials wander out from a landmark centre,
+## wavy ring arcs and taman crescents run between them, with lorong
+## connectors and cul-de-sacs. Buildings are placed along each kerb by
+## zone (office towers, shophouse rows, terraces and bungalows, kampung)
+## against an occupancy map, and the leftover ground fills with trees.
+## Everything repeated is drawn through one MultiMesh per (mesh,
+## material) bucket.
+##
+## Keys: T cycles day / dusk / night, R resets the camera.
+## Command line (after `--`): --shot=<png> --view=city|core|taman --tod=0|1|2
+
+const SPAN := 1100.0           # rough city diameter; the camera pans within it
+const CELL := 2.0              # occupancy map resolution, metres
+const EXT := 1200.0            # occupancy map half-extent
+const GN := int(EXT * 2.0 / CELL)
+const RIVER_HALF := 15.0
+const HIGHWAY_HALF := 11.0
+const LRT_Y := 10.0             # guideway soffit height
+
+const C_CONCRETE := Color(0.72, 0.71, 0.68)
+const C_PAVING := Color(0.5, 0.46, 0.41)
+const C_KERB := Color(0.6, 0.58, 0.54)
+const C_ASPHALT := Color(0.16, 0.17, 0.18)
+
+const HOUSE_WALLS := [
+	Color("f2e2b8"), Color("f0cfb0"), Color("cfe6c4"), Color("d8d0ec"),
+	Color("f4cfc0"), Color("bfe0e8"), Color("f5f1e6"), Color("e8d9a8"),
+]
+const SHOPHOUSE_WALLS := [
+	Color("f0c9a8"), Color("f2d98c"), Color("a8dcc0"), Color("a8cfe8"),
+	Color("f2aca0"), Color("d4c0ec"), Color("f6e2b0"), Color("ffffff"),
+]
+const ROOFS := [Color("a4573f"), Color("5e6268"), Color("8e3f2e"), Color("4a5d6c"), Color("b06446"), Color("6b5a52")]
+const ZINC := [Color("8d969a"), Color("7a5a3e"), Color("9a5a3c"), Color("7f8a8e")]
+# KL-style skyline: blue and smoked glass mixed with stone and dark-grey towers
+const GLASS := [Color("6f97ab"), Color("c4cfd0"), Color("5d88a0"), Color("9fb4bd"), Color("3f5563"), Color("56646c"), Color("8a8f8c"), Color("b8ad9c")]
+const CONDO_WALLS := [Color("f4f1ea"), Color("e9e4d8"), Color("dfe6ea"), Color("d9c8ad"), Color("c9bfae"), Color("b9b4aa"), Color("d4c2a2")]
+const CONDO_ACCENTS := [Color("c0392b"), Color("2e6da4"), Color("d68910"), Color("1e8449"), Color("7d3c98"), Color("566573")]
+const SIGNS := [Color("e53935"), Color("fdd835"), Color("1e88e5"), Color("43a047"), Color("fb8c00"), Color("8e24aa")]
+
+var rng := RandomNumberGenerator.new()
+var buckets := {}
+var tod := 0
+var frame := Transform3D.IDENTITY      # local -> world for the builders
+var occ := PackedByteArray()
+var roads := []                        # {pts, cum, cls, half, wet, gaps}
+var ground_st := SurfaceTool.new()
+var river_pts := PackedVector3Array()
+var highway_pts := PackedVector3Array()
+var highway_curve: Curve3D
+var lrt_curves := []                  # Curve3D per elevated LRT line
+
+# ── seat profile ── set from the game for each constituency (apply_profile)
+var tier := "metro"                    # metro | city | town | rural
+var view_scale := 1.0                  # 1 = full KL metropolis footprint
+## Kuala Lumpur landmarks keep their real layout at one map scale:
+## 1 real km = KL_SCALE game metres, for distances and heights alike.
+## Real positions (WGS84): Petronas 3.15785 N 101.71165 E, Menara KL
+## 3.15278 N 101.70384 E, Merdeka 118 3.14194 N 101.70028 E. Game x is
+## east, z is south, the twin towers at the origin.
+const KL_SCALE := 250.0
+const KL_TOWER_KM := Vector2(-0.868, 0.561)    # 1.03 km WSW of KLCC
+const MERDEKA_KM := Vector2(-1.264, 1.759)     # 2.17 km SSW of KLCC
+const KLCC_PARK_KM := Vector2(0.24, 0.2)       # the park just SE of the towers
+var cbd_axis := Vector3.ZERO                    # KLCC -> Merdeka high-rise corridor
+var r_core := 175.0                    # zone radii from the centre
+var r_commercial := 265.0
+var r_taman := 430.0
+var r_city := 560.0
+var landmarks := true                  # KLCC, Menara KL, Merdeka 118: Bukit Bintang only
+var has_lrt := true
+var has_highway := true
+var traits := {}
+var seat_seed := 2026
+var feature_turn := 0.0                # rotates river / highway / LRT per seat
+var sea_dir := Vector3.ZERO            # coastal seats: direction of the sea
+var industrial_bearing := INF
+var gen: Node3D                        # everything generated for the current seat
+var lots := []                         # {p, kind} for every placed building / site
+var town_centre := Vector3.ZERO         # dataran, or KLCC in Bukit Bintang
+var _profile_key := ""
+
+var box_mesh := BoxMesh.new()
+var prism_mesh := PrismMesh.new()
+var cyl_mesh := CylinderMesh.new()
+var oct_mesh := CylinderMesh.new()
+var sphere_mesh := SphereMesh.new()
+
+var mat_plain: StandardMaterial3D
+var mat_roof: StandardMaterial3D
+var mat_glass: StandardMaterial3D
+var mat_lowrise: StandardMaterial3D
+var mat_landmark: StandardMaterial3D
+var mat_water: StandardMaterial3D
+var mat_ground: StandardMaterial3D
+var mat_lawn: StandardMaterial3D
+var mat_tree: StandardMaterial3D
+var tree_broadleaf_mesh: Mesh
+var tree_palm_mesh: Mesh
+
+var sun: DirectionalLight3D
+var env: Environment
+var sky_mat: ProceduralSkyMaterial
+
+
+func _ready() -> void:
+	_make_meshes()
+	_make_materials()
+	_setup_environment()
+	if OS.has_feature("web") or OS.has_feature("mobile"):
+		_lighten_for_mobile()
+	# The zone layer talks to the game. Inside the game it waits for the
+	# seat's profile before anything is built; standalone it applies a
+	# Bukit Bintang demo profile straight away.
+	var zl := preload("res://zone_layer.gd").new()
+	zl.name = "Zones"
+	add_child(zl)
+	zl.setup(self)
+	_build_hud()
+	_apply_cli()
+
+
+## Seat profile from the game: {code, name, density (0..1), traits}. The
+## city is rebuilt only when the profile actually changes.
+func apply_profile(p: Dictionary) -> void:
+	var key := JSON.stringify(p)
+	if key == _profile_key:
+		return
+	_profile_key = key
+	# let the "building" label paint before the (blocking) generation runs
+	if _build_label:
+		_build_label.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if key != _profile_key:
+		return   # a newer seat arrived while waiting; that one builds
+	_configure(p)
+	_build()
+	if _build_label:
+		_build_label.visible = false
+
+
+func _configure(p: Dictionary) -> void:
+	traits = p.get("traits", {})
+	var d := float(p.get("density", 0.9))
+	var kl := bool(traits.get("klLandmarks", false)) or bool(traits.get("bukitBintang", false))
+	landmarks = bool(traits.get("bukitBintang", false))
+	# Only Kuala Lumpur seats reach the full metropolis; elsewhere density
+	# picks a state city, a pekan or a village, and paddy / coastal seats
+	# stay a town even when busy.
+	if kl:
+		tier = "metro" if d >= 0.62 else "city"
+	elif d >= 0.62:
+		tier = "city"
+	elif d >= 0.3:
+		tier = "town"
+	else:
+		tier = "rural"
+	if not kl and tier == "city" and (bool(traits.get("paddy", false)) or bool(traits.get("coastal", false))):
+		tier = "town"
+	view_scale = {"metro": 1.2, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
+	cbd_axis = Vector3(MERDEKA_KM.x, 0, MERDEKA_KM.y) * KL_SCALE if landmarks else Vector3.ZERO
+	r_core = 175.0 * view_scale
+	r_commercial = 265.0 * view_scale
+	r_taman = 430.0 * view_scale
+	r_city = 560.0 * view_scale
+	has_lrt = tier == "metro"
+	var choices: Array = {"metro": ["radial"], "city": ["oldtown", "taman", "radial"],
+		"town": ["strip", "oldtown", "taman"], "rural": ["strip", "taman"]}[tier]
+	layout = str(p.get("layout", choices[absi(hash(str(p.get("code", "")) + ":layout")) % choices.size()]))
+	if landmarks:
+		layout = "radial"
+	radials = {"metro": 7, "city": 7, "town": 6, "rural": 4}[tier]
+	ring_keep = {"metro": 1.0, "city": 0.9, "town": 0.7, "rural": 0.4}[tier]
+	has_highway = tier != "rural"
+	seat_seed = hash(str(p.get("code", "demo")))
+
+
+func _build() -> void:
+	if gen:
+		gen.free()
+	gen = Node3D.new()
+	gen.name = "Gen"
+	add_child(gen)
+	rng.seed = seat_seed
+	feature_turn = rng.randf() * TAU
+	sea_dir = Vector3.ZERO
+	if bool(traits.get("coastal", false)):
+		sea_dir = Vector3(cos(feature_turn + PI), 0, sin(feature_turn + PI))
+	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
+	occ = PackedByteArray()
+	occ.resize(GN * GN)
+	roads = []
+	lots = []
+	town_centre = Vector3.ZERO
+	buckets = {}
+	lrt_curves = []
+	_rad_ang = []
+	_rad_ph = []
+	_arcs = {}
+	frame = Transform3D.IDENTITY
+	ground_st = SurfaceTool.new()
+	ground_st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_build_ground()
+	_build_features()
+	_gen_roads()
+	_draw_roads()
+	_build_specials()
+	if has_lrt:
+		_build_lrt()
+	_frontage()
+	# lawns and shade trees on the paved centre, in whatever space the
+	# buildings left (runs after them so it never takes a lot)
+	if tier in ["metro", "city"]:
+		_plaza_greenery(r_core - 10.0)
+	elif tier == "town" and layout == "radial":
+		_plaza_greenery(r_core * 0.6)
+	_fill_trees()
+	_flush_buckets()
+	var gmi := MeshInstance3D.new()
+	gmi.mesh = ground_st.commit()
+	gmi.material_override = mat_ground
+	gen.add_child(gmi)
+	$Traffic.setup(self)
+	$Zones.relayout()
+	$CameraRig.view_scale = view_scale
+	$CameraRig.preset("city")
+
+
+## Phones get a smaller shadow atlas, two cascades and a shorter shadow
+## range; the UI scales with the screen's pixel density.
+var _mobile := false
+
+
+func _lighten_for_mobile() -> void:
+	_mobile = true
+	set_tod(tod)
+	RenderingServer.directional_shadow_atlas_set_size(2048, true)
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 450.0
+	# the Compatibility renderer skips SSAO / colour adjustment, so trim the
+	# sky fill and haze that otherwise bleach the city
+	env.fog_aerial_perspective = 0.0
+	env.ambient_light_sky_contribution = 0.45
+	env.ambient_light_color = Color(0.34, 0.4, 0.55)
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	get_window().content_scale_factor = clampf(DisplayServer.screen_get_scale(), 1.0, 3.0)
+
+
+var _tod_btn: Button
+var _build_label: Label
+const TOD_NAMES := ["Siang", "Senja", "Malam"]
+
+
+
+
+## Malaysia's day: light from ~7am, an hour of dusk after ~7pm, then night.
+func _follow_clock() -> void:
+	var h: int = int(str(JavaScriptBridge.eval("new Date().getHours()", true))) if OS.has_feature("web") else Time.get_datetime_dict_from_system().hour
+	var t := 0 if (h >= 7 and h < 19) else (1 if h == 19 else 2)
+	if t != tod:
+		set_tod(t)
+
+
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var embedded: bool = $Zones.is_embedded()
+	var bar := HBoxContainer.new()
+	bar.position = Vector2(12, 12)
+	if embedded:
+		# Inside the game its own HUD owns the screen: no buttons here, and
+		# the time of day follows the real clock like the WebGL map does.
+		bar.visible = false
+		_follow_clock()
+		var timer := Timer.new()
+		timer.wait_time = 60.0
+		timer.autostart = true
+		timer.timeout.connect(_follow_clock)
+		add_child(timer)
+	bar.add_theme_constant_override("separation", 8)
+	layer.add_child(bar)
+	_tod_btn = Button.new()
+	_tod_btn.text = "Waktu: Siang"
+	_tod_btn.custom_minimum_size = Vector2(130, 40)
+	_tod_btn.pressed.connect(func(): set_tod((tod + 1) % 3))
+	bar.add_child(_tod_btn)
+	var reset := Button.new()
+	reset.text = "Reset kamera"
+	reset.custom_minimum_size = Vector2(130, 40)
+	reset.pressed.connect(func(): $CameraRig.preset("city"))
+	bar.add_child(reset)
+	_build_label = Label.new()
+	_build_label.text = "Membina bandar…"
+	_build_label.add_theme_font_size_override("font_size", 22)
+	_build_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
+	_build_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	_build_label.add_theme_constant_override("outline_size", 6)
+	_build_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_build_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_build_label.visible = gen == null
+	layer.add_child(_build_label)
+	var hint := Label.new()
+	hint.text = "1 jari: pusing  ·  2 jari: zum / alih"
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	hint.add_theme_constant_override("outline_size", 4)
+	hint.position = Vector2(14, 58)
+	if not embedded:
+		layer.add_child(hint)
+
+
+# ── meshes & materials ───────────────────────────────────────────────
+func _make_meshes() -> void:
+	box_mesh.size = Vector3.ONE
+	prism_mesh.size = Vector3.ONE
+	cyl_mesh.top_radius = 0.5
+	cyl_mesh.bottom_radius = 0.5
+	cyl_mesh.height = 1.0
+	cyl_mesh.radial_segments = 12
+	cyl_mesh.rings = 1
+	oct_mesh.top_radius = 0.5
+	oct_mesh.bottom_radius = 0.5
+	oct_mesh.height = 1.0
+	oct_mesh.radial_segments = 8
+	oct_mesh.rings = 1
+	sphere_mesh.radius = 0.5
+	sphere_mesh.height = 1.0
+	sphere_mesh.radial_segments = 16
+	sphere_mesh.rings = 8
+
+
+func _tex(img: Image) -> ImageTexture:
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+## Genting courses: horizontal bands so world-triplanar mapping turns them
+## into rows parallel to every ridge, whatever the roof's orientation.
+func _roof_texture() -> ImageTexture:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		var b := y % 16
+		var v := 0.95 - 0.35 * float(b) / 15.0
+		if b >= 14:
+			v = 0.45
+		for x in 64:
+			var seam := 1.0 if ((x + (y / 16) * 8) % 16) != 0 else 0.7
+			var n := rng.randf_range(-0.04, 0.04)
+			img.set_pixel(x, y, Color(v * seam + n, v * seam + n, v * seam + n))
+	return _tex(img)
+
+
+## Window grid. `lit` builds the matching emission map: a random share of
+## panes glowing warm, everything else black.
+func _window_texture(cols: int, rows: int, frame: Color, glass: Color, lit: bool, lit_share: float, pane := 0.85) -> ImageTexture:
+	var size := 128
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color.BLACK if lit else frame)
+	var cw := size / cols
+	var ch := size / rows
+	for r in rows:
+		for c in cols:
+			var col := glass
+			if lit:
+				col = Color.BLACK
+				if rng.randf() < lit_share:
+					col = Color(1.0, 0.8, 0.52).lerp(Color(0.85, 0.92, 1.0), rng.randf() * 0.5) * rng.randf_range(0.6, 1.0)
+			else:
+				col = glass.lerp(Color.WHITE, rng.randf_range(0.0, 0.18))
+			var pw := int(cw * pane)
+			var ph := int(ch * pane * 0.8)
+			img.fill_rect(Rect2i(c * cw + (cw - pw) / 2, r * ch + (ch - ph) / 2, pw, ph), col)
+	return _tex(img)
+
+
+func _triplanar(m: StandardMaterial3D, metres: float) -> void:
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	var s := 1.0 / metres
+	m.uv1_scale = Vector3(s, s, s)
+
+
+## Blender-baked tileable detail (multiplied over the colour) + normal map,
+## mapped in world space. See ../world/blender/materials.py.
+func _detail(m: StandardMaterial3D, name: String, metres: float, normal_scale: float) -> void:
+	var d: Texture2D = load("res://assets/tex/%s_detail.png" % name)
+	if d == null:
+		return
+	m.albedo_texture = d
+	if normal_scale > 0.0:
+		var n: Texture2D = load("res://assets/tex/%s_normal.png" % name)
+		if n:
+			m.normal_enabled = true
+			m.normal_texture = n
+			m.normal_scale = normal_scale
+	_triplanar(m, metres)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+
+
+func _glb_mesh(path: String) -> Mesh:
+	var scene: PackedScene = load(path)
+	if scene == null:
+		return null
+	var inst := scene.instantiate()
+	var found := inst.find_children("*", "MeshInstance3D", true, false)
+	var m: Mesh = (found[0] as MeshInstance3D).mesh if found.size() > 0 else null
+	inst.free()
+	return m
+
+
+func _make_materials() -> void:
+	mat_plain = StandardMaterial3D.new()
+	mat_plain.vertex_color_use_as_albedo = true
+	mat_plain.vertex_color_is_srgb = true
+	mat_plain.roughness = 0.85
+
+	mat_roof = StandardMaterial3D.new()
+	mat_roof.vertex_color_use_as_albedo = true
+	mat_roof.vertex_color_is_srgb = true
+	mat_roof.albedo_texture = _roof_texture()
+	mat_roof.roughness = 0.9
+	_triplanar(mat_roof, 2.4)
+
+	mat_glass = StandardMaterial3D.new()
+	mat_glass.vertex_color_use_as_albedo = true
+	mat_glass.vertex_color_is_srgb = true
+	mat_glass.albedo_texture = _window_texture(4, 4, Color(0.78, 0.8, 0.82), Color(0.42, 0.5, 0.58), false, 0)
+	mat_glass.emission_enabled = true
+	mat_glass.emission_texture = _window_texture(4, 4, Color.BLACK, Color.BLACK, true, 0.45)
+	mat_glass.emission_energy_multiplier = 0.0
+	mat_glass.metallic = 0.3
+	mat_glass.roughness = 0.25
+	_triplanar(mat_glass, 14.0)
+
+	mat_lowrise = StandardMaterial3D.new()
+	mat_lowrise.vertex_color_use_as_albedo = true
+	mat_lowrise.vertex_color_is_srgb = true
+	mat_lowrise.albedo_texture = _window_texture(4, 4, Color(1, 1, 1), Color(0.3, 0.36, 0.42), false, 0, 0.42)
+	mat_lowrise.emission_enabled = true
+	mat_lowrise.emission_texture = _window_texture(4, 4, Color.BLACK, Color.BLACK, true, 0.45, 0.42)
+	mat_lowrise.emission_energy_multiplier = 0.0
+	mat_lowrise.roughness = 0.8
+	_triplanar(mat_lowrise, 14.0)
+
+	mat_landmark = StandardMaterial3D.new()
+	mat_landmark.albedo_color = Color(0.86, 0.88, 0.9)
+	mat_landmark.albedo_texture = _window_texture(6, 4, Color(0.92, 0.93, 0.95), Color(0.5, 0.58, 0.66), false, 0)
+	mat_landmark.emission_enabled = true
+	mat_landmark.emission_texture = _window_texture(6, 4, Color.BLACK, Color.BLACK, true, 0.8)
+	mat_landmark.emission_energy_multiplier = 0.0
+	mat_landmark.metallic = 0.75
+	mat_landmark.roughness = 0.22
+	_triplanar(mat_landmark, 8.0)
+
+	mat_ground = StandardMaterial3D.new()
+	mat_ground.vertex_color_use_as_albedo = true
+	mat_ground.vertex_color_is_srgb = true
+	mat_ground.roughness = 0.95
+	mat_ground.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_detail(mat_ground, "concrete", 4.0, 0.5)
+
+	mat_lawn = StandardMaterial3D.new()
+	mat_lawn.vertex_color_use_as_albedo = true
+	mat_lawn.vertex_color_is_srgb = true
+	mat_lawn.roughness = 1.0
+	_detail(mat_lawn, "grass", 2.5, 0.5)
+
+	mat_tree = StandardMaterial3D.new()
+	mat_tree.vertex_color_use_as_albedo = true
+	mat_tree.vertex_color_is_srgb = true
+	mat_tree.roughness = 0.9
+	mat_tree.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_detail(mat_tree, "grass", 1.2, 0.0)
+	tree_broadleaf_mesh = _glb_mesh("res://assets/tree_far_broadleaf.glb")
+	tree_palm_mesh = _glb_mesh("res://assets/tree_far_palm.glb")
+
+	mat_water = StandardMaterial3D.new()
+	mat_water.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat_water.albedo_color = Color(0.22, 0.42, 0.5)
+	mat_water.metallic = 0.3
+	mat_water.roughness = 0.05
+
+
+# ── geometry helpers ─────────────────────────────────────────────────
+## Catmull-Rom style Curve3D through `pts`.
+func _smooth_curve(pts: Array) -> Curve3D:
+	var c := Curve3D.new()
+	c.bake_interval = 4.0
+	for i in pts.size():
+		var prev: Vector3 = pts[maxi(i - 1, 0)]
+		var nxt: Vector3 = pts[mini(i + 1, pts.size() - 1)]
+		var tan := (nxt - prev) / 6.0
+		c.add_point(pts[i], -tan, tan)
+	return c
+
+
+func _dist_to(pts: PackedVector3Array, p: Vector3) -> float:
+	var best := INF
+	if pts.is_empty():
+		return best
+	var q := Vector3(p.x, 0, p.z)
+	for i in pts.size() - 1:
+		var a := Vector3(pts[i].x, 0, pts[i].z)
+		var b := Vector3(pts[i + 1].x, 0, pts[i + 1].z)
+		best = minf(best, q.distance_to(Geometry3D.get_closest_point_to_segment(q, a, b)))
+	return best
+
+
+## Ribbon along a polyline into `st`: flat strip of half-width `half` at height y.
+func _ribbon(st: SurfaceTool, pts: PackedVector3Array, half: float, y: float, col: Color) -> void:
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var ta := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var tb := (pts[mini(i + 2, pts.size() - 1)] - pts[i]).normalized()
+		var na := Vector3(-ta.z, 0, ta.x) * half
+		var nb := Vector3(-tb.z, 0, tb.x) * half
+		_quad(st, Vector3(a.x, y, a.z) - na, Vector3(a.x, y, a.z) + na, Vector3(b.x, y, b.z) + nb, Vector3(b.x, y, b.z) - nb, col, Vector3.UP)
+
+
+func _quad(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, col: Color, n: Vector3) -> void:
+	st.set_color(col)
+	st.set_normal(n)
+	for v in [p0, p1, p2, p0, p2, p3]:
+		st.add_vertex(v)
+
+
+# ── instancing helpers ───────────────────────────────────────────────
+func _add(mesh: Mesh, mat: Material, xf: Transform3D, col: Color) -> void:
+	xf = frame * xf
+	var key := "%d:%d" % [mesh.get_instance_id(), mat.get_instance_id()]
+	if not buckets.has(key):
+		buckets[key] = {"mesh": mesh, "mat": mat, "xf": [], "col": []}
+	buckets[key].xf.append(xf)
+	buckets[key].col.append(col)
+
+
+## Box standing on `pos` (bottom-centre).
+func box(pos: Vector3, size: Vector3, col: Color, mat: Material = null, yaw := 0.0) -> void:
+	var b := Basis(Vector3.UP, yaw) * Basis.from_scale(size)
+	_add(box_mesh, mat if mat else mat_plain, Transform3D(b, pos + Vector3(0, size.y * 0.5, 0)), col)
+
+
+func cyl(pos: Vector3, radius: float, h: float, col: Color, mat: Material = null, mesh: Mesh = null) -> void:
+	var b := Basis.from_scale(Vector3(radius * 2, h, radius * 2))
+	_add(mesh if mesh else cyl_mesh, mat if mat else mat_plain, Transform3D(b, pos + Vector3(0, h * 0.5, 0)), col)
+
+
+func ball(pos: Vector3, size: Vector3, col: Color, mat: Material = null) -> void:
+	_add(sphere_mesh, mat if mat else mat_plain, Transform3D(Basis.from_scale(size), pos), col)
+
+
+## Gable roof sitting on a w×d wall top at height y; the ridge follows the
+## longer side, with a small eave overhang.
+func gable(pos: Vector3, w: float, d: float, rise: float, col: Color) -> void:
+	var b: Basis
+	if w > d:
+		b = Basis(Vector3.UP, PI * 0.5) * Basis.from_scale(Vector3(d + 1.0, rise, w + 0.8))
+	else:
+		b = Basis.from_scale(Vector3(w + 1.0, rise, d + 0.8))
+	_add(prism_mesh, mat_roof, Transform3D(b, pos + Vector3(0, rise * 0.5, 0)), col)
+
+
+func tree(pos: Vector3, palm := false) -> void:
+	var mesh := tree_palm_mesh if palm else tree_broadleaf_mesh
+	if mesh:
+		var sc := rng.randf_range(1.4, 1.9) if palm else rng.randf_range(1.1, 1.6)
+		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * sc)
+		var shade := rng.randf_range(0.88, 1.12)
+		_add(mesh, mat_tree, Transform3D(b, pos), Color(shade, shade, shade))
+		return
+	if palm:
+		var h := rng.randf_range(6.0, 9.0)
+		cyl(pos, 0.22, h, Color(0.45, 0.36, 0.26))
+		ball(pos + Vector3(0, h, 0), Vector3(4.2, 1.3, 4.2), Color(0.2, 0.42, 0.18).lerp(Color(0.3, 0.5, 0.2), rng.randf()))
+	else:
+		var h := rng.randf_range(2.2, 3.4)
+		var r := rng.randf_range(2.0, 3.4)
+		cyl(pos, 0.3, h, Color(0.38, 0.29, 0.2))
+		ball(pos + Vector3(0, h + r * 0.6, 0), Vector3(r * 2, r * 1.6, r * 2), Color(0.18, 0.42, 0.16).lerp(Color(0.36, 0.56, 0.2), rng.randf()))
+
+
+func _flush_buckets() -> void:
+	for key in buckets:
+		var bk: Dictionary = buckets[key]
+		# chunked: very large instance buffers break on some WebGL drivers
+		var total: int = bk.xf.size()
+		var start := 0
+		while start < total:
+			var n := mini(4096, total - start)
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
+			mm.mesh = bk.mesh
+			mm.instance_count = n
+			for i in n:
+				mm.set_instance_transform(i, bk.xf[start + i])
+				mm.set_instance_color(i, bk.col[start + i])
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.material_override = bk.mat
+			gen.add_child(mmi)
+			start += n
+	buckets.clear()
+
+
+func _single(mesh: Mesh, mat: Material, xf: Transform3D) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.transform = frame * xf
+	gen.add_child(mi)
+
+
+# ── environment ──────────────────────────────────────────────────────
+func _setup_environment() -> void:
+	sky_mat = ProceduralSkyMaterial.new()
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env = Environment.new()
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 0.9
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.2
+	env.adjustment_contrast = 1.08
+	env.ssao_enabled = true
+	env.ssao_radius = 2.0
+	env.glow_enabled = true
+	env.glow_hdr_threshold = 1.2
+	env.fog_enabled = true
+	# depth fog: the city stays crisp, only the far valley fades out
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	# haze like a KL skyline: the near streets stay crisp, the towers
+	# and ranges behind fade layer by layer into the horizon colour
+	env.fog_depth_begin = 900.0
+	env.fog_depth_end = 5200.0
+	env.fog_depth_curve = 1.3
+	env.fog_aerial_perspective = 0.15
+	var we := WorldEnvironment.new()
+	we.environment = env
+	add_child(we)
+
+	sun = DirectionalLight3D.new()
+	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 900.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	add_child(sun)
+	set_tod(0)
+
+
+func set_tod(t: int) -> void:
+	tod = t
+	var win := 0.0
+	match tod:
+		0:
+			sun.rotation_degrees = Vector3(-52, -35, 0)
+			sun.light_color = Color(1.0, 0.96, 0.88)
+			sun.light_energy = 1.7
+			sky_mat.sky_top_color = Color(0.32, 0.55, 0.85)
+			sky_mat.sky_horizon_color = Color(0.72, 0.82, 0.9)
+			sky_mat.ground_horizon_color = Color(0.6, 0.66, 0.6)
+			env.ambient_light_energy = 0.55
+			env.fog_light_color = Color(0.72, 0.8, 0.88)
+		1:
+			# golden hour: low warm sun, teal-grey sky over a peach horizon
+			sun.rotation_degrees = Vector3(-12, -70, 0)
+			sun.light_color = Color(1.0, 0.7, 0.45)
+			sun.light_energy = 1.15
+			sky_mat.sky_top_color = Color(0.34, 0.43, 0.5)
+			sky_mat.sky_horizon_color = Color(0.94, 0.7, 0.58)
+			sky_mat.ground_horizon_color = Color(0.4, 0.3, 0.3)
+			env.ambient_light_energy = 0.7
+			env.fog_light_color = Color(0.8, 0.55, 0.45)
+			win = 1.2
+		2:
+			sun.rotation_degrees = Vector3(-40, 120, 0)
+			sun.light_color = Color(0.55, 0.65, 0.95)
+			sun.light_energy = 0.18
+			sky_mat.sky_top_color = Color(0.03, 0.05, 0.12)
+			sky_mat.sky_horizon_color = Color(0.12, 0.16, 0.28)
+			sky_mat.ground_horizon_color = Color(0.04, 0.05, 0.08)
+			# moonlit blue fill, stronger on phones whose renderer has a
+			# weaker sky-ambient term, so streets and roofs still read
+			env.ambient_light_energy = 1.6 if _mobile else 0.6
+			if _mobile:
+				sun.light_energy = 0.55
+			env.fog_light_color = Color(0.08, 0.1, 0.16)
+			win = 2.6
+	# below-horizon sky and haze share the horizon colour, so the far
+	# ground melts into the sky instead of ending in a grey band
+	sky_mat.ground_horizon_color = sky_mat.sky_horizon_color
+	sky_mat.ground_bottom_color = sky_mat.sky_horizon_color
+	env.fog_light_color = sky_mat.sky_horizon_color
+	if _tod_btn:
+		_tod_btn.text = "Waktu: " + TOD_NAMES[tod]
+	mat_glass.emission_energy_multiplier = win * 0.8
+	mat_lowrise.emission_energy_multiplier = win * 0.8
+	mat_landmark.emission_energy_multiplier = win * 0.9
+
+
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_T:
+		set_tod((tod + 1) % 3)
+
+
+# ── organic road network ─────────────────────────────────────────────
+## Radial arterials leave the centre on wandering bearings; between each
+## pair, wavy ring arcs at varying radii (some sectors skip some rings),
+## short lorong connectors and taman cul-de-sacs. No grid anywhere, so
+## every sector ends up with its own street pattern.
+const RING_DEFS := [
+	# radius, keep chance, class
+	[55.0, 1.0, 1], [108.0, 0.8, 2], [160.0, 1.0, 0], [212.0, 0.75, 2], [262.0, 0.95, 1],
+	[314.0, 0.75, 2], [366.0, 0.9, 1], [418.0, 0.7, 2], [470.0, 0.8, 1],
+]
+const ROAD_HALF := [7.0, 5.5, 4.0]          # half-width per class
+const ROAD_Y := [0.12, 0.11, 0.10]
+
+var layout := "radial"   # see _gen_roads
+var radials := 7         # fewer for towns and villages
+var ring_keep := 1.0     # scales each ring's keep chance
+var _rad_ang := []
+var _rad_ph := []
+var _arcs := {}         # "ring:sector" -> {R, a0, a1, amp, ph}
+
+
+func _radial_angle(k: int, r: float) -> float:
+	return _rad_ang[k] + 0.16 * sin(r * 0.011 + _rad_ph[k]) + 0.06 * sin(r * 0.027 + _rad_ph[k] * 2.0)
+
+
+func _polar(r: float, a: float) -> Vector3:
+	return Vector3(cos(a) * r, 0, sin(a) * r)
+
+
+func _arc_r(arc: Dictionary, a: float) -> float:
+	var u := clampf((a - arc.a0) / (arc.a1 - arc.a0), 0.0, 1.0)
+	return arc.R * (1.0 + arc.amp * sin(PI * u) * sin(3.0 * a + arc.ph))
+
+
+## Street layout per seat. Malaysian towns grow in a few recognisable
+## ways, and each seat gets one, seeded by its code:
+##   radial  - KL-style arterials and ring roads (metropolis, Bukit Bintang)
+##   strip   - a pekan strung along one trunk road, lorongs off both sides
+##   oldtown - a colonial shophouse grid core with taman estates outside
+##   taman   - a ring road and spokes, each sector its own looped estate
+func _gen_roads() -> void:
+	match layout:
+		"strip": _gen_strip()
+		"oldtown": _gen_oldtown()
+		"taman": _gen_taman()
+		_: _gen_radial()
+
+
+func _gen_radial() -> void:
+	for k in radials:
+		_rad_ang.append(deg_to_rad(k * 360.0 / radials + 8.0 + rng.randf_range(-9, 9)))
+		_rad_ph.append(rng.randf() * TAU)
+	# radials: from the core loop out into the countryside
+	for k in radials:
+		var ctrl := []
+		var r := 55.0 * view_scale
+		while r <= 600.0 * view_scale:
+			ctrl.append(_polar(r, _radial_angle(k, r)))
+			r += 30.0 * view_scale
+		_make_road(ctrl, (0 if k % 2 == 0 else 1) if tier in ["metro", "city"] else 1)
+	# ring arcs sector by sector
+	for ri in RING_DEFS.size():
+		var R: float = RING_DEFS[ri][0] * view_scale
+		for k in radials:
+			if rng.randf() > RING_DEFS[ri][1] * (1.0 if ri == 0 else ring_keep):
+				continue
+			var a0 := _radial_angle(k, R)
+			var a1 := _radial_angle((k + 1) % radials, R)
+			if a1 <= a0:
+				a1 += TAU
+			var arc := {"R": R, "a0": a0, "a1": a1, "amp": 0.0 if ri == 0 else rng.randf_range(0.03, 0.09), "ph": rng.randf() * TAU}
+			_arcs["%d:%d" % [ri, k]] = arc
+			var n := maxi(3, int(ceil((a1 - a0) * R / 24.0)))
+			var ctrl := []
+			for j in n + 1:
+				var a := lerpf(a0, a1, float(j) / n)
+				ctrl.append(_polar(_arc_r(arc, a), a))
+			_make_road(ctrl, RING_DEFS[ri][2] if tier in ["metro", "city"] else maxi(RING_DEFS[ri][2], 1))
+	# lorong connectors and cul-de-sacs between neighbouring arcs (a
+	# village keeps to its main roads)
+	if tier == "rural":
+		return
+	for ri in range(2, RING_DEFS.size() - 1):
+		for k in radials:
+			var A: Dictionary = _arcs.get("%d:%d" % [ri, k], {})
+			if A.is_empty():
+				continue
+			var B: Dictionary = _arcs.get("%d:%d" % [ri + 1, k], {})
+			var spans := int((A.a1 - A.a0) * A.R / 90.0)
+			for c in maxi(1, spans):
+				var a := lerpf(A.a0, A.a1, (c + rng.randf_range(0.3, 0.7)) / maxf(1, spans))
+				var ra := _arc_r(A, a)
+				if not B.is_empty() and rng.randf() < 0.5:
+					var rb := _arc_r(B, a)
+					var bend := rng.randf_range(-0.04, 0.04)
+					_make_road([_polar(ra, a), _polar((ra + rb) * 0.5, a + bend), _polar(rb, a)], 2)
+				elif rng.randf() < 0.6:
+					# cul-de-sac: a short bent spur ending in a turning circle
+					var spur := rng.randf_range(26.0, 34.0) * view_scale
+					var bend := rng.randf_range(-0.08, 0.08)
+					var end := _polar(ra + spur, a + bend)
+					_make_road([_polar(ra, a), _polar(ra + spur * 0.5, a + bend * 0.4), end], 2)
+					_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+					_mark_rect(end, 0.0, 17.0, 17.0)
+
+
+func _cul_de_sac(from: Vector3, dir: Vector3, length: float) -> void:
+	var n := Vector3(-dir.z, 0, dir.x) * rng.randf_range(-0.25, 0.25) * length
+	var end := from + dir * length + n
+	_make_road([from, from + dir * length * 0.5 + n * 0.4, end], 2)
+	_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+	_mark_rect(end, 0.0, 17.0, 17.0)
+
+
+## Main-street class: a city's trunk roads are dual carriageways.
+func _trunk_cls() -> int:
+	return 0 if tier in ["metro", "city"] else 1
+
+
+## Pekan along a trunk road: the spine wanders across the valley, back
+## lanes run parallel behind the shop rows, and lorongs leave both sides,
+## some joining the back lane, some ending in a taman cul-de-sac.
+func _gen_strip() -> void:
+	var a := feature_turn + PI * 0.5 + rng.randf_range(-0.5, 0.5)
+	var d := Vector3(cos(a), 0, sin(a))
+	var n := Vector3(-d.z, 0, d.x)
+	var L := r_city * 1.25
+	var amp := rng.randf_range(25.0, 60.0) * view_scale
+	var f := rng.randf_range(0.004, 0.008) / view_scale
+	var ph := rng.randf() * TAU
+	var spine := func(t: float) -> Vector3: return d * t + n * (amp * sin(t * f + ph))
+	var ctrl := []
+	var t := -L
+	while t <= L:
+		ctrl.append(spine.call(t))
+		t += 30.0
+	_make_road(ctrl, _trunk_cls())
+	# a cross road through the town centre
+	var cross := []
+	for k in 9:
+		var u := lerpf(-r_taman, r_taman, k / 8.0)
+		cross.append(n * u + d * (18.0 * sin(u * 0.012 + ph)))
+	_make_road(cross, 1)
+	# back lanes behind the frontage on each side
+	var backs := {}
+	for side in [-1.0, 1.0]:
+		if tier == "rural" and side > 0.0:
+			continue
+		var off: float = side * rng.randf_range(58.0, 72.0)
+		var t0 := -L * rng.randf_range(0.45, 0.7)
+		var t1 := L * rng.randf_range(0.45, 0.7)
+		backs[side] = [off, t0, t1]
+		var bc := []
+		t = t0
+		while t <= t1:
+			bc.append(spine.call(t) + n * off)
+			t += 30.0
+		_make_road(bc, 2)
+	# lorongs off both sides
+	t = -L * 0.85
+	while t < L * 0.85:
+		for side in [-1.0, 1.0]:
+			if rng.randf() < 0.3:
+				continue
+			var p0: Vector3 = spine.call(t)
+			var b: Array = backs.get(side, [])
+			if not b.is_empty() and t > b[1] and t < b[2]:
+				var far := rng.randf_range(90.0, 170.0) * (1.0 if tier != "rural" else 0.7)
+				_make_road([p0, p0 + n * float(b[0]) * 0.5, p0 + n * float(b[0])], 2)
+				if rng.randf() < 0.6:
+					_cul_de_sac(p0 + n * side * absf(float(b[0])), n * side, far - absf(float(b[0])))
+			else:
+				_cul_de_sac(p0, n * side, rng.randf_range(60.0, 140.0))
+		t += rng.randf_range(70.0, 115.0) * (1.4 if tier == "rural" else 1.0)
+
+
+## A colonial-era grid of shophouse blocks in the middle (irregular
+## block sizes, gently bent), clipped to a round core; arterials run out
+## from it with looped taman estates hanging off them.
+func _gen_oldtown() -> void:
+	var g := rng.randf() * PI
+	var b := Basis(Vector3.UP, g)
+	var half := r_commercial * 0.95
+	var bend := rng.randf_range(4.0, 10.0)
+	var xs := [0.0]
+	var x := 0.0
+	while x < half:
+		x += rng.randf_range(48.0, 66.0)
+		xs.append(x)
+		xs.append(-x)
+	var zs := [0.0]
+	var z := 0.0
+	while z < half:
+		z += rng.randf_range(58.0, 80.0)
+		zs.append(z)
+		zs.append(-z)
+	for axis in 2:
+		for c in (xs if axis == 0 else zs):
+			var h := sqrt(maxf(half * half - c * c, 0.0)) * rng.randf_range(0.8, 1.0)
+			if h < 40.0:
+				continue
+			var pts := []
+			for k in 7:
+				var u := lerpf(-h, h, k / 6.0)
+				var w: float = c + bend * sin(u * 0.02 + c)
+				pts.append(b * (Vector3(w, 0, u) if axis == 0 else Vector3(u, 0, w)))
+			_make_road(pts, _trunk_cls() if c == 0.0 else 2)
+	_gen_arterials_with_estates(rng.randi_range(3, 5), half)
+
+
+## Ring road around the centre and spokes out to the countryside; every
+## sector between spokes is its own looped taman.
+func _gen_taman() -> void:
+	var R := r_commercial * 0.75
+	var ring := []
+	var ph := rng.randf() * TAU
+	for k in 19:
+		var a := TAU * k / 18.0
+		ring.append(_polar(R * (1.0 + 0.12 * sin(3.0 * a + ph)), a))
+	_make_road(ring, 1)
+	# a short shopping street across the middle
+	var a0 := rng.randf() * PI
+	_make_road([_polar(R, a0), Vector3.ZERO, _polar(R, a0 + PI)], 1)
+	_gen_arterials_with_estates(rng.randi_range(4, 6), R)
+
+
+func _gen_arterials_with_estates(count: int, start_r: float) -> void:
+	var base := rng.randf() * TAU
+	for k in count:
+		var a := base + TAU * k / count + rng.randf_range(-0.25, 0.25)
+		var wig := rng.randf_range(0.1, 0.25)
+		var ph := rng.randf() * TAU
+		var spoke := func(r: float) -> Vector3: return _polar(r, a + wig * sin(r * 0.008 + ph))
+		var ctrl := []
+		var r := start_r
+		while r <= r_city * 1.2:
+			ctrl.append(spoke.call(r))
+			r += 30.0
+		_make_road(ctrl, _trunk_cls() if k % 2 == 0 else 1)
+		# looped estates on alternating sides along the arterial
+		var side := 1.0 if rng.randf() < 0.5 else -1.0
+		r = start_r + rng.randf_range(40.0, 70.0)
+		while r < r_taman:
+			var p0: Vector3 = spoke.call(r)
+			var tdir: Vector3 = (spoke.call(r + 5.0) - p0).normalized()
+			var out := Vector3(-tdir.z, 0, tdir.x) * side
+			_taman_loop(p0, out, rng.randf_range(38.0, 62.0) * maxf(view_scale, 0.75))
+			side = -side
+			r += rng.randf_range(110.0, 160.0)
+
+
+## One taman: an entrance road off the arterial into a closed loop
+## street, with a cul-de-sac or two inside and out.
+func _taman_loop(gate: Vector3, out: Vector3, R: float) -> void:
+	var c := gate + out * (24.0 + R)
+	var squash := rng.randf_range(0.65, 1.0)
+	var spin := atan2(out.z, out.x)
+	var b := Basis(Vector3.UP, -spin)
+	var loop := []
+	for k in 13:
+		var a := TAU * k / 12.0
+		loop.append(c + b * Vector3(cos(a) * R, 0, sin(a) * R * squash))
+	_make_road([gate, gate + out * 12.0, c - out * R], 2)
+	_make_road(loop, 2)
+	if R > 45.0 and rng.randf() < 0.7:
+		_make_road([c - out * R, c, c + out * R * 0.2], 2)
+	for k in rng.randi_range(1, 2):
+		var a := rng.randf_range(0.6, 2.6) * (1.0 if k == 0 else -1.0)
+		var edge := c + b * Vector3(cos(a) * R, 0, sin(a) * R * squash)
+		_cul_de_sac(edge, (edge - c).normalized(), rng.randf_range(30.0, 50.0))
+
+
+func _make_road(ctrl: Array, cls: int) -> void:
+	var c := _smooth_curve(ctrl)
+	var pts := c.get_baked_points()
+	if pts.size() < 2:
+		return
+	var cum := PackedFloat32Array()
+	cum.resize(pts.size())
+	cum[0] = 0.0
+	for i in range(1, pts.size()):
+		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
+	# over-water stretches: crossings stay as bridges, a long run along
+	# the river is dropped
+	var wet := PackedByteArray()
+	wet.resize(pts.size())
+	for i in pts.size():
+		wet[i] = 1 if _dist_to(river_pts, pts[i]) < RIVER_HALF + 3.0 else 0
+	var gaps := PackedByteArray()
+	gaps.resize(pts.size())
+	var i := 0
+	while i < pts.size():
+		if wet[i] == 0:
+			i += 1
+			continue
+		var e := i
+		while e < pts.size() and wet[e] == 1:
+			e += 1
+		if e - i > 12:
+			for j in range(i, e):
+				gaps[j] = 1
+		i = e
+	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
+	roads.append(rd)
+	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
+
+
+## Point and unit tangent at arc length s along a road, plus segment index.
+func road_sample(rd: Dictionary, s: float) -> Array:
+	var pts: PackedVector3Array = rd.pts
+	var cum: PackedFloat32Array = rd.cum
+	s = clampf(s, 0.0, cum[cum.size() - 1])
+	var i := clampi(cum.bsearch(s) - 1, 0, pts.size() - 2)
+	var seg := cum[i + 1] - cum[i]
+	var f := 0.0 if seg <= 0.0 else (s - cum[i]) / seg
+	return [pts[i].lerp(pts[i + 1], f), (pts[i + 1] - pts[i]).normalized(), i]
+
+
+func _draw_roads() -> void:
+	for rd in roads:
+		var cls: int = rd.cls
+		var half: float = rd.half
+		var pts: PackedVector3Array = rd.pts
+		var gaps: PackedByteArray = rd.gaps
+		var walk := half + (2.6 if cls < 2 else 1.6)
+		# pavement under, carriageway over, piece by piece so gaps can drop out
+		for i in pts.size() - 1:
+			if gaps[i] == 1:
+				continue
+			var seg := PackedVector3Array([pts[maxi(i - 1, 0)], pts[i], pts[i + 1], pts[mini(i + 2, pts.size() - 1)]])
+			_ribbon_piece(ground_st, seg, 1, walk, 0.06, C_CONCRETE)
+			_ribbon_piece(ground_st, seg, 1, half, ROAD_Y[cls], C_ASPHALT)
+			if rd.wet[i] == 1:
+				var t := (pts[i + 1] - pts[i]).normalized()
+				var n := Vector3(-t.z, 0, t.x)
+				var yaw := atan2(-t.z, t.x)
+				for s in [-1.0, 1.0]:
+					box((pts[i] + pts[i + 1]) * 0.5 + n * s * (half + 0.2), Vector3(pts[i].distance_to(pts[i + 1]) + 0.2, 1.0, 0.35), C_CONCRETE, null, yaw)
+		if cls == 2:
+			continue
+		# centre line (yellow) and, on arterials, white lane dashes
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var s := 8.0
+		while s < L - 8.0:
+			var sm := road_sample(rd, s)
+			if gaps[sm[2]] == 0:
+				var p: Vector3 = sm[0]
+				var t: Vector3 = sm[1]
+				var yaw := atan2(-t.z, t.x)
+				var n := Vector3(-t.z, 0, t.x)
+				box(p + Vector3(0, ROAD_Y[cls], 0), Vector3(3.0, 0.03, 0.22), Color(0.95, 0.78, 0.2), null, yaw)
+				if cls == 0:
+					for o in [-half * 0.5, half * 0.5]:
+						box(p + n * o + Vector3(0, ROAD_Y[cls], 0), Vector3(3.0, 0.03, 0.18), Color(0.92, 0.92, 0.88), null, yaw)
+			s += 7.0
+
+
+## One quad of a ribbon: `seg` holds [prev, a, b, next] so the joint
+## normals match the neighbouring pieces.
+func _ribbon_piece(st: SurfaceTool, seg: PackedVector3Array, _unused: int, half: float, y: float, col: Color) -> void:
+	var ta := (seg[2] - seg[0]).normalized()
+	var tb := (seg[3] - seg[1]).normalized()
+	var na := Vector3(-ta.z, 0, ta.x) * half
+	var nb := Vector3(-tb.z, 0, tb.x) * half
+	var a := Vector3(seg[1].x, y, seg[1].z)
+	var b := Vector3(seg[2].x, y, seg[2].z)
+	_quad(st, a - na, a + na, b + nb, b - nb, col, Vector3.UP)
+
+
+func _disc(st: SurfaceTool, c: Vector3, r: float, y: float, col: Color) -> void:
+	st.set_color(col)
+	st.set_normal(Vector3.UP)
+	for i in 16:
+		var a0 := TAU * i / 16.0
+		var a1 := TAU * (i + 1) / 16.0
+		st.add_vertex(Vector3(c.x, y, c.z))
+		st.add_vertex(Vector3(c.x + cos(a0) * r, y, c.z + sin(a0) * r))
+		st.add_vertex(Vector3(c.x + cos(a1) * r, y, c.z + sin(a1) * r))
+
+
+# ── occupancy map ────────────────────────────────────────────────────
+## A coarse raster of everything already claimed (roads, river, highway,
+## buildings) so new buildings and trees never land on top of anything.
+func _cell(p: Vector3) -> int:
+	var ix := int((p.x + EXT) / CELL)
+	var iz := int((p.z + EXT) / CELL)
+	if ix < 0 or iz < 0 or ix >= GN or iz >= GN:
+		return -1
+	return iz * GN + ix
+
+
+func _mark_road(rd: Dictionary, half: float) -> void:
+	_mark_polyline(rd.pts, half, rd.gaps)
+
+
+func _mark_polyline(pts: PackedVector3Array, half: float, gaps := PackedByteArray()) -> void:
+	for i in pts.size() - 1:
+		if not gaps.is_empty() and gaps[i] == 1:
+			continue
+		var a := pts[i]
+		var b := pts[i + 1]
+		var t := (b - a)
+		var L := t.length()
+		if L <= 0.0:
+			continue
+		t /= L
+		var n := Vector3(-t.z, 0, t.x)
+		var u := 0.0
+		while u <= L:
+			var v := -half
+			while v <= half:
+				var ci := _cell(a + t * u + n * v)
+				if ci >= 0:
+					occ[ci] = 1
+				v += 1.5
+			u += 1.5
+
+
+func _rect_points(c: Vector3, yaw: float, w: float, d: float) -> Array:
+	var out := []
+	var b := Basis(Vector3.UP, yaw)
+	var u := -w * 0.5
+	while u <= w * 0.5 + 0.01:
+		var v := -d * 0.5
+		while v <= d * 0.5 + 0.01:
+			out.append(c + b * Vector3(u, 0, v))
+			v += 2.0
+		u += 2.0
+	return out
+
+
+func _rect_free(c: Vector3, yaw: float, w: float, d: float) -> bool:
+	if in_sea(c):
+		return false
+	# probe slightly inside the footprint: the 2 m raster would otherwise
+	# reject every lot whose edge merely touches a pavement cell
+	for p in _rect_points(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0)):
+		var ci := _cell(p)
+		if ci < 0 or occ[ci] == 1:
+			return false
+	return true
+
+
+func _mark_rect(c: Vector3, yaw: float, w: float, d: float) -> void:
+	for p in _rect_points(c, yaw, w + 1.0, d + 1.0):
+		var ci := _cell(p)
+		if ci >= 0:
+			occ[ci] = 1
+
+
+# ── river & expressway ───────────────────────────────────────────────
+## Control points turned by the seat's `feature_turn` and drawn in toward
+## smaller towns, so every constituency gets its own river and road.
+func _turn(pts: Array) -> Array:
+	var b := Basis(Vector3.UP, feature_turn)
+	var k := lerpf(1.0, view_scale, 0.6)
+	var out := []
+	for v in pts:
+		out.append(b * (v * k))
+	return out
+
+
+func in_sea(p: Vector3) -> bool:
+	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > r_city + 80.0
+
+
+func _build_features() -> void:
+	var river := _smooth_curve(_turn([
+		Vector3(-640, 0, 150), Vector3(-470, 0, 260), Vector3(-300, 0, 225), Vector3(-150, 0, 330),
+		Vector3(10, 0, 380), Vector3(170, 0, 320), Vector3(320, 0, 400), Vector3(640, 0, 330),
+	]))
+	highway_curve = _smooth_curve(_turn([
+		Vector3(-300, 0, -640), Vector3(-130, 0, -400), Vector3(80, 0, -230), Vector3(200, 0, -70),
+		Vector3(215, 0, 85), Vector3(160, 0, 230), Vector3(210, 0, 420), Vector3(360, 0, 640),
+	]))
+	# coarse polylines (16 m) for distance checks, fine ones (4 m) to draw
+	river.bake_interval = 16.0
+	highway_curve.bake_interval = 16.0
+	river_pts = river.get_baked_points()
+	highway_pts = highway_curve.get_baked_points()
+	river.bake_interval = 4.0
+	highway_curve.bake_interval = 4.0
+	var river_fine := river.get_baked_points()
+	var highway_fine := highway_curve.get_baked_points()
+
+	var wst := SurfaceTool.new()
+	wst.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_ribbon(wst, river_fine, RIVER_HALF, 0.03, Color.WHITE)
+	var wmi := MeshInstance3D.new()
+	wmi.mesh = wst.commit()
+	wmi.material_override = mat_water
+	gen.add_child(wmi)
+	_ribbon(ground_st, river_fine, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
+	_mark_polyline(river_fine, RIVER_HALF + 6.0)
+
+	# coastal seats: open sea beyond a beach on one side
+	if sea_dir != Vector3.ZERO:
+		var yaw := atan2(-sea_dir.z, sea_dir.x)
+		var edge := r_city + 80.0
+		box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
+		box(sea_dir * (edge - 14.0), Vector3(30, 0.05, 8000), Color(0.86, 0.8, 0.62), null, yaw)
+		for i in 40:
+			var along := Vector3(-sea_dir.z, 0, sea_dir.x) * rng.randf_range(-700, 700)
+			tree(sea_dir * (edge - rng.randf_range(24, 40)) + along, true)
+
+	if not has_highway:
+		highway_pts = PackedVector3Array()
+		return
+
+	# expressway: kerbed carriageway, central median with lamps, lane dashes
+	_ribbon(ground_st, highway_fine, HIGHWAY_HALF + 1.2, 0.26, C_CONCRETE)
+	_ribbon(ground_st, highway_fine, HIGHWAY_HALF, 0.3, Color(0.2, 0.21, 0.22))
+	_ribbon(ground_st, highway_fine, 0.8, 0.45, Color(0.78, 0.77, 0.74))
+	_mark_polyline(highway_fine, HIGHWAY_HALF + 4.0)
+	var length := highway_curve.get_baked_length()
+	var o := 0.0
+	while o < length:
+		var p := highway_curve.sample_baked(o)
+		var t := (highway_curve.sample_baked(minf(o + 1.0, length)) - p).normalized()
+		var yaw := atan2(-t.z, t.x)
+		var n := Vector3(-t.z, 0, t.x)
+		for off in [-5.5, 5.5]:
+			box(p + n * off + Vector3(0, 0.3, 0), Vector3(3.0, 0.03, 0.2), Color(0.92, 0.92, 0.88), null, yaw)
+		if fmod(o, 48.0) < 12.0:
+			cyl(p + Vector3(0, 0.45, 0), 0.15, 9.0, Color(0.7, 0.72, 0.74))
+			box(p + Vector3(0, 9.4, 0) + n * 1.2, Vector3(0.4, 0.25, 2.6), Color(0.95, 0.93, 0.8), null, yaw)
+		o += 12.0
+
+
+# ── LRT ──────────────────────────────────────────────────────────────
+## Two elevated lines on pillars crossing the city either side of the
+## core, with stations along them. The corridor is reserved before the
+## buildings go in, so nothing stands under the guideway.
+func _build_lrt() -> void:
+	var lines := [
+		[Vector3(-640, 0, -330), Vector3(-420, 0, -250), Vector3(-230, 0, -180), Vector3(-100, 0, -110),
+			Vector3(10, 0, -85), Vector3(140, 0, -150), Vector3(300, 0, -300), Vector3(460, 0, -520)],
+		[Vector3(620, 0, 120), Vector3(400, 0, 60), Vector3(230, 0, 40), Vector3(95, 0, 70),
+			Vector3(-20, 0, 95), Vector3(-160, 0, 170), Vector3(-330, 0, 330), Vector3(-520, 0, 470)],
+	]
+	var concrete := Color(0.8, 0.79, 0.76)
+	for ctrl in lines:
+		var c := _smooth_curve(_turn(ctrl))
+		c.bake_interval = 8.0
+		var pts := c.get_baked_points()
+		lrt_curves.append(c)
+		for i in pts.size() - 1:
+			var a := pts[i]
+			var b := pts[i + 1]
+			var L := a.distance_to(b)
+			var t := (b - a) / L
+			var yaw := atan2(-t.z, t.x)
+			var n := Vector3(-t.z, 0, t.x)
+			var mid := (a + b) * 0.5
+			box(mid + Vector3(0, LRT_Y, 0), Vector3(L + 0.3, 1.3, 6.0), concrete, null, yaw)
+			for sd in [-1.0, 1.0]:
+				box(mid + n * sd * 2.9 + Vector3(0, LRT_Y + 1.3, 0), Vector3(L + 0.3, 0.8, 0.2), concrete, null, yaw)
+			# a pillar every ~24 m, skipped where it would stand in a street
+			if i % 3 == 0:
+				var ci := _cell(a)
+				if ci < 0 or occ[ci] == 0:
+					cyl(a, 1.0, LRT_Y, concrete)
+					box(a + Vector3(0, LRT_Y - 1.0, 0), Vector3(2.4, 1.0, 6.4), concrete, null, yaw)
+		var length := c.get_baked_length()
+		var s := 150.0
+		while s < length - 60.0:
+			var p := c.sample_baked(s)
+			if p.length() < r_taman:
+				var t := (c.sample_baked(s + 1.0) - p).normalized()
+				_lrt_station(p, atan2(-t.z, t.x))
+			s += 300.0
+		_mark_polyline(pts, 5.0)
+
+
+func _lrt_station(p: Vector3, yaw: float) -> void:
+	_mark_rect(p, yaw, 50, 18)
+	_place(p, yaw, "station", 50, 18)
+	var roof := Color(0.86, 0.87, 0.9)
+	box(Vector3(0, LRT_Y + 1.3, 0), Vector3(48, 0.4, 14), C_CONCRETE)              # platforms
+	for z in [-6.4, 6.4]:
+		box(Vector3(0, LRT_Y + 1.7, z), Vector3(46, 3.2, 0.3), Color(0.92, 0.93, 0.95), mat_lowrise)
+	box(Vector3(0, LRT_Y + 5.2, 0), Vector3(50, 0.5, 15), roof)
+	var b := Basis(Vector3.UP, PI * 0.5) * Basis.from_scale(Vector3(15.4, 1.6, 50))
+	_add(prism_mesh, mat_plain, Transform3D(b, Vector3(0, LRT_Y + 6.5, 0)), roof)
+	for x in [-18.0, 0.0, 18.0]:
+		for z in [-5.5, 5.5]:
+			cyl(Vector3(x, 0, z), 0.8, LRT_Y, C_CONCRETE)
+	# street-level entrance with the line's sign
+	box(Vector3(20, 0, 9.5), Vector3(7, 6, 4), Color(0.9, 0.9, 0.9), mat_lowrise)
+	box(Vector3(20, 6, 9.5), Vector3(7.4, 0.8, 4.4), Color(0.85, 0.15, 0.2) if lrt_curves.size() == 1 else Color(0.15, 0.35, 0.8))
+	frame = Transform3D.IDENTITY
+
+
+# ── placement ────────────────────────────────────────────────────────
+## Builders work in local space (front facing -z, toward the street);
+## `frame` carries them to their lot.
+## `kind` says what stands on the lot (shoprow, kampung, school, paddy...);
+## zone_layer.gd matches each game zone to a lot of a fitting kind.
+func _place(c: Vector3, yaw: float, kind := "", w := 0.0, d := 0.0) -> void:
+	frame = Transform3D(Basis(Vector3.UP, yaw), c)
+	if kind != "":
+		lots.append({"p": Vector3(c.x, 0, c.z), "kind": kind, "yaw": yaw, "w": w, "d": d})
+
+
+## A landmark on the free lot nearest its real map position (spiral
+## search out from it in 4 m steps).
+func _landmark_at(kind: String, target: Vector3, size: float) -> void:
+	for ring in 30:
+		var steps := maxi(1, ring * 8)
+		for k in steps:
+			var c := target + _polar(ring * 4.0, TAU * k / steps)
+			var yaw := atan2(c.x, c.z)
+			if not _rect_free(c, yaw, size, size):
+				continue
+			_mark_rect(c, yaw, size, size)
+			_place(c, yaw, kind, size, size)
+			match kind:
+				"telecom": _telecom()
+				"park": _park(Vector3.ZERO, false)
+				_: _merdeka118()
+			frame = Transform3D.IDENTITY
+			return
+
+
+func _special(kind: String, r: float, deg: float, w: float, d: float) -> void:
+	for attempt in 40:
+		# step a fixed ~10 m sideways, so far landmarks stay near their real spot
+		var a := deg_to_rad(deg) + (attempt / 2) * minf(0.06, 10.0 / maxf(r, 1.0)) * (1.0 if attempt % 2 == 0 else -1.0)
+		var rr := r + float(attempt % 3 - 1) * 14.0
+		var c := _polar(rr, a)
+		var yaw := atan2(c.x, c.z)
+		if not _rect_free(c, yaw, w, d):
+			continue
+		_mark_rect(c, yaw, w, d)
+		_place(c, yaw, kind, w, d)
+		match kind:
+			"merdeka118": _merdeka118()
+			"lake": _lake()
+			"masjid": _masjid(Vector3.ZERO)
+			"school": _school(Vector3.ZERO)
+			"park": _park(Vector3.ZERO, false)
+			"field": _field(Vector3.ZERO)
+			"mall": _mall(Vector3.ZERO)
+			"telecom": _telecom()
+		frame = Transform3D.IDENTITY
+		return
+
+
+func _build_specials() -> void:
+	var s := view_scale
+	if landmarks:
+		# Bukit Bintang: KLCC twin towers in the core loop, Menara KL and
+		# Merdeka 118 just outside it
+		_mark_rect(Vector3.ZERO, 0.0, 38, 38)
+		_place(Vector3(0, 0, -4), 0.0, "landmark", 38, 38)
+		_twin_towers(Vector3.ZERO)
+		town_centre = Vector3(0, 0, -4)
+		frame = Transform3D.IDENTITY
+		for lm in [["park", KLCC_PARK_KM, 38.0], ["telecom", KL_TOWER_KM, 20.0], ["merdeka118", MERDEKA_KM, 30.0]]:
+			var v: Vector2 = lm[1] * KL_SCALE
+			_landmark_at(lm[0], Vector3(v.x, 0, v.y), lm[2])
+	else:
+		# everywhere else the centre is the town's own dataran, on the
+		# nearest open ground to the middle so no street runs through it
+		var sz := 55.0 * s * 0.85
+		var placed := false
+		for ring in 12:
+			var r := ring * 12.0
+			var steps := maxi(1, ring * 6)
+			for k in steps:
+				var a := TAU * k / steps
+				var c := _polar(r, a)
+				for yaw in [0.0, PI * 0.5, PI * 0.25]:
+					if not placed and _rect_free(c, yaw, sz, sz * 0.75):
+						_mark_rect(c, yaw, sz, sz * 0.75)
+						_place(c, yaw, "dataran", sz, sz * 0.75)
+						_town_square(sz)
+						frame = Transform3D.IDENTITY
+						town_centre = c
+						placed = true
+			if placed:
+				break
+	if tier in ["metro", "city"]:
+		_special("mall", 186.0 * s, 75.0, 38, 34)
+	_special("masjid", 238.0 * s, 30.0, 36, 38)
+	_special("school", 290.0 * s, 140.0, 36, 36)
+	_special("field", 340.0 * s, 95.0, 38, 36)
+	if tier != "rural":
+		_special("masjid", 340.0 * s, 250.0, 36, 38)
+		_special("school", 392.0 * s, 318.0, 36, 36)
+		_special("park", 240.0 * s, 285.0, 38, 38)
+		_special("park", 392.0 * s, 190.0, 38, 38)
+	if bool(traits.get("lake", false)):
+		_special("lake", 330.0 * s, 160.0, 64, 46)
+
+
+## Walks both kerbs of every street and fills the frontage with whatever
+## the zone calls for: towers in the core, shophouse rows around it,
+## terrace rows and bungalows in the taman, kampung houses at the edge.
+func _frontage() -> void:
+	var order := range(roads.size())
+	order.sort_custom(func(a, b): return roads[a].cls < roads[b].cls)
+	for ri in order:
+		var rd: Dictionary = roads[ri]
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var setback: float = rd.half + (2.6 if rd.cls < 2 else 1.6)
+		for side in [-1.0, 1.0]:
+			var s := rng.randf_range(0.0, 6.0)
+			while s < L - 6.0:
+				var p0: Vector3 = road_sample(rd, s)[0]
+				var spec := _pick_building(p0, rd.cls)
+				var mid: float = s + spec.w * 0.5
+				if mid > L - 2.0:
+					break
+				var sm := road_sample(rd, mid)
+				var t: Vector3 = sm[1]
+				var n: Vector3 = Vector3(-t.z, 0, t.x) * side
+				var c: Vector3 = sm[0] + n * (setback + 1.5 + spec.d * 0.5)
+				var yaw := atan2(n.x, n.z)
+				if spec.kind != "skip" and _rect_free(c, yaw, spec.w, spec.d):
+					_mark_rect(c, yaw, spec.w, spec.d)
+					_place(c, yaw, spec.kind, spec.w, spec.d)
+					_build_spec(spec, _urban_r(p0))
+					frame = Transform3D.IDENTITY
+					s += spec.w + spec.gap
+				else:
+					s += 4.0 if spec.kind != "skip" else spec.w
+
+
+func _shoprow(lo: int, hi: int) -> Dictionary:
+	var u := rng.randi_range(lo, hi)
+	return {"kind": "shoprow", "units": u, "w": u * 6.0, "d": 14.0, "gap": rng.randf_range(1, 6)}
+
+
+func _terrace() -> Dictionary:
+	var u := rng.randi_range(4, 8)
+	return {"kind": "terrace", "units": u, "w": u * 6.0, "d": 14.0, "gap": rng.randf_range(2, 6)}
+
+
+## How "central" a point is: distance to the centre, or on Bukit Bintang
+## to the KLCC -> Merdeka corridor, so the real CBD's towers run between
+## the two instead of stopping at a ring round the twin towers.
+func _urban_r(p: Vector3) -> float:
+	var r := Vector2(p.x, p.z).length()
+	if cbd_axis == Vector3.ZERO:
+		return r
+	var ax := Vector2(cbd_axis.x, cbd_axis.z)
+	var q := Vector2(p.x, p.z)
+	var t := clampf(q.dot(ax) / ax.length_squared(), 0.0, 1.0)
+	return minf(r, q.distance_to(ax * t) * 1.25 + 30.0)
+
+
+func _pick_building(p: Vector3, cls: int) -> Dictionary:
+	# zone edges wander with the bearing so the bands aren't perfect rings
+	var a := atan2(p.z, p.x)
+	var r := _urban_r(p) + 26.0 * view_scale * sin(a * 3.0 + 1.3) + 14.0 * view_scale * sin(a * 7.0)
+	var x := rng.randf()
+	var bungalow := {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": rng.randf_range(1, 5)}
+	var trees := {"kind": "trees", "w": 12.0, "d": 12.0, "gap": 3.0}
+	var kampung := {"kind": "kampung", "w": 12.0, "d": 12.0, "gap": rng.randf_range(6, 20)}
+	var skip := {"kind": "skip", "w": rng.randf_range(10, 30), "d": 0.0, "gap": 0.0}
+	# industrial seats: a factory estate in one sector
+	if industrial_bearing != INF and r > r_core and r < r_taman and absf(angle_difference(a, industrial_bearing)) < 0.45 and x < 0.75:
+		return {"kind": "factory", "w": 28.0, "d": 22.0, "gap": rng.randf_range(4, 10)}
+	if r < r_core:
+		match tier:
+			"metro":
+				if x < 0.72:
+					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": rng.randf_range(2, 6)}
+				return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 3.0}
+			"city":
+				if x < 0.4:
+					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": 4.0, "h": rng.randf_range(30, 75)}
+				if x < 0.75:
+					return _shoprow(3, 7)
+				if x < 0.92:
+					return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(16, 30)}
+				return trees
+			"town":
+				if x < 0.75:
+					return _shoprow(3, 6)
+				if x < 0.86:
+					return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(10, 18)}
+				return trees
+			_:
+				return _shoprow(2, 4) if x < 0.7 else trees
+	if r < r_commercial:
+		match tier:
+			"metro":
+				if x < 0.42:
+					return _shoprow(3, 7)
+				if x < 0.78:
+					return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0}
+				if x < 0.9:
+					return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0}
+				return {"kind": "carpark", "w": 16.0, "d": 12.0, "gap": 3.0}
+			"city":
+				if x < 0.5:
+					return _shoprow(3, 7)
+				if x < 0.65:
+					return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0, "top": 45.0}
+				if x < 0.85:
+					return _terrace()
+				return {"kind": "carpark", "w": 16.0, "d": 12.0, "gap": 3.0}
+			"town":
+				if x < 0.45:
+					return _shoprow(2, 6)
+				if x < 0.7:
+					return _terrace()
+				return bungalow if x < 0.9 else trees
+			_:
+				return kampung if x < 0.55 else (_shoprow(2, 3) if x < 0.7 else skip)
+	if r < r_taman:
+		if tier == "rural":
+			return kampung if x < 0.6 else skip
+		# condo blocks cluster along a metropolis's main roads
+		if tier == "metro" and cls == 0 and rng.randf() < lerpf(0.35, 0.08, clampf((r - r_commercial) / (r_taman - r_commercial), 0.0, 1.0)):
+			return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0}
+		if tier == "metro":
+			# a metropolis's suburbs are built up: terraces, flats, shop rows
+			if x < 0.5:
+				return _terrace()
+			if x < 0.72:
+				return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(12, 24)}
+			if x < 0.9:
+				return _shoprow(3, 6)
+			return bungalow
+		if tier == "town" and x < 0.15:
+			return kampung
+		if x < 0.56:
+			return _terrace()
+		return bungalow if x < 0.9 else trees
+	if r < r_city:
+		if tier == "metro":
+			if x < 0.45:
+				return _terrace()
+			if x < 0.7:
+				return bungalow
+			if x < 0.85:
+				return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(10, 18)}
+			return kampung
+		return kampung if x < 0.55 else skip
+	return {"kind": "skip", "w": 40.0, "d": 0.0, "gap": 0.0}
+
+
+func _build_spec(spec: Dictionary, r: float) -> void:
+	match spec.kind:
+		"tower":
+			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0))    # ~240 m real at most: landmarks stay taller
+			var h: float = spec.get("h", hmax * rng.randf_range(0.55, 1.0))
+			_office_tower(Vector3.ZERO, rng.randf_range(10, 14), rng.randf_range(10, 14), h)
+		"flat":
+			flat_block(Vector3.ZERO, Vector3(spec.w - 2.0, spec.get("h", rng.randf_range(14, 34)), spec.d - 2.0), Color(0.93, 0.9, 0.84).lerp(Color(0.8, 0.72, 0.6), rng.randf()))
+		"factory":
+			_factory()
+		"shoprow":
+			_shophouse_row(spec.units)
+		"condo":
+			var top: float = spec.get("top", lerpf(60.0, 30.0, clampf((r - r_core * 0.5) / (r_taman - r_core * 0.5), 0.0, 1.0)))
+			_condo(rng.randf_range(top * 0.55, top))
+		"carpark":
+			box(Vector3.ZERO, Vector3(spec.w, 0.04, spec.d), Color(0.3, 0.31, 0.32))
+			for k in 5:
+				box(Vector3(-5 + k * 2.5, 0, rng.randf_range(-2, 2)), Vector3(1.8, 1.3, 4.0), SIGNS[rng.randi() % SIGNS.size()].lerp(Color.WHITE, 0.4))
+		"terrace":
+			_terrace_row(Vector3(0, 0, 1.0), spec.units, true)
+		"bungalow":
+			_bungalow()
+		"kampung":
+			_kampung_house()
+		"trees":
+			for k in 3:
+				tree(Vector3(rng.randf_range(-4, 4), 0, rng.randf_range(-4, 4)), rng.randf() < 0.5)
+
+
+## Trees in whatever ground is still free: back gardens, verges, the
+## leftover corners between curved streets, then the forest outside.
+func _fill_trees() -> void:
+	if bool(traits.get("paddy", false)):
+		_paddy_fields()
+	for i in 9000:
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 1150.0
+		var p := _polar(r, a)
+		var ci := _cell(p)
+		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
+			continue
+		var urban := tier in ["metro", "city"]
+		var ur := _urban_r(p)
+		var keep := (0.08 if urban else 0.35) if ur < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8)
+		var n := sin(p.x * 0.02) * sin(p.z * 0.023) + sin((p.x + p.z) * 0.011)
+		if rng.randf() > keep or (r > r_city and n < 0.1):
+			continue
+		if ci >= 0:
+			occ[ci] = 1
+		tree(p, rng.randf() < 0.25)
+	# mountain ranges ringing the valley, in layers: a near forested
+	# ridge, then bluer and paler ranges behind it that the haze softens
+	var hilly := bool(traits.get("hilly", false))
+	var layers := [
+		{"r": Vector2(900, 1100) if hilly else Vector2(1250, 1400), "n": 30, "w": Vector2(260, 380), "h": Vector2(180, 320) if hilly else Vector2(80, 170), "c0": Color(0.2, 0.33, 0.19), "c1": Color(0.28, 0.4, 0.24)},
+		{"r": Vector2(1650, 1850), "n": 46, "w": Vector2(320, 480), "h": Vector2(180, 300) if hilly else Vector2(110, 210), "c0": Color(0.14, 0.22, 0.2), "c1": Color(0.2, 0.28, 0.27)},
+		{"r": Vector2(2300, 2600), "n": 52, "w": Vector2(420, 640), "h": Vector2(260, 420) if hilly else Vector2(170, 300), "c0": Color(0.2, 0.26, 0.3), "c1": Color(0.26, 0.32, 0.36)},
+	]
+	for L in layers:
+		var n: int = L.n
+		for i in n:
+			var a := TAU * i / float(n) + rng.randf_range(-0.08, 0.08)
+			var hp := _polar(rng.randf_range(L.r.x, L.r.y), a)
+			if in_sea(hp):
+				continue
+			var col: Color = (L.c0 as Color).lerp(L.c1, rng.randf())
+			var hh := rng.randf_range(L.h.x, L.h.y)
+			var wide := rng.randf_range(L.w.x, L.w.y)
+			# long and narrow along the ring, so neighbours merge into a ridge
+			var b := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(160, 260), hh, wide))
+			_add(sphere_mesh, mat_plain, Transform3D(b, hp + Vector3(0, -hh * 0.08, 0)), col)
+			# a lower shoulder beside each peak breaks up the dome outline
+			if rng.randf() < 0.7:
+				var sp := _polar(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
+				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
+				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
+	if bool(traits.get("kinabalu", false)):
+		var mp := _polar(2600.0, feature_turn + PI * 0.5)
+		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
+		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))
+
+
+## Sawah on the outskirts: flooded green-gold plots with earth bunds,
+## laid on a grid turned with the seat.
+func _paddy_fields() -> void:
+	var yaw := feature_turn
+	var b := Basis(Vector3.UP, yaw)
+	var reach := r_city + 520.0
+	var u := -reach
+	while u < reach:
+		var v := -reach
+		while v < reach:
+			var c := b * Vector3(u, 0, v)
+			var r := c.length()
+			if r > r_city * 0.85 and r < reach and _rect_free(c, yaw, 40, 30):
+				_mark_rect(c, yaw, 40, 30)
+				lots.append({"p": c, "kind": "paddy", "yaw": yaw, "w": 40.0, "d": 30.0})
+				var col := Color(0.42, 0.62, 0.28).lerp(Color(0.72, 0.68, 0.3), rng.randf() * 0.6)
+				box(c, Vector3(40, 0.12, 30), col, null, yaw)
+				box(c + b * Vector3(0, 0, -15), Vector3(40, 0.35, 0.8), Color(0.5, 0.42, 0.3), null, yaw)
+				box(c + b * Vector3(-20, 0, 0), Vector3(0.8, 0.35, 30), Color(0.5, 0.42, 0.3), null, yaw)
+			v += 31.0
+		u += 41.0
+
+
+func _build_ground() -> void:
+	var g := PlaneMesh.new()
+	g.size = Vector2(16000, 16000)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.27, 0.4, 0.22)
+	gm.roughness = 1.0
+	_single(g, gm, Transform3D.IDENTITY)
+	# paved downtown (a smaller town centre in towns, none in villages)
+	# warm, darker paving: the old light grey bleached to white in the sun
+	if tier in ["metro", "city"]:
+		_disc(ground_st, Vector3.ZERO, r_core - 10.0, 0.015, C_PAVING)
+	elif tier == "town" and layout == "radial":
+		_disc(ground_st, Vector3.ZERO, r_core * 0.6, 0.015, C_PAVING)
+
+
+## Lawns, planters and shade trees scattered over the paved centre, kept off
+## roads and building lots.
+func _plaza_greenery(radius: float) -> void:
+	var placed := 0
+	for i in 900:
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * (radius - 6.0)
+		var p := Vector3(cos(a) * r, 0, sin(a) * r)
+		var w := rng.randf_range(10.0, 22.0)
+		var d := rng.randf_range(8.0, 16.0)
+		var yaw := rng.randf() * PI
+		if not _rect_free(p, yaw, w, d):
+			continue
+		_mark_rect(p, yaw, w, d)
+		box(p, Vector3(w, 0.08, d), Color(0.3, 0.5, 0.24).lerp(Color(0.4, 0.56, 0.28), rng.randf()), mat_lawn, yaw)
+		box(p, Vector3(w + 0.6, 0.35, 0.35), C_KERB, null, yaw)
+		for k in rng.randi_range(2, 4):
+			tree(p + Basis(Vector3.UP, yaw) * Vector3(rng.randf_range(-w, w) * 0.4, 0, rng.randf_range(-d, d) * 0.4), rng.randf() < 0.35)
+		placed += 1
+		if placed >= int(radius * 0.35):
+			break
+
+
+# ── buildings ────────────────────────────────────────────────────────
+## Flat-roof building with a plain roof slab and parapet over the windowed walls.
+func flat_block(p: Vector3, size: Vector3, col: Color) -> void:
+	box(p, size, col, mat_lowrise)
+	box(p + Vector3(0, size.y, 0), Vector3(size.x + 0.3, 0.7, size.z + 0.3), col.darkened(0.12))
+
+
+func _office_tower(p: Vector3, fw: float, fd: float, h: float) -> void:
+	var col: Color = GLASS[rng.randi() % GLASS.size()]
+	flat_block(p, Vector3(fw + 5, 7, fd + 5), Color(0.82, 0.8, 0.76))          # podium
+	box(p + Vector3(0, 7, 0), Vector3(fw, h, fd), col, mat_glass)
+	var top := p + Vector3(0, 7 + h, 0)
+	if rng.randf() < 0.6:
+		box(top, Vector3(fw * 0.7, h * 0.12, fd * 0.7), col, mat_glass)               # setback crown
+		top.y += h * 0.12
+		box(top, Vector3(fw * 0.7 + 0.4, 0.6, fd * 0.7 + 0.4), Color(0.6, 0.62, 0.64))
+	else:
+		box(top, Vector3(fw + 0.4, 0.8, fd + 0.4), Color(0.6, 0.62, 0.64))
+	box(top + Vector3(0, 0.6, 0), Vector3(fw * 0.35, 3, fd * 0.3), Color(0.55, 0.56, 0.58))   # plant room
+	if rng.randf() < 0.3:
+		cyl(top + Vector3(0, 3.6, 0), 0.25, 14, Color(0.8, 0.2, 0.2))
+
+
+func _terrace_row(p: Vector3, units: int, flip: bool) -> void:
+	var unit := 6.0
+	var depth := 10.0
+	var h := 6.8
+	var row_len := units * unit
+	var roof: Color = ROOFS[rng.randi() % ROOFS.size()]
+	for u in units:
+		var x := -row_len * 0.5 + unit * 0.5 + u * unit
+		var wall: Color = HOUSE_WALLS[rng.randi() % HOUSE_WALLS.size()]
+		box(p + Vector3(x, 0, 0), Vector3(unit - 0.08, h, depth), wall, mat_lowrise)
+		# porch wall + gate in the front yard
+		var fz := (depth * 0.5 + 3.0) * (-1.0 if flip else 1.0)
+		box(p + Vector3(x, 0, fz), Vector3(unit - 0.3, 1.1, 0.2), Color(0.92, 0.9, 0.86))
+		box(p + Vector3(x + unit * 0.5 - 0.1, 0, fz * 0.75), Vector3(0.18, 1.1, 3.0), Color(0.92, 0.9, 0.86))
+		# car porch roof
+		box(p + Vector3(x, 2.7, fz * 0.6), Vector3(unit - 0.6, 0.18, 3.2), roof.darkened(0.15))
+		if rng.randf() < 0.55:
+			box(p + Vector3(x, 0, fz * 0.62), Vector3(1.8, 1.4, 4.0), SIGNS[rng.randi() % SIGNS.size()].lerp(Color.WHITE, 0.35), null, PI * 0.5)
+	gable(p + Vector3(0, h, 0), row_len, depth, 3.0, roof)
+
+
+## Residential condo tower: pale slab on a car-park podium, a coloured
+## accent fin up the front, crown and water tanks on the roof.
+func _condo(h: float) -> void:
+	var col: Color = CONDO_WALLS[rng.randi() % CONDO_WALLS.size()]
+	flat_block(Vector3.ZERO, Vector3(17, 9, 16), Color(0.78, 0.77, 0.74))
+	box(Vector3(0, 9, 0.5), Vector3(14, h, 12), col, mat_lowrise)
+	var accent: Color = CONDO_ACCENTS[rng.randi() % CONDO_ACCENTS.size()]
+	box(Vector3(rng.randf_range(-3, 3), 9, -5.6), Vector3(1.6, h + 2.0, 0.8), accent)
+	box(Vector3(0, 9 + h, 0.5), Vector3(14.6, 1.0, 12.6), col.darkened(0.15))
+	box(Vector3(0, 10 + h, 0.5), Vector3(8, 4.0, 6), accent.lerp(Color.WHITE, 0.3))
+	cyl(Vector3(4.5, 10 + h, 3.5), 1.2, 3.0, Color(0.85, 0.85, 0.82))
+
+
+## Row of shophouses along the street: five-foot-way canopy and shop
+## signs on the front (-z), clay-tile roofs, 2-3 storeys.
+func _shophouse_row(units: int) -> void:
+	var unit := 6.0
+	var depth := 12.0
+	var h := rng.randi_range(2, 3) * 3.6
+	var row := units * unit
+	for u in units:
+		var x := -row * 0.5 + unit * 0.5 + u * unit
+		var wall: Color = SHOPHOUSE_WALLS[rng.randi() % SHOPHOUSE_WALLS.size()]
+		box(Vector3(x, 0, 0.6), Vector3(unit - 0.1, h, depth), wall, mat_lowrise)
+		box(Vector3(x, 3.4, -5.55), Vector3(unit - 0.6, 1.0, 0.3), SIGNS[rng.randi() % SIGNS.size()])
+		box(Vector3(x, 3.1, -6.4), Vector3(unit, 0.25, 2.0), Color(0.86, 0.84, 0.8))
+		var b := Basis(Vector3.UP, PI * 0.5) * Basis.from_scale(Vector3(depth + 0.6, 2.2, unit))
+		_add(prism_mesh, mat_roof, Transform3D(b, Vector3(x, h + 1.1, 0.6)), ROOFS[rng.randi() % 3])
+
+
+func _bungalow() -> void:
+	var w := rng.randf_range(8, 10)
+	var dd := rng.randf_range(7, 8.5)
+	var h := rng.randf_range(3.6, 7.2)
+	box(Vector3(0, 0, 1), Vector3(w, h, dd), HOUSE_WALLS[rng.randi() % HOUSE_WALLS.size()], mat_lowrise)
+	gable(Vector3(0, h, 1), w, dd, rng.randf_range(2.4, 3.4), ROOFS[rng.randi() % ROOFS.size()])
+	# boundary wall with a gate gap at the front
+	var fc := Color(0.9, 0.88, 0.84)
+	box(Vector3(-4.8, 0, -7.4), Vector3(5.2, 1.3, 0.25), fc)
+	box(Vector3(4.8, 0, -7.4), Vector3(5.2, 1.3, 0.25), fc)
+	box(Vector3(0, 0, 7.4), Vector3(14.8, 1.3, 0.25), fc)
+	box(Vector3(-7.4, 0, 0), Vector3(0.25, 1.3, 14.8), fc)
+	box(Vector3(7.4, 0, 0), Vector3(0.25, 1.3, 14.8), fc)
+	box(Vector3(0, 0, -5.4), Vector3(4.0, 0.03, 4.0), Color(0.55, 0.55, 0.53))   # driveway
+	if rng.randf() < 0.6:
+		box(Vector3(0, 0, -5.2), Vector3(1.8, 1.4, 4.0), SIGNS[rng.randi() % SIGNS.size()].lerp(Color.WHITE, 0.35), null, PI * 0.5)
+	tree(Vector3(rng.randf_range(-5, 5), 0, 6.0), rng.randf() < 0.5)
+
+
+## Rumah kampung on stilts, tangga at the front, fruit trees behind.
+func _kampung_house() -> void:
+	var w := rng.randf_range(7, 9)
+	var dd := rng.randf_range(6, 8)
+	var wood := Color(0.55, 0.38, 0.24).lerp(Color(0.72, 0.56, 0.38), rng.randf())
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			box(Vector3(sx * (w * 0.5 - 0.4), 0, sz * (dd * 0.5 - 0.4)), Vector3(0.3, 1.4, 0.3), Color(0.35, 0.26, 0.18))
+	box(Vector3(0, 1.4, 0), Vector3(w, 3.0, dd), wood)
+	box(Vector3(0, 0.6, -dd * 0.5 - 0.8), Vector3(1.2, 0.2, 1.8), wood)   # tangga
+	gable(Vector3(0, 4.4, 0), w, dd, 3.6, ZINC[rng.randi() % ZINC.size()])
+	for k in 2:
+		tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
+
+
+## Merdeka 118: faceted tiers stepping in as they rise, then a long spire.
+func _merdeka118() -> void:
+	flat_block(Vector3.ZERO, Vector3(28, 10, 28), Color(0.82, 0.84, 0.86))
+	var y := 10.0
+	for i in 9:
+		var r := lerpf(11.0, 4.5, float(i) / 8.0)
+		var h := 13.2 if i < 8 else 9.4
+		var b := Basis(Vector3.UP, i * 0.13) * Basis.from_scale(Vector3(r * 2.0, h, r * 2.0))
+		_single(oct_mesh, mat_landmark, Transform3D(b, Vector3(0, y + h * 0.5, 0)))
+		y += h
+	var spire := CylinderMesh.new()
+	spire.top_radius = 0.08
+	spire.bottom_radius = 1.6
+	spire.height = 45
+	_single(spire, mat_landmark, Transform3D(Basis(), Vector3(0, y + 22.5, 0)))
+
+
+## Dataran for every seat that is not Bukit Bintang: padang with its
+## white rail, a clock tower at the head, flagpole and shade trees.
+func _town_square(sz: float) -> void:
+	box(Vector3.ZERO, Vector3(sz, 0.05, sz * 0.7), Color(0.38, 0.6, 0.3))
+	var w := Color(0.95, 0.95, 0.92)
+	for z in [-sz * 0.35, sz * 0.35]:
+		box(Vector3(0, 0, z), Vector3(sz, 0.7, 0.2), w)
+	for x in [-sz * 0.5, sz * 0.5]:
+		box(Vector3(x, 0, 0), Vector3(0.2, 0.7, sz * 0.7), w)
+	var ct := Vector3(0, 0, -sz * 0.42)
+	box(ct, Vector3(4, 18, 4), Color(0.95, 0.92, 0.84), mat_lowrise)
+	box(ct + Vector3(0, 18, 0), Vector3(4.6, 0.6, 4.6), Color(0.8, 0.76, 0.66))
+	for f in [Vector3(0, 0, -2.05), Vector3(0, 0, 2.05)]:
+		box(ct + f + Vector3(0, 14.2, 0), Vector3(2.4, 2.4, 0.1), Color.WHITE)
+	ball(ct + Vector3(0, 19.6, 0), Vector3(3.8, 4.4, 3.8), Color("8e3f2e"))
+	cyl(Vector3(sz * 0.3, 0, -sz * 0.42), 0.12, 12, Color(0.9, 0.9, 0.9))
+	box(Vector3(sz * 0.3 + 1.2, 10.4, -sz * 0.42), Vector3(2.4, 1.4, 0.05), Color(0.8, 0.1, 0.12))
+	for k in 6:
+		tree(Vector3(rng.randf_range(-sz * 0.45, sz * 0.45), 0, sz * 0.42), rng.randf() < 0.5)
+
+
+func _lake() -> void:
+	var water := CylinderMesh.new()
+	water.top_radius = 0.5
+	water.bottom_radius = 0.5
+	water.height = 0.1
+	water.radial_segments = 24
+	_single(water, mat_water, Transform3D(Basis.from_scale(Vector3(56, 1, 38)), Vector3(0, 0.05, 0)))
+	for k in 16:
+		var a := TAU * k / 16.0
+		tree(Vector3(cos(a) * 31.0, 0, sin(a) * 22.0), rng.randf() < 0.3)
+
+
+func _factory() -> void:
+	var col := Color(0.66, 0.7, 0.74)
+	box(Vector3(0, 0, 1), Vector3(26, 8, 18), col, mat_lowrise)
+	for k in 3:
+		var b := Basis(Vector3.UP, PI * 0.5) * Basis.from_scale(Vector3(6.0, 2.4, 26.4))
+		_add(prism_mesh, mat_plain, Transform3D(b, Vector3(0, 9.2, -5.0 + k * 6.0)), Color(0.55, 0.6, 0.66))
+	cyl(Vector3(9, 0, 7), 1.0, 22, Color(0.75, 0.72, 0.7))
+	box(Vector3(0, 0, -9), Vector3(20, 0.04, 4), Color(0.4, 0.4, 0.4))
+
+
+## Telecom tower on a small plaza: tapering shaft, observation pod, mast.
+func _telecom() -> void:
+	flat_block(Vector3.ZERO, Vector3(14, 6, 14), Color(0.85, 0.84, 0.8))
+	var sh := CylinderMesh.new()
+	sh.top_radius = 1.8
+	sh.bottom_radius = 3.4
+	sh.height = 66
+	_single(sh, mat_landmark, Transform3D(Basis(), Vector3(0, 6 + 33, 0)))
+	ball(Vector3(0, 69, 0), Vector3(12, 7, 12), Color(0.92, 0.93, 0.95), mat_landmark)
+	ball(Vector3(0, 74, 0), Vector3(7, 4, 7), Color(0.92, 0.93, 0.95), mat_landmark)
+	cyl(Vector3(0, 76, 0), 0.4, 26, Color(0.9, 0.9, 0.9))
+	cyl(Vector3(0, 102, 0), 0.2, 3, Color(1, 0.2, 0.2))
+	for k in 4:
+		tree(Vector3([-8.5, 8.5][k % 2], 0, [-8.5, 8.5][k / 2]), true)
+
+
+func _park(g: Vector3, with_tower: bool) -> void:
+	box(g + Vector3(-6, 0, 6), Vector3(16, 0.05, 12), Color.WHITE, mat_water)
+	for k in 26:
+		var p := g + Vector3(rng.randf_range(-18, 18), 0, rng.randf_range(-18, 18))
+		if p.distance_to(g + Vector3(-6, 0, 6)) < 9.0:
+			continue
+		tree(p, rng.randf() < 0.3)
+	# footpath loop
+	box(g + Vector3(0, 0, -15), Vector3(34, 0.04, 2), Color(0.8, 0.74, 0.62))
+	box(g + Vector3(15, 0, 0), Vector3(2, 0.04, 32), Color(0.8, 0.74, 0.62))
+	if with_tower:
+		# telecom tower: tapering shaft, observation pod, mast
+		var p := g + Vector3(8, 0, -6)
+		flat_block(p, Vector3(14, 6, 14), Color(0.85, 0.84, 0.8))
+		var sh := CylinderMesh.new()
+		sh.top_radius = 1.8
+		sh.bottom_radius = 3.4
+		sh.height = 150
+		_single(sh, mat_landmark, Transform3D(Basis(), p + Vector3(0, 6 + 75, 0)))
+		ball(p + Vector3(0, 128, 0), Vector3(15, 10, 15), Color(0.92, 0.93, 0.95), mat_landmark)
+		ball(p + Vector3(0, 136, 0), Vector3(9, 5, 9), Color(0.92, 0.93, 0.95), mat_landmark)
+		cyl(p + Vector3(0, 138, 0), 0.5, 38, Color(0.9, 0.9, 0.9))
+		cyl(p + Vector3(0, 176, 0), 0.25, 6, Color(1, 0.2, 0.2))
+
+
+func _field(g: Vector3) -> void:
+	box(g, Vector3(32, 0.04, 22), Color(0.36, 0.62, 0.3))
+	var w := Color(0.95, 0.95, 0.95)
+	for z in [-11.0, 11.0]:
+		box(g + Vector3(0, 0, z), Vector3(32, 0.06, 0.3), w)
+	for x in [-16.0, 0.0, 16.0]:
+		box(g + Vector3(x, 0, 0), Vector3(0.3, 0.06, 22), w)
+	for x in [-16.0, 16.0]:
+		box(g + Vector3(x, 0, -2.5), Vector3(0.3, 2.4, 0.3), w)
+		box(g + Vector3(x, 0, 2.5), Vector3(0.3, 2.4, 0.3), w)
+	for k in 10:
+		tree(g + Vector3(rng.randf_range(-18, 18), 0, [-16.5, 16.5][k % 2]), false)
+
+
+func _school(g: Vector3) -> void:
+	var cream := Color(0.96, 0.93, 0.82)
+	var blue := Color(0.3, 0.48, 0.72)
+	# U-shaped blocks around a quad: walls cream, roof trims blue
+	for spec in [[Vector3(0, 0, -13), Vector3(34, 10.8, 9)], [Vector3(-13, 0, 4), Vector3(9, 10.8, 22)], [Vector3(13, 0, 4), Vector3(9, 10.8, 22)]]:
+		var p: Vector3 = g + spec[0]
+		var s: Vector3 = spec[1]
+		box(p, s, cream, mat_lowrise)
+		box(p + Vector3(0, s.y, 0), s + Vector3(0.6, -s.y + 0.6, 0.6), blue)
+	box(g + Vector3(0, 0, 4), Vector3(14, 0.04, 18), Color(0.7, 0.32, 0.28))     # court
+	cyl(g + Vector3(0, 0, 15), 0.12, 10, Color(0.9, 0.9, 0.9))                   # flagpole
+	box(g + Vector3(1.2, 8.4, 15), Vector3(2.4, 1.4, 0.05), Color(0.8, 0.1, 0.12))
+
+
+func _masjid(g: Vector3) -> void:
+	var cream := Color(0.97, 0.95, 0.88)
+	var dome := Color(0.18, 0.5, 0.42) if rng.randf() < 0.5 else Color(0.2, 0.36, 0.62)
+	box(g + Vector3(0, 0, 2), Vector3(22, 9, 22), cream, mat_lowrise)
+	box(g + Vector3(0, 9, 2), Vector3(23, 0.8, 23), dome.darkened(0.2))
+	cyl(g + Vector3(0, 9.8, 2), 6.5, 3, cream, null, oct_mesh)
+	ball(g + Vector3(0, 12.8, 2), Vector3(14, 12, 14), dome)
+	cyl(g + Vector3(0, 18.6, 2), 0.15, 2.5, Color(0.9, 0.8, 0.3))
+	for sx in [-1.0, 1.0]:
+		var mp := g + Vector3(sx * 15, 0, -12)
+		cyl(mp, 1.2, 30, cream, null, oct_mesh)
+		box(mp + Vector3(0, 24, 0), Vector3(3.4, 0.6, 3.4), dome.darkened(0.2))
+		ball(mp + Vector3(0, 31, 0), Vector3(2.6, 3.2, 2.6), dome)
+	box(g + Vector3(0, 0, -13), Vector3(14, 0.04, 8), Color(0.85, 0.82, 0.76))   # courtyard
+	for k in 6:
+		tree(g + Vector3(rng.randf_range(-18, 18), 0, rng.randf_range(14, 18)), true)
+
+
+func _twin_towers(g: Vector3) -> void:
+	# podium linking both towers
+	flat_block(g, Vector3(36, 9, 24), Color(0.84, 0.84, 0.86))
+	for sx in [-1.0, 1.0]:
+		var p := g + Vector3(sx * 9.5, 9, 0)
+		var y := 0.0
+		# tiers: (radius, height) tapering towards the pinnacle
+		for tier in [[6.4, 60.0], [5.6, 9.0], [4.8, 6.0], [3.8, 4.5], [2.8, 3.5], [1.8, 2.5]]:
+			var r: float = tier[0]
+			var h: float = tier[1]
+			var m := oct_mesh
+			_single(m, mat_landmark, Transform3D(Basis.from_scale(Vector3(r * 2, h, r * 2)), p + Vector3(0, y + h * 0.5, 0)))
+			_single(m, mat_landmark, Transform3D(Basis(Vector3.UP, PI / 8) * Basis.from_scale(Vector3(r * 2, h, r * 2)), p + Vector3(0, y + h * 0.5, 0)))
+			y += h
+		var spire := CylinderMesh.new()
+		spire.top_radius = 0.05
+		spire.bottom_radius = 0.9
+		spire.height = 18.5
+		_single(spire, mat_landmark, Transform3D(Basis(), p + Vector3(0, y + 9.25, 0)))
+	# skybridge with its supporting legs
+	_single(box_mesh, mat_landmark, Transform3D(Basis.from_scale(Vector3(7.2, 3.4, 3.0)), g + Vector3(0, 42.5, 0)))
+	for sx in [-1.0, 1.0]:
+		var leg := Basis(Vector3.FORWARD, sx * 0.55) * Basis.from_scale(Vector3(0.6, 11, 0.6))
+		_single(box_mesh, mat_landmark, Transform3D(leg, g + Vector3(sx * 6.0, 37.0, 0)))
+	# fountain plaza in front
+	box(g + Vector3(0, 0, 16), Vector3(18, 0.3, 4), Color.WHITE, mat_water)
+
+
+func _mall(g: Vector3) -> void:
+	flat_block(g, Vector3(36, 16, 30), Color(0.9, 0.88, 0.84))
+	box(g + Vector3(0, 6, -15.2), Vector3(30, 3, 0.6), Color(0.85, 0.2, 0.25))   # signage band
+	box(g + Vector3(0, 16, 0), Vector3(20, 4, 14), Color(0.55, 0.65, 0.72), mat_glass)
+	box(g + Vector3(0, 0, -17.4), Vector3(36, 3.6, 1.2), Color(0.95, 0.95, 0.95))  # entrance canopy
+
+
+## Sample seat profiles for `--seat=` screenshots (same shape the game sends).
+const TEST_SEATS := {
+	"strip": {"code": "T1", "density": 0.45, "traits": {}, "layout": "strip"},
+	"oldtown": {"code": "T2", "density": 0.7, "traits": {}, "layout": "oldtown"},
+	"taman": {"code": "T3", "density": 0.5, "traits": {}, "layout": "taman"},
+	"bukitbintang": {"code": "P.120", "density": 0.9, "traits": {"klLandmarks": true, "bukitBintang": true}},
+	"kualaselangor": {"code": "P.095", "density": 0.9, "traits": {"coastal": true, "paddy": true}},
+	"ipoh": {"code": "P.064", "density": 0.7, "traits": {"hilly": true, "industrial": true}},
+	"kampung": {"code": "P.001", "density": 0.2, "traits": {"paddy": true}},
+	"ranau": {"code": "P.177", "density": 0.25, "traits": {"hilly": true, "kinabalu": true}},
+}
+
+# ── command line / screenshots ───────────────────────────────────────
+func _apply_cli() -> void:
+	var shot := ""
+	var rig := $CameraRig
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shot="):
+			shot = a.substr(7)
+		elif a.begins_with("--tod="):
+			set_tod(int(a.substr(6)))
+		elif a.begins_with("--view="):
+			rig.preset(a.substr(7))
+		elif a.begins_with("--seat="):
+			apply_profile.call_deferred(TEST_SEATS.get(a.substr(7), {}))
+	if shot != "":
+		for i in 120:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png(shot)
+		get_tree().quit()
