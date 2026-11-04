@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "../../components/layout/Header";
 import StatusBar from "../../components/layout/StatusBar";
@@ -309,21 +309,28 @@ export default function StatePage() {
   const state = gameStates.find((s) => s.id === stateId);
   const [activeTab, setActiveTab] = useState<TabId>("OVERVIEW");
   const [constFilter, setConstFilter] = useState<"all" | "mandat" | "lawan" | "marginal">("all");
+  // PRN is a single-negeri battlefield: other states' Parlimen lists are not
+  // part of it, so an address for another state lands on the PRN negeri.
+  const isPrn = settings.electionScope === "prn";
+  const prnRedirect = isPrn && stateId !== settings.prnStateId && gameStates.some((s) => s.id === settings.prnStateId);
+  useEffect(() => {
+    if (prnRedirect) router.replace(`/state/${settings.prnStateId}`);
+  }, [prnRedirect, router, settings.prnStateId]);
 
-  if (!state) {
+  if (!state || prnRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
         <Header />
-        <div className="text-text-muted text-sm">{t(lang, "state__id__page.stateNotFound")}{stateId}</div>
+        {!prnRedirect && <div className="text-text-muted text-sm">{t(lang, "state__id__page.stateNotFound")}{stateId}</div>}
         <StatusBar />
       </div>
     );
   }
 
-  // Prev / Next state navigation
+  // Prev / Next state navigation — PRU only; a PRN run stays on its negeri.
   const stateIndex = gameStates.findIndex((s) => s.id === stateId);
-  const prevState = stateIndex > 0 ? gameStates[stateIndex - 1] : null;
-  const nextState = stateIndex < gameStates.length - 1 ? gameStates[stateIndex + 1] : null;
+  const prevState = !isPrn && stateIndex > 0 ? gameStates[stateIndex - 1] : null;
+  const nextState = !isPrn && stateIndex < gameStates.length - 1 ? gameStates[stateIndex + 1] : null;
 
   const trendData = generateTrendData(state.mandatSupport, state.lawanSupport);
   const winColor = getWinColor(state.winProbability);
@@ -835,7 +842,9 @@ export default function StatePage() {
             )}
 
             <div className="text-[12px] text-text-muted tracking-wider">
-              {t(lang, "state__id__page.states", { stateIndex: stateIndex + 1, gameStatesLength: gameStates.length })}
+              {isPrn
+                ? `PRN · ${state.name} · ${state.dunSeats} DUN`
+                : t(lang, "state__id__page.states", { stateIndex: stateIndex + 1, gameStatesLength: gameStates.length })}
             </div>
 
             {nextState ? (

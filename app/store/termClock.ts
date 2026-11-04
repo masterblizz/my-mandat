@@ -4,7 +4,7 @@ import { journal, reduceJourney, shiftSupport } from "./journey";
 import { repSide, seatStateId } from "./representative";
 import {
   ISSUE_LIFETIME_DAYS, ISSUE_SPAWN_PER_MILLE, MAX_OPEN_ISSUES, PRESENCE_DECAY_PER_DAY, QUARTER_DAYS,
-  STAMINA_MAX, STAMINA_REGEN_PER_DAY, TERM_DAYS, WEEK_SLOTS, YB_ISSUES, YB_ISSUE_TYPES,
+  STAMINA_MAX, STAMINA_REGEN_PER_DAY, TERM_DAYS, TERM_QUARTERS, WEEK_SLOTS, YB_ISSUES, YB_ISSUE_TYPES,
   ZONE_STAT_LABEL, dewanSitting, getYbActivity, type YbActivityId, type YbIssue, type ZoneStatKey,
 } from "../data/ybService";
 
@@ -24,6 +24,17 @@ function hash(text: string) {
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const round1 = (value: number) => Math.round(value * 10) / 10;
+
+/** True once the run is in the term (representative career or government/opposition/rebuilding). */
+export function inTerm(journey: Pick<GameState["journey"], "chapter">) {
+  return journey.chapter === "government" || journey.chapter === "opposition" || journey.chapter === "rebuilding";
+}
+
+/** The term's current quarter, 1..20: the term clock for the representative, the quarter month grid otherwise. */
+export function termQuarter(s: Pick<GameState, "journey" | "careerProgress">) {
+  const quarter = repSide(s.journey) ? Math.floor(s.journey.termDay / QUARTER_DAYS) + 1 : Math.ceil(s.careerProgress.month / 3);
+  return Math.max(1, Math.min(TERM_QUARTERS, quarter));
+}
 
 export function clockRunnable(s: Pick<GameState, "journey" | "careerProgress">) {
   return !!repSide(s.journey) && s.careerProgress.month < 60 && s.journey.termDay < TERM_DAYS;

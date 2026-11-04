@@ -1,5 +1,8 @@
 import { normalizeJourney } from "./journey";
 import type { GameState } from "./gameStore";
+import { inTerm, termQuarter } from "./termClock";
+import { TERM_QUARTERS } from "../data/ybService";
+import { t, type Lang } from "../i18n/useLang";
 
 export const GAME_SAVE_KEY = "mymandat-save-v1";
 export const GAME_SAVE_SLOTS_KEY = "mymandat-save-slots-v2";
@@ -86,8 +89,25 @@ function makeSlotId() {
   return `slot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/**
+ * Slot summary, formatted at display time in the UI language from the
+ * snapshot itself: party · scope · campaign day, or the term quarter once
+ * the run is in the representative/government term (where the campaign day
+ * is frozen at its last value).
+ */
+export function formatSaveLabel(snapshot: SavedGameSnapshot, lang: Lang) {
+  const prnState = snapshot.settings?.electionScope === "prn" ? snapshot.states.find((state) => state.id === snapshot.settings.prnStateId) : undefined;
+  const scope = snapshot.settings?.electionScope === "prn" ? `PRN ${prnState?.shortName ?? snapshot.settings.prnStateId.toUpperCase()}` : "PRU";
+  const when = snapshot.journey && inTerm(snapshot.journey)
+    ? t(lang, `Penggal ${snapshot.careerProgress?.term ?? 1} · Suku ${termQuarter(snapshot)}/${TERM_QUARTERS}`, `Term ${snapshot.careerProgress?.term ?? 1} · Quarter ${termQuarter(snapshot)}/${TERM_QUARTERS}`)
+    : t(lang, `Hari ${snapshot.day}/${snapshot.totalDays}`, `Day ${snapshot.day}/${snapshot.totalDays}`);
+  return `${snapshot.leader.partyAbbr} · ${scope} · ${when}`;
+}
+
+// Stored English fallback for anything that reads `label` directly; screens
+// call formatSaveLabel so the label follows the selected language.
 function makeLabel(snapshot: SavedGameSnapshot) {
-  return `${snapshot.leader.partyAbbr} · Day ${snapshot.day}/${snapshot.totalDays}`;
+  return formatSaveLabel(snapshot, "en");
 }
 
 function normalizeSlots(slots: SavedGameSlot[]) {
@@ -116,7 +136,12 @@ function normalizeSlots(slots: SavedGameSlot[]) {
     }
     // Saves from before the representative career have no starting side or clock speed.
     const settings = slot.state.settings ? { settings: { ...slot.state.settings, side: slot.state.settings.side ?? "government", gameSpeed: slot.state.settings.gameSpeed ?? "week" } } : {};
-    normalized.push({ ...slot, state: { ...slot.state, ...settings, journey, opponentLog: slot.state.opponentLog ?? [], politicalReactions: slot.state.politicalReactions ?? [], aiNews: slot.state.aiNews ?? [], nationalSupportDelta: slot.state.nationalSupportDelta ?? 0 }, slotNumber });
+    // PRN saves made before setup pinned the home state to the PRN negeri
+    // kept the flavour home state (default Selangor); the seat is an N.xxx
+    // in the PRN negeri, so home is that negeri.
+    const prnStateId = slot.state.settings?.electionScope === "prn" ? slot.state.settings.prnStateId : null;
+    const leader = prnStateId && slot.state.leader && slot.state.leader.homeState !== prnStateId ? { leader: { ...slot.state.leader, homeState: prnStateId } } : {};
+    normalized.push({ ...slot, state: { ...slot.state, ...settings, ...leader, journey, opponentLog: slot.state.opponentLog ?? [], politicalReactions: slot.state.politicalReactions ?? [], aiNews: slot.state.aiNews ?? [], nationalSupportDelta: slot.state.nationalSupportDelta ?? 0 }, slotNumber });
   }
 
   return normalized.sort((a, b) => a.slotNumber - b.slotNumber).slice(0, MAX_SAVE_SLOTS);

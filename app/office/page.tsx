@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
+import { repSide, seatStateId } from "../store/representative";
+import { clockRunnable, termQuarter } from "../store/termClock";
+import { SPEED_DAYS, TERM_QUARTERS, type GameSpeed } from "../data/ybService";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
 import dynamic from "next/dynamic";
@@ -181,6 +184,9 @@ export default function PoliticalOfficePage() {
     day,
     totalDays,
     advanceDay,
+    advanceTermDays,
+    journeyAction,
+    careerProgress,
     runLocationActivity,
     markOfficeMailRead,
     assistantAvatar,
@@ -207,8 +213,8 @@ export default function PoliticalOfficePage() {
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
   const homeSupport =
-    states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
-  const calendarStateName = states.find((state) => state.id === leader.homeState)?.name ?? "Malaysia";
+    states.find((state) => state.id === seatStateId({ settings, leader }))?.mandatSupport ?? 0;
+  const calendarStateName = states.find((state) => state.id === seatStateId({ settings, leader }))?.name ?? "Malaysia";
   const objectiveDone = journey.locationObjectives.includes(
     "campaign:home-support-60",
   );
@@ -218,6 +224,25 @@ export default function PoliticalOfficePage() {
   const officeTermActive = ["government", "opposition", "rebuilding"].includes(
     journey.chapter,
   );
+  // The office's time button follows the run's own clock: campaign days, the
+  // representative's term clock (by the chosen game speed), or the
+  // quarter step of a leader's term. The campaign day is frozen in the term.
+  const repTerm = officeTermActive && !!repSide(journey);
+  const termOver = officeTermActive && !(repTerm ? clockRunnable({ journey, careerProgress }) : careerProgress.month < 60);
+  const officeSpeed: GameSpeed = settings.gameSpeed ?? "week";
+  const advanceOfficeTime = () => {
+    if (!officeTermActive) advanceDay();
+    else if (termOver) router.push("/report-card");
+    else if (repTerm) advanceTermDays(SPEED_DAYS[officeSpeed]);
+    else journeyAction({ type: "quarter" });
+  };
+  const officeTimeLabel = !officeTermActive
+    ? `${t(lang, "TAMAT HARI", "END DAY")} ${day}/${totalDays} →`
+    : termOver
+      ? `📋 ${t(lang, "KAD LAPORAN", "REPORT CARD")} →`
+      : repTerm
+        ? `⏩ +${SPEED_DAYS[officeSpeed]} ${t(lang, "HARI", "DAYS")} · ${t(lang, "SUKU", "Q")} ${termQuarter({ journey, careerProgress })}/${TERM_QUARTERS} →`
+        : `⏩ ${t(lang, "SUKU SETERUSNYA", "NEXT QUARTER")} · ${termQuarter({ journey, careerProgress })}/${TERM_QUARTERS} →`;
   const officeFunds =
     journey.chapter === "government" ? journey.publicBudget : resources.funds;
   const officeLocationActions = journey.actionsToday.filter((entry) =>
@@ -1228,10 +1253,10 @@ export default function PoliticalOfficePage() {
             </button>
             <button
               type="button"
-              onClick={advanceDay}
+              onClick={advanceOfficeTime}
               className="flex-1 bg-gold px-3 py-2 text-[9px] font-black tracking-widest text-[#07111c]"
             >
-              {t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →
+              {officeTimeLabel}
             </button>
           </div>
         </section>

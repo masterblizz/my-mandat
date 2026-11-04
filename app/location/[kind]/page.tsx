@@ -13,6 +13,8 @@ import { assistantGender } from "../../lib/assistantAvatar";
 import { PARTY_MEMBERS } from "../../data/members";
 import { DPM_POSTS, EXCO_POSTS, MINISTER_POSTS } from "../../data/cabinet";
 import { POLICY_DATA } from "../../store/journey";
+import { seatStateId } from "../../store/representative";
+import { stateHeadTitle } from "../../utils/governmentTerms";
 // The operations centre is a Sims-style 3D war room (Godot); the painted
 // backdrop stays as the light fallback.
 const GodotWorld = dynamic(() => import("../../components/world/GodotWorld"), { ssr: false });
@@ -380,11 +382,13 @@ const LOCATION_GUIDES: Record<string, LocationGuide> = {
 
 function TelemetryWall({
   partySupport,
+  partyAbbr,
   manpower,
   activeOperationCount,
   stateSignals,
 }: {
   partySupport: number;
+  partyAbbr: string;
   manpower: number;
   activeOperationCount: number;
   stateSignals: { support: number; trend: number; label?: string }[];
@@ -523,7 +527,7 @@ function TelemetryWall({
             </div>
           </div>
           <div className="text-[8px] leading-4 text-text-muted">
-            <b className="text-gold">MANDAT</b> {partySupport}%<br />
+            <b className="text-gold">{partyAbbr}</b> {partySupport}%<br />
             <b className="text-[#ff6b5c]">
               {t(lang, "LAWAN", "OPPONENT")}
             </b>{" "}
@@ -583,6 +587,7 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
     politicalReactions,
     aiNews,
     opponentLog,
+    leader,
     getTotalProjectedSeats,
     getNationalSupport,
   } = useGameStore();
@@ -591,7 +596,9 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
     (state) => state.id === (settings.prnStateId ?? "selangor"),
   );
   const mapStates = electionScope === "prn" && prnState ? [prnState] : states;
-  const projectedSeats = getTotalProjectedSeats();
+  // PRN: the negeri's own DUN projection against its DUN total, not the
+  // 222-seat national sum.
+  const projectedSeats = electionScope === "prn" && prnState ? prnState.projectedSeats : getTotalProjectedSeats();
   const nationalSupport = getNationalSupport();
   const partySupport =
     electionScope === "prn" && prnState
@@ -756,6 +763,7 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
         </div>
         <TelemetryWall
           partySupport={partySupport}
+          partyAbbr={leader.partyAbbr}
           manpower={resources.manpower}
           activeOperationCount={activeOperations.length}
           stateSignals={priorityStates.map((state) => ({
@@ -1046,7 +1054,7 @@ export default function LocationPage() {
     .filter((item) => item.day <= day)
     .sort((a, b) => b.day - a.day || b.time.localeCompare(a.time))[0];
   const homeSupport =
-    states.find((state) => state.id === leader.homeState)?.mandatSupport ?? 0;
+    states.find((state) => state.id === seatStateId({ settings, leader }))?.mandatSupport ?? 0;
   const objectiveDone = journey.locationObjectives.includes(
     "campaign:home-support-60",
   );
@@ -1122,7 +1130,8 @@ export default function LocationPage() {
     })) : undefined,
     selected: candidateId ?? "",
     ministers: scene3d === "cabinet" ? appointedMinisters : undefined,
-    headTitle: (settings.electionScope ?? "pru") === "prn" ? t(lang, "MENTERI BESAR", "CHIEF MINISTER") : t(lang, "PERDANA MENTERI", "PRIME MINISTER"),
+    // MB in ruler states, Ketua Menteri in Penang/Melaka/Sabah/Sarawak.
+    headTitle: warScopePrn && warPrnState ? stateHeadTitle(warPrnState.id, lang) : t(lang, "PERDANA MENTERI", "PRIME MINISTER"),
     policies: scene3d === "administration" ? POLICY_DATA.map((policy) => ({ name: t(lang, policy.ms, policy.en), active: journey.policies.includes(policy.id) })) : undefined,
     kpis: scene3d === "administration" ? [
       { label: t(lang, "KEPERCAYAAN AWAM", "PUBLIC TRUST"), value: `${journey.trust}`, pct: journey.trust / 100 },

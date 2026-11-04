@@ -18,6 +18,7 @@ import ElectionNightCount from "../components/results/ElectionNightCount";
 import Fold from "../components/results/Fold";
 import { buildElectionNightTimeline } from "../data/electionNight";
 import { getPrnCandidate } from "../data/prnCandidates";
+import { isRulerState } from "../utils/governmentTerms";
 
 const TOTAL_SEATS = 222;
 const MAJORITY = 112;
@@ -360,7 +361,7 @@ export default function ResultsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black tracking-widest">
             <span className="rounded-full border px-2.5 py-1 text-white" style={{ borderColor: "rgb(var(--gold-rgb) / 0.45)" }}>👤 {leader.name} · <span style={{ color: leader.partyColor }}>{leader.partyAbbr}</span></span>
-            {prnCandidate && <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${prnCandidate.color}88`, color: prnCandidate.color }} title={prnCandidate.archetype[lang]}>🎖 {t(lang, "CALON MB", "MB PICK")}: {prnCandidate.name}</span>}
+            {prnCandidate && <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${prnCandidate.color}88`, color: prnCandidate.color }} title={prnCandidate.archetype[lang]}>🎖 {isRulerState(settings.prnStateId) ? t(lang, "CALON MB", "MB PICK") : t(lang, "CALON KM", "CM PICK")}: {prnCandidate.name}</span>}
           </div>
         </div>
 

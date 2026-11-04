@@ -5,6 +5,7 @@ import Image from "next/image";
 import { getDatasetById } from "../../data/datasets";
 import Link from "next/link";
 import { useGameStore } from "../../store/gameStore";
+import { seatStateId } from "../../store/representative";
 import { ISSUE_DATA, POLICY_DATA, campaignActionYield, resumeRoute, scrutinyTrust, type Issue } from "../../store/journey";
 import { CAMPAIGN_EVENTS, campaignEventUnlockDay, isCampaignEventUnlocked } from "../../data/campaignEvents";
 import { PARTY_MEMBERS } from "../../data/members";
@@ -21,7 +22,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   const campaign = j.chapter === "campaign";
   const term = ["government", "opposition", "rebuilding"].includes(j.chapter);
   const activeCampaign = campaign && s.day < s.totalDays;
-  const character = PARTY_MEMBERS.find(m => Object.values(s.nominations).some(n => n?.type === "member" && n.memberId === m.id)) ?? PARTY_MEMBERS.find(m => m.homeState === s.leader.homeState) ?? PARTY_MEMBERS[0];
+  const character = PARTY_MEMBERS.find(m => Object.values(s.nominations).some(n => n?.type === "member" && n.memberId === m.id)) ?? PARTY_MEMBERS.find(m => m.homeState === seatStateId(s)) ?? PARTY_MEMBERS[0];
   const datasetCharacter = getDatasetById(s.dataset).politicians.find(p => p.party === s.leader.partyAbbr || p.party === s.leader.party);
   const characterName = s.dataset === "dummy" ? character?.name ?? s.leader.name : datasetCharacter?.name ?? s.leader.name;
   const storyPhase = campaign ? "campaign" : j.chapter === "government" ? "government" : "opposition";

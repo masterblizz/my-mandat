@@ -1,6 +1,6 @@
 "use client";
 
-import type { SavedGameSlot } from "../../store/saveGame";
+import { formatSaveLabel, type SavedGameSlot } from "../../store/saveGame";
 import { t, type Lang } from "../../i18n/useLang";
 
 function formatSavedAt(savedAt: string, lang: Lang) {
@@ -53,7 +53,7 @@ export default function ContinueRunModal({ lang, slot, onConfirm, onClose }: {
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.saveSlot")}</dt>
           <dd className="font-bold text-white">{slot.slotNumber.toString().padStart(2, "0")}</dd>
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.campaign")}</dt>
-          <dd className="font-bold text-white">{slot.label}</dd>
+          <dd className="font-bold text-white">{formatSaveLabel(slot.state, lang)}</dd>
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.constituency")}</dt>
           <dd className="font-bold text-white">{slot.state.leader.homeConstituencyName || "—"}</dd>
           <dt style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.leaderName")}</dt>

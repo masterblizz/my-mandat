@@ -10,7 +10,7 @@ import type { CampaignEventId, CampaignEventRating, CampaignToneId } from "../da
 import { getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { buildTermReport, type TermReportRecord } from "../data/termReport";
 import type { ScenarioPackId } from "../data/scenarioPacks";
-import { electionPersonalVote, homeSeatWon, repSide, withPersonalVote, REP_QUARTER_GRANT, type RepRank } from "./representative";
+import { electionPersonalVote, homeSeatWon, repSide, seatStateId, withPersonalVote, REP_QUARTER_GRANT, type RepRank } from "./representative";
 import { newYbService, QUARTER_DAYS, type YbService } from "../data/ybService";
 import { applyCompletedWorks, cityLedgerForSeats, CITY_COMPLAINT_SENTIMENT, CITY_COMPLAINT_TRUST, CITY_SUPPORT_PER_PROJECT } from "../data/cityEconomy";
 
@@ -168,13 +168,16 @@ export function finishElection(s: GameState): Partial<GameState> {
   return { hasWonElection: wonOwnSeat, journey: { ...s.journey, chapter: "results", characterStage: wonOwnSeat ? "representative" : "organiser", outcome, journal: journal(s.journey, wonOwnSeat ? "Anda dipilih sebagai wakil rakyat. Rekod khidmat kini menentukan pengaruh anda." : "Kekalahan tidak menamatkan perjalanan. Bina semula jentera dan kepercayaan di akar umbi.", wonOwnSeat ? "You are elected as a representative. Your service record now determines your influence." : "Defeat does not end the journey. Rebuild organisation and trust from the grassroots.") } };
 }
 export function shiftSupport(s: GameState, delta: number, homeOnly = false) {
+  // "Home" is the seat's state — the PRN negeri in PRN mode — so a home-only
+  // gain never misses the battlefield when the flavour home state differs.
+  const home = seatStateId(s);
   return s.states.map(x => {
-    if ((homeOnly && x.id !== s.leader.homeState) || (s.settings.electionScope === "prn" && x.id !== s.settings.prnStateId)) return x;
+    if ((homeOnly && x.id !== home) || (s.settings.electionScope === "prn" && x.id !== s.settings.prnStateId)) return x;
     const support = Math.max(8, Math.min(82, x.mandatSupport + delta));
     const other = Math.min(x.othersSupport, 100 - support - 8);
     const updated = { ...x, mandatSupport: support, lawanSupport: 100 - support - other, othersSupport: other, trend: delta };
     const margin = support - updated.lawanSupport;
-    return { ...updated, projectedSeats: generateConstituencies(updated, s.settings.electionScope === "prn" ? "dun" : "parliament").filter(seat => seat.mandat >= seat.lawan && seat.mandat >= seat.others).length, winProbability: Math.max(5, Math.min(95, 50 + margin * 2)), status: margin >= 8 ? "winning" as const : margin <= -8 ? "losing" as const : "contested" as const };
+    return { ...updated, projectedSeats: generateConstituencies(updated, s.settings.electionScope === "prn" ? "dun" : "parliament").filter(seat => seat.mandat >= seat.lawan && seat.mandat >= seat.others).length, winProbability: Math.max(5, Math.min(95, Math.round((50 + margin * 2) * 100) / 100)), status: margin >= 8 ? "winning" as const : margin <= -8 ? "losing" as const : "contested" as const };
   });
 }
 
