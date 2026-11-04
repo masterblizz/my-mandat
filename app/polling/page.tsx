@@ -126,7 +126,7 @@ export default function PollingPage() {
       <main className="pt-[56px] pb-[52px] px-6 min-h-screen">
 
         {/* Tab Row */}
-        <div className="flex gap-0 border-b mb-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
+        <div className="screen-tabs flex gap-0 border-b mb-4" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)" }}>
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -503,8 +503,8 @@ export default function PollingPage() {
                   style={{ left: `${seatTotal > 0 ? (majorityTarget / seatTotal) * 100 : 0}%`, background: "var(--gold)", boxShadow: "0 0 6px var(--gold)" }}
                 />
                 <div
-                  className="absolute text-[10px] tracking-wider"
-                  style={{ left: `${seatTotal > 0 ? (majorityTarget / seatTotal) * 100 : 0}%`, top: "-16px", color: "var(--gold)", transform: "translateX(-50%)" }}
+                  className="absolute top-0 flex h-6 items-center whitespace-nowrap px-1.5 text-[10px] font-bold tracking-wider"
+                  style={{ left: `calc(${seatTotal > 0 ? (majorityTarget / seatTotal) * 100 : 0}% + 3px)`, color: "var(--gold)", background: "rgb(var(--bg-rgb) / 0.82)" }}
                 >
                   {t(lang, "polling_page.majority2", { majorityTarget: majorityTarget })}
                 </div>

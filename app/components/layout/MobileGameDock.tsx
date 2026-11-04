@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { t, useLang } from "../../i18n/useLang";
+import { useGameStore } from "../../store/gameStore";
 
 type DockItem = {
+  /** only shown while the election campaign is running */
+  campaignOnly?: boolean;
   href: string;
   icon: string;
   labelMs: string;
@@ -14,8 +17,8 @@ type DockItem = {
 
 const DOCK_ITEMS: DockItem[] = [
   { href: "/kawasan", icon: "⌂", labelMs: "Bandar", labelEn: "City", match: (path) => path === "/kawasan" || (path.startsWith("/location/") && path !== "/location/operations") || path === "/office" },
-  { href: "/warroom", icon: "◈", labelMs: "War Room", labelEn: "War Room", match: (path) => path === "/warroom" || path === "/location/operations" || path.startsWith("/state/") },
-  { href: "/campaign", icon: "⚑", labelMs: "Kempen", labelEn: "Campaign", match: (path) => path === "/campaign" || path === "/calendar" },
+  { campaignOnly: true, href: "/warroom", icon: "◈", labelMs: "War Room", labelEn: "War Room", match: (path) => path === "/warroom" || path === "/location/operations" || path.startsWith("/state/") },
+  { campaignOnly: true, href: "/campaign", icon: "⚑", labelMs: "Kempen", labelEn: "Campaign", match: (path) => path === "/campaign" || path === "/calendar" },
   { href: "/polling", icon: "⌁", labelMs: "Intel", labelEn: "Intel", match: (path) => path === "/polling" || path === "/messaging" || path === "/advisor" },
   { href: "/menu", icon: "☰", labelMs: "Menu", labelEn: "Menu", match: (path) => path === "/menu" },
 ];
@@ -31,12 +34,17 @@ const HIDDEN_ROUTES = new Set(["/", "/menu", "/setup", "/load-game", "/kawasan-3
 export default function MobileGameDock() {
   const pathname = usePathname();
   const lang = useLang();
+  // The War Room and campaign screens only exist while the campaign runs;
+  // in the results, government and opposition chapters they would just
+  // bounce the player back to the city, so they are not offered.
+  const campaignRunning = useGameStore((state) => state.journey.chapter === "campaign" && state.day < state.totalDays);
+  const items = DOCK_ITEMS.filter((item) => !item.campaignOnly || campaignRunning);
 
   if (HIDDEN_ROUTES.has(pathname) || HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return null;
 
   return (
-    <nav className="mobile-game-dock" aria-label={t(lang, "Navigasi permainan", "Game navigation")}>
-      {DOCK_ITEMS.map((item) => {
+    <nav className="mobile-game-dock" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }} aria-label={t(lang, "Navigasi permainan", "Game navigation")}>
+      {items.map((item) => {
         const active = item.match(pathname);
         return (
           <Link

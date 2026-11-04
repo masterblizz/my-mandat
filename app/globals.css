@@ -1775,3 +1775,54 @@ input[type="range"].range-red::-moz-range-thumb {
 @media (orientation: landscape) and (max-height: 500px) {
   .calendar-screen { height: 100dvh; min-height: 0 !important; overflow-y: auto; }
 }
+
+/* Landscape phones, tidy pass: keep text clear of rounded screen corners
+   and the dock rail, and stop overlays stacking on each other. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-header {
+    padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 12px)) !important;
+    padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 12px)) !important;
+  }
+  .app-statusbar {
+    padding-left: calc(72px + env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(160px, calc(env(safe-area-inset-right, 0px) + 150px)) !important;
+  }
+  .app-music { right: max(8px, env(safe-area-inset-right, 0px)) !important; }
+  .main-menu-screen > header { padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 12px)) !important; padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 12px)) !important; }
+  .main-menu-sidebar { padding-left: max(18px, calc(env(safe-area-inset-left, 0px) + 10px)) !important; }
+  main { padding-right: max(12px, calc(env(safe-area-inset-right, 0px) + 8px)) !important; }
+  /* tabs stay visible while the content under them scrolls */
+  .screen-tabs { position: sticky; top: -8px; z-index: 6; background: var(--bg); margin-top: -8px; padding-top: 4px; }
+  /* operations console: between the header, the rail and the status bar */
+  .ops-desk { top: 32px !important; left: 0 !important; bottom: 24px !important; }
+  /* city: the zone card rides above the term/build bar instead of under it */
+  .kw-page-content:has(.city-build-dock) .absolute.bottom-20.left-4.city-zone-card,
+  .kw-page-content:has(.city-build-dock) .absolute.bottom-20.left-4 { bottom: 64px !important; }
+  .city-build-dock { left: 8px !important; right: 78px !important; width: auto !important; transform: none !important; }
+  .city-build-dock > div { flex-wrap: nowrap; min-width: 0; }
+  .city-build-dock * { min-width: 0; }
+}
+
+/* Sky life over the Godot city (CitySkyLife.tsx). */
+.sky-cloud {
+  position: absolute; left: 0; width: 220px; height: 70px;
+  transform: scale(var(--cloud-scale, 1));
+  animation: skyCloudDrift linear infinite;
+  filter: blur(6px);
+}
+.sky-cloud span { position: absolute; border-radius: 999px; background: var(--cloud-color, #fff); }
+.sky-cloud span:nth-child(1) { left: 10px; top: 28px; width: 190px; height: 38px; }
+.sky-cloud span:nth-child(2) { left: 38px; top: 8px; width: 80px; height: 56px; }
+.sky-cloud span:nth-child(3) { left: 96px; top: 0; width: 92px; height: 64px; }
+.sky-cloud span:nth-child(4) { left: 150px; top: 18px; width: 58px; height: 42px; }
+@keyframes skyCloudDrift { from { translate: -260px 0; } to { translate: calc(100vw + 40px) 0; } }
+.sky-flock { position: absolute; left: 0; height: auto; animation: skyFlockEast linear infinite both; opacity: 0; }
+.sky-flock--west { animation-name: skyFlockWest; }
+@keyframes skyFlockEast { 0% { translate: -120px 0; opacity: 0; } 4% { opacity: 1; } 55% { translate: 105vw -30px; opacity: 1; } 56%, 100% { translate: 105vw -30px; opacity: 0; } }
+@keyframes skyFlockWest { 0% { translate: 105vw 0; opacity: 0; scale: -1 1; } 4% { opacity: 1; scale: -1 1; } 55% { translate: -120px -24px; opacity: 1; scale: -1 1; } 56%, 100% { translate: -120px -24px; opacity: 0; scale: -1 1; } }
+.sky-bird-wing { transform-box: fill-box; transform-origin: center bottom; animation: skyWingFlap 0.42s ease-in-out infinite alternate; }
+@keyframes skyWingFlap { from { transform: scaleY(1); } to { transform: scaleY(-0.35); } }
+@media (prefers-reduced-motion: reduce) {
+  .sky-cloud, .sky-flock, .sky-bird-wing { animation: none; }
+  .sky-flock { display: none; }
+}

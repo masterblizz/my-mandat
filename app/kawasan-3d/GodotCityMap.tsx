@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { SeatTraits, Zone } from "./cityData";
 import { t, type Lang } from "../i18n/useLang";
+import CitySkyLife from "./CitySkyLife";
 
 export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "https://kawasan-3d-city.surge.sh/";
 
@@ -73,7 +74,16 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
         title={t(lang, "Bandar 3D Kawasan (Godot)", "Kawasan 3D city (Godot)")}
         className="absolute inset-0 h-full w-full border-0"
         allow="fullscreen"
+        // The hosted Godot city renders a flat, over-bright daylight; grade it
+        // here (its source is a separate project) so it sits with the HUD.
+        style={{ filter: "brightness(0.8) contrast(1.22) saturate(0.98)" }}
       />
+      {/* deepen the pale sky and darken the frame edges for depth; never takes input */}
+      <div aria-hidden className="pointer-events-none absolute inset-0"
+        style={{ background: "linear-gradient(180deg, rgb(40 95 160 / .55) 0%, rgb(40 95 160 / 0) 42%)", mixBlendMode: "multiply" }} />
+      <CitySkyLife />
+      <div aria-hidden className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 72% 78% at 50% 50%, transparent 55%, rgb(4 10 20 / .6) 100%)" }} />
       {!ready && (
         <div
           className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 border px-3 py-1.5 text-[9px] font-black tracking-[.2em] text-cyan"
