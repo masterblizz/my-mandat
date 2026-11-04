@@ -99,7 +99,7 @@ const setup_page = {
   experience_veteran: { ms: "VETERAN", en: "VETERAN" },
   experience_moderate: { ms: "SEDERHANA", en: "MODERATE" },
   experience_rookie: { ms: "PEMULA", en: "ROOKIE" },
-  "media_PRO-MANDAT": { ms: "PRO-MANDAT", en: "PRO-MANDAT" },
+  "media_PRO-MANDAT": { ms: "PRO-PARTI ANDA", en: "PRO-YOUR PARTY" },
   media_BALANCED: { ms: "SEIMBANG", en: "BALANCED" },
   media_HOSTILE: { ms: "BERMUSUHAN", en: "HOSTILE" },
   difficulty_easy_label: { ms: "MUDAH", en: "EASY" },

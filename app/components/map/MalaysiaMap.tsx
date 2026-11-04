@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { StateData } from "../../data/states";
 import { formatNumber, formatPercent } from "../../utils/format";
 import LoadingSpinner from "../ui/LoadingSpinner";
-import type { Operation } from "../../store/gameStore";
+import { useGameStore, type Operation } from "../../store/gameStore";
 import { stateTacticalVisual, type TacticalOverlay } from "../../data/tacticalMap";
 import { useLang, t } from "../../i18n/useLang";
 
@@ -181,6 +181,11 @@ function PathGroup({
 
 export default function MalaysiaMap({ states, onStateClick, selectedStateId, showLabels = true, showHotspots = false, compact = false, tooltipPlacement = "cursor", overlay = "default", operations = [], mediaSentiment = "neutral" }: Props) {
   const lang = useLang();
+  // Tooltip seat figures follow the run's scope: DUN seats for the PRN negeri,
+  // parliament seats in PRU; the support label uses the selected party.
+  const electionScope = useGameStore((s) => s.settings.electionScope);
+  const prnStateId = useGameStore((s) => s.settings.prnStateId);
+  const partyAbbr = useGameStore((s) => s.leader.partyAbbr);
   const [pathData, setPathData] = useState<PathData[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; state: StateData } | null>(null);
@@ -409,7 +414,7 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
           <div className="mb-2 flex items-start justify-between gap-3">
             <div>
               <div className="text-[13px] font-bold text-white tracking-wider">{tooltip.state.name.toUpperCase()}</div>
-              <div className="text-[9px] text-text-muted tracking-[0.18em]">{tooltip.state.region.toUpperCase()} REGION</div>
+              <div className="text-[9px] text-text-muted tracking-[0.18em]">{t(lang, `WILAYAH ${tooltip.state.region.toUpperCase()}`, `${tooltip.state.region.toUpperCase()} REGION`)}</div>
             </div>
             {tooltipPlacement !== "menu-static" && (
               <div
@@ -419,15 +424,15 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
                     : tooltip.state.status === "losing" ? "var(--neon-red)" : "var(--gold)",
                 }}
               >
-                {tooltip.state.status.toUpperCase()}
+                {tooltip.state.status === "winning" ? t(lang, "MENANG", "WINNING") : tooltip.state.status === "losing" ? t(lang, "KALAH", "LOSING") : t(lang, "SENGIT", "CONTESTED")}
               </div>
             )}
           </div>
 
           {overlay !== "default" && tooltipTactical && (
             <div className="mb-2 border px-2 py-1.5" style={{ borderColor: tooltipTactical.color, background: tooltipTactical.fill }}>
-              <div className="text-[9px] font-black tracking-wider" style={{ color: tooltipTactical.color }}>{tooltipTactical.label["en"].toUpperCase()}</div>
-              <div className="mt-0.5 text-[9px] text-text-muted">{tooltipTactical.detail.en}</div>
+              <div className="text-[9px] font-black tracking-wider" style={{ color: tooltipTactical.color }}>{tooltipTactical.label[lang].toUpperCase()}</div>
+              <div className="mt-0.5 text-[9px] text-text-muted">{tooltipTactical.detail[lang]}</div>
             </div>
           )}
 
@@ -442,26 +447,26 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
               <div className="mb-2 grid grid-cols-3 gap-2">
                 <div>
                   <div className="text-[14px] font-bold" style={{ color: "var(--cyan)" }}>{formatNumber(tooltip.state.area)}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">KM² LUAS</div>
+                  <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "KM² LUAS", "KM² AREA")}</div>
                 </div>
                 <div>
                   <div className="text-[14px] font-bold" style={{ color: "var(--gold)" }}>{tooltip.state.seats}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">KERUSI PARLIMEN</div>
+                  <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "KERUSI PARLIMEN", "PARLIAMENT SEATS")}</div>
                 </div>
                 <div>
                   <div className="text-[14px] font-bold text-white">{tooltip.state.dunSeats || "—"}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">KERUSI DUN</div>
+                  <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "KERUSI DUN", "STATE SEATS")}</div>
                 </div>
               </div>
 
               <div className="space-y-1 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)" }}>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">JUMLAH PENGUNDI</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.registeredVoters / 1000000)}M</span></div>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">JUMLAH PENDUDUK</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.population / 1000000)}M</span></div>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">BANDAR / LUAR BANDAR</span><span className="text-[10px] font-bold text-white">{tooltip.state.demographics.urban}% / {tooltip.state.demographics.rural}%</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "JUMLAH PENGUNDI", "REGISTERED VOTERS")}</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.registeredVoters / 1000000)}M</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "JUMLAH PENDUDUK", "POPULATION")}</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.population / 1000000)}M</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "BANDAR / LUAR BANDAR", "URBAN / RURAL")}</span><span className="text-[10px] font-bold text-white">{tooltip.state.demographics.urban}% / {tooltip.state.demographics.rural}%</span></div>
               </div>
 
               <div className="mt-2 text-[9px] leading-4 text-text-muted">
-                ISU UTAMA: <span style={{ color: "var(--gold)" }}>{tooltip.state.keyIssues[0]}</span>
+                {t(lang, "ISU UTAMA", "KEY ISSUE")}: <span style={{ color: "var(--gold)" }}>{tooltip.state.keyIssues[0]}</span>
               </div>
             </>
           ) : (
@@ -469,27 +474,43 @@ export default function MalaysiaMap({ states, onStateClick, selectedStateId, sho
               <div className="mb-2 grid grid-cols-3 gap-2">
                 <div>
                   <div className="text-[14px] font-bold" style={{ color: "var(--cyan)" }}>{formatPercent(tooltip.state.mandatSupport)}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">MANDAT</div>
+                  <div className="text-[8px] text-text-muted tracking-[0.12em]">{partyAbbr}</div>
                 </div>
                 <div>
                   <div className="text-[14px] font-bold" style={{ color: "var(--neon-red)" }}>{formatPercent(tooltip.state.lawanSupport)}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">LAWAN</div>
+                  <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "LAWAN", "RIVAL")}</div>
                 </div>
                 <div>
-                  <div className="text-[14px] font-bold" style={{ color: "var(--gold)" }}>{tooltip.state.projectedSeats}/{tooltip.state.seats}</div>
-                  <div className="text-[8px] text-text-muted tracking-[0.12em]">SEATS</div>
+                  {electionScope === "prn" ? (
+                    tooltip.state.id === prnStateId ? (
+                      <>
+                        <div className="text-[14px] font-bold" style={{ color: "var(--gold)" }}>{tooltip.state.projectedSeats}/{tooltip.state.dunSeats}</div>
+                        <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "KERUSI DUN", "DUN SEATS")}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[14px] font-bold text-text-muted">—</div>
+                        <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "LUAR PRN", "NOT IN PRN")}</div>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <div className="text-[14px] font-bold" style={{ color: "var(--gold)" }}>{tooltip.state.projectedSeats}/{tooltip.state.seats}</div>
+                      <div className="text-[8px] text-text-muted tracking-[0.12em]">{t(lang, "KERUSI PARLIMEN", "PARL. SEATS")}</div>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-1 border-t pt-2" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)" }}>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">WIN PROBABILITY</span><span className="text-[10px] font-bold text-white">{formatPercent(tooltip.state.winProbability)}</span></div>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">SWING RISK</span><span className="text-[10px] font-bold" style={{ color: "var(--gold)" }}>{formatPercent(tooltip.state.swingProbability)}</span></div>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">TURNOUT TARGET</span><span className="text-[10px] font-bold text-white">{formatPercent(tooltip.state.turnoutTarget)}</span></div>
-                <div className="flex justify-between"><span className="text-[10px] text-text-muted">REGISTERED VOTERS</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.registeredVoters / 1000000)}M</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "PELUANG MENANG", "WIN PROBABILITY")}</span><span className="text-[10px] font-bold text-white">{formatPercent(tooltip.state.winProbability)}</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "RISIKO AYUNAN", "SWING RISK")}</span><span className="text-[10px] font-bold" style={{ color: "var(--gold)" }}>{formatPercent(tooltip.state.swingProbability)}</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "SASARAN UNDI", "TURNOUT TARGET")}</span><span className="text-[10px] font-bold text-white">{formatPercent(tooltip.state.turnoutTarget)}</span></div>
+                <div className="flex justify-between"><span className="text-[10px] text-text-muted">{t(lang, "JUMLAH PENGUNDI", "REGISTERED VOTERS")}</span><span className="text-[10px] font-bold text-white">{formatNumber(tooltip.state.registeredVoters / 1000000)}M</span></div>
               </div>
 
               <div className="mt-2 text-[9px] leading-4 text-text-muted">
-                KEY ISSUE: <span style={{ color: "var(--gold)" }}>{tooltip.state.keyIssues[0]}</span>
+                {t(lang, "ISU UTAMA", "KEY ISSUE")}: <span style={{ color: "var(--gold)" }}>{tooltip.state.keyIssues[0]}</span>
               </div>
             </>
           )}

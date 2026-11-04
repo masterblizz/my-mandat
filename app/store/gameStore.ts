@@ -531,8 +531,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         return sum + u.trend * weight;
       }, 0);
       const delta = Math.round(weightedDelta * 10) / 10;
+      // Setting: mediaBias also tilts how the press reads the day (pro: easier
+      // to get positive coverage; hostile: easier to get negative coverage).
+      const biasShift = gameState.settings.mediaBias === "pro" ? 0.3 : gameState.settings.mediaBias === "hostile" ? -0.3 : 0;
       const newSentiment: GameState["mediaSentiment"] =
-        delta > 0.4 ? "positive" : delta < -0.4 ? "negative" : "neutral";
+        delta + biasShift > 0.4 ? "positive" : delta + biasShift < -0.4 ? "negative" : "neutral";
 
       return {
         day: gameState.day + 1,
@@ -589,6 +592,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const prologue = get().journey;
     const previousAssistantAvatar = get().assistantAvatar;
     const lifetimePlayedMinutes = get().careerProgress.playedMinutes ?? 0;
+    // The player's chosen settings (from /settings or /setup) survive a reset;
+    // only run state is wiped. startingFund seeds the new run's funds below.
+    const keptSettings = { ...get().settings };
     const freshJourney = newJourney();
     const retainedJourney = prologue.personalOffice && prologue.originIssue && prologue.leadershipApproach
       ? {
@@ -616,8 +622,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastEvent: null,
       selectedStateId: null,
       operations: defaultOperations,
-      resources: { funds: 2300000, manpower: 632, vehicles: 312, materials: 680, mediaBuy: 540 },
-      difficulty: "normal",
+      resources: { funds: keptSettings.startingFund, manpower: 632, vehicles: 312, materials: 680, mediaBuy: 540 },
+      difficulty: keptSettings.difficulty,
       mediaSentiment: "neutral",
       nationalSupportDelta: 0,
       opponentLog: [],
@@ -628,20 +634,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       careerProgress: { completed: [], term: 1, month: 1, playedMinutes: lifetimePlayedMinutes },
       governmentProgress: { activePolicies: ["cost", "antiCorruption"], crisisIndex: 0, crisisDeltas: { approval: 0, stability: 0, trust: 0 } },
       sandboxProgress: { activeLevers: ["ma63", "antiCorruption", "foreignInvestment"], simulationTick: 1 },
-      settings: {
-        campaignLength: "full",
-        electionScope: "pru",
-        prnStateId: "selangor",
-        difficulty: "normal",
-        startingFund: 2300000,
-        oppositionStrength: 60,
-        mediaBias: "balanced",
-        realisticPolls: true,
-        eventRandomness: true,
-        permanentConsequences: true,
-        side: "government",
-        gameSpeed: "week",
-      },
+      settings: keptSettings,
     });
   },
 
