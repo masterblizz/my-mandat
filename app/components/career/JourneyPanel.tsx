@@ -13,6 +13,7 @@ import { useLang, t } from "../../i18n/useLang";
 import { getPrnIssues, prnIssueActionKey } from "../../data/prnIssues";
 import { getManifestoPackage, MANIFESTO_PACKAGES, manifestoStateImpact } from "../../data/manifestoPackages";
 import { getScenarioPack, scenarioObjectiveProgress } from "../../data/scenarioPacks";
+import { playerPortraitSrc } from "../../lib/playerAvatar";
 
 const button = "border border-cyan/30 px-3 py-2 text-sm text-cyan hover:bg-cyan/10 disabled:opacity-40 disabled:cursor-not-allowed text-left";
 export default function JourneyPanel({ local = false }: { local?: boolean }) {
@@ -52,7 +53,7 @@ export default function JourneyPanel({ local = false }: { local?: boolean }) {
   );
   return <section aria-label={t(lang, "Taklimat kerjaya", "Career briefing")} className="mb-5 border border-cyan/30 bg-black/20 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-3"><Image src={`/avatars/leader-${String(s.leader.avatarIndex + 1).padStart(2, "0")}.png`} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
+      <div className="flex items-center gap-3"><Image src={playerPortraitSrc(s.leader.avatarIndex)} alt={s.leader.name} width={44} height={44} className="h-11 w-11 rounded border border-gold/40 object-cover" /><div><div className="text-xs tracking-widest text-gold">{s.leader.partyAbbr} · {t(lang, "PENGGAL", "TERM")} {s.careerProgress.term} · {chapter}</div>
         <h2 className="mt-1 text-lg font-bold text-white">{local ? t(lang, "Janji kepada kawasan anda", "Your constituency commitments") : campaign ? t(lang, "Taklimat hari ini", "Today’s briefing") : t(lang, "Rekod anda sedang dibina", "Your record is taking shape")}</h2><p className="mt-1 text-xs text-text-muted">{s.leader.name}</p></div>
       </div>
       <div className="flex flex-wrap gap-2">

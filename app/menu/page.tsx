@@ -17,6 +17,7 @@ import { inTerm, termQuarter } from "../store/termClock";
 import { TERM_QUARTERS } from "../data/ybService";
 import { isRulerState } from "../utils/governmentTerms";
 import { createClient } from "../utils/supabase/client";
+import { playerPortraitSrc } from "../lib/playerAvatar";
 
 type MenuItemConfig = {
   id: string;
@@ -370,7 +371,7 @@ export default function MainMenuPage() {
             style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.06), rgb(var(--bg-rgb) / 0.62))" }}
           >
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: leader.partyColor || "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>
-              <Image src={`/avatars/leader-${String((leader.avatarIndex ?? 0) + 1).padStart(2, "0")}.png`} alt={leader.name} fill sizes="44px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
+              <Image src={playerPortraitSrc(leader.avatarIndex)} alt={leader.name} fill sizes="44px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-black tracking-[.08em] text-white">{leader.name}</div>

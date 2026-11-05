@@ -19,6 +19,7 @@ import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { getPrnCandidate } from "../data/prnCandidates";
 import { HudButton, InfoFold, NumTile, PageHead, StatChip } from "../components/formation/Hud";
+import { playerModel } from "../lib/playerAvatar";
 
 // The ceremony takes place in the 3D chamber (Godot); the panels below stay.
 const GodotWorld = dynamic(() => import("../components/world/GodotWorld"), { ssr: false });
@@ -53,7 +54,7 @@ export default function SwearingInPage() {
   };
   const chamberState = useMemo<GodotWorldState>(() => ({
     lang,
-    player: [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male",
+    player: playerModel(leader.avatarIndex),
     playerName: headName,
     playerColor: leader.partyColor,
     pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",

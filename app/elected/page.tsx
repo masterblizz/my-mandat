@@ -11,14 +11,8 @@ import { useLang, t } from "../i18n/useLang";
 import { REP_OPENING_ALLOCATION, REP_QUARTER_GRANT, repSide } from "../store/representative";
 import { TERM_QUARTERS } from "../data/ybService";
 import Fold from "../components/results/Fold";
+import { playerPortraitSrc } from "../lib/playerAvatar";
 
-const LEADER_AVATARS = [
-  "/avatars/leader-01.png",
-  "/avatars/leader-02.png",
-  "/avatars/leader-03.png",
-  "/avatars/leader-04.png",
-  "/avatars/leader-05.png",
-];
 
 function winnerColor(winner: "mandat" | "lawan" | "others", partyColor: string) {
   return winner === "mandat" ? partyColor : winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
@@ -88,7 +82,7 @@ export default function ElectedPage() {
     );
   }
 
-  const avatarSrc = LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0];
+  const avatarSrc = playerPortraitSrc(leader.avatarIndex);
   const seatsWonInState = stateSeatDetails.filter((seat) => seat.result === "WIN").length;
   const btnBase = "min-h-[44px] rounded-full px-6 py-3 text-[12px] font-black tracking-widest uppercase transition-all active:scale-[.97] hover:opacity-90 disabled:opacity-50 disabled:cursor-wait";
 

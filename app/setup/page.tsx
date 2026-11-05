@@ -22,6 +22,7 @@ import { useLang, t } from "../i18n/useLang";
 import { PREMIUM_PRICE_IDS } from "../config/premiumProducts";
 import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { PRN_CANDIDATES, getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
+import { PLAYER_AVATAR_COUNT, playerStandingSrc } from "../lib/playerAvatar";
 
 const POSITIONS = [
   { id: "PRESIDENT" },
@@ -46,13 +47,7 @@ const MEDIA_OPTIONS = [
   { id: "HOSTILE" },
 ] as const;
 const TOTAL_POINTS = 450;
-const AVATARS = [
-  { src: "/avatars/player-standing-01.png" },
-  { src: "/avatars/player-standing-02.png" },
-  { src: "/avatars/player-standing-03.png" },
-  { src: "/avatars/player-standing-04.png" },
-  { src: "/avatars/player-standing-05.png" },
-];
+const AVATARS = Array.from({ length: PLAYER_AVATAR_COUNT }, (_, i) => ({ src: playerStandingSrc(i) }));
 
 // One icon + one short word per step: the wizard reads like a game menu,
 // not a form.

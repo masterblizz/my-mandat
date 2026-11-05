@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useGameStore } from "../../store/gameStore";
 import { assistantGender } from "../../lib/assistantAvatar";
 import type { GodotWorldState } from "../world/GodotWorld";
+import { playerModel } from "../../lib/playerAvatar";
 
 // Election night plays in the Godot TV studio; the 2D layout below is the
 // fallback (no WebGL2, the player's choice, or a slow first load).
@@ -146,7 +147,7 @@ export default function ElectionNightCount({ timeline, partyName, partyColor, to
   const currentSeat = feed.find((item) => item.kind === "seat");
   const studioState = useMemo<GodotWorldState>(() => ({
     lang,
-    player: [1, 3].includes(leaderProfile.avatarIndex) ? "pa_female" : "pa_male",
+    player: playerModel(leaderProfile.avatarIndex),
     playerName: leaderProfile.name,
     playerColor: partyColor,
     pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",

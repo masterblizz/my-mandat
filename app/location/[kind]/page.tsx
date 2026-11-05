@@ -33,6 +33,7 @@ import {
   newsMatchesElectionScope,
 } from "../../data/liveNews";
 import type { TacticalOverlay } from "../../data/tacticalMap";
+import { playerModel } from "../../lib/playerAvatar";
 
 type Scene = {
   icon: string;
@@ -1100,7 +1101,7 @@ export default function LocationPage() {
   const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
   const warState = useMemo<GodotWorldState>(() => ({
     lang,
-    player: [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male",
+    player: playerModel(leader.avatarIndex),
     playerName: leader.name,
     playerColor: leader.partyColor,
     pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",
