@@ -84,8 +84,50 @@ export function boundaryShape(rings: Boundary): { lat: number; lon: number; box:
  * farthest boundary crossing, divided by their mean. A round seat is all
  * ~1; a long seat is >1 along its axis and <1 across it.
  */
-export function boundaryShapeK(rings: Boundary, samples = 72): number[] {
+/** The 3D city's centre: the area centre of the largest ring when it lies
+ *  inside the seat, else the interior point farthest from the boundary
+ *  (a crescent or L-shaped seat has its centroid outside). */
+const centreCache = new WeakMap<Boundary, { lat: number; lon: number }>();
+export function boundaryCityCentre(rings: Boundary): { lat: number; lon: number } {
+  const hit = centreCache.get(rings);
+  if (hit) return hit;
   const shape = boundaryShape(rings);
+  const inside = (lon: number, lat: number) => rings.some((r) => {
+    let c = false;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i]; const [xj, yj] = r[j];
+      if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  });
+  let best = { lat: shape.lat, lon: shape.lon };
+  if (!inside(shape.lon, shape.lat)) {
+    const [x0, y0, x1, y1] = shape.box;
+    const segDist = (px: number, py: number) => {
+      let m = Infinity;
+      for (const r of rings) for (let i = 0; i < r.length; i++) {
+        const [ax, ay] = r[i]; const [bx, by] = r[(i + 1) % r.length];
+        const dx = bx - ax, dy = by - ay; const L = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L));
+        m = Math.min(m, Math.hypot(px - ax - t * dx, py - ay - t * dy));
+      }
+      return m;
+    };
+    let bestD = -1;
+    const N = 40;
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+      const lon = x0 + ((x1 - x0) * i) / N, lat = y0 + ((y1 - y0) * j) / N;
+      if (!inside(lon, lat)) continue;
+      const d = segDist(lon, lat);
+      if (d > bestD) { bestD = d; best = { lat, lon }; }
+    }
+  }
+  centreCache.set(rings, best);
+  return best;
+}
+
+export function boundaryShapeK(rings: Boundary, samples = 72): number[] {
+  const shape = boundaryCityCentre(rings);
   let best = rings[0];
   let bestA = 0;
   for (const ring of rings) {
@@ -121,7 +163,7 @@ const lastMean = new WeakMap<Boundary, number>();
  *  ray length in degrees, which the city draws as r_city (world units). */
 export function boundaryCityFrame(rings: Boundary): { lon: number; lat: number; meanDeg: number } {
   if (!lastMean.has(rings)) boundaryShapeK(rings);
-  const { lon, lat } = boundaryShape(rings);
+  const { lon, lat } = boundaryCityCentre(rings);
   return { lon, lat, meanDeg: lastMean.get(rings) ?? 0 };
 }
 
@@ -138,4 +180,23 @@ export function boundaryAreaKm2(rings: Boundary): number {
     total += Math.abs(a) / 2;
   }
   return total;
+}
+
+/** The outline for the 3D city, in its frame: flat [x, z, x, z, ...] per
+ *  ring, x east / z south, in units of the mean ray (the city multiplies
+ *  by r_city). Points closer than `minStep` are dropped. */
+export function boundaryCityOutline(rings: Boundary, minStep = 0.012): number[][] {
+  const f = boundaryCityFrame(rings);
+  if (!f.meanDeg) return [];
+  const kx = Math.cos((f.lat * Math.PI) / 180);
+  return rings.map((ring) => {
+    const out: number[] = [];
+    let lx = Infinity, lz = Infinity;
+    for (const [lon, lat] of ring) {
+      const x = ((lon - f.lon) * kx) / f.meanDeg, z = -(lat - f.lat) / f.meanDeg;
+      if (Math.hypot(x - lx, z - lz) < minStep) continue;
+      out.push(+x.toFixed(4), +z.toFixed(4)); lx = x; lz = z;
+    }
+    return out;
+  }).filter((ring) => ring.length >= 6);
 }

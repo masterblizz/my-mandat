@@ -122,7 +122,7 @@ func _intro_pose(v: float) -> void:
 		dist = d0 * lerpf(1.0, 0.9, h)
 		target = _intro_from.target
 		if city.has_method("set_outline_alpha"):
-			city.set_outline_alpha(minf(1.0, h * 2.5))
+			city.set_outline_alpha(maxf(0.3, minf(1.0, h * 2.5)))
 	else:
 		var k := (t - INTRO_HOLD) / INTRO_DESCENT
 		var e := k * k * (3.0 - 2.0 * k)          # smoothstep
@@ -132,7 +132,7 @@ func _intro_pose(v: float) -> void:
 		dist = exp(lerpf(log(d0 * 0.9), log(d1), e))
 		target = (_intro_from.target as Vector3).lerp(_intro_to.target, e)
 		if city.has_method("set_outline_alpha"):
-			city.set_outline_alpha(1.0 - smoothstep(0.35, 0.8, k))
+			city.set_outline_alpha(lerpf(1.0, 0.3, smoothstep(0.35, 0.8, k)))
 	# the valley haze is set for the low view: push it out while high up
 	if "env" in city and city.env:
 		city.env.fog_depth_begin = 900.0 + maxf(0.0, _dist - 700.0)

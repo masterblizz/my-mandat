@@ -156,6 +156,17 @@ func _configure(p: Dictionary) -> void:
 	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
 	party_abbr = str(p.get("partyAbbr", ""))
 	seat_name = str(p.get("name", ""))
+	seat_poly_n = []
+	var poly = p.get("outline", [])
+	if poly is Array:
+		for ring in poly:
+			if ring is Array and ring.size() >= 6:
+				var r2 := PackedVector2Array()
+				var k := 0
+				while k + 1 < ring.size():
+					r2.append(Vector2(float(ring[k]), float(ring[k + 1])))
+					k += 2
+				seat_poly_n.append(r2)
 	shape_k = PackedFloat32Array()
 	var sh = p.get("shape", [])
 	if sh is Array and sh.size() >= 12:
@@ -212,6 +223,22 @@ func _configure(p: Dictionary) -> void:
 	var kmax := 1.0
 	for v in shape_k:
 		kmax = maxf(kmax, v)
+	for ring in seat_poly_n:
+		for v in ring:
+			kmax = maxf(kmax, (v as Vector2).length())
+	# the whole seat must fit the occupancy raster: shrink it evenly if not
+	if r_city * kmax > EXT - 60.0:
+		var fit := (EXT - 60.0) / (r_city * kmax)
+		r_core *= fit
+		r_commercial *= fit
+		r_taman *= fit
+		r_city *= fit
+	seat_poly = []
+	for ring in seat_poly_n:
+		var w2 := PackedVector2Array()
+		for v in ring:
+			w2.append((v as Vector2) * r_city)
+		seat_poly.append(w2)
 	reach_r = r_city * kmax
 	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
@@ -241,6 +268,7 @@ func _build() -> void:
 	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
+	_mask_outside()
 	roads = []
 	lots = []
 	town_centre = Vector3.ZERO
@@ -308,24 +336,36 @@ func _build_outline() -> void:
 		_outline_mat.albedo_color = Color(1.0, 0.8, 0.16, 0.0)
 		outline.material_override = _outline_mat
 		add_child(outline)
-	var pts := []
-	var n := 144
-	for i in n:
-		var a := TAU * i / n
-		pts.append(_polar(r_city * 1.04, a))
+	var rings := []
+	if not seat_poly.is_empty():
+		for ring in seat_poly:
+			var r3 := []
+			for v in ring:
+				r3.append(Vector3(v.x, 0, v.y))
+			rings.append(r3)
+	else:
+		var r3 := []
+		for i in 144:
+			r3.append(_polar(r_city * 1.04, TAU * i / 144.0))
+		rings.append(r3)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var w := maxf(7.0, r_city * 0.012)
-	for i in n:
-		var p0: Vector3 = pts[i]
-		var p1: Vector3 = pts[(i + 1) % n]
-		var d := (p1 - p0).normalized()
-		var side := Vector3(-d.z, 0, d.x) * w
-		var y := Vector3(0, 2.0, 0)
-		st.add_vertex(p0 - side + y); st.add_vertex(p0 + side + y); st.add_vertex(p1 + side + y)
-		st.add_vertex(p0 - side + y); st.add_vertex(p1 + side + y); st.add_vertex(p1 - side + y)
+	var w := maxf(5.0, r_city * 0.008)
+	var y := Vector3(0, 2.0, 0)
+	for pts in rings:
+		var n: int = pts.size()
+		for i in n:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[(i + 1) % n]
+			if p0.distance_to(p1) < 0.01:
+				continue
+			var d := (p1 - p0).normalized()
+			var side := Vector3(-d.z, 0, d.x) * w
+			st.add_vertex(p0 - side + y); st.add_vertex(p0 + side + y); st.add_vertex(p1 + side + y)
+			st.add_vertex(p0 - side + y); st.add_vertex(p1 + side + y); st.add_vertex(p1 - side + y)
 	outline.mesh = st.commit()
-	outline.visible = false
+	# the boundary stays faintly marked on the ground after the intro
+	set_outline_alpha(0.3)
 
 
 func set_outline_alpha(a: float) -> void:
@@ -956,6 +996,69 @@ func _radial_angle(k: int, r: float) -> float:
 ## zone bands) stretches by it, so the built-up area takes the boundary's
 ## shape instead of a circle; buildings themselves keep their size.
 var shape_k := PackedFloat32Array()
+## The seat's real boundary in world units (one PackedVector2Array per
+## ring, x east / y = world z south), built from the page's normalised
+## outline times r_city. Nothing is built outside it except the coast and
+## sea: the occupancy raster starts "taken" outside, and roads, river,
+## expressway and LRT are clipped to it.
+var seat_poly_n := []          # normalised rings from the profile
+var seat_poly := []            # in world units, after r_city is known
+
+func in_seat(p: Vector3) -> bool:
+	if seat_poly.is_empty():
+		return true
+	var q := Vector2(p.x, p.z)
+	for ring in seat_poly:
+		if Geometry2D.is_point_in_polygon(q, ring):
+			return true
+	return false
+
+
+## Mark every occupancy cell outside the boundary as taken (scanline fill).
+func _mask_outside() -> void:
+	if seat_poly.is_empty():
+		return
+	occ.fill(1)
+	var xs := PackedFloat32Array()
+	for iz in GN:
+		var z := -EXT + (iz + 0.5) * CELL
+		xs.clear()
+		for ring in seat_poly:
+			var n: int = ring.size()
+			for k in n:
+				var a: Vector2 = ring[k]
+				var b: Vector2 = ring[(k + 1) % n]
+				if (a.y <= z and b.y > z) or (b.y <= z and a.y > z):
+					xs.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
+		if xs.size() < 2:
+			continue
+		xs.sort()
+		var row := iz * GN
+		var k2 := 0
+		while k2 + 1 < xs.size():
+			var i0 := clampi(int((xs[k2] + EXT) / CELL), 0, GN)
+			var i1 := clampi(int((xs[k2 + 1] + EXT) / CELL), 0, GN)
+			for ix in range(i0, i1):
+				occ[row + ix] = 0
+			k2 += 2
+
+
+## Draw a polyline only where it is inside the seat, as separate runs.
+func _inside_runs(pts: PackedVector3Array) -> Array:
+	if seat_poly.is_empty():
+		return [pts]
+	var runs := []
+	var cur := PackedVector3Array()
+	for p in pts:
+		if in_seat(p):
+			cur.append(p)
+		elif cur.size() > 0:
+			if cur.size() > 1:
+				runs.append(cur)
+			cur = PackedVector3Array()
+	if cur.size() > 1:
+		runs.append(cur)
+	return runs
 var reach_r := 560.0      # farthest built-up edge (r_city along the longest bearing)
 var pan_limit := 605.0    # camera pan bound, from the real city extent
 
@@ -1288,6 +1391,11 @@ func _make_road(ctrl: Array, cls: int) -> void:
 			wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
 	var gaps := PackedByteArray()
 	gaps.resize(pts.size())
+	# outside the seat boundary the road is not drawn (and cars hide there)
+	if not seat_poly.is_empty():
+		for k in pts.size():
+			if not in_seat(pts[k]):
+				gaps[k] = 1
 	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
 	roads.append(rd)
 	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
@@ -1501,12 +1609,14 @@ func _build_features() -> void:
 
 	var wst := SurfaceTool.new()
 	wst.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_ribbon(wst, river_fine, RIVER_HALF, 0.03, Color.WHITE)
+	for run in _inside_runs(river_fine):
+		_ribbon(wst, run, RIVER_HALF, 0.03, Color.WHITE)
 	var wmi := MeshInstance3D.new()
 	wmi.mesh = wst.commit()
 	wmi.material_override = mat_water
 	gen.add_child(wmi)
-	_ribbon(ground_st, river_fine, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
+	for run in _inside_runs(river_fine):
+		_ribbon(ground_st, run, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
 	_mark_polyline(river_fine, RIVER_HALF + 6.0)
 
 	# coastal seats: open sea beyond a beach on one side
@@ -1524,9 +1634,10 @@ func _build_features() -> void:
 		return
 
 	# expressway: kerbed carriageway, central median with lamps, lane dashes
-	_ribbon(ground_st, highway_fine, HIGHWAY_HALF + 1.2, 0.26, C_CONCRETE)
-	_ribbon(ground_st, highway_fine, HIGHWAY_HALF, 0.3, Color(0.2, 0.21, 0.22))
-	_ribbon(ground_st, highway_fine, 0.8, 0.45, Color(0.78, 0.77, 0.74))
+	for run in _inside_runs(highway_fine):
+		_ribbon(ground_st, run, HIGHWAY_HALF + 1.2, 0.26, C_CONCRETE)
+		_ribbon(ground_st, run, HIGHWAY_HALF, 0.3, Color(0.2, 0.21, 0.22))
+		_ribbon(ground_st, run, 0.8, 0.45, Color(0.78, 0.77, 0.74))
 	_mark_polyline(highway_fine, HIGHWAY_HALF + 4.0)
 	var length := highway_curve.get_baked_length()
 	var o := 0.0
@@ -1568,6 +1679,8 @@ func _build_lrt() -> void:
 			var yaw := atan2(-t.z, t.x)
 			var n := Vector3(-t.z, 0, t.x)
 			var mid := (a + b) * 0.5
+			if not in_seat(mid):
+				continue
 			box(mid + Vector3(0, LRT_Y, 0), Vector3(L + 0.3, 1.3, 6.0), concrete, null, yaw)
 			for sd in [-1.0, 1.0]:
 				box(mid + n * sd * 2.9 + Vector3(0, LRT_Y + 1.3, 0), Vector3(L + 0.3, 0.8, 0.2), concrete, null, yaw)
@@ -1581,7 +1694,7 @@ func _build_lrt() -> void:
 		var s := 150.0
 		while s < length - 60.0:
 			var p := c.sample_baked(s)
-			if _shape_r(p) < r_taman:
+			if _shape_r(p) < r_taman and in_seat(p):
 				var t := (c.sample_baked(s + 1.0) - p).normalized()
 				_lrt_station(p, atan2(-t.z, t.x))
 			s += 300.0
@@ -1926,7 +2039,7 @@ func _fill_trees() -> void:
 		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
 		var p := _polar(r, a)
 		var ci := _cell(p)
-		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
+		if (ci >= 0 and occ[ci] == 1) or in_sea(p) or (ci < 0 and not seat_poly.is_empty()):
 			continue
 		var urban := tier in ["metro", "city"]
 		var ur := _urban_r(p)
@@ -1945,7 +2058,7 @@ func _fill_trees() -> void:
 	# only seats that really have hills get the ranges round the valley: a
 	# flat city (Bukit Bintang, Petaling Jaya) or a coastal plain stays flat
 	var push := maxf(1.0, reach_r * 1.25 / 900.0)
-	var layers := [] if not hilly else [
+	var layers := [] if (not hilly or not seat_poly.is_empty()) else [
 		{"r": Vector2(900, 1100) if hilly else Vector2(1250, 1400), "n": 30, "w": Vector2(260, 380), "h": Vector2(180, 320) if hilly else Vector2(80, 170), "c0": Color(0.2, 0.33, 0.19), "c1": Color(0.28, 0.4, 0.24)},
 		{"r": Vector2(1650, 1850), "n": 46, "w": Vector2(320, 480), "h": Vector2(180, 300) if hilly else Vector2(110, 210), "c0": Color(0.14, 0.22, 0.2), "c1": Color(0.2, 0.28, 0.27)},
 		{"r": Vector2(2300, 2600), "n": 52, "w": Vector2(420, 640), "h": Vector2(260, 420) if hilly else Vector2(170, 300), "c0": Color(0.2, 0.26, 0.3), "c1": Color(0.26, 0.32, 0.36)},
@@ -1968,7 +2081,7 @@ func _fill_trees() -> void:
 				var sp := _polar_raw(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
 				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
 				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
-	if bool(traits.get("kinabalu", false)):
+	if bool(traits.get("kinabalu", false)) and seat_poly.is_empty():
 		var mp := _polar_raw(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
 		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))

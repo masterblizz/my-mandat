@@ -24,7 +24,7 @@ import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
 import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
-import { boundaryAreaKm2, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
+import { boundaryAreaKm2, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2711,6 +2711,8 @@ export default function KawasanDevelopmentPage() {
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits,
       // the seat's real outline, so the city fills its shape (see city.gd shape_k)
       shape: seatOutline ? boundaryShapeK(seatOutline) : undefined,
+      // the real boundary: nothing is built outside it (coast and sea excepted)
+      outline: seatOutline ? boundaryCityOutline(seatOutline) : undefined,
       // real area: city seats are drawn at their true size (see city.gd)
       areaKm2: seatOutline ? Math.round(boundaryAreaKm2(seatOutline) * 10) / 10 : undefined }),
     [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline],

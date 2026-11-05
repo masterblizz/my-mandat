@@ -63,8 +63,9 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     if (!ring.length) return [px + 2.5, py - 1, 22];
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const r of ring) for (const [x, y] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-    const w = Math.max((x1 - x0) * 2.2, ((y1 - y0) * 2.4) / 0.46, 6);
-    return [(x0 + x1) / 2, (y0 + y1) / 2 - w * 0.04, w];
+    // the whole seat with a margin, sitting above the loading panel
+    const w = Math.max((x1 - x0) * 2.0, ((y1 - y0) * 2.9) / 0.46, 6);
+    return [(x0 + x1) / 2, (y0 + y1) / 2 + w * 0.46 * 0.14, w];
   }, [ring, px, py]);
 
   // state label positions, once the outlines are on screen
