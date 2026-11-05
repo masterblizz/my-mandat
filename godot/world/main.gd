@@ -923,7 +923,13 @@ func _build_markers() -> void:
 		cs.shape = sh
 		body.add_child(cs)
 		add_child(body)
-		markers[id] = {"orb": orb, "label": l, "base": it[3]}
+		# blinking "action needed" tag, shown while the page reports a badge
+		var tag := label("", it[3] + Vector3(0, 0.85, 0), 78, Color("#ffd23f"))
+		tag.outline_size = 22
+		tag.outline_modulate = Color(0.35, 0.02, 0.0, 1.0)
+		tag.render_priority = 3
+		tag.visible = false
+		markers[id] = {"orb": orb, "label": l, "base": it[3], "tag": tag, "om": om}
 
 func _build_camera() -> void:
 	cam = Camera3D.new()
@@ -1172,6 +1178,24 @@ func _update_markers() -> void:
 		m["label"].position = base + Vector3(0, 0.32, 0)
 		m["orb"].visible = not intro_playing
 		m["label"].visible = not intro_playing
+		# action needed: the tag blinks and bobs, the orb flashes red/gold
+		var need := int(badges.get(id, 0)) > 0
+		var tag: Label3D = m["tag"]
+		tag.visible = need and not intro_playing
+		var om: StandardMaterial3D = m["om"]
+		if need:
+			var k := 0.5 + 0.5 * sin(t * 6.0)
+			tag.position = base + Vector3(0, 0.85 + abs(sin(t * 3.0)) * 0.1, 0)
+			# blink: bright yellow <-> red, never fading below 60 %
+			tag.modulate = Color(1.0, 0.82, 0.25).lerp(Color(1.0, 0.25, 0.2), k)
+			tag.modulate.a = 0.6 + 0.4 * k
+			var sc := 1.0 + 0.15 * k
+			tag.scale = Vector3(sc, sc, sc)
+			om.albedo_color = Color("#f2b01e").lerp(Color("#ff3b30"), k)
+			m["orb"].scale = Vector3.ONE * (1.0 + 0.35 * k)
+		else:
+			om.albedo_color = Color("#f2b01e")
+			m["orb"].scale = Vector3.ONE
 
 ## A resident takes their turn at the complaints counter, then sits again.
 func _update_queue(delta: float) -> void:
@@ -1428,6 +1452,7 @@ func _apply_lang() -> void:
 		var text: String = it[2] if lang == "en" else it[1]
 		var count := int(badges.get(id, 0))
 		markers[id]["label"].text = text + ("  (%d)" % count if count > 0 else "")
+		markers[id]["tag"].text = ("! PERLU TINDAKAN !" if lang == "ms" else "! ACTION NEEDED !") if count > 0 else ""
 
 # ── headless self-test: every room must be reachable from the street ──
 func _selftest() -> void:
