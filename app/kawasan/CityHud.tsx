@@ -53,9 +53,9 @@ export function CityTopBar({ lang, zones, chips }: { lang: Lang; zones: ZoneLike
 
 export type RailItem = { id: string; icon: string; label: string; active?: boolean; run: () => void };
 
-export function CityRail({ items }: { items: RailItem[] }) {
+export function CityRail({ items, label }: { items: RailItem[]; label?: string }) {
   return (
-    <nav className="nhud-rail" aria-label="City tools">
+    <nav className="nhud-rail" aria-label={label ?? "City tools"}>
       {items.map((item) => (
         <button key={item.id} type="button" onClick={item.run} aria-pressed={item.active ?? undefined} className={`nhud-rail__item ${item.active ? "is-active" : ""}`}>
           <span aria-hidden className="nhud-rail__icon">{item.icon}</span>

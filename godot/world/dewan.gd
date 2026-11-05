@@ -26,7 +26,7 @@ var curve_center_z := 0.0
 func _init() -> void:
 	ROOMS = {
 		"dewan": [-9.0, -10.0, 9.0, 7.0, "#1f4a2e", "DEWAN", "CHAMBER"],
-		"lobi": [-9.0, 7.0, 9.0, 11.0, "#c9bfa8", "LOBI PARLIMEN", "PARLIAMENT LOBBY"],
+		"lobi": [-9.0, 7.0, 9.0, 11.0, "#c9bfa8", "LOBI DEWAN", "CHAMBER LOBBY"],
 	}
 	FLOORS = {
 		"dewan": ["carpet", "#1e5a34", "#3f8a5a", 0.9],

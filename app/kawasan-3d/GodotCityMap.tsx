@@ -20,6 +20,7 @@ import CitySkyLife from "./CitySkyLife";
 import CityIntro from "./CityIntro";
 import CityLoading from "./CityLoading";
 import type { SeatGeo } from "../data/seatGeo";
+import { resolveColor } from "../utils/color";
 
 export type CityIntroInfo = { geo: SeatGeo; stateId: string; stateName: string; seatCode: string; seatName: string; density?: number };
 
@@ -52,7 +53,8 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
 
   // Only the fields the city draws; projects/building lists stay page-side.
   const state = useMemo(() => ({
-    profile,
+    // Godot parses only hex: resolve var(--x) party colours first
+    profile: profile.partyColor ? { ...profile, partyColor: resolveColor(profile.partyColor) } : profile,
     zones: zones.map((z) => ({
       id: z.id, kind: z.kind, archetype: z.archetype, name: zoneNames?.[z.id] ?? "",
       sentiment: z.sentiment, infra: z.infra, welfare: z.welfare, economy: z.economy,

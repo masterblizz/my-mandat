@@ -18,6 +18,8 @@ import { TERM_QUARTERS } from "../data/ybService";
 import { isRulerState } from "../utils/governmentTerms";
 import { createClient } from "../utils/supabase/client";
 import { playerPortraitSrc } from "../lib/playerAvatar";
+import { usePremiumStatus } from "../hooks/usePremiumStatus";
+import { savePrnLocked } from "../config/freeTier";
 
 type MenuItemConfig = {
   id: string;
@@ -160,11 +162,19 @@ export default function MainMenuPage() {
     []
   );
 
+  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
+  const [lockedNotice, setLockedNotice] = useState<string | null>(null);
   const resumeSavedGame = useCallback((slot: SavedGameSlot) => {
+    // a PRN save in a negeri this account can no longer play (Premium lapsed)
+    if (!premiumLoading && savePrnLocked(slot.state, hasPremium)) {
+      setContinueSlot(null);
+      setLockedNotice(t(lang, "Simpanan PRN ini untuk negeri Premium. Langgan Premium atau mulakan PRU / PRN Perlis.", "This PRN save is for a Premium negeri. Get Premium or start a PRU / PRN Perlis."));
+      return;
+    }
     setActiveSaveSlot(slot.id);
     useGameStore.setState({ ...slot.state, journey: normalizeJourney(slot.state.journey), phase: "playing" });
     router.push(hubRoute(slot.state));
-  }, [router]);
+  }, [router, hasPremium, premiumLoading, lang]);
 
   const navigateMenuItem = useCallback((item: MenuItem) => {
     if (item.toggles) {
@@ -251,6 +261,7 @@ export default function MainMenuPage() {
       }}
     >
       {showCredits && <CreditsModal lang={lang} onClose={() => setShowCredits(false)} />}
+      {lockedNotice && <div role="alert" onClick={() => setLockedNotice(null)} className="fixed left-1/2 top-14 z-[90] w-[min(520px,calc(100%-32px))] -translate-x-1/2 cursor-pointer rounded-md border px-4 py-3 text-[12px] font-bold text-white shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .7)", background: "rgb(var(--bg-rgb) / .96)" }}>🔒 {lockedNotice}</div>}
       {continueSlot && <ContinueRunModal lang={lang} slot={continueSlot} onClose={() => setContinueSlot(null)} onConfirm={() => resumeSavedGame(continueSlot)} />}
       <style>{`
         @keyframes mymandat-live-news-scroll {

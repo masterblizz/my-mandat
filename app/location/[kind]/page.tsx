@@ -1022,7 +1022,15 @@ export default function LocationPage() {
   const [warIntro, setWarIntro] = useState(false);
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [isNight, setIsNight] = useState(false);
-  const scene = SCENES[kind] ?? SCENES.party;
+  const seatLabel = leader.homeConstituencyName || t(lang, "kawasan anda", "your seat");
+  const prnScope = (settings.electionScope ?? "pru") === "prn";
+  const prnStateName = states.find((item) => item.id === (settings.prnStateId ?? leader.homeState))?.name ?? "";
+  // PRN: the analysis centre covers one negeri, not the nation
+  const baseScene = SCENES[kind] ?? SCENES.party;
+  const scene = prnScope && kind === "national"
+    ? { ...baseScene, ms: "Pusat Analisis Negeri", en: "State Analysis Centre", actionMs: "Buka analisis negeri", actionEn: "Open state analysis",
+        hotspotMs: `Peta ${prnStateName}`, hotspotEn: `${prnStateName} map`, detailMs: `Bandingkan kesan keputusan di seluruh ${prnStateName}.`, detailEn: `Compare decision impact across ${prnStateName}.` }
+    : baseScene;
   const localProfile = homeSeatProfile(states, leader, settings);
   const isRural = localProfile.isRural;
   const sceneAsset = isRural
@@ -1033,7 +1041,11 @@ export default function LocationPage() {
   const hostAsset = assistantHost
     ? assistantStandingSrc(assistantAvatar)
     : host.asset;
-  const hostGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
+  const baseGuide = LOCATION_GUIDES[kind] ?? LOCATION_GUIDES.party;
+  const hostGuide = prnScope && kind === "national"
+    ? { ...baseGuide, updateMs: `Data ${prnStateName} menunjukkan dua kawasan DUN memerlukan perhatian segera.`, updateEn: `${prnStateName} data shows two state seats need immediate attention.`,
+        stepsMs: ["Bandingkan perubahan antara kawasan DUN.", ...baseGuide.stepsMs.slice(1)], stepsEn: ["Compare changes across state seats.", ...baseGuide.stepsEn.slice(1)] }
+    : baseGuide;
   const label = lang === "ms" ? scene.ms : scene.en;
   const hotspot = lang === "ms" ? scene.hotspotMs : scene.hotspotEn;
   const originLabel = searchParams.get("origin");
@@ -1239,7 +1251,7 @@ export default function LocationPage() {
       "Rangkaian sukarelawan menunggu arahan",
     ],
     operations: [
-      "Zon tumpuan: Pandan Barat",
+      `Zon tumpuan: ${seatLabel} Barat`,
       "Jentera lapangan tersedia untuk digerakkan",
       "Sasaran hari ini: 3 blok pengundi",
     ],
@@ -1249,7 +1261,7 @@ export default function LocationPage() {
       "Pasukan media perlu masa persediaan",
     ],
     media: [
-      "Isu saliran Pandan kembali tular",
+      `Isu saliran ${seatLabel} kembali tular`,
       "Kos sara hidup jadi topik utama hari ini",
       "Respons calon lawan sedang dipantau",
     ],
@@ -1281,7 +1293,7 @@ export default function LocationPage() {
       "Volunteer network awaits direction",
     ],
     operations: [
-      "Priority zone: West Pandan",
+      `Priority zone: West ${seatLabel}`,
       "Field organisers are ready to deploy",
       "Today's target: 3 voter blocks",
     ],
@@ -1291,7 +1303,7 @@ export default function LocationPage() {
       "Media team needs preparation time",
     ],
     media: [
-      "Pandan drainage issue is trending again",
+      `${seatLabel} drainage issue is trending again`,
       "Cost of living is today's main topic",
       "Opponent response is being monitored",
     ],
@@ -1317,18 +1329,21 @@ export default function LocationPage() {
     ],
   };
   const activityBriefs = lang === "ms" ? activityBriefsMs : activityBriefsEn;
-  const activityBrief = activityBriefs[kind] ?? activityBriefs.party;
+  const activityBrief = prnScope && kind === "national"
+    ? (lang === "ms" ? [`Dua kawasan DUN di ${prnStateName} menunjukkan momentum positif`, "Kawasan marginal perlu tumpuan", "Data malam ini sedang dikemas kini"]
+      : [`Two state seats in ${prnStateName} show positive momentum`, "Marginal seats need attention", "Tonight's data is updating"])
+    : activityBriefs[kind] ?? activityBriefs.party;
   const mediaHeadlines =
     lang === "ms"
       ? [
-          "Penduduk Pandan desak tindakan segera isu saliran",
+          `Penduduk ${seatLabel} desak tindakan segera isu saliran`,
           "Tinjauan baharu: pengundi muda kembali menilai manifesto",
           "Pasukan kempen umum jadual lawatan komuniti hujung minggu",
           "Kos sara hidup kekal kebimbangan utama penduduk bandar",
           "Pusat media menunggu respons rasmi calon",
         ]
       : [
-          "Pandan residents demand immediate action on drainage",
+          `${seatLabel} residents demand immediate action on drainage`,
           "New poll: young voters reassess the manifesto",
           "Campaign team announces weekend community visits",
           "Cost of living remains the top urban concern",

@@ -36,6 +36,7 @@ function MonthlyFieldCalendar({
   scheduleBuilt,
   visitConfirmed,
   stateName,
+  seatName,
   campaignDay,
   totalDays,
 }: {
@@ -43,6 +44,7 @@ function MonthlyFieldCalendar({
   scheduleBuilt: boolean;
   visitConfirmed: boolean;
   stateName: string;
+  seatName: string;
   campaignDay: number;
   totalDays: number;
 }) {
@@ -95,14 +97,14 @@ function MonthlyFieldCalendar({
       date: eventDate(1),
       time: "09:30",
       title: t(lang, "Taklimat jentera", "Campaign briefing"),
-      location: t(lang, "Pejabat Pandan", "Pandan office"),
+      location: t(lang, `Pejabat ${seatName}`, `${seatName} office`),
       tone: "cyan",
     },
     {
       date: eventDate(3),
       time: "11:00",
       title: t(lang, "Sesi dengar penduduk", "Resident listening session"),
-      location: "Pandan Jaya",
+      location: `${seatName} Jaya`,
       tone: "gold",
     },
     {
@@ -302,7 +304,7 @@ export default function PoliticalOfficePage() {
       image: "/office-news-drainage.png",
       tone: "var(--neon-red)",
       tag: t(lang, "LIPUTAN LANGSUNG", "LIVE COVERAGE"),
-      headline: t(lang, "Penduduk Pandan desak tindakan isu saliran", "Pandan residents demand action on drainage"),
+      headline: t(lang, `Penduduk ${localProfile.seatName} desak tindakan isu saliran`, `${localProfile.seatName} residents demand action on drainage`),
       summary: t(lang, "Hujan dan saliran tersumbat kembali menjadi isu utama di beberapa zon. Respons pantas boleh meredakan tekanan awam.", "Rain and blocked drainage have returned as the lead concern in several zones. A fast response can ease public pressure."),
       source: t(lang, "LAPORAN LAPANGAN · ZON PERUMAHAN", "FIELD REPORT · RESIDENTIAL ZONES"),
     },
@@ -322,7 +324,7 @@ export default function PoliticalOfficePage() {
       tag: t(lang, "LIPUTAN KOMUNITI", "COMMUNITY DESK"),
       headline: t(lang, "Keluarga muda mahu perumahan mampu milik", "Young families press for affordable homes"),
       summary: t(lang, "Liputan komuniti menunjukkan harga rumah dan kemudahan kejiranan semakin mempengaruhi keputusan pengundi muda.", "Community reporting shows home prices and neighbourhood amenities are increasingly shaping younger voters’ choices."),
-      source: t(lang, "SUARA KOMUNITI · PANDAN", "COMMUNITY VOICE · PANDAN"),
+      source: t(lang, `SUARA KOMUNITI · ${localProfile.seatName.toUpperCase()}`, `COMMUNITY VOICE · ${localProfile.seatName.toUpperCase()}`),
     },
   ];
   useEffect(() => {
@@ -336,7 +338,7 @@ export default function PoliticalOfficePage() {
     lang === "ms"
       ? [
           {
-            from: "Ketua Jentera Pandan",
+            from: `Ketua Jentera ${localProfile.seatName}`,
             subject: "Laporan isu penduduk — tindakan hari ini",
             preview:
               "Tiga kawasan meminta lawatan segera berhubung kos sara hidup dan saliran.",
@@ -356,7 +358,7 @@ export default function PoliticalOfficePage() {
         ]
       : [
           {
-            from: "Pandan Campaign Chief",
+            from: `${localProfile.seatName} Campaign Chief`,
             subject: "Resident issue report — action today",
             preview:
               "Three local areas request an immediate visit about living costs and drainage.",
@@ -531,8 +533,8 @@ export default function PoliticalOfficePage() {
                 )
               : t(
                   lang,
-                  "Fail isu kawasan Pandan",
-                  "Pandan constituency case files",
+                  `Fail isu kawasan ${localProfile.seatName}`,
+                  `${localProfile.seatName} constituency case files`,
                 );
             const prepareDone = officeActionDone("prepare");
             const commitDone = officeActionDone("commit");
@@ -578,6 +580,7 @@ export default function PoliticalOfficePage() {
                         scheduleBuilt={prepareDone}
                         visitConfirmed={commitDone}
                         stateName={calendarStateName}
+                        seatName={localProfile.seatName}
                         campaignDay={day}
                         totalDays={totalDays}
                       />

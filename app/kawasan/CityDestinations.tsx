@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { resumeRoute } from "../store/journey";
 import { useLang, t } from "../i18n/useLang";
+import { states } from "../data/states";
 
 export type CityDestination = {
   id: string;
@@ -60,7 +61,15 @@ export function useCityDestinations(): CityDestination[] {
     en: { name: chapter === "results" ? "Results Centre" : chapter === "formation" ? "Negotiation Hall" : "Movement Centre", detail: "Continue your current political chapter." },
   };
   const visible = chapterDestination ? [chapterDestination, ...destinations] : destinations;
-  return visible;
+  // PRN: the battlefield is one negeri — state analysis and the EXCO, not
+  // the nation and the federal cabinet
+  if ((state.settings.electionScope ?? "pru") !== "prn") return visible;
+  const negeri = states.find((item) => item.id === (state.settings.prnStateId ?? state.leader.homeState))?.name ?? "";
+  return visible.map((destination) => destination.id === "national"
+    ? { ...destination, ms: { name: "Pusat Analisis Negeri", detail: `Lihat kesan keputusan di seluruh ${negeri}.` }, en: { name: "State Analysis Centre", detail: `See how decisions affect all of ${negeri}.` } }
+    : destination.id === "cabinet"
+    ? { ...destination, ms: { name: "Bangunan EXCO", detail: "Susun barisan EXCO dan portfolio negeri." }, en: { name: "EXCO Building", detail: "Organise the state EXCO and portfolios." } }
+    : destination);
 }
 
 export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange, open: openProp, onOpenChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void; open?: boolean; onOpenChange?: (open: boolean) => void }) {
