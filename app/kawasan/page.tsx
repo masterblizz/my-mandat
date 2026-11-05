@@ -23,6 +23,7 @@ import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { seatRealDensity } from "../data/seatDensity";
+import { seatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2688,6 +2689,20 @@ export default function KawasanDevelopmentPage() {
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), traits }),
     [ownSeat, density, traits],
   );
+  // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
+  const [introOn, setIntroOn] = useState(false);
+  useEffect(() => {
+    if (!ownSeat || !seatGeo(ownSeat.name)) return;
+    try {
+      const key = `kawasan-intro:${ownSeat.id}`;
+      const forced = new URLSearchParams(window.location.search).get("intro") === "1";
+      if (forced || window.sessionStorage.getItem(key) !== "1") { setIntroOn(true); window.sessionStorage.setItem(key, "1"); }
+    } catch { setIntroOn(true); }
+  }, [ownSeat?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cityIntro = useMemo(() => {
+    const geo = introOn && ownSeat ? seatGeo(ownSeat.name) : null;
+    return geo && ownSeat ? { geo, stateId: homeState?.id ?? "", stateName: homeState?.name ?? "", seatCode: ownSeat.code, seatName: ownSeat.name, density: seatRealDensity(ownSeat) } : null;
+  }, [introOn, ownSeat, homeState?.id, homeState?.name]);
   const godotZoneNames = useMemo(
     () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
     [zones, lang],
@@ -3131,7 +3146,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={godotZoneNames} placing={!!pendingProject} />
+                  zoneNames={godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (

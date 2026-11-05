@@ -249,6 +249,7 @@ func _build() -> void:
 	$Zones.relayout()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
+	$Zones.post_built()
 
 
 ## Phones get a smaller shadow atlas, two cascades and a shorter shadow
