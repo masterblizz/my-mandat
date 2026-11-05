@@ -6,7 +6,7 @@
 // Drawn from public/malaysia.svg (state outlines, lon/lat plate); the
 // overlay only covers the map frame and can be skipped.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "../i18n/useLang";
 import { geoToSvg, type SeatGeo } from "../data/seatGeo";
 
@@ -36,6 +36,15 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const from = useRef<Box>([500, 166, 1000]);
   const startedAt = useRef(0);
   const [px, py] = geoToSvg(geo.lat, geo.lon);
+  // the seat's official boundary in SVG units, and a close-up box that fits it
+  const ring = useMemo(() => (geo.boundary ?? []).map((r) => r.map(([lon, lat]) => geoToSvg(lat, lon))), [geo.boundary]);
+  const seatBox = useMemo<Box>(() => {
+    if (!ring.length) return [px + 2.5, py - 1, 22];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const r of ring) for (const [x, y] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const w = Math.max((x1 - x0) * 2.2, ((y1 - y0) * 2.4) / 0.46, 6);
+    return [(x0 + x1) / 2, (y0 + y1) / 2 - w * 0.04, w];
+  }, [ring, px, py]);
 
   useEffect(() => {
     fetch("/malaysia.svg").then((r) => r.text()).then((text) => {
@@ -62,7 +71,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
 
   // camera: glide the viewBox between stage boxes (log-scaled width)
   useEffect(() => {
-    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? [px + 30, py + 18, 120] : stage === 2 ? [px + 2.5, py - 1, 22] : [px, py, 1.6];
+    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? [px + 30, py + 18, 120] : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
     const dur = stage === 3 ? 1400 : 1500;
     from.current = box;
     startedAt.current = performance.now();
@@ -100,8 +109,12 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
         {/* the seat: a dotted boundary ring and a pin */}
         {stage >= 1 && (
           <g>
-            {/* ~8 km across: a real-size ring round the seat */}
-            <circle cx={px} cy={py} r={1.7} fill="rgb(242 176 30 / .12)" stroke="#ff5a4e" strokeWidth={Math.max(0.06, 2.2 * s)} strokeDasharray={`${Math.max(0.2, 6 * s)} ${Math.max(0.15, 4 * s)}`} />
+            {/* the seat's official electoral boundary (DOSM), or a ~8 km ring */}
+            {ring.length ? ring.map((r, i) => (
+              <path key={i} d={`M${r.map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join("L")}Z`} fill="rgb(242 176 30 / .16)" stroke="#ff5a4e"
+                strokeWidth={Math.max(0.05, 2.2 * s)} strokeDasharray={`${Math.max(0.16, 6 * s)} ${Math.max(0.12, 4 * s)}`} strokeLinejoin="round"
+                style={{ animation: "mm-goal-in .6s ease-out" }} />
+            )) : <circle cx={px} cy={py} r={1.7} fill="rgb(242 176 30 / .12)" stroke="#ff5a4e" strokeWidth={Math.max(0.06, 2.2 * s)} strokeDasharray={`${Math.max(0.2, 6 * s)} ${Math.max(0.15, 4 * s)}`} />}
             <g transform={`translate(${px} ${py}) scale(${box[2] * 0.011})`}>
               <path d="M0 0 C -1.3 -1.6 -2 -2.6 -2 -3.6 A 2 2 0 1 1 2 -3.6 C 2 -2.6 1.3 -1.6 0 0 Z" fill="#e8463c" stroke="#fff" strokeWidth="0.25" />
               <circle cx="0" cy="-3.6" r="0.75" fill="#7a1410" />
@@ -110,7 +123,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
         )}
         {stage >= 2 && geo.towns.map((town) => {
           const [tx, ty] = geoToSvg(town.lat, town.lon);
-          return <g key={town.name}><circle cx={tx} cy={ty} r={0.12} fill="#cfe9f2" /><text x={tx + 0.2} y={ty - 0.15} fontSize={0.42} fill="#cfe9f2" stroke="#04101b" strokeWidth={0.06} paintOrder="stroke">{town.name}</text></g>;
+          return <g key={town.name}><circle cx={tx} cy={ty} r={seatBox[2] * 0.006} fill="#cfe9f2" /><text x={tx + seatBox[2] * 0.01} y={ty - seatBox[2] * 0.007} fontSize={seatBox[2] * 0.022} fill="#cfe9f2" stroke="#04101b" strokeWidth={seatBox[2] * 0.003} paintOrder="stroke">{town.name}</text></g>;
         })}
       </svg>
 
@@ -120,11 +133,12 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
         {stage >= 2 && (
           <div className="mt-2 rounded-md border px-4 py-2 shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .7)", background: "rgb(4 16 27 / .82)", animation: "mm-goal-in .4s ease-out" }}>
             <div className="text-[18px] font-black tracking-wide text-white"><span className="text-cyan">{seatCode}</span> {seatName}</div>
-            <div className="mt-0.5 text-[10px] font-bold tracking-[.18em] text-gold">📍 {geo.district}, {stateName}{density ? ` · 👥 ${density.toLocaleString("en-US")}/km²` : ""}</div>
+            <div className="mt-0.5 text-[10px] font-bold tracking-[.18em] text-gold">📍 {geo.district ? `${geo.district}, ` : ""}{stateName}{density ? ` · 👥 ${density.toLocaleString("en-US")}/km²` : ""}</div>
           </div>
         )}
       </div>
       {stage === 0 && !ready && <div className="absolute bottom-[16%] left-1/2 -translate-x-1/2 text-[9px] font-black tracking-[.24em] text-cyan">{t(lang, "MEMBINA BANDAR 3D…", "BUILDING THE 3D CITY…")}</div>}
+      {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan: DOSM, data terbuka (CC BY 4.0)", "Boundary: DOSM open data (CC BY 4.0)")}</div>}
       <button type="button" onClick={() => { onFlyIn(); setGone(true); window.setTimeout(onDone, 400); }}
         className="absolute right-4 top-3 rounded border px-3 py-1.5 text-[10px] font-black tracking-widest text-text-muted"
         style={{ borderColor: "rgb(var(--cyan-rgb) / .35)", background: "rgb(4 16 27 / .7)" }}>

@@ -23,7 +23,7 @@ import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { seatRealDensity } from "../data/seatDensity";
-import { seatGeo } from "../data/seatGeo";
+import { boundaryShape, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2691,18 +2691,32 @@ export default function KawasanDevelopmentPage() {
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
+  const [introGeo, setIntroGeo] = useState<SeatGeo | null>(null);
   useEffect(() => {
-    if (!ownSeat || !seatGeo(ownSeat.name)) return;
+    if (!ownSeat || !homeState) return;
+    let alive = true;
+    const manual = seatGeo(ownSeat.name);
+    loadSeatBoundary(ownSeat.code, homeState.id, ownSeat.name).then((boundary) => {
+      if (!alive) return;
+      if (boundary) {
+        const shape = boundaryShape(boundary);
+        setIntroGeo({ lat: shape.lat, lon: shape.lon, district: manual?.district ?? "", towns: manual?.towns ?? [], boundary });
+      } else setIntroGeo(manual);
+    });
+    return () => { alive = false; };
+  }, [ownSeat?.id, homeState?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!ownSeat || !introGeo) return;
     try {
       const key = `kawasan-intro:${ownSeat.id}`;
       const forced = new URLSearchParams(window.location.search).get("intro") === "1";
       if (forced || window.sessionStorage.getItem(key) !== "1") { setIntroOn(true); window.sessionStorage.setItem(key, "1"); }
     } catch { setIntroOn(true); }
-  }, [ownSeat?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ownSeat?.id, introGeo]); // eslint-disable-line react-hooks/exhaustive-deps
   const cityIntro = useMemo(() => {
-    const geo = introOn && ownSeat ? seatGeo(ownSeat.name) : null;
+    const geo = introOn && ownSeat ? introGeo : null;
     return geo && ownSeat ? { geo, stateId: homeState?.id ?? "", stateName: homeState?.name ?? "", seatCode: ownSeat.code, seatName: ownSeat.name, density: seatRealDensity(ownSeat) } : null;
-  }, [introOn, ownSeat, homeState?.id, homeState?.name]);
+  }, [introOn, introGeo, ownSeat, homeState?.id, homeState?.name]);
   const godotZoneNames = useMemo(
     () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
     [zones, lang],
