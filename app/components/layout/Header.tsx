@@ -7,7 +7,6 @@ import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 import LangThemeToggle from "./LangThemeToggle";
-import PersonalAssistant from "../assistant/PersonalAssistant";
 import { getPlayerRank, playerXp } from "../../lib/playerRank";
 
 const CITY_HUB_ROUTES = [
@@ -165,9 +164,6 @@ export default function Header() {
         <LangThemeToggle />
       </div>
     </header>
-    {/* Kawasan embeds the assistant in the 3D city HUD so the player never
-        has to look away from the map while playing. */}
-    {pathname !== "/kawasan" && pathname !== "/office" && !pathname.startsWith("/location/") && <PersonalAssistant />}
     </>
   );
 }

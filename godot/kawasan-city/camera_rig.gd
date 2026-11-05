@@ -174,7 +174,17 @@ func _apply() -> void:
 	position = _target
 	basis = Basis.from_euler(Vector3(deg_to_rad(_pitch), deg_to_rad(_yaw), 0))
 	cam.position = Vector3(0, 0, _dist)
+	cam.rotation = Vector3.ZERO
 	cam.near = maxf(0.3, _dist * 0.004)
+	# never inside a tower: lift the camera over the roofs around it and
+	# keep looking at the same spot
+	var city := get_parent()
+	if city.has_method("height_at"):
+		var cp := cam.global_position
+		var clear: float = city.height_at(cp) + 8.0
+		if cp.y < clear:
+			cam.global_position = Vector3(cp.x, clear, cp.z)
+			cam.look_at(_target, Vector3.UP)
 	# portrait phones: hold the horizontal field so the city isn't cropped
 	var vs := get_viewport().get_visible_rect().size
 	cam.keep_aspect = Camera3D.KEEP_WIDTH if vs.y > vs.x else Camera3D.KEEP_HEIGHT

@@ -201,6 +201,7 @@ func _build() -> void:
 	if gen:
 		gen.free()
 	gen = Node3D.new()
+	sky_cells = {}
 	gen.name = "Gen"
 	add_child(gen)
 	rng.seed = seat_seed
@@ -246,6 +247,12 @@ func _build() -> void:
 	gmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	gen.add_child(gmi)
 	$Traffic.setup(self)
+	if not has_node("Birds"):
+		var birds := Node3D.new()
+		birds.name = "Birds"
+		birds.set_script(preload("res://birds.gd"))
+		add_child(birds)
+	$Birds.setup(self)
 	$Zones.relayout()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
@@ -601,9 +608,36 @@ func tree(pos: Vector3, palm := false) -> void:
 		ball(pos + Vector3(0, h + r * 0.6, 0), Vector3(r * 2, r * 1.6, r * 2), Color(0.18, 0.42, 0.16).lerp(Color(0.36, 0.56, 0.2), rng.randf()))
 
 
+## Roof height per 16 m cell (from every instanced part's top), so the
+## camera can keep above the buildings instead of flying through them.
+const SKY_CELL := 16.0
+var sky_cells := {}
+
+
+func _note_height(xf: Transform3D) -> void:
+	var top := xf.origin.y + absf(xf.basis.y.y) * 0.5
+	if top < 4.0:
+		return
+	var k := Vector2i(floori(xf.origin.x / SKY_CELL), floori(xf.origin.z / SKY_CELL))
+	if top > float(sky_cells.get(k, 0.0)):
+		sky_cells[k] = top
+
+
+func height_at(p: Vector3, reach := 1) -> float:
+	var cx := floori(p.x / SKY_CELL)
+	var cz := floori(p.z / SKY_CELL)
+	var h := 0.0
+	for dx in range(-reach, reach + 1):
+		for dz in range(-reach, reach + 1):
+			h = maxf(h, float(sky_cells.get(Vector2i(cx + dx, cz + dz), 0.0)))
+	return h
+
+
 func _flush_buckets() -> void:
 	for key in buckets:
 		var bk: Dictionary = buckets[key]
+		for xf in bk.xf:
+			_note_height(xf)
 		# chunked: very large instance buffers break on some WebGL drivers
 		var total: int = bk.xf.size()
 		var start := 0
@@ -630,6 +664,7 @@ func _single(mesh: Mesh, mat: Material, xf: Transform3D) -> void:
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.transform = frame * xf
+	_note_height(mi.transform)
 	gen.add_child(mi)
 
 
