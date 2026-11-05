@@ -2717,6 +2717,7 @@ export default function KawasanDevelopmentPage() {
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
+  const [aerialOn, setAerialOn] = useState(false);
   const [introGeo, setIntroGeo] = useState<SeatGeo | null>(null);
   useEffect(() => {
     if (!ownSeat || !homeState) return;
@@ -3211,7 +3212,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   return (
-    <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""}`}>
+    <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""} ${aerialOn ? "city-aerial-on" : ""}`}>
       <Header />
       <CityOnboarding />
       {notice && (
@@ -3226,7 +3227,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
+                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (

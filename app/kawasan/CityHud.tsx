@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { t, type Lang } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
-import { loadSeatBoundary, type Boundary } from "../data/seatGeo";
+import { boundaryCityFrame, loadSeatBoundary, type Boundary } from "../data/seatGeo";
 
 type ZoneLike = { kind: string; sentiment: number };
 
@@ -81,14 +81,16 @@ function useBoundaryPath(code: string, stateId: string, name: string, w: number,
     const k = Math.min((w - 8) / (x1 - x0 || 1), (h - 8) / (y1 - y0 || 1));
     const ox = (w - (x1 - x0) * k) / 2, oy = (h - (y1 - y0) * k) / 2;
     const d = rings.map((r) => `M${r.map(([x, y]) => `${(ox + (x - x0) * k).toFixed(1)},${(oy + (y1 - y) * k).toFixed(1)}`).join("L")}Z`).join("");
-    return d;
+    // the 3D city's centre and scale on this drawing (see boundaryCityFrame)
+    const f = boundaryCityFrame(rings);
+    return { d, cx: ox + (f.lon - x0) * k, cy: oy + (y1 - f.lat) * k, rPx: f.meanDeg * k };
   }, [rings, w, h]);
 }
 
 export function CitySeatCard({ lang, code, name, stateId, sentiment, density, onToggle }: {
   lang: Lang; code: string; name: string; stateId: string; sentiment: number; density: number; onToggle: () => void;
 }) {
-  const path = useBoundaryPath(code, stateId, name, 96, 70);
+  const path = useBoundaryPath(code, stateId, name, 96, 70)?.d;
   return (
     <button type="button" onClick={onToggle} className="nhud-seat city-hud-box" title={t(lang, "Panel zon", "Zone panel")}>
       <div className="nhud-seat__head"><span aria-hidden>📍</span><b>{code}</b><span className="nhud-seat__name">{name}</span><span aria-hidden>▾</span></div>
@@ -100,17 +102,42 @@ export function CitySeatCard({ lang, code, name, stateId, sentiment, density, on
   );
 }
 
-/** Mini-map: the seat's real outline, the zones as dots, and zoom buttons for the 3D camera. */
+/** The 3D camera, as the city reports it (GodotCityMap relays kawasan-view). */
+type CityView = { yaw: number; x: number; z: number; dist: number; ground: number; rCity: number };
+
+/** Mini-map: the seat's real outline, a view cone that follows the 3D
+ *  camera (position and heading), and zoom buttons for it. */
 export function CityMiniMap({ lang, code, name, stateId, onZoom }: { lang: Lang; code: string; name: string; stateId: string; onZoom: (dir: 1 | -1) => void }) {
-  const path = useBoundaryPath(code, stateId, name, 150, 110);
+  const frame = useBoundaryPath(code, stateId, name, 150, 110);
+  const [view, setView] = useState<CityView | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setView((e as CustomEvent<CityView>).detail);
+    window.addEventListener("kawasan-view", on);
+    return () => window.removeEventListener("kawasan-view", on);
+  }, []);
+  // world (x east, z south) -> mini-map px: r_city world units = rPx
+  const cx = frame?.cx ?? 75, cy = frame?.cy ?? 55;
+  const s = frame && view?.rCity ? frame.rPx / view.rCity : 0.05;
+  const yawRad = ((view?.yaw ?? 25) * Math.PI) / 180;
+  // the camera stands behind its target, opposite the way it looks
+  const back = view?.ground ?? 300;
+  const camX = cx + ((view?.x ?? 0) + Math.sin(yawRad) * back) * s;
+  const camY = cy + ((view?.z ?? 0) + Math.cos(yawRad) * back) * s;
+  const ax = Math.min(146, Math.max(4, camX)), ay = Math.min(106, Math.max(4, camY));
+  const len = Math.min(60, Math.max(22, back * s * 1.3));
+  const half = 0.42;
+  const tip = (side: number) => [Math.sin(side * half) * len, -Math.cos(half) * len] as const;
+  const [lx, ly] = tip(-1), [rx, ry] = tip(1);
   return (
     <div className="nhud-minimap city-hud-box">
       <svg viewBox="0 0 150 110" aria-hidden>
         <defs><pattern id="nhud-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0L0 0 0 10" fill="none" stroke="rgb(255 255 255 / .06)" strokeWidth="0.6" /></pattern></defs>
         <rect width="150" height="110" fill="url(#nhud-grid)" />
-        {path && <path d={path} className="nhud-minimap__seat" />}
-        <path d="M75 55 L105 18 A48 48 0 0 1 128 40 Z" className="nhud-minimap__cone" />
-        <circle cx="75" cy="55" r="3.5" className="nhud-minimap__me" />
+        {frame && <path d={frame.d} className="nhud-minimap__seat" />}
+        <g transform={`translate(${ax.toFixed(1)} ${ay.toFixed(1)}) rotate(${(-(view?.yaw ?? 25)).toFixed(1)})`}>
+          <path d={`M0 0 L${lx.toFixed(1)} ${ly.toFixed(1)} A${len.toFixed(1)} ${len.toFixed(1)} 0 0 1 ${rx.toFixed(1)} ${ry.toFixed(1)} Z`} className="nhud-minimap__cone" />
+        </g>
+        <circle cx={ax.toFixed(1)} cy={ay.toFixed(1)} r="3.5" className="nhud-minimap__me" />
       </svg>
       <span className="nhud-minimap__n" aria-hidden>N</span>
       <div className="nhud-minimap__zoom">

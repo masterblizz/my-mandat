@@ -112,7 +112,17 @@ export function boundaryShapeK(rings: Boundary, samples = 72): number[] {
     out.push(far);
   }
   const mean = out.reduce((sum, v) => sum + v, 0) / Math.max(1, out.filter((v) => v > 0).length);
+  lastMean.set(rings, mean);
   return out.map((v) => (mean > 0 && v > 0 ? +(v / mean).toFixed(3) : 1));
+}
+const lastMean = new WeakMap<Boundary, number>();
+
+/** Where the 3D city sits on the outline: its centre (lon/lat) and the mean
+ *  ray length in degrees, which the city draws as r_city (world units). */
+export function boundaryCityFrame(rings: Boundary): { lon: number; lat: number; meanDeg: number } {
+  if (!lastMean.has(rings)) boundaryShapeK(rings);
+  const { lon, lat } = boundaryShape(rings);
+  return { lon, lat, meanDeg: lastMean.get(rings) ?? 0 };
 }
 
 /** Area of the boundary in km² (all rings; equirectangular, fine at seat scale). */

@@ -2312,3 +2312,22 @@ body:has(.navy-room) .app-statusbar { background: rgb(10 20 40) !important; bord
 .navy-room :is(button, a).border.text-left:disabled { opacity: .55 !important; }
 /* status / feedback boxes: white text on the tinted panel */
 .navy-room [role="status"].border { color: #fff !important; }
+
+/* ── Aerial establishing shot (3D city intro) ──────────────────────────
+   Film letterbox bars slide in, the seat title fades up, and the city HUD
+   stays hidden until the camera has come down (5.2 s). */
+.city-aerial-film__bar { position: absolute; left: 0; right: 0; height: 11%; background: #000; animation: aerialBar .6s ease-out forwards; }
+.city-aerial-film__bar--top { top: 0; transform-origin: top; }
+.city-aerial-film__bar--bottom { bottom: 0; transform-origin: bottom; }
+@keyframes aerialBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.city-aerial-film__title { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; color: #fff; font: 900 30px/1.1 'Inter', system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  text-shadow: 0 3px 18px rgb(0 0 0 / .75); animation: aerialTitle 1.4s ease-out forwards; }
+.city-aerial-film__title b { color: #ffcc29; margin-right: 10px; }
+.city-aerial-film__title small { display: block; margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: .4em; color: rgb(255 255 255 / .8); }
+@keyframes aerialTitle { 0%, 35% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+.city-aerial-on .kw-map-frame :is(.city-hud-box, .nhud-rail, .nhud-top, .nhud-seat, .nhud-minimap, .city-hub-bar, .city-build-dock, .city-next-goal) {
+  opacity: 0 !important; pointer-events: none !important; transition: opacity .4s ease;
+}
+.kw-map-frame :is(.city-hud-box, .nhud-rail, .nhud-top, .nhud-seat, .nhud-minimap, .city-hub-bar, .city-build-dock, .city-next-goal) { transition: opacity .8s ease; }
+@media (orientation: landscape) and (max-height: 500px) { .city-aerial-film__title { font-size: 20px; } .city-aerial-film__title small { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .city-aerial-film__bar, .city-aerial-film__title { animation-duration: .01s; } }

@@ -284,9 +284,55 @@ func _build() -> void:
 	$Birds.setup(self)
 	$Zones.relayout()
 	_billboards()
+	_build_outline()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
 	$Zones.post_built()
+
+
+## The seat boundary as a glowing gold ribbon on the ground (the same
+## outline as the game's map), shown by the aerial intro and faded out as
+## the camera comes down. Hidden otherwise.
+var outline: MeshInstance3D
+var _outline_mat: StandardMaterial3D
+
+func _build_outline() -> void:
+	if outline == null:
+		outline = MeshInstance3D.new()
+		_outline_mat = StandardMaterial3D.new()
+		_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_outline_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_outline_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_outline_mat.no_depth_test = true
+		_outline_mat.render_priority = 12
+		_outline_mat.albedo_color = Color(1.0, 0.8, 0.16, 0.0)
+		outline.material_override = _outline_mat
+		add_child(outline)
+	var pts := []
+	var n := 144
+	for i in n:
+		var a := TAU * i / n
+		pts.append(_polar(r_city * 1.04, a))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var w := maxf(7.0, r_city * 0.012)
+	for i in n:
+		var p0: Vector3 = pts[i]
+		var p1: Vector3 = pts[(i + 1) % n]
+		var d := (p1 - p0).normalized()
+		var side := Vector3(-d.z, 0, d.x) * w
+		var y := Vector3(0, 2.0, 0)
+		st.add_vertex(p0 - side + y); st.add_vertex(p0 + side + y); st.add_vertex(p1 + side + y)
+		st.add_vertex(p0 - side + y); st.add_vertex(p1 + side + y); st.add_vertex(p1 - side + y)
+	outline.mesh = st.commit()
+	outline.visible = false
+
+
+func set_outline_alpha(a: float) -> void:
+	if outline == null:
+		return
+	outline.visible = a > 0.01
+	_outline_mat.albedo_color.a = clampf(a, 0.0, 1.0)
 
 
 ## Campaign billboards: big posters in the player's party colour on the
