@@ -980,6 +980,9 @@ function OperationsDesk({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Hotspots in the location rooms that open the location's task panel. */
+const LOCATION_ACTION_SPOTS = ["briefing", "rally", "manifesto", "press", "social", "poll", "booth", "board", "transport", "meeting", "policy", "compare"];
+
 export default function LocationPage() {
   const { kind } = useParams<{ kind: string }>();
   const searchParams = useSearchParams();
@@ -1099,6 +1102,13 @@ export default function LocationPage() {
   const warScopePrn = (settings.electionScope ?? "pru") === "prn";
   const warPrnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
   const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
+  // A location task (prepare / commit) is still open today: the 3D room
+  // flags its activity spots with a blinking "action needed" tag.
+  const locationKey = kind in SCENES ? kind : "party";
+  const locationTaskOpen = (journey.chapter === "campaign" && day < totalDays ? journey.decisions > 0
+    : ["government", "opposition", "rebuilding"].includes(journey.chapter) ? journey.termActions.length < 2 : false)
+    && (["prepare", "commit"] as const).some((activity) => { const key = `location:${locationKey}:${activity}`; return !journey.actionsToday.includes(key) && !journey.termActions.includes(key); });
+  const actionBadges = useMemo(() => (locationTaskOpen ? Object.fromEntries(LOCATION_ACTION_SPOTS.map((id) => [id, 1])) : {}), [locationTaskOpen]);
   const warState = useMemo<GodotWorldState>(() => ({
     lang,
     player: playerModel(leader.avatarIndex),
@@ -1106,7 +1116,7 @@ export default function LocationPage() {
     playerColor: leader.partyColor,
     pa: assistantGender(assistantAvatar) === "female" ? "pa_female" : "pa_male",
     night: isNight,
-    badges: {},
+    badges: actionBadges,
     intro: warIntro,
     states: states.map((state) => ({
       id: state.id,
@@ -1140,7 +1150,7 @@ export default function LocationPage() {
       { label: t(lang, "BAJET AWAM", "PUBLIC BUDGET"), value: `RM ${Math.round(journey.publicBudget / 1000)}k`, pct: journey.publicBudget / 900000 },
       { label: t(lang, "PENGGAL", "TERM"), value: t(lang, `Bulan ${careerMonth}/60`, `Month ${careerMonth}/60`), pct: careerMonth / 60 },
     ] : undefined,
-  }), [appointedMinisters, journey.policies, journey.trust, journey.stability, journey.publicBudget, careerMonth, lang, leader.avatarIndex, leader.name, leader.partyColor, leader.party, leader.partyAbbr, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id, scene3d, candidateSeats, candidateId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [actionBadges, appointedMinisters, journey.policies, journey.trust, journey.stability, journey.publicBudget, careerMonth, lang, leader.avatarIndex, leader.name, leader.partyColor, leader.party, leader.partyAbbr, assistantAvatar, isNight, warIntro, states, warScopePrn, warPrnState?.id, warTotalSeats, day, totalDays, hotUpdate?.id, scene3d, candidateSeats, candidateId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Each 3D marker opens the panel or screen that already does that job.
   const openWarInteraction = (id: string) => {
     if (id === "console" || id === "screens") setOperationsDeskOpen(true);
