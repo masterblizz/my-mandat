@@ -125,12 +125,10 @@ function GameplayTab() {
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
         <TacticalPanel title={t(lang, "settings_page.gameplaySettings")}>
+          {/* the campaign always runs TOTAL_ELECTION_DAYS (30) days; the old
+              length picker had no effect, so it shows the fixed length */}
           <SettingRow label={t(lang, "⏱ TEMPOH", "⏱ LENGTH")}>
-            <select value={settings.campaignLength} onChange={(e) => updateSettings({ campaignLength: e.target.value as "full" | "short" | "custom" })} style={{ minWidth: "170px", maxWidth: "100%" }}>
-              <option value="full">{t(lang, "settings_page.fullCampaign")}</option>
-              <option value="short">{t(lang, "settings_page.shortCampaign")}</option>
-              <option value="custom">{t(lang, "settings_page.custom")}</option>
-            </select>
+            <span className="text-[12px] font-black text-cyan">{t(lang, "30 hari kempen", "30-day campaign")}</span>
           </SettingRow>
 
           <SettingRow label={t(lang, "🗳 MOD", "🗳 MODE")}>

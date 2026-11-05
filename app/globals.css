@@ -2289,3 +2289,26 @@ body:has(.navy-room) .app-statusbar { background: rgb(10 20 40) !important; bord
 .city-intro-card p { margin-top: 3px; font-size: 11px; color: rgb(255 255 255 / .78); }
 .city-intro-card .is-mine { color: #ffcc29; font-weight: 800; }
 @media (orientation: landscape) and (max-height: 500px) { .city-intro-card { padding: 7px 10px; max-width: 230px; } .city-intro-card b { font-size: 14px; } .city-intro-card p { font-size: 9.5px; } }
+
+/* ── Navy rooms: readable buttons ──────────────────────────────────────
+   Pills: every inner span/b follows the pill's own (dark) text colour, so
+   a cyan/muted child never sits light-on-light. Multi-line option
+   buttons (text-left cards: approaches, choices, list rows) are dark
+   cards with white text instead of pills; the chosen one gets a gold
+   edge, and unchosen ones stay fully legible. */
+.navy-room :is(button, a).border:not(.city-tool) * { color: inherit !important; }
+.navy-room :is(button, a).border.text-left:not(.city-tool) {
+  border-radius: 14px !important; border: 1px solid rgb(140 190 255 / .32) !important;
+  background: rgb(255 255 255 / .06) !important; color: #fff !important;
+  box-shadow: none !important; padding: 10px 12px !important; text-transform: none;
+  font-size: 12px !important; letter-spacing: .01em !important; opacity: 1 !important; filter: none !important;
+}
+.navy-room :is(button, a).border.text-left:not(.city-tool) b { color: #ffcc29 !important; font-size: 12px !important; letter-spacing: .02em !important; }
+.navy-room :is(button, a).border.text-left:not(.city-tool) span { color: rgb(255 255 255 / .85) !important; font-size: 11px !important; line-height: 1.35; }
+.navy-room :is(button, a).border.text-left:is(.border-cyan, .border-gold, [aria-pressed="true"], [class*="bg-cyan/"], [class*="bg-gold/"]):not([class*="border-cyan/"]):not(.city-tool) {
+  border: 2px solid #ffcc29 !important; background: rgb(255 204 41 / .14) !important; box-shadow: 0 0 16px rgb(255 204 41 / .25) !important;
+}
+.navy-room :is(button, a).border.text-left:hover:not(:disabled) { background: rgb(255 255 255 / .1) !important; transform: none; }
+.navy-room :is(button, a).border.text-left:disabled { opacity: .55 !important; }
+/* status / feedback boxes: white text on the tinted panel */
+.navy-room [role="status"].border { color: #fff !important; }

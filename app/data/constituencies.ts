@@ -1,4 +1,5 @@
 import { StateData } from "./states";
+import { SEAT_CODES } from "./seatCodes";
 
 export type AreaType = "rural" | "suburban" | "urban_dense";
 
@@ -373,6 +374,28 @@ function seededRand(seed: number) {
 
 export type ConstituencyScope = "parliament" | "dun";
 
+/**
+ * Official codes for a state's seats: a seat whose name is a real DOSM seat
+ * keeps its own code (P.172 Kota Kinabalu); the rest take the state's
+ * remaining official codes in order, so every code is unique and inside the
+ * state's real range (Sabah P.167–P.191, Perlis DUN N.01–N.15, ...).
+ */
+function officialCodes(state: StateData, scope: ConstituencyScope, names: string[], seatCount: number): (string | undefined)[] {
+  const kind = scope === "dun" ? "n" : "p";
+  const prefix = `${state.id}:${kind}:`;
+  const pool = Object.entries(SEAT_CODES).filter(([key]) => key.startsWith(prefix)).map(([, code]) => code)
+    .sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)));
+  const codes: (string | undefined)[] = [];
+  const used = new Set<string>();
+  for (let i = 0; i < seatCount; i++) {
+    const real = names[i] ? SEAT_CODES[prefix + names[i].toLowerCase()] : undefined;
+    codes.push(real && !used.has(real) ? real : undefined);
+    if (codes[i]) used.add(codes[i]!);
+  }
+  const free = pool.filter((code) => !used.has(code));
+  return codes.map((code) => code ?? free.shift());
+}
+
 export function generateConstituencies(state: StateData, scope: ConstituencyScope = "parliament"): Constituency[] {
   const seatCount = scope === "dun" ? state.dunSeats : state.seats;
   const seed = state.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 97 + seatCount + (scope === "dun" ? 1307 : 0);
@@ -380,6 +403,7 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
   const names = scope === "dun" ? (DUN_NAMES[state.id] || []) : (PARLIAMENT_NAMES[state.id] || []);
 
   const result: Constituency[] = [];
+  const seatCodes = officialCodes(state, scope, names, seatCount);
 
   for (let i = 0; i < seatCount; i++) {
     const variation = (rand() - 0.5) * 36;
@@ -410,7 +434,9 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
     const codeNum = i + 1;
     const codePrefix = scope === "dun" ? "N" : "P";
     const name = names[i] || (scope === "dun" ? `DUN ${state.shortName} ${codeNum}` : `Kawasan ${codeNum}`);
-    const code = `${codePrefix}.${String(codeNum).padStart(3, "0")}`;
+    // the official DOSM code when the seat is a real one (P.172 Kota Kinabalu,
+    // N.01 Titi Tinggi); placeholder names keep the running number
+    const code = seatCodes[i] ?? `${codePrefix}.${String(codeNum).padStart(3, "0")}`;
 
     // Population is the real quantity — voters are a fixed ~52% share of it,
     // same deterministic per-seat spread (hash, not rand(), so the seeded

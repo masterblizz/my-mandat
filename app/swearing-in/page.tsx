@@ -20,6 +20,7 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { getPrnCandidate } from "../data/prnCandidates";
 import { HudButton, InfoFold, NumTile, PageHead, StatChip } from "../components/formation/Hud";
 import { playerModel } from "../lib/playerAvatar";
+import { withAlpha } from "../utils/color";
 
 // The ceremony takes place in the 3D chamber (Godot); the panels below stay.
 const GodotWorld = dynamic(() => import("../components/world/GodotWorld"), { ssr: false });
@@ -105,7 +106,7 @@ export default function SwearingInPage() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] min-[1280px]:grid-cols-[420px_minmax(0,1fr)]">
           <TacticalPanel title={`📜 ${terms.appointingAuthority}`}>
             <div className="text-2xl font-black leading-tight" style={{ color: "var(--gold)" }}>✅ {t(lang, "swearing_in_page.approved", { termsGovernmentName: terms.governmentName })}</div>
-            <div className="mt-2 flex items-center justify-between gap-2 border p-2.5" style={{ borderColor: `${prnCandidate?.color ?? leader.partyColor}66`, background: `${prnCandidate?.color ?? leader.partyColor}0c` }}>
+            <div className="mt-2 flex items-center justify-between gap-2 border p-2.5" style={{ borderColor: withAlpha(prnCandidate?.color ?? leader.partyColor, 0.4), background: withAlpha(prnCandidate?.color ?? leader.partyColor, 0.05) }}>
               <div className="min-w-0"><div className="text-[9px] font-black tracking-[0.22em] text-text-muted">👤 {terms.headTitle.toUpperCase()}</div><div className="truncate text-lg font-black" style={{ color: prnCandidate?.color ?? "#fff" }}>{headName}</div></div>
               {prnCandidate && <span className="shrink-0 text-[10px] font-bold text-text-muted">{prnCandidate.archetype[lang]}</span>}
             </div>

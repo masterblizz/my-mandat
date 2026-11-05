@@ -48,7 +48,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const [hot, setHot] = useState<string | null>(null);
   const [tip, setTip] = useState<Tip>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const kindMs = seatCode.startsWith("N") ? "DUN" : "Parlimen";
+  const kindMs = seatCode.startsWith("N") ? "DUN" : t(lang, "Parlimen", "Parliament");
   const homeState = states.find((state) => state.id === stateId);
   const seatTotal = seatCode.startsWith("N") ? homeState?.dunSeats : homeState?.seats;
   const from = useRef<Box>([500, 166, 1000]);
@@ -229,7 +229,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
       {stage === 1 && (
         <div className="city-intro-card">
           <b>{stateName.toUpperCase()}</b>
-          <p>{seatTotal ? t(lang, `${seatTotal} kerusi ${kindMs}`, `${seatTotal} ${kindMs === "DUN" ? "state" : "parliament"} seats`) : kindMs}{seats.length ? t(lang, " · ketik kawasan untuk lihat nama", " · tap a seat to see its name") : ""}</p>
+          <p>{seatTotal ? t(lang, `${seatTotal} kerusi ${kindMs}`, `${seatTotal} ${seatCode.startsWith("N") ? "state" : "parliament"} seats`) : kindMs}{seats.length ? t(lang, " · ketik kawasan untuk lihat nama", " · tap a seat to see its name") : ""}</p>
           <p className="is-mine">★ {seatCode} {seatName}</p>
         </div>
       )}

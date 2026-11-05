@@ -6,6 +6,7 @@ import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import calendarStrings from "../i18n/strings/calendar_page";
+import { getStateById } from "../data/states";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,77 +45,56 @@ function eventDescription(lang: Lang, ev: CalendarEvent): string {
   return ev.description ?? t(lang, `calendar_page.eventDesc_${ev.id}`);
 }
 
-const calendarEvents: CalendarEvent[] = [
-  // Events
-  { id: "e1", title: "JOHOR RALLY", type: "event", day: 0, date: "MON 16 JUN 2025", time: "19:00", location: "Johor Bahru Stadium", operatives: 80, status: "CONFIRMED" },
-  { id: "e2", title: "KL CERAMAH", type: "event", day: 2, date: "WED 18 JUN 2025", time: "20:00", location: "Dataran Merdeka, KL", operatives: 60, status: "CONFIRMED" },
-  { id: "e3", title: "PRESS CONF", type: "event", day: 2, date: "WED 18 JUN 2025", time: "10:00", location: "Menara Mandat HQ", operatives: 12, status: "CONFIRMED" },
-  { id: "e4", title: "PAHANG TOUR", type: "event", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Kuantan & Temerloh", operatives: 45, status: "CONFIRMED" },
-  { id: "e5", title: "SELANGOR RALLY", type: "event", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam Stadium", operatives: 120, status: "CONFIRMED" },
-  { id: "e6", title: "JOHOR MEGA RALLY", type: "event", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Iskandar Puteri Arena", operatives: 200, status: "CONFIRMED" },
-  { id: "e7", title: "REST DAY", type: "event", day: 6, date: "SUN 22 JUN 2025", time: "—", location: "—", operatives: 0, status: "CONFIRMED" },
-  // Media
-  { id: "m1", title: "TV3 INTERVIEW", type: "media", day: 0, date: "MON 16 JUN 2025", time: "14:00", location: "TV3 Studios, PJ", operatives: 4, status: "CONFIRMED" },
-  { id: "m2", title: "RADIO RTM", type: "media", day: 1, date: "TUE 17 JUN 2025", time: "08:00", location: "RTM Angkasapuri", operatives: 2, status: "CONFIRMED" },
-  { id: "m3", title: "ASTRO AWANI", type: "media", day: 3, date: "THU 19 JUN 2025", time: "21:00", location: "Astro Studios", operatives: 3, status: "PENDING" },
-  { id: "m4", title: "TV3", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "07:30", location: "TV3 Studios, PJ", operatives: 2, status: "CONFIRMED" },
-  { id: "m5", title: "TV9", type: "media", day: 4, date: "FRI 20 JUN 2025", time: "12:00", location: "TV9 Studios", operatives: 2, status: "CONFIRMED" },
-  { id: "m6", title: "LIVE STREAM", type: "media", day: 5, date: "SAT 21 JUN 2025", time: "18:00", location: "Online", operatives: 8, status: "CONFIRMED" },
-  // Operations
-  { id: "o1", title: "DOOR TO DOOR", type: "operation", day: 0, date: "MON 16 JUN 2025", time: "09:00", location: "Selangor & Johor", operatives: 120, status: "ACTIVE" as unknown as "CONFIRMED" },
-  { id: "o2", title: "YOUTH OUTREACH", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "14:00", location: "Klang Valley Universities", operatives: 60, status: "CONFIRMED" },
-  { id: "o3", title: "DIGITAL", type: "operation", day: 1, date: "TUE 17 JUN 2025", time: "All Day", location: "Nationwide", operatives: 30, status: "CONFIRMED" },
-  { id: "o4", title: "RURAL ENGAGEMENT", type: "operation", day: 2, date: "WED 18 JUN 2025", time: "08:00", location: "Perak & Kedah", operatives: 100, status: "CONFIRMED" },
-  { id: "o5", title: "DOOR TO DOOR", type: "operation", day: 3, date: "THU 19 JUN 2025", time: "09:00", location: "Pahang", operatives: 80, status: "PENDING" },
-  { id: "o6", title: "CERAMAH MEGA", type: "operation", day: 4, date: "FRI 20 JUN 2025", time: "20:30", location: "Shah Alam", operatives: 150, status: "CONFIRMED" },
-  { id: "o7", title: "ALL TEAMS", type: "operation", day: 5, date: "SAT 21 JUN 2025", time: "All Day", location: "Johor", operatives: 200, status: "CONFIRMED" },
-];
+// The schedule is built from the player's own campaign: their seat, their
+// negeri (the whole battlefield in PRN), their party HQ — no fixed
+// national demo rows.
+type ScheduleCtx = { lang: Lang; prn: boolean; state: string; seat: string; party: string; totalDays: number };
 
-// ─── Month View Data (June 2025, 30 days) ────────────────────────────────────
+function buildSchedule({ lang, prn, state, seat, party, totalDays }: ScheduleCtx) {
+  const L = (ms: string, en: string) => t(lang, ms, en);
+  const SEAT = seat.toUpperCase(), STATE = state.toUpperCase();
+  const wide = prn ? L(`Seluruh ${state}`, `All of ${state}`) : L("Seluruh negara", "Nationwide");
+  const ev = (id: string, type: EventType, day: number, time: string, title: string, location: string, operatives: number, description: string, status: "CONFIRMED" | "PENDING" = "CONFIRMED"): CalendarEvent =>
+    ({ id, type, day, date: DAY_DATES[day], time, title, location, operatives, description, status });
+  const week: CalendarEvent[] = [
+    ev("e1", "event", 0, "19:00", L(`CERAMAH ${SEAT}`, `${SEAT} CERAMAH`), L(`Dewan orang ramai, ${seat}`, `Community hall, ${seat}`), 80, L("Ceramah malam bersama penduduk kawasan.", "Evening ceramah with local residents.")),
+    ev("e2", "event", 2, "20:00", L("CERAMAH PERDANA", "MAIN CERAMAH"), L(`Pekan ${seat}`, `${seat} town`), 60, L("Ceramah utama minggu ini.", "This week's main ceramah.")),
+    ev("e3", "event", 2, "10:00", L("SIDANG MEDIA", "PRESS CONF"), L(`Ibu pejabat ${party}, ${state}`, `${party} HQ, ${state}`), 12, L("Kenyataan media tentang manifesto.", "Media statement on the manifesto.")),
+    ev("e4", "event", 3, "09:00", L(`JELAJAH ${STATE}`, `${STATE} TOUR`), prn ? L(`Kawasan DUN sekitar ${state}`, `State seats across ${state}`) : state, 45, L("Lawatan ke kawasan jiran untuk bantu calon parti.", "Visit neighbouring seats to back party candidates.")),
+    ev("e5", "event", 4, "20:30", L(`HIMPUNAN ${STATE}`, `${STATE} RALLY`), L(`Stadium ${state}`, `${state} stadium`), 120, L("Himpunan besar penyokong negeri.", "A large state-wide supporters' rally.")),
+    ev("e6", "event", 5, "18:00", L("HIMPUNAN MEGA", "MEGA RALLY"), seat, 200, L("Himpunan terakhir minggu ini di kawasan anda.", "The week's closing rally in your seat.")),
+    ev("e7", "event", 6, "—", L("HARI REHAT", "REST DAY"), "—", 0, L("Pasukan berehat dan menilai semula.", "The team rests and regroups.")),
+    ev("m1", "media", 0, "14:00", L("TEMU BUAL TV3", "TV3 INTERVIEW"), "TV3", 4, L("Temu bual tentang isu kawasan.", "Interview on local issues.")),
+    ev("m2", "media", 1, "08:00", "RADIO RTM", "RTM", 2, L("Slot radio pagi.", "Morning radio slot.")),
+    ev("m3", "media", 3, "21:00", "ASTRO AWANI", "Astro Awani", 3, L("Debat calon.", "Candidate debate."), "PENDING"),
+    ev("m6", "media", 5, "18:00", L("SIARAN LANGSUNG", "LIVE STREAM"), L("Dalam talian", "Online"), 8, L("Siaran langsung himpunan.", "Rally live stream.")),
+    ev("o1", "operation", 0, "09:00", L("RUMAH KE RUMAH", "DOOR TO DOOR"), seat, 120, L("Ziarah rumah ke rumah di kawasan anda.", "Door-to-door canvassing in your seat.")),
+    ev("o2", "operation", 1, "14:00", L("JANGKAUAN BELIA", "YOUTH OUTREACH"), L(`IPT di ${state}`, `Universities in ${state}`), 60, L("Libat urus pengundi muda.", "Engage young voters.")),
+    ev("o3", "operation", 1, L("Sepanjang hari", "All day"), L("DIGITAL", "DIGITAL"), wide, 30, L("Kempen media sosial.", "Social media campaign.")),
+    ev("o4", "operation", 2, "08:00", L("LUAR BANDAR", "RURAL ENGAGEMENT"), L(`Luar bandar ${state}`, `Rural ${state}`), 100, L("Lawatan kampung dan peneroka.", "Village and settler visits.")),
+    ev("o6", "operation", 4, "20:30", L("CERAMAH MEGA", "CERAMAH MEGA"), seat, 150, L("Ceramah besar dengan semua jentera.", "Big ceramah with the whole machinery.")),
+    ev("o7", "operation", 5, L("Sepanjang hari", "All day"), L("SEMUA PASUKAN", "ALL TEAMS"), seat, 200, L("Semua jentera turun padang.", "Every team on the ground.")),
+  ];
+  // month view: the weekly rhythm over the campaign, then the cooling-off
+  // day and polling day at the end
+  const month: Record<number, MonthEvent[]> = {};
+  for (let d = 1; d <= totalDays; d++) {
+    const wd = (d - 1) % 7;
+    month[d] = week.filter((e) => e.day === wd).slice(0, 3).map((e) => ({ title: e.title, type: e.type }));
+  }
+  if (totalDays >= 2) month[totalDays - 1] = [{ title: L("HARI BERTENANG", "COOLING-OFF DAY"), type: "event" }];
+  month[totalDays] = [{ title: L("HARI MENGUNDI", "POLLING DAY"), type: "event" }];
+  const list = week.filter((e) => e.id !== "e7").sort((a, b) => a.day - b.day || a.id.localeCompare(b.id));
+  return { week, month, list };
+}
+
+// ─── Month View Data (30 days) ───────────────────────────────────────────────
 
 const MONTH_DATES = Array.from({ length: 30 }, (_, i) => i + 1);
 const CURRENT_WEEK_START = 16;
 const CURRENT_WEEK_END = 22;
 
 interface MonthEvent { title: string; type: EventType }
-
-const MONTH_EVENTS: Record<number, MonthEvent[]> = {
-  2:  [{ title: "CERAMAH JOHOR", type: "event" }],
-  3:  [{ title: "CANVASSING OPS", type: "operation" }],
-  5:  [{ title: "RTM INTERVIEW", type: "media" }, { title: "PAHANG RALLY", type: "event" }],
-  7:  [{ title: "DIGITAL PUSH", type: "operation" }],
-  8:  [{ title: "KEDAH TOUR", type: "event" }, { title: "ASTRO AWANI", type: "media" }, { title: "RURAL OPS", type: "operation" }],
-  9:  [{ title: "DOOR TO DOOR", type: "operation" }],
-  10: [{ title: "TV3 SEGMENT", type: "media" }],
-  11: [{ title: "PERAK CERAMAH", type: "event" }],
-  12: [{ title: "GROUND OPS", type: "operation" }, { title: "RADIO RTM", type: "media" }],
-  13: [{ title: "YOUTH OUTREACH", type: "operation" }],
-  14: [{ title: "SELANGOR RALLY", type: "event" }, { title: "LIVE STREAM", type: "media" }],
-  15: [{ title: "REST & DEBRIEF", type: "event" }],
-  16: [{ title: "JOHOR RALLY", type: "event" }, { title: "TV3 INTERVIEW", type: "media" }, { title: "DOOR TO DOOR", type: "operation" }],
-  17: [{ title: "RADIO RTM", type: "media" }, { title: "CERAMAH MEGA", type: "operation" }],
-  18: [{ title: "KL CERAMAH", type: "event" }, { title: "PRESS CONF", type: "event" }, { title: "YOUTH OUTREACH", type: "operation" }],
-  19: [{ title: "PAHANG TOUR", type: "event" }, { title: "ASTRO AWANI", type: "media" }, { title: "RURAL ENGAGEMENT", type: "operation" }],
-  20: [{ title: "SELANGOR RALLY", type: "event" }, { title: "TV3", type: "media" }, { title: "TV9", type: "media" }, { title: "DIGITAL CAMPAIGN", type: "operation" }],
-  21: [{ title: "JOHOR MEGA RALLY", type: "event" }, { title: "LIVE STREAM", type: "media" }, { title: "ALL TEAMS", type: "operation" }],
-  22: [{ title: "REST DAY", type: "event" }],
-  23: [{ title: "SABAH TOUR", type: "event" }, { title: "DOOR TO DOOR", type: "operation" }],
-  24: [{ title: "CANVASSING OPS", type: "operation" }, { title: "RADIO INTERVIEW", type: "media" }],
-  25: [{ title: "SARAWAK CERAMAH", type: "event" }],
-  26: [{ title: "MEGA RALLY KL", type: "event" }, { title: "TV3 SPECIAL", type: "media" }, { title: "GROUND OPS", type: "operation" }],
-  27: [{ title: "DIGITAL BLITZ", type: "operation" }],
-  28: [{ title: "FINAL CANVASS", type: "operation" }, { title: "MEDIA BLITZ", type: "media" }],
-  29: [{ title: "HARI TENANG", type: "event" }],
-  30: [{ title: "HARI MENGUNDI", type: "event" }],
-};
-
-// ─── List View Data ───────────────────────────────────────────────────────────
-
-const LIST_EVENTS = [
-  ...calendarEvents
-    .filter((e) => e.id !== "e7") // exclude rest day from list
-    .sort((a, b) => a.day - b.day || a.id.localeCompare(b.id)),
-];
 
 // ─── Chip Styles ─────────────────────────────────────────────────────────────
 
@@ -298,7 +278,17 @@ export default function CalendarPage() {
   const [view, setView] = useState<ViewMode>("WEEK");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
-  const { day: gameDay, totalDays, operations } = useGameStore();
+  const { day: gameDay, totalDays, operations, leader, settings } = useGameStore();
+  const prn = (settings.electionScope ?? "pru") === "prn";
+  const schedule = buildSchedule({
+    lang, prn, totalDays,
+    state: getStateById(prn ? settings.prnStateId ?? leader.homeState : leader.homeState)?.name ?? "",
+    seat: leader.homeConstituencyName || leader.homeState || "",
+    party: leader.partyAbbr || leader.party || "",
+  });
+  const calendarEvents = schedule.week;
+  const MONTH_EVENTS = schedule.month;
+  const LIST_EVENTS = schedule.list;
 
   // Map game day to a calendar date in June 2025 (Day 1 = Jun 1)
   const currentCalendarDate = gameDay; // Day 1 → June 1, Day 27 → June 27

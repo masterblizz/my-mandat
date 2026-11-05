@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t, type Lang } from "../../i18n/useLang";
+import { resolveColor } from "../../utils/color";
 
 export const GODOT_WORLD_URL = "/godot/world/index.html";
 
@@ -128,28 +129,13 @@ const MEDIA_ROOM_NAMES: Record<string, [string, string]> = {
 };
 const DEWAN_ROOM_NAMES: Record<string, [string, string]> = {
   dewan: ["Dewan", "Chamber"],
-  lobi: ["Lobi Parlimen", "Parliament Lobby"],
+  lobi: ["Lobi Dewan", "Chamber Lobby"],
 };
 const WARROOM_ROOM_NAMES: Record<string, [string, string]> = {
   gerakan: ["Bilik Gerakan Utama", "Main Operations Floor"],
   lobi: ["Lobi Keselamatan", "Security Lobby"],
 };
 
-// Godot only reads hex colours; party colours may be CSS variables or rgb().
-function resolveColor(value: string): string {
-  if (typeof window === "undefined" || value.startsWith("#")) return value;
-  let css = value;
-  const v = value.match(/^var\((--[\w-]+)\)$/);
-  if (v) css = getComputedStyle(document.documentElement).getPropertyValue(v[1]).trim() || value;
-  if (css.startsWith("#")) return css;
-  const probe = document.createElement("span");
-  probe.style.color = css;
-  document.body.appendChild(probe);
-  const rgb = getComputedStyle(probe).color.match(/\d+/g);
-  probe.remove();
-  if (!rgb || rgb.length < 3) return value;
-  return "#" + rgb.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
-}
 
 export default function GodotWorld({ scene, state, onOpen, onError, onStateClick, onReady, onPick }: {
   scene: WorldScene;

@@ -24,7 +24,7 @@ import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
 import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
-import { boundaryShape, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
+import { boundaryAreaKm2, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -328,6 +328,14 @@ function projectGain(project: Project, zone: Zone) {
   const value = zone[project.target];
   const k = value < 35 ? 1.5 : value < 50 ? 1.25 : value > 80 ? 0.5 : value > 65 ? 0.75 : 1;
   return Math.max(0, Math.min(100 - value, Math.round(project.boost * k)));
+}
+
+/** Works take two quarter closes; the term's last close is the end of Q20,
+ *  so nothing started in Q20 (month 58+) or after the term can finish. */
+function termBuildBlock(month: number, lang: ReturnType<typeof useLang>): string | null {
+  if (month >= 60) return t(lang, "Penggal telah tamat. Tiada projek baharu boleh dimulakan.", "The term has ended. No new projects can start.");
+  if (Math.floor((month - 1) / 3) + 1 >= 20) return t(lang, "Suku terakhir penggal: projek tidak sempat siap (perlu 2 suku).", "Final quarter of the term: a project would not finish (it needs 2 quarters).");
+  return null;
 }
 
 function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<typeof useLang>) {
@@ -2660,7 +2668,7 @@ export default function KawasanDevelopmentPage() {
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
   const constituencies = useMemo(() => homeState ? generateConstituencies(homeState, seatMode) : [], [homeState, seatMode]);
   const ownSeat = constituencies.find((seat) => seat.id === leader.homeConstituencyId) ?? constituencies[0];
-  const seatKindMS = settings.electionScope === "prn" ? "DUN" : "PARLIMEN";
+  const seatKindMS = settings.electionScope === "prn" ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT");
 
   // City density scales with population per km² (people actually living
   // there, packed into the seat's modeled area) — not raw voter turnout,
@@ -2696,10 +2704,16 @@ export default function KawasanDevelopmentPage() {
     : t(lang, "kawasan_page.rural");
 
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
+  // the seat's official boundary (DOSM), for the city's outline
+  const [seatOutline, setSeatOutline] = useState<Boundary | null>(null);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
-    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits }),
-    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr],
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits,
+      // the seat's real outline, so the city fills its shape (see city.gd shape_k)
+      shape: seatOutline ? boundaryShapeK(seatOutline) : undefined,
+      // real area: city seats are drawn at their true size (see city.gd)
+      areaKm2: seatOutline ? Math.round(boundaryAreaKm2(seatOutline) * 10) / 10 : undefined }),
+    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline],
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
@@ -2710,6 +2724,7 @@ export default function KawasanDevelopmentPage() {
     const manual = seatGeo(ownSeat.name);
     loadSeatBoundary(ownSeat.code, homeState.id, ownSeat.name).then((boundary) => {
       if (!alive) return;
+      setSeatOutline(boundary);
       if (boundary) {
         const shape = boundaryShape(boundary);
         setIntroGeo({ lat: shape.lat, lon: shape.lon, district: manual?.district ?? "", towns: manual?.towns ?? [], boundary });
@@ -2902,7 +2917,7 @@ export default function KawasanDevelopmentPage() {
   const cityActivity = repTerm && journey.chapter === "government" && selectedZone?.kind === "industry"
     ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Semak dasar kerajaan dan rekod penggal anda.", "Review government policy and your term record."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }
     : repTerm && selectedZone?.kind === "river"
-    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat sokongan parti dan kesan kerja kawasan anda.", "See party support and the effect of your constituency work."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
+    ? { icon: "🗺️", title: (settings.electionScope === "prn" ? t(lang, "Pusat analisis negeri", "State analysis centre") : t(lang, "Pusat analisis negara", "National analysis centre")), detail: t(lang, "Lihat sokongan parti dan kesan kerja kawasan anda.", "See party support and the effect of your constituency work."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
     : repTerm && (selectedZone?.kind === "housing" || selectedZone?.kind === "village")
     ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Suarakan isu kawasan dan jawab kritikan.", "Raise constituency issues and answer critics."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/media"), enabled: true }
     : repTerm
@@ -2910,11 +2925,11 @@ export default function KawasanDevelopmentPage() {
     : ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
     ? { icon: journey.chapter === "results" ? "📊" : journey.chapter === "formation" ? "🤝" : "🧭", title: journey.chapter === "results" ? t(lang, "Pusat keputusan", "Results centre") : journey.chapter === "formation" ? t(lang, "Dewan rundingan", "Negotiation hall") : t(lang, "Pusat gerakan", "Movement centre"), detail: t(lang, "Bab politik seterusnya menanti di pusat bandar.", "Your next political chapter awaits in the city centre."), label: t(lang, "Sambung perjalanan", "Continue journey"), run: () => router.push(`${resumeRoute(useGameStore.getState())}?from=city`), enabled: true }
     : journey.chapter === "government" && !repTerm && selectedZone?.kind === "commercial"
-    ? { icon: "🏛️", title: t(lang, "Bangunan kabinet", "Cabinet building"), detail: t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/cabinet"), enabled: true }
+    ? { icon: "🏛️", title: settings.electionScope === "prn" ? t(lang, "Bangunan EXCO", "EXCO building") : t(lang, "Bangunan kabinet", "Cabinet building"), detail: settings.electionScope === "prn" ? t(lang, "Lantik barisan EXCO dan urus portfolio negeri.", "Appoint the EXCO line-up and manage state portfolios.") : t(lang, "Lantik pasukan menteri dan urus portfolio kerajaan.", "Appoint your ministerial team and manage government portfolios."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/cabinet"), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "industry"
     ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Laksana dasar dan majukan penggal pentadbiran.", "Deliver policies and advance the administration term."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }
     : journey.chapter === "government" && selectedZone?.kind === "river"
-    ? { icon: "🗺️", title: t(lang, "Pusat analisis negara", "National analysis centre"), detail: t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
+    ? { icon: "🗺️", title: (settings.electionScope === "prn" ? t(lang, "Pusat analisis negeri", "State analysis centre") : t(lang, "Pusat analisis negara", "National analysis centre")), detail: (settings.electionScope === "prn" ? t(lang, `Lihat kesan keputusan anda di seluruh ${homeState.name}.`, `See the impact of your decisions across ${homeState.name}.`) : t(lang, "Lihat kesan keputusan anda di seluruh negara.", "See the impact of your decisions across the country.")), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
     : journey.chapter === "government"
     ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Semak janji kawasan dan rekod perkhidmatan anda.", "Review constituency promises and your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true }
     : focusedDestination === "calendar" && selectedZone?.kind === "education"
@@ -2941,10 +2956,12 @@ export default function KawasanDevelopmentPage() {
     // Defensive: the UI never exposes a clickable project button pre-win
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
-    if (!unlocked || useGameStore.getState().careerProgress.month >= 60) {
+    if (!unlocked) {
       setNotice(t(lang, "Formasi kerajaan membuka bajet pembangunan awam. Mulakan dengan janji di atas.", "Forming government unlocks the public development budget. Start with a commitment above."));
       return;
     }
+    const buildBlock = termBuildBlock(useGameStore.getState().careerProgress.month, lang);
+    if (buildBlock) { setNotice(buildBlock); cancelPlacement(); return; }
     if (targetZone.projects.includes(project.id)) {
       setNotice(t(lang, "kawasan_page.projectAlreadyApprovedForThisZone"));
       return;
@@ -3120,6 +3137,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   const termEnded = careerProgress.month >= 60;
+  useEffect(() => { if (termEnded && pendingProjectId) { setPendingProjectId(null); setPlaceTargetId(null); setOverlay("none"); } }, [termEnded, pendingProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const projectTitle = (id: string) => t(lang, `kawasan_page.projectTitle_${id}`);
   const dockCards: DockCard[] = PROJECTS.map((project) => {
     const built = selectedZone?.projects.includes(project.id) ?? false;
@@ -3229,7 +3247,7 @@ export default function KawasanDevelopmentPage() {
                 { icon: "⚡", value: `${Math.round((journey.service.stamina / STAMINA_MAX) * 100)}%`, title: t(lang, "Tenaga", "Stamina") },
                 { icon: "📅", value: repTerm ? t(lang, `Hari ${termCalendar(journey.termDay).day} · Mgg ${termCalendar(journey.termDay).week}`, `Day ${termCalendar(journey.termDay).day} · Wk ${termCalendar(journey.termDay).week}`) : t(lang, `Hari ${day}/${totalDays}`, `Day ${day}/${totalDays}`), title: t(lang, "Tarikh", "Date") },
               ]} />
-              <CityRail items={[
+              <CityRail label={t(lang, "Alat bandar", "City tools")} items={[
                 { id: "view", icon: hudHidden ? "▣" : "👁", label: hudHidden ? t(lang, "Panel", "Panels") : t(lang, "Tinjau", "View"), active: hudHidden, run: () => setHudHidden((hidden) => !hidden) },
                 { id: "places", icon: "📍", label: t(lang, "Lokasi", "Places"), active: placesOpen, run: () => setPlacesOpen((value) => !value) },
                 { id: "data", icon: "📊", label: t(lang, "Data", "Data"), run: () => router.push("/polling") },
@@ -3285,9 +3303,9 @@ export default function KawasanDevelopmentPage() {
                   icon: pendingProject.icon, title: projectTitle(pendingProject.id), cost: pendingProject.cost, statLabel: statLabel(lang, pendingProject.target),
                   options: placementTop.map(({ zone, gain }) => ({ zoneId: zone.id, label: zoneName(lang, zone), icon: zoneIcon(zone.kind), from: zone[pendingProject.target], gain })),
                   target: placeTarget ? { zoneId: placeTarget.id, label: zoneName(lang, placeTarget), icon: zoneIcon(placeTarget.kind), from: placeTarget[pendingProject.target], gain: projectGain(pendingProject, placeTarget),
-                    blocked: placeTarget.projects.includes(pendingProject.id) ? t(lang, "Sudah dibina di zon ini", "Already built in this zone")
+                    blocked: termBuildBlock(careerProgress.month, lang) ?? (placeTarget.projects.includes(pendingProject.id) ? t(lang, "Sudah dibina di zon ini", "Already built in this zone")
                       : seatWorks.some((work) => work.zone === placeTarget.id && work.project === pendingProject.id) ? t(lang, "Sedang dibina di zon ini", "Under construction in this zone")
-                      : lockReason(pendingProject, placeTarget, lang) ?? (journey.publicBudget < pendingProject.cost ? t(lang, "kawasan_page.insufficientBudget") : null) } : null,
+                      : lockReason(pendingProject, placeTarget, lang) ?? (journey.publicBudget < pendingProject.cost ? t(lang, "kawasan_page.insufficientBudget") : null)) } : null,
                 } : null}
                 onPlacementTarget={(zoneId) => { setPlaceTargetId(zoneId); focusZone(zoneId); }}
                 onConfirmPlacement={confirmPlacement}

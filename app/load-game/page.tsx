@@ -18,6 +18,8 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import LangThemeToggle from "../components/layout/LangThemeToggle";
 import Fold from "../components/results/Fold";
+import { usePremiumStatus } from "../hooks/usePremiumStatus";
+import { savePrnLocked } from "../config/freeTier";
 
 
 function formatSavedAt(value: string, lang: Lang) {
@@ -65,6 +67,8 @@ export default function LoadGamePage() {
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(1);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   // Keep the status as a dictionary key + vars so it re-renders in the live UI language.
+  const { hasPremium, isLoading: premiumLoading } = usePremiumStatus();
+  const [lockedNotice, setLockedNotice] = useState(false);
   const [status, setStatusState] = useState<{ key: string; vars?: Record<string, string | number> }>({ key: "load_game_page.scanLocalSaveSlots" });
   const setStatus = (key: string, vars?: Record<string, string | number>) => setStatusState({ key, vars });
 
@@ -104,6 +108,7 @@ export default function LoadGamePage() {
 
   const handleLoad = () => {
     if (!selectedSlot) return;
+    if (!premiumLoading && savePrnLocked(selectedSlot.state, hasPremium)) { setLockedNotice(true); return; }
     navigate(hubRoute(selectedSlot.state), () => {
       setActiveSaveSlot(selectedSlot.id);
       setActiveSlotId(selectedSlot.id);
@@ -148,6 +153,7 @@ export default function LoadGamePage() {
             <div className="min-w-0">
               <h1 className="text-[22px] font-black tracking-[-0.02em] text-white sm:text-[30px]">💾 {t(lang, "SLOT SIMPAN", "SAVE SLOTS")}</h1>
               <div className="mt-0.5 truncate text-[10px] tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{t(lang, status.key, status.vars)}</div>
+              {lockedNotice && <div role="alert" className="mt-1 text-[10px] font-bold text-gold">🔒 {t(lang, "Simpanan PRN ini untuk negeri Premium. Langgan Premium untuk sambung.", "This PRN save is for a Premium negeri. Get Premium to continue.")}</div>}
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <LangThemeToggle />

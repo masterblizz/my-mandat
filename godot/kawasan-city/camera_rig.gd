@@ -5,7 +5,7 @@ extends Node3D
 ## toward the requested values so every input glides.
 
 const MIN_DIST := 40.0
-const MAX_DIST := 1100.0
+const MAX_DIST := 1500.0
 # Held to a low, skyline-showing tilt: you can orbit and zoom, but the
 # camera never swings to a flat top-down map view.
 const PITCH_MIN := -36.0
@@ -93,7 +93,7 @@ func zoom_step(dir: int) -> void:
 
 
 func _limit() -> float:
-	return get_parent().SPAN * 0.55
+	return get_parent().pan_limit
 
 
 func _pan_pixels(dx: float, dy: float) -> void:

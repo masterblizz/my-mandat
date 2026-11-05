@@ -37,14 +37,16 @@ export default function CityLoading({ lang, engineReady, built, compact = false 
     return () => cancelAnimationFrame(raf);
   }, [built, engineReady]);
   useEffect(() => { const id = window.setInterval(() => setTip((i) => (i + 1) % TIPS.length), 3500); return () => window.clearInterval(id); }, []);
+  // once built, show the full bar at once (the frame loop may still be catching up)
+  const shown = built ? 100 : pct;
   const stage = built ? t(lang, "Siap! Terbang masuk…", "Ready! Flying in…")
     : engineReady ? t(lang, "Menjana jalan, bangunan & pokok", "Laying roads, buildings & trees")
     : t(lang, "Memuatkan enjin 3D", "Loading the 3D engine");
   return (
-    <div className={`city-loading pointer-events-none ${compact ? "city-loading--compact" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={t(lang, "Membina bandar 3D", "Building the 3D city")}>
+    <div className={`city-loading pointer-events-none ${compact ? "city-loading--compact" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(shown)} aria-label={t(lang, "Membina bandar 3D", "Building the 3D city")}>
       <div className="city-loading__title">{built ? "✔ " : ""}{t(lang, "MEMBINA BANDAR 3D", "BUILDING THE 3D CITY")}{built ? "" : "…"}</div>
-      <div className="city-loading__row"><span>{stage}</span><b>{Math.round(pct)}%</b></div>
-      <div className="city-loading__track"><div className="city-loading__fill" style={{ width: `${pct}%` }} /><div className="city-loading__shine" /></div>
+      <div className="city-loading__row"><span>{stage}</span><b>{Math.round(shown)}%</b></div>
+      <div className="city-loading__track"><div className="city-loading__fill" style={{ width: `${shown}%` }} /><div className="city-loading__shine" /></div>
       {!compact && <div key={tip} className="city-loading__tip">💡 {TIPS[tip][lang]}</div>}
     </div>
   );
