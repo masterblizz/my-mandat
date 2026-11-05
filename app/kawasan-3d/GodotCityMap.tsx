@@ -17,10 +17,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import type { SeatTraits, Zone } from "./cityData";
 import { t, type Lang } from "../i18n/useLang";
 import CitySkyLife from "./CitySkyLife";
+import CityIntro from "./CityIntro";
+import type { SeatGeo } from "../data/seatGeo";
+
+export type CityIntroInfo = { geo: SeatGeo; stateId: string; stateName: string; seatCode: string; seatName: string; density?: number };
 
 export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "/godot/kawasan-city/index.html";
 
-export type GodotSeatProfile = { code: string; name: string; density: number; traits: SeatTraits };
+/** popDensity: approximate real people per km² (see data/seatDensity.ts). */
+export type GodotSeatProfile = { code: string; name: string; density: number; popDensity?: number; traits: SeatTraits };
 
 export type GodotCityMapProps = {
   profile: GodotSeatProfile;
@@ -30,12 +35,16 @@ export type GodotCityMapProps = {
   zoneNames?: Record<string, string>;
   /** Project placement mode: zone names turn gold and larger. */
   placing?: boolean;
+  /** Map → zoom → 3D intro to play over the city (null: none). */
+  intro?: CityIntroInfo | null;
+  onIntroDone?: () => void;
   setSelectedZoneId: (id: string) => void;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone }: GodotCityMapProps) {
+  const [built, setBuilt] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const origin = useMemo(() => typeof window === "undefined" ? "" : new URL(GODOT_CITY_URL, window.location.href).origin, []);
@@ -61,6 +70,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       if (e.origin !== origin || e.source !== frameRef.current?.contentWindow) return;
       const data = e.data as { type?: string; id?: unknown } | null;
       if (data?.type === "kawasan-godot-ready") setReady(true);
+      else if (data?.type === "kawasan-city-built") setBuilt(true);
       else if (data?.type === "kawasan-zone-click" && typeof data.id === "string") setSelectedZoneId(data.id);
     };
     window.addEventListener("message", onMessage);
@@ -70,6 +80,9 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   useEffect(() => {
     if (ready) send();
   }, [ready, send]);
+  const flyIn = useCallback(() => {
+    frameRef.current?.contentWindow?.postMessage({ type: "kawasan-intro" }, origin);
+  }, [origin]);
 
   return (
     <div className="relative h-full w-full" style={{ height, background: "rgb(var(--bg-rgb))" }}>
@@ -97,6 +110,8 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
           {t(lang, "MEMUATKAN ENJIN GODOT…", "LOADING GODOT ENGINE…")}
         </div>
       )}
+      {intro && <CityIntro lang={lang} geo={intro.geo} stateId={intro.stateId} stateName={intro.stateName} seatCode={intro.seatCode} seatName={intro.seatName} density={intro.density}
+        ready={built} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
     </div>
   );
 }

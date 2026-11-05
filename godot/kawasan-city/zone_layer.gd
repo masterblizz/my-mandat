@@ -27,6 +27,7 @@ var marker: Node3D
 var pin: MeshInstance3D
 var _t := 0.0
 var _js_cb: JavaScriptObject
+var _js_intro: JavaScriptObject
 var _press := Vector2.ZERO
 var _embedded := false
 var zone_labels: Array[Label3D] = []
@@ -84,10 +85,13 @@ func _bridge() -> void:
 	_js_cb = JavaScriptBridge.create_callback(_on_js_state)
 	var win := JavaScriptBridge.get_interface("window")
 	win.kawasanGodotSetState = _js_cb
+	_js_intro = JavaScriptBridge.create_callback(func(_args): city.get_node("CameraRig").intro())
+	win.kawasanGodotIntro = _js_intro
 	JavaScriptBridge.eval("""
 		window.addEventListener('message', function (e) {
 			var d = e.data;
 			if (d && d.type === 'kawasan-state') window.kawasanGodotSetState(JSON.stringify(d.state));
+			if (d && d.type === 'kawasan-intro') window.kawasanGodotIntro('1');
 		});
 		if (window.parent !== window) window.parent.postMessage({ type: 'kawasan-godot-ready' }, '*');
 	""", true)
@@ -97,6 +101,12 @@ func _on_js_state(args: Array) -> void:
 	var data = JSON.parse_string(str(args[0]))
 	if data is Dictionary:
 		apply_state(data)
+
+
+## Tells the game the seat's city has finished building (the intro waits for it).
+func post_built() -> void:
+	if _embedded:
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built' }, '*')", true)
 
 
 func _post_click(id: String) -> void:

@@ -22,6 +22,8 @@ import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
+import { seatRealDensity } from "../data/seatDensity";
+import { boundaryShape, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2684,9 +2686,37 @@ export default function KawasanDevelopmentPage() {
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
-    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, traits }),
-    [ownSeat?.code, ownSeat?.name, density, traits],
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), traits }),
+    [ownSeat, density, traits],
   );
+  // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
+  const [introOn, setIntroOn] = useState(false);
+  const [introGeo, setIntroGeo] = useState<SeatGeo | null>(null);
+  useEffect(() => {
+    if (!ownSeat || !homeState) return;
+    let alive = true;
+    const manual = seatGeo(ownSeat.name);
+    loadSeatBoundary(ownSeat.code, homeState.id, ownSeat.name).then((boundary) => {
+      if (!alive) return;
+      if (boundary) {
+        const shape = boundaryShape(boundary);
+        setIntroGeo({ lat: shape.lat, lon: shape.lon, district: manual?.district ?? "", towns: manual?.towns ?? [], boundary });
+      } else setIntroGeo(manual);
+    });
+    return () => { alive = false; };
+  }, [ownSeat?.id, homeState?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!ownSeat || !introGeo) return;
+    try {
+      const key = `kawasan-intro:${ownSeat.id}`;
+      const forced = new URLSearchParams(window.location.search).get("intro") === "1";
+      if (forced || window.sessionStorage.getItem(key) !== "1") { setIntroOn(true); window.sessionStorage.setItem(key, "1"); }
+    } catch { setIntroOn(true); }
+  }, [ownSeat?.id, introGeo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cityIntro = useMemo(() => {
+    const geo = introOn && ownSeat ? introGeo : null;
+    return geo && ownSeat ? { geo, stateId: homeState?.id ?? "", stateName: homeState?.name ?? "", seatCode: ownSeat.code, seatName: ownSeat.name, density: seatRealDensity(ownSeat) } : null;
+  }, [introOn, introGeo, ownSeat, homeState?.id, homeState?.name]);
   const godotZoneNames = useMemo(
     () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
     [zones, lang],
@@ -3130,7 +3160,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={godotZoneNames} placing={!!pendingProject} />
+                  zoneNames={godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3150,7 +3180,7 @@ export default function KawasanDevelopmentPage() {
               {/* the seat (kawasan) the player represents, always in view */}
               <div className="city-seat-chip city-hud-box pointer-events-none absolute z-20 rounded-full border px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-xl"
                 style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(10px)", fontFamily: "'Space Mono', monospace" }}>
-                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span>
+                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span> <span className="text-text-muted">· 👥 {formatNumber(seatRealDensity(ownSeat))}/km²</span>
               </div>
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-tool city-tool--view city-hud-toggle absolute z-[140]"

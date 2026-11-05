@@ -24,6 +24,8 @@ var _target := target
 var _touches := {}
 
 @onready var cam: Camera3D = $Camera3D
+var intro_pending := false     # a fly-in was asked for before the city was built
+var _intro_tween: Tween
 
 
 func _ready() -> void:
@@ -51,6 +53,34 @@ func preset(name: String) -> void:
 				target = toward * 90.0 * view_scale
 	_yaw = yaw; _pitch = pitch; _dist = dist; _target = target
 	_apply()
+	if intro_pending and name == "city":
+		_start_intro()
+
+
+## City intro: the game's map zooms into the seat, then the camera drops
+## from straight above the town (like the map) and swings down to the
+## usual three-quarter skyline view.
+func intro() -> void:
+	intro_pending = true
+	if get_parent().gen != null:
+		_start_intro()
+
+
+func _start_intro() -> void:
+	intro_pending = false
+	var end_yaw := yaw
+	var end_pitch := pitch
+	var end_dist := dist
+	_yaw = end_yaw - 70.0; yaw = _yaw
+	_pitch = -86.0; pitch = _pitch
+	_dist = MAX_DIST * 1.6; dist = _dist
+	_apply()
+	if _intro_tween:
+		_intro_tween.kill()
+	_intro_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_intro_tween.tween_property(self, "dist", end_dist, 3.2)
+	_intro_tween.tween_property(self, "pitch", end_pitch, 3.2)
+	_intro_tween.tween_property(self, "yaw", end_yaw, 3.2)
 
 
 func _limit() -> float:
