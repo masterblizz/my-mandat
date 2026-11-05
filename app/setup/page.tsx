@@ -291,7 +291,8 @@ export default function SetupPage() {
   }, [settings.difficulty, settings.electionScope, settings.eventRandomness, settings.mediaBias, settings.oppositionStrength, settings.permanentConsequences, settings.prnStateId]);
 
   useEffect(() => {
-    if (!premiumLoading && !hasPremium && electionScope !== "prn") setElectionScope("prn");
+    // PRU is free; PRN (state elections) needs Premium
+    if (!premiumLoading && !hasPremium && electionScope !== "pru") setElectionScope("pru");
   }, [electionScope, hasPremium, premiumLoading]);
 
   useEffect(() => {
@@ -330,7 +331,7 @@ export default function SetupPage() {
     // A launch always starts a fresh run from the setup choices. Clearing the
     // active slot makes the autosave subscriber create a new slot instead of
     // rewriting a previously loaded one.
-    const campaignScope = hasPremium ? electionScope : "prn";
+    const campaignScope = hasPremium ? electionScope : "pru";
     resetGame();
     setActiveSaveSlot(null);
     setDataset(selectedDataset);
@@ -529,8 +530,8 @@ export default function SetupPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {([
-                  { id: "pru" as const, icon: "🇲🇾", title: "PRU", sub: t(lang, "Seluruh negara · Parlimen", "Nationwide · Parliament"), state: premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked" },
-                  { id: "prn" as const, icon: "🏛️", title: "PRN", sub: t(lang, "Satu negeri · DUN", "One state · DUN"), state: "unlocked" },
+                  { id: "pru" as const, icon: "🇲🇾", title: "PRU", sub: t(lang, "Seluruh negara · Parlimen", "Nationwide · Parliament"), state: "unlocked" },
+                  { id: "prn" as const, icon: "🏛️", title: "PRN", sub: t(lang, "Satu negeri · DUN", "One state · DUN"), state: premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked" },
                 ]).map((mode) => (
                   <Tile key={mode.id} active={electionScope === mode.id} disabled={mode.state !== "unlocked"} onClick={() => setElectionScope(mode.id)} className="items-center p-4 text-center"
                     badge={mode.state === "locked" ? { text: `🔒 ${t(lang, "setup_page.premium")}`, color: "var(--gold)" } : undefined}>
@@ -541,7 +542,7 @@ export default function SetupPage() {
                 ))}
               </div>
               {!premiumLoading && !hasPremium && (
-                <LockedNote text={t(lang, "PRU dibuka dengan Premium", "PRU unlocks with Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
+                <LockedNote text={t(lang, "PRN dibuka dengan Premium", "PRN unlocks with Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
               )}
 
               {electionScope === "prn" && (
