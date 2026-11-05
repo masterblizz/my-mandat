@@ -55,12 +55,14 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     }).catch(() => setPaths([]));
   }, []);
 
-  // stage timeline: the country map holds while the 3D city builds (its
-  // generation blocks the page's main thread, which would freeze any zoom
-  // in progress), then state 1.9 s → seat 2.4 s → dive 1.4 s
+  // stage timeline: Malaysia 0.5 s → state (0.9 s zoom, then holds while
+  // the 3D city builds — generation blocks the page, so no zoom runs then)
+  // → seat 2.4 s → dive 1.3 s
   useEffect(() => {
-    if (stage === 0 && ready) { const id = window.setTimeout(() => setStage(1), 700); return () => window.clearTimeout(id); }
-    if (stage === 1) { const id = window.setTimeout(() => setStage(2), 1900); return () => window.clearTimeout(id); }
+    // the state zoom runs straight away (before the 3D build starts and
+    // blocks the page); the state view then holds until the city is ready
+    if (stage === 0) { const id = window.setTimeout(() => setStage(1), 500); return () => window.clearTimeout(id); }
+    if (stage === 1 && ready) { const id = window.setTimeout(() => setStage(2), 500); return () => window.clearTimeout(id); }
     if (stage === 2) { const id = window.setTimeout(() => setStage(3), 2400); return () => window.clearTimeout(id); }
     if (stage === 3) {
       onFlyIn();
@@ -72,7 +74,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   // camera: glide the viewBox between stage boxes (log-scaled width)
   useEffect(() => {
     const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? [px + 30, py + 18, 120] : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
-    const dur = stage === 3 ? 1400 : 1500;
+    const dur = stage === 3 ? 1300 : stage === 1 ? 900 : 1200;
     from.current = box;
     startedAt.current = performance.now();
     let raf = 0;
@@ -137,7 +139,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
           </div>
         )}
       </div>
-      {stage === 0 && !ready && <div className="absolute bottom-[16%] left-1/2 -translate-x-1/2 text-[9px] font-black tracking-[.24em] text-cyan">{t(lang, "MEMBINA BANDAR 3D…", "BUILDING THE 3D CITY…")}</div>}
+      {stage <= 1 && !ready && <div className="absolute bottom-[16%] left-1/2 -translate-x-1/2 text-[9px] font-black tracking-[.24em] text-cyan">{t(lang, "MEMBINA BANDAR 3D…", "BUILDING THE 3D CITY…")}</div>}
       {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan: DOSM, data terbuka (CC BY 4.0)", "Boundary: DOSM open data (CC BY 4.0)")}</div>}
       <button type="button" onClick={() => { onFlyIn(); setGone(true); window.setTimeout(onDone, 400); }}
         className="absolute right-4 top-3 rounded border px-3 py-1.5 text-[10px] font-black tracking-widest text-text-muted"
