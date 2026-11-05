@@ -276,6 +276,9 @@ func _lighten_for_mobile() -> void:
 	env.ambient_light_sky_contribution = 0.45
 	env.ambient_light_color = Color(0.34, 0.4, 0.55)
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# roll highlights off instead of clipping (sun-facing walls went white)
+	env.tonemap_white = 3.0
+	env.tonemap_exposure = 0.85
 	get_window().content_scale_factor = clampf(DisplayServer.screen_get_scale(), 1.0, 3.0)
 
 
@@ -441,6 +444,7 @@ func _make_materials() -> void:
 	mat_plain.vertex_color_use_as_albedo = true
 	mat_plain.vertex_color_is_srgb = true
 	mat_plain.roughness = 0.85
+	mat_plain.metallic_specular = 0.2   # no sun glare off pale walls at grazing angles
 
 	mat_roof = StandardMaterial3D.new()
 	mat_roof.vertex_color_use_as_albedo = true
@@ -468,6 +472,7 @@ func _make_materials() -> void:
 	mat_lowrise.emission_texture = _window_texture(4, 4, Color.BLACK, Color.BLACK, true, 0.45, 0.42)
 	mat_lowrise.emission_energy_multiplier = 0.0
 	mat_lowrise.roughness = 0.8
+	mat_lowrise.metallic_specular = 0.2
 	_triplanar(mat_lowrise, 14.0)
 
 	mat_landmark = StandardMaterial3D.new()
@@ -716,7 +721,8 @@ func set_tod(t: int) -> void:
 		0:
 			sun.rotation_degrees = Vector3(-52, -35, 0)
 			sun.light_color = Color(1.0, 0.96, 0.88)
-			sun.light_energy = 1.7
+			# 1.7 clipped pale walls facing the sun to flat white
+			sun.light_energy = 1.35
 			sky_mat.sky_top_color = Color(0.32, 0.55, 0.85)
 			sky_mat.sky_horizon_color = Color(0.72, 0.82, 0.9)
 			sky_mat.ground_horizon_color = Color(0.6, 0.66, 0.6)
