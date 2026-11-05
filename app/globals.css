@@ -2177,3 +2177,44 @@ input[type="range"].range-red::-moz-range-thumb {
 /* the way back to the main menu stays reachable during the map intro
    (the intro overlay covers the frame at z-150 while the city builds) */
 .kw-map-frame .city-main-menu-button { z-index: 160 !important; }
+
+/* ── 3D city loading panel ─────────────────────────────────────────── */
+.city-loading { position: absolute; left: 50%; bottom: 11%; transform: translateX(-50%); width: min(520px, calc(100% - 40px)); padding: 14px 18px 12px; border-radius: 16px;
+  background: rgb(8 20 38 / .86); border: 1px solid rgb(120 180 255 / .35); box-shadow: 0 12px 40px rgb(0 0 0 / .45), 0 0 30px rgb(64 156 255 / .15);
+  backdrop-filter: blur(10px); font-family: 'Inter', system-ui, sans-serif; color: #fff; z-index: 5; }
+.city-loading__title { font-size: 22px; font-weight: 900; letter-spacing: .12em; text-align: center; color: #fff; text-shadow: 0 2px 12px rgb(64 156 255 / .6); }
+.city-loading__row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; font-size: 12px; font-weight: 700; color: rgb(255 255 255 / .78); }
+.city-loading__row b { font-size: 16px; color: #ffcc29; font-variant-numeric: tabular-nums; }
+.city-loading__track { position: relative; margin-top: 6px; height: 12px; border-radius: 999px; overflow: hidden; background: rgb(255 255 255 / .1); box-shadow: inset 0 1px 3px rgb(0 0 0 / .5); }
+.city-loading__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #1a8fe0, #5cc8ff 60%, #ffcc29); box-shadow: 0 0 12px rgb(92 200 255 / .7); }
+.city-loading__shine { position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .35), transparent); animation: cityLoadShine 1.3s linear infinite; will-change: transform; }
+@keyframes cityLoadShine { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+.city-loading__tip { margin-top: 9px; font-size: 12px; line-height: 1.4; text-align: center; color: rgb(255 255 255 / .82); animation: introFade .4s ease-out; }
+.city-loading--compact { bottom: 16px; padding: 10px 14px; }
+.city-loading--compact .city-loading__title { font-size: 16px; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .city-loading { bottom: 6%; padding: 10px 14px 9px; width: min(460px, calc(100% - 40px)); }
+  .city-loading__title { font-size: 17px; }
+  .city-loading__row { font-size: 10px; margin-top: 5px; } .city-loading__row b { font-size: 13px; }
+  .city-loading__track { height: 9px; } .city-loading__tip { font-size: 10px; margin-top: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .city-loading__shine { animation: none; } }
+/* intro map interactivity */
+.city-intro-state { transition: fill .2s ease, stroke .2s ease; cursor: pointer; }
+.city-intro-state:hover, .city-intro-state.is-hot { fill: #2b7356; }
+.city-intro-home { animation: introHomePulse 1.6s ease-in-out infinite; }
+@keyframes introHomePulse { 0%, 100% { fill: #2f6b4a; } 50% { fill: #3f8f5f; } }
+.city-intro-seat { cursor: pointer; transition: fill .15s ease; }
+.city-intro-seat:hover, .city-intro-seat.is-hot { fill: rgb(92 200 255 / .32); }
+.city-intro-myseat { animation: introSeatPulse 1.2s ease-in-out infinite; }
+@keyframes introSeatPulse { 0%, 100% { fill: rgb(255 204 41 / .35); } 50% { fill: rgb(255 204 41 / .7); } }
+.city-intro-tip { position: absolute; z-index: 6; transform: translate(-50%, calc(-100% - 12px)); padding: 6px 10px; border-radius: 10px; pointer-events: none; white-space: nowrap;
+  background: rgb(8 20 38 / .92); border: 1px solid rgb(255 204 41 / .6); color: #fff; font: 800 12px 'Inter', system-ui, sans-serif; box-shadow: 0 6px 18px rgb(0 0 0 / .4); }
+.city-intro-tip small { display: block; font-weight: 600; font-size: 10px; color: rgb(255 255 255 / .7); }
+.city-intro-card { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); z-index: 6; padding: 10px 14px; border-radius: 14px; max-width: 280px;
+  background: rgb(8 20 38 / .84); border: 1px solid rgb(120 180 255 / .35); color: #fff; font-family: 'Inter', system-ui, sans-serif; box-shadow: 0 8px 24px rgb(0 0 0 / .4); animation: introFade .4s ease-out; }
+@keyframes introFade { from { opacity: 0; } to { opacity: 1; } }
+.city-intro-card b { font-size: 18px; font-weight: 900; letter-spacing: .04em; }
+.city-intro-card p { margin-top: 3px; font-size: 11px; color: rgb(255 255 255 / .78); }
+.city-intro-card .is-mine { color: #ffcc29; font-weight: 800; }
+@media (orientation: landscape) and (max-height: 500px) { .city-intro-card { padding: 7px 10px; max-width: 230px; } .city-intro-card b { font-size: 14px; } .city-intro-card p { font-size: 9.5px; } }
