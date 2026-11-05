@@ -156,6 +156,11 @@ func _configure(p: Dictionary) -> void:
 	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
 	party_abbr = str(p.get("partyAbbr", ""))
 	seat_name = str(p.get("name", ""))
+	shape_k = PackedFloat32Array()
+	var sh = p.get("shape", [])
+	if sh is Array and sh.size() >= 12:
+		for v in sh:
+			shape_k.append(clampf(float(v), 0.45, 2.2))
 	var d := float(p.get("density", 0.9))
 	var kl := bool(traits.get("klLandmarks", false)) or bool(traits.get("bukitBintang", false))
 	landmarks = bool(traits.get("bukitBintang", false))
@@ -868,8 +873,35 @@ func _radial_angle(k: int, r: float) -> float:
 	return _rad_ang[k] + 0.16 * sin(r * 0.011 + _rad_ph[k]) + 0.06 * sin(r * 0.027 + _rad_ph[k] * 2.0)
 
 
+## The seat's real outline as a radius factor per bearing (72 samples, 5°
+## apart, mean 1). Every polar placement (arterials, ring roads, estates,
+## zone bands) stretches by it, so the built-up area takes the boundary's
+## shape instead of a circle; buildings themselves keep their size.
+var shape_k := PackedFloat32Array()
+
+func _shape(a: float) -> float:
+	var n := shape_k.size()
+	if n == 0:
+		return 1.0
+	var f := fposmod(a, TAU) / TAU * n
+	var i := int(floor(f)) % n
+	return lerpf(shape_k[i], shape_k[(i + 1) % n], f - floor(f))
+
+
 func _polar(r: float, a: float) -> Vector3:
+	var k := _shape(a)
+	return Vector3(cos(a) * r * k, 0, sin(a) * r * k)
+
+
+## Polar without the seat outline (local rings, far scenery).
+func _polar_raw(r: float, a: float) -> Vector3:
 	return Vector3(cos(a) * r, 0, sin(a) * r)
+
+
+## Distance from the centre in "outline units": 1 * r_city on the boundary
+## in every direction.
+func _shape_r(p: Vector3) -> float:
+	return Vector2(p.x, p.z).length() / _shape(atan2(p.z, p.x))
 
 
 func _arc_r(arc: Dictionary, a: float) -> float:
@@ -1410,7 +1442,7 @@ func _build_lrt() -> void:
 		var s := 150.0
 		while s < length - 60.0:
 			var p := c.sample_baked(s)
-			if p.length() < r_taman:
+			if _shape_r(p) < r_taman:
 				var t := (c.sample_baked(s + 1.0) - p).normalized()
 				_lrt_station(p, atan2(-t.z, t.x))
 			s += 300.0
@@ -1453,7 +1485,7 @@ func _landmark_at(kind: String, target: Vector3, size: float) -> void:
 	for ring in 30:
 		var steps := maxi(1, ring * 8)
 		for k in steps:
-			var c := target + _polar(ring * 4.0, TAU * k / steps)
+			var c := target + _polar_raw(ring * 4.0, TAU * k / steps)
 			var yaw := atan2(c.x, c.z)
 			if not _rect_free(c, yaw, size, size):
 				continue
@@ -1613,7 +1645,7 @@ func _terrace() -> Dictionary:
 ## to the KLCC -> Merdeka corridor, so the real CBD's towers run between
 ## the two instead of stopping at a ring round the twin towers.
 func _urban_r(p: Vector3) -> float:
-	var r := Vector2(p.x, p.z).length()
+	var r := _shape_r(p)
 	if cbd_axis == Vector3.ZERO:
 		return r
 	var ax := Vector2(cbd_axis.x, cbd_axis.z)
@@ -1795,7 +1827,7 @@ func _fill_trees() -> void:
 				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
 				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
 	if bool(traits.get("kinabalu", false)):
-		var mp := _polar(2600.0, feature_turn + PI * 0.5)
+		var mp := _polar_raw(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
 		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))
 
@@ -1811,7 +1843,7 @@ func _paddy_fields() -> void:
 		var v := -reach
 		while v < reach:
 			var c := b * Vector3(u, 0, v)
-			var r := c.length()
+			var r := _shape_r(c)
 			if r > r_city * 0.85 and r < reach and _rect_free(c, yaw, 40, 30):
 				_mark_rect(c, yaw, 40, 30)
 				lots.append({"p": c, "kind": "paddy", "yaw": yaw, "w": 40.0, "d": 30.0})

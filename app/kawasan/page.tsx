@@ -24,7 +24,7 @@ import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
 import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
-import { boundaryShape, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
+import { boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2704,10 +2704,14 @@ export default function KawasanDevelopmentPage() {
     : t(lang, "kawasan_page.rural");
 
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
+  // the seat's official boundary (DOSM), for the city's outline
+  const [seatOutline, setSeatOutline] = useState<Boundary | null>(null);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
-    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits }),
-    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr],
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits,
+      // the seat's real outline, so the city fills its shape (see city.gd shape_k)
+      shape: seatOutline ? boundaryShapeK(seatOutline) : undefined }),
+    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline],
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
@@ -2718,6 +2722,7 @@ export default function KawasanDevelopmentPage() {
     const manual = seatGeo(ownSeat.name);
     loadSeatBoundary(ownSeat.code, homeState.id, ownSeat.name).then((boundary) => {
       if (!alive) return;
+      setSeatOutline(boundary);
       if (boundary) {
         const shape = boundaryShape(boundary);
         setIntroGeo({ lat: shape.lat, lon: shape.lon, district: manual?.district ?? "", towns: manual?.towns ?? [], boundary });
