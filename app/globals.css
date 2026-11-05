@@ -2000,3 +2000,11 @@ input[type="range"].range-red::-moz-range-thumb {
   .city-seat-chip { left: 16px; bottom: 58px; max-width: calc(50% - 150px); font-size: 9px !important; }
 }
 
+/* Setup wizard: a centred column clear of the notch / home-bar sides,
+   not an edge-to-edge sheet. */
+.setup-screen, .setup-nav { padding-left: max(16px, calc(env(safe-area-inset-left, 0px) + 12px)) !important; padding-right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px)) !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .setup-body, .setup-ultimate { max-width: 680px !important; }
+  .setup-ultimate { margin-left: auto !important; margin-right: auto !important; }
+}
+
