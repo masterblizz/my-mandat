@@ -1459,7 +1459,7 @@ export default function LocationPage() {
       style={{ fontFamily: "'Space Mono', monospace" }}
     >
       <Header />
-      <main className="location-main relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
+      <main className="location-main navy-room relative h-[calc(100vh-30px)] min-h-[650px] pt-[40px]">
         {war3d ? (
           <div className="absolute inset-0 z-0 pt-[40px]">
             <GodotWorld scene={scene3d!} state={warState} onOpen={openWarInteraction}

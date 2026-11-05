@@ -2177,3 +2177,75 @@ input[type="range"].range-red::-moz-range-thumb {
 /* the way back to the main menu stays reachable during the map intro
    (the intro overlay covers the frame at z-150 while the city builds) */
 .kw-map-frame .city-main-menu-button { z-index: 160 !important; }
+
+/* ── Navy rooms: office + location interiors in the 3D-city style ─────
+   Same palette as the city HUD: navy glass panels, white bold sans,
+   yellow accents, glossy pill buttons (gold = main action, mint = go),
+   glossy tiles for the side dock. Scoped to .navy-room only. */
+.navy-room {
+  --bg-rgb: 14 26 48; --cyan-rgb: 92 190 255; --gold-rgb: 255 204 41;
+  --text-primary: #fff; --text-muted: rgb(255 255 255 / .72);
+  --nh-panel: rgb(14 26 48 / .88); --nh-edge: rgb(140 190 255 / .3); --nh-yellow: #ffcc29;
+}
+.navy-room, .navy-room * { font-family: 'Inter', system-ui, sans-serif !important; }
+.navy-room [class*="tracking-"] { letter-spacing: .03em !important; }
+.navy-room .text-cyan { color: #8fd3ff !important; }
+/* panels */
+.navy-room :is(section, aside, [role="dialog"], [role="status"], .office-hud, .office-actionbar, .office-sheet, .office-modal, .office-decision, div.border.shadow-2xl, div.border.shadow-xl) {
+  border-radius: 16px !important; border: 1px solid var(--nh-edge) !important;
+  background: var(--nh-panel) !important; backdrop-filter: blur(12px) !important;
+  box-shadow: 0 10px 28px rgb(0 0 0 / .4) !important; color: #fff;
+}
+.navy-room :is(section, [role="dialog"], .office-sheet, .office-modal) :is(section, [role="status"], div.border.shadow-2xl, div.border.shadow-xl) { box-shadow: none !important; background: rgb(255 255 255 / .04) !important; }
+.navy-room :is(section, [role="dialog"], .office-sheet, .office-modal, .office-actionbar) div.border:not(.shadow-2xl):not(.shadow-xl) { border-radius: 12px !important; border-color: rgb(255 255 255 / .12) !important; background: rgb(255 255 255 / .04) !important; }
+.navy-room h1, .navy-room h2, .navy-room h3 { font-weight: 900 !important; letter-spacing: .01em !important; }
+/* buttons: glossy pills */
+.navy-room :is(button, a).border:not(.city-tool):not([role="tab"]):not([role="radio"]) {
+  border-radius: 999px !important; border: 2px solid rgb(255 255 255 / .5) !important;
+  font-weight: 900 !important; font-size: 12px !important; text-transform: none; letter-spacing: .02em !important;
+  color: #0d2a1c !important; background: linear-gradient(180deg, #f3fbef, #cfe9cf) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .55), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #6f9a78, 0 6px 14px rgb(0 0 0 / .3) !important;
+  transition: transform .12s ease, filter .12s ease;
+}
+.navy-room.navy-room :is(button, a).border:is([style*="gold"], .text-gold, .bg-gold, [class*="bg-gold"]):not(.city-tool):not([role="tab"]) {
+  color: #2a1a00 !important; background: linear-gradient(180deg, #ffe066, #f5a90f) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #a86c00, 0 6px 14px rgb(0 0 0 / .3) !important;
+}
+.navy-room.navy-room :is(button, a).border:is([style*="red"], .text-neon-red):not(.city-tool):not([role="tab"]) {
+  color: #fff !important; background: linear-gradient(180deg, #ff7a7a, #d63a3a) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .4), 0 3px 0 #8e1f1f, 0 6px 14px rgb(0 0 0 / .3) !important;
+}
+.navy-room :is(button, a).border:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.navy-room :is(button, a).border:active:not(:disabled) { transform: translateY(2px); }
+.navy-room :is(button, a).border:disabled { filter: grayscale(.6); opacity: .5; }
+/* list rows that are buttons (inbox items, options) stay as soft cards */
+.navy-room :is(section, [role="dialog"], .office-sheet, .office-modal) button:not(.border):not(.city-tool) { border-radius: 12px; }
+/* side dock: glossy navy tiles */
+.navy-room .city-tool {
+  width: 52px !important; height: 52px !important; border-radius: 16px !important;
+  border: 2px solid rgb(255 255 255 / .35) !important;
+  background: linear-gradient(180deg, #2f5fa8, #17305e) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .35), inset 0 -4px 0 rgb(0 0 0 / .25), 0 4px 0 #0d1d3a, 0 8px 18px rgb(0 0 0 / .4) !important;
+}
+.navy-room .city-tool span { font-size: 24px !important; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .45)); }
+.navy-room .city-tool[aria-pressed="true"] { background: linear-gradient(180deg, #ffe066, #f5a90f) !important; box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), 0 4px 0 #a86c00, 0 8px 18px rgb(245 169 15 / .4) !important; }
+/* tabs */
+.navy-room [role="tab"] { border-radius: 999px; }
+.navy-room [role="tab"][aria-selected="true"] { background: rgb(255 204 41 / .16) !important; color: #ffcc29 !important; }
+/* office HUD title */
+.navy-room .office-hud h1 { font-size: 17px !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .navy-room .city-tool { width: 42px !important; height: 42px !important; border-radius: 13px !important; }
+  .navy-room .city-tool span { font-size: 19px !important; }
+  .navy-room :is(button, a).border:not(.city-tool):not([role="tab"]):not([role="radio"]) { font-size: 10.5px !important; }
+  .navy-room .office-hud h1 { font-size: 13px !important; }
+}
+/* the page header and status bar around a navy room */
+body:has(.navy-room) .app-header { background: rgb(10 20 40 / .92) !important; border-bottom: 1px solid rgb(140 190 255 / .25) !important; backdrop-filter: blur(10px); }
+body:has(.navy-room) .app-header, body:has(.navy-room) .app-header * { font-family: 'Inter', system-ui, sans-serif !important; letter-spacing: .04em !important; }
+body:has(.navy-room) .app-header :is(a, button) { border-radius: 999px !important; border: 1px solid rgb(140 190 255 / .35) !important; background: rgb(255 255 255 / .06) !important; color: #fff !important; font-weight: 800 !important; padding: 3px 12px !important; }
+body:has(.navy-room) .app-statusbar { background: rgb(10 20 40) !important; border-top: 1px solid rgb(140 190 255 / .2) !important; }
+/* filled gold action (office "+7 HARI · SUKU") and the intro skip */
+.navy-room button.bg-gold { border-radius: 999px !important; border: 2px solid rgb(255 255 255 / .5) !important; color: #2a1a00 !important; font-size: 12px !important; font-weight: 900 !important;
+  background: linear-gradient(180deg, #ffe066, #f5a90f) !important; box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #a86c00, 0 6px 14px rgb(0 0 0 / .3) !important; }
+.navy-room .world-intro-skip { top: auto !important; bottom: 96px !important; z-index: 60 !important; }
