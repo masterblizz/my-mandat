@@ -55,18 +55,18 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     }).catch(() => setPaths([]));
   }, []);
 
-  // stage timeline: Malaysia 0.5 s → state (0.9 s zoom, then holds while
+  // stage timeline, 0.5 s a step: Malaysia → state zoom (then holds while
   // the 3D city builds — generation blocks the page, so no zoom runs then)
-  // → seat 2.4 s → dive 1.3 s
+  // → seat zoom + 0.5 s on the name card → dive → fade
   useEffect(() => {
     // the state zoom runs straight away (before the 3D build starts and
     // blocks the page); the state view then holds until the city is ready
     if (stage === 0) { const id = window.setTimeout(() => setStage(1), 500); return () => window.clearTimeout(id); }
     if (stage === 1 && ready) { const id = window.setTimeout(() => setStage(2), 500); return () => window.clearTimeout(id); }
-    if (stage === 2) { const id = window.setTimeout(() => setStage(3), 2400); return () => window.clearTimeout(id); }
+    if (stage === 2) { const id = window.setTimeout(() => setStage(3), 1000); return () => window.clearTimeout(id); }
     if (stage === 3) {
       onFlyIn();
-      const id = window.setTimeout(() => { setGone(true); window.setTimeout(onDone, 700); }, 1300);
+      const id = window.setTimeout(() => { setGone(true); window.setTimeout(onDone, 500); }, 500);
       return () => window.clearTimeout(id);
     }
   }, [stage, ready]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -74,7 +74,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   // camera: glide the viewBox between stage boxes (log-scaled width)
   useEffect(() => {
     const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? [px + 30, py + 18, 120] : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
-    const dur = stage === 3 ? 1300 : stage === 1 ? 900 : 1200;
+    const dur = 500; // every zoom 0.5 s
     from.current = box;
     startedAt.current = performance.now();
     let raf = 0;
@@ -94,7 +94,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const s = box[2] / 1000; // stroke / label scale with the zoom
 
   return (
-    <div className="pointer-events-auto absolute inset-0 z-[150] overflow-hidden transition-opacity duration-700"
+    <div className="pointer-events-auto absolute inset-0 z-[150] overflow-hidden transition-opacity duration-500"
       style={{ opacity: gone ? 0 : 1, background: "radial-gradient(ellipse at 50% 45%, #0d2a3c, #04101b 75%)", fontFamily: "'Space Mono', monospace" }}>
       <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
         <defs>
