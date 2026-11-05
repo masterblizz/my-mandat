@@ -113,7 +113,25 @@ func _on_js_state(args: Array) -> void:
 
 
 ## Tells the game the seat's city has finished building (the intro waits for it).
+func _probe_land() -> void:
+	var ok := 0
+	var free := 0
+	var tried := 0
+	for i in 400:
+		var p: Vector3 = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * float(city.reach_r)
+		if not city.in_seat(p):
+			continue
+		tried += 1
+		if city.land_free(p, 30.0, 30.0):
+			free += 1
+			if city.access_road(p).size() == 2:
+				ok += 1
+	print("LANDPROBE tried=", tried, " free=", free, " reachable=", ok)
+
+
 func post_built() -> void:
+	if "--probe-land" in OS.get_cmdline_user_args():
+		_probe_land()
 	if _embedded:
 		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built' }, '*')", true)
 

@@ -1605,12 +1605,13 @@ func access_road(c: Vector3) -> Array:
 		var half: float = cands[k][2]
 		var dir := Vector3(q.x - c.x, 0, q.z - c.z).normalized()
 		var from := c + dir * 15.5
-		var stop := Vector2(q.x - from.x, q.z - from.z).length() - (half + 2.0)
+		# stop short of the road's own kerb and pavement (marked half + 2.6)
+		var stop := Vector2(q.x - from.x, q.z - from.z).length() - (half + 4.5)
 		var ok := stop > 0.0
 		var s := 0.0
 		while ok and s < stop:
 			var p := from + dir * s
-			var side := Vector3(-dir.z, 0, dir.x) * 4.0
+			var side := Vector3(-dir.z, 0, dir.x) * 3.0
 			for e in [p, p + side, p - side]:
 				var ci := _cell(e)
 				if ci < 0 or occ[ci] == 1 or not in_seat(e):
