@@ -156,6 +156,17 @@ func _configure(p: Dictionary) -> void:
 	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
 	party_abbr = str(p.get("partyAbbr", ""))
 	seat_name = str(p.get("name", ""))
+	seat_poly_n = []
+	var poly = p.get("outline", [])
+	if poly is Array:
+		for ring in poly:
+			if ring is Array and ring.size() >= 6:
+				var r2 := PackedVector2Array()
+				var k := 0
+				while k + 1 < ring.size():
+					r2.append(Vector2(float(ring[k]), float(ring[k + 1])))
+					k += 2
+				seat_poly_n.append(r2)
 	shape_k = PackedFloat32Array()
 	var sh = p.get("shape", [])
 	if sh is Array and sh.size() >= 12:
@@ -212,6 +223,22 @@ func _configure(p: Dictionary) -> void:
 	var kmax := 1.0
 	for v in shape_k:
 		kmax = maxf(kmax, v)
+	for ring in seat_poly_n:
+		for v in ring:
+			kmax = maxf(kmax, (v as Vector2).length())
+	# the whole seat must fit the occupancy raster: shrink it evenly if not
+	if r_city * kmax > EXT - 60.0:
+		var fit := (EXT - 60.0) / (r_city * kmax)
+		r_core *= fit
+		r_commercial *= fit
+		r_taman *= fit
+		r_city *= fit
+	seat_poly = []
+	for ring in seat_poly_n:
+		var w2 := PackedVector2Array()
+		for v in ring:
+			w2.append((v as Vector2) * r_city)
+		seat_poly.append(w2)
 	reach_r = r_city * kmax
 	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
@@ -241,6 +268,7 @@ func _build() -> void:
 	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
+	_mask_outside()
 	roads = []
 	lots = []
 	town_centre = Vector3.ZERO
@@ -284,9 +312,67 @@ func _build() -> void:
 	$Birds.setup(self)
 	$Zones.relayout()
 	_billboards()
+	_build_outline()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
 	$Zones.post_built()
+
+
+## The seat boundary as a glowing gold ribbon on the ground (the same
+## outline as the game's map), shown by the aerial intro and faded out as
+## the camera comes down. Hidden otherwise.
+var outline: MeshInstance3D
+var _outline_mat: StandardMaterial3D
+
+func _build_outline() -> void:
+	if outline == null:
+		outline = MeshInstance3D.new()
+		_outline_mat = StandardMaterial3D.new()
+		_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_outline_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_outline_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_outline_mat.no_depth_test = true
+		_outline_mat.render_priority = 12
+		_outline_mat.albedo_color = Color(1.0, 0.8, 0.16, 0.0)
+		outline.material_override = _outline_mat
+		add_child(outline)
+	var rings := []
+	if not seat_poly.is_empty():
+		for ring in seat_poly:
+			var r3 := []
+			for v in ring:
+				r3.append(Vector3(v.x, 0, v.y))
+			rings.append(r3)
+	else:
+		var r3 := []
+		for i in 144:
+			r3.append(_polar(r_city * 1.04, TAU * i / 144.0))
+		rings.append(r3)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var w := maxf(5.0, r_city * 0.008)
+	var y := Vector3(0, 2.0, 0)
+	for pts in rings:
+		var n: int = pts.size()
+		for i in n:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[(i + 1) % n]
+			if p0.distance_to(p1) < 0.01:
+				continue
+			var d := (p1 - p0).normalized()
+			var side := Vector3(-d.z, 0, d.x) * w
+			st.add_vertex(p0 - side + y); st.add_vertex(p0 + side + y); st.add_vertex(p1 + side + y)
+			st.add_vertex(p0 - side + y); st.add_vertex(p1 + side + y); st.add_vertex(p1 - side + y)
+	outline.mesh = st.commit()
+	# the boundary stays faintly marked on the ground after the intro
+	set_outline_alpha(0.3)
+
+
+func set_outline_alpha(a: float) -> void:
+	if outline == null:
+		return
+	outline.visible = a > 0.01
+	_outline_mat.albedo_color.a = clampf(a, 0.0, 1.0)
 
 
 ## Campaign billboards: big posters in the player's party colour on the
@@ -621,6 +707,22 @@ func _smooth_curve(pts: Array) -> Curve3D:
 	return c
 
 
+## Nearest point on the river (ground plane) and the river's direction there.
+func _river_near(p: Vector3) -> Array:
+	var best := INF
+	var bq := Vector3.ZERO
+	var bt := Vector3.RIGHT
+	var q0 := Vector3(p.x, 0, p.z)
+	for k in river_pts.size() - 1:
+		var a := Vector3(river_pts[k].x, 0, river_pts[k].z)
+		var b := Vector3(river_pts[k + 1].x, 0, river_pts[k + 1].z)
+		var c := Geometry3D.get_closest_point_to_segment(q0, a, b)
+		var d := q0.distance_to(c)
+		if d < best:
+			best = d; bq = c; bt = (b - a).normalized()
+	return [bq, bt]
+
+
 func _dist_to(pts: PackedVector3Array, p: Vector3) -> float:
 	var best := INF
 	if pts.is_empty():
@@ -894,6 +996,69 @@ func _radial_angle(k: int, r: float) -> float:
 ## zone bands) stretches by it, so the built-up area takes the boundary's
 ## shape instead of a circle; buildings themselves keep their size.
 var shape_k := PackedFloat32Array()
+## The seat's real boundary in world units (one PackedVector2Array per
+## ring, x east / y = world z south), built from the page's normalised
+## outline times r_city. Nothing is built outside it except the coast and
+## sea: the occupancy raster starts "taken" outside, and roads, river,
+## expressway and LRT are clipped to it.
+var seat_poly_n := []          # normalised rings from the profile
+var seat_poly := []            # in world units, after r_city is known
+
+func in_seat(p: Vector3) -> bool:
+	if seat_poly.is_empty():
+		return true
+	var q := Vector2(p.x, p.z)
+	for ring in seat_poly:
+		if Geometry2D.is_point_in_polygon(q, ring):
+			return true
+	return false
+
+
+## Mark every occupancy cell outside the boundary as taken (scanline fill).
+func _mask_outside() -> void:
+	if seat_poly.is_empty():
+		return
+	occ.fill(1)
+	var xs := PackedFloat32Array()
+	for iz in GN:
+		var z := -EXT + (iz + 0.5) * CELL
+		xs.clear()
+		for ring in seat_poly:
+			var n: int = ring.size()
+			for k in n:
+				var a: Vector2 = ring[k]
+				var b: Vector2 = ring[(k + 1) % n]
+				if (a.y <= z and b.y > z) or (b.y <= z and a.y > z):
+					xs.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
+		if xs.size() < 2:
+			continue
+		xs.sort()
+		var row := iz * GN
+		var k2 := 0
+		while k2 + 1 < xs.size():
+			var i0 := clampi(int((xs[k2] + EXT) / CELL), 0, GN)
+			var i1 := clampi(int((xs[k2 + 1] + EXT) / CELL), 0, GN)
+			for ix in range(i0, i1):
+				occ[row + ix] = 0
+			k2 += 2
+
+
+## Draw a polyline only where it is inside the seat, as separate runs.
+func _inside_runs(pts: PackedVector3Array) -> Array:
+	if seat_poly.is_empty():
+		return [pts]
+	var runs := []
+	var cur := PackedVector3Array()
+	for p in pts:
+		if in_seat(p):
+			cur.append(p)
+		elif cur.size() > 0:
+			if cur.size() > 1:
+				runs.append(cur)
+			cur = PackedVector3Array()
+	if cur.size() > 1:
+		runs.append(cur)
+	return runs
 var reach_r := 560.0      # farthest built-up edge (r_city along the longest bearing)
 var pan_limit := 605.0    # camera pan bound, from the real city extent
 
@@ -1175,15 +1340,18 @@ func _make_road(ctrl: Array, cls: int) -> void:
 	cum[0] = 0.0
 	for i in range(1, pts.size()):
 		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
-	# over-water stretches: crossings stay as bridges, a long run along
-	# the river is dropped
+	# over the river: a short run is a crossing and stays as a bridge; a
+	# long run (the road runs along the river) is moved onto the bank it
+	# is on, so the road keeps going as a riverside road instead of being
+	# cut into dead ends. Where it changes bank, the step between is a
+	# bridge.
+	var half_w: float = ROAD_HALF[cls]
 	var wet := PackedByteArray()
 	wet.resize(pts.size())
-	for i in pts.size():
-		wet[i] = 1 if _dist_to(river_pts, pts[i]) < RIVER_HALF + 3.0 else 0
-	var gaps := PackedByteArray()
-	gaps.resize(pts.size())
+	for k in pts.size():
+		wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
 	var i := 0
+	var moved := false
 	while i < pts.size():
 		if wet[i] == 0:
 			i += 1
@@ -1192,9 +1360,42 @@ func _make_road(ctrl: Array, cls: int) -> void:
 		while e < pts.size() and wet[e] == 1:
 			e += 1
 		if e - i > 12:
-			for j in range(i, e):
-				gaps[j] = 1
+			# ease in/out of the bank over a few points either side
+			var lo := maxi(0, i - 4)
+			var hi := mini(pts.size(), e + 4)
+			for k in range(lo, hi):
+				var nt := _river_near(pts[k])
+				var q: Vector3 = nt[0]
+				var tan: Vector3 = nt[1]
+				var off := Vector3(pts[k].x - q.x, 0, pts[k].z - q.z)
+				var side := signf(tan.cross(off).y)
+				if side == 0.0:
+					side = 1.0
+				var normal := Vector3(-tan.z, 0, tan.x) * -side
+				var want := RIVER_HALF + half_w + 6.0
+				var d := off.length()
+				if d < want:
+					var w := 1.0
+					if k < i:
+						w = float(k - lo + 1) / float(i - lo + 1)
+					elif k >= e:
+						w = float(hi - k) / float(hi - e + 1)
+					var target := Vector3(q.x, pts[k].y, q.z) + normal * want
+					pts[k] = pts[k].lerp(target, w)
+			moved = true
 		i = e
+	if moved:
+		for k in range(1, pts.size()):
+			cum[k] = cum[k - 1] + pts[k].distance_to(pts[k - 1])
+		for k in pts.size():
+			wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
+	var gaps := PackedByteArray()
+	gaps.resize(pts.size())
+	# outside the seat boundary the road is not drawn (and cars hide there)
+	if not seat_poly.is_empty():
+		for k in pts.size():
+			if not in_seat(pts[k]):
+				gaps[k] = 1
 	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
 	roads.append(rd)
 	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
@@ -1355,6 +1556,30 @@ func _turn(pts: Array) -> Array:
 	return out
 
 
+## Continue a curve straight out past both ends until each end is at
+## least `reach` from the centre (adds smooth extra control points).
+func _extend_curve(c: Curve3D, reach: float) -> Curve3D:
+	var pts := []
+	for i in c.point_count:
+		pts.append(c.get_point_position(i))
+	if pts.size() < 2:
+		return c
+	for end in [0, 1]:
+		var a: Vector3 = pts[0] if end == 0 else pts[pts.size() - 1]
+		var b: Vector3 = pts[1] if end == 0 else pts[pts.size() - 2]
+		var dir := (a - b).normalized()
+		var p := a
+		var guard := 0
+		while Vector2(p.x, p.z).length() < reach and guard < 40:
+			p += dir * 160.0
+			guard += 1
+			if end == 0:
+				pts.push_front(p)
+			else:
+				pts.append(p)
+	return _smooth_curve(pts)
+
+
 func in_sea(p: Vector3) -> bool:
 	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > r_city + 80.0
 
@@ -1368,6 +1593,10 @@ func _build_features() -> void:
 		Vector3(-300, 0, -640), Vector3(-130, 0, -400), Vector3(80, 0, -230), Vector3(200, 0, -70),
 		Vector3(215, 0, 85), Vector3(160, 0, 230), Vector3(210, 0, 420), Vector3(360, 0, 640),
 	]))
+	# the city is drawn at its real size and outline now, so the river and
+	# expressway must run right through it and out the other side
+	river = _extend_curve(river, reach_r * 1.4)
+	highway_curve = _extend_curve(highway_curve, reach_r * 1.4)
 	# coarse polylines (16 m) for distance checks, fine ones (4 m) to draw
 	river.bake_interval = 16.0
 	highway_curve.bake_interval = 16.0
@@ -1380,12 +1609,14 @@ func _build_features() -> void:
 
 	var wst := SurfaceTool.new()
 	wst.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_ribbon(wst, river_fine, RIVER_HALF, 0.03, Color.WHITE)
+	for run in _inside_runs(river_fine):
+		_ribbon(wst, run, RIVER_HALF, 0.03, Color.WHITE)
 	var wmi := MeshInstance3D.new()
 	wmi.mesh = wst.commit()
 	wmi.material_override = mat_water
 	gen.add_child(wmi)
-	_ribbon(ground_st, river_fine, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
+	for run in _inside_runs(river_fine):
+		_ribbon(ground_st, run, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
 	_mark_polyline(river_fine, RIVER_HALF + 6.0)
 
 	# coastal seats: open sea beyond a beach on one side
@@ -1403,9 +1634,10 @@ func _build_features() -> void:
 		return
 
 	# expressway: kerbed carriageway, central median with lamps, lane dashes
-	_ribbon(ground_st, highway_fine, HIGHWAY_HALF + 1.2, 0.26, C_CONCRETE)
-	_ribbon(ground_st, highway_fine, HIGHWAY_HALF, 0.3, Color(0.2, 0.21, 0.22))
-	_ribbon(ground_st, highway_fine, 0.8, 0.45, Color(0.78, 0.77, 0.74))
+	for run in _inside_runs(highway_fine):
+		_ribbon(ground_st, run, HIGHWAY_HALF + 1.2, 0.26, C_CONCRETE)
+		_ribbon(ground_st, run, HIGHWAY_HALF, 0.3, Color(0.2, 0.21, 0.22))
+		_ribbon(ground_st, run, 0.8, 0.45, Color(0.78, 0.77, 0.74))
 	_mark_polyline(highway_fine, HIGHWAY_HALF + 4.0)
 	var length := highway_curve.get_baked_length()
 	var o := 0.0
@@ -1447,6 +1679,8 @@ func _build_lrt() -> void:
 			var yaw := atan2(-t.z, t.x)
 			var n := Vector3(-t.z, 0, t.x)
 			var mid := (a + b) * 0.5
+			if not in_seat(mid):
+				continue
 			box(mid + Vector3(0, LRT_Y, 0), Vector3(L + 0.3, 1.3, 6.0), concrete, null, yaw)
 			for sd in [-1.0, 1.0]:
 				box(mid + n * sd * 2.9 + Vector3(0, LRT_Y + 1.3, 0), Vector3(L + 0.3, 0.8, 0.2), concrete, null, yaw)
@@ -1460,7 +1694,7 @@ func _build_lrt() -> void:
 		var s := 150.0
 		while s < length - 60.0:
 			var p := c.sample_baked(s)
-			if _shape_r(p) < r_taman:
+			if _shape_r(p) < r_taman and in_seat(p):
 				var t := (c.sample_baked(s + 1.0) - p).normalized()
 				_lrt_station(p, atan2(-t.z, t.x))
 			s += 300.0
@@ -1805,7 +2039,7 @@ func _fill_trees() -> void:
 		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
 		var p := _polar(r, a)
 		var ci := _cell(p)
-		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
+		if (ci >= 0 and occ[ci] == 1) or in_sea(p) or (ci < 0 and not seat_poly.is_empty()):
 			continue
 		var urban := tier in ["metro", "city"]
 		var ur := _urban_r(p)
@@ -1824,7 +2058,7 @@ func _fill_trees() -> void:
 	# only seats that really have hills get the ranges round the valley: a
 	# flat city (Bukit Bintang, Petaling Jaya) or a coastal plain stays flat
 	var push := maxf(1.0, reach_r * 1.25 / 900.0)
-	var layers := [] if not hilly else [
+	var layers := [] if (not hilly or not seat_poly.is_empty()) else [
 		{"r": Vector2(900, 1100) if hilly else Vector2(1250, 1400), "n": 30, "w": Vector2(260, 380), "h": Vector2(180, 320) if hilly else Vector2(80, 170), "c0": Color(0.2, 0.33, 0.19), "c1": Color(0.28, 0.4, 0.24)},
 		{"r": Vector2(1650, 1850), "n": 46, "w": Vector2(320, 480), "h": Vector2(180, 300) if hilly else Vector2(110, 210), "c0": Color(0.14, 0.22, 0.2), "c1": Color(0.2, 0.28, 0.27)},
 		{"r": Vector2(2300, 2600), "n": 52, "w": Vector2(420, 640), "h": Vector2(260, 420) if hilly else Vector2(170, 300), "c0": Color(0.2, 0.26, 0.3), "c1": Color(0.26, 0.32, 0.36)},
@@ -1847,7 +2081,7 @@ func _fill_trees() -> void:
 				var sp := _polar_raw(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
 				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
 				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
-	if bool(traits.get("kinabalu", false)):
+	if bool(traits.get("kinabalu", false)) and seat_poly.is_empty():
 		var mp := _polar_raw(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
 		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))

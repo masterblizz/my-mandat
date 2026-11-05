@@ -63,8 +63,9 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     if (!ring.length) return [px + 2.5, py - 1, 22];
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const r of ring) for (const [x, y] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-    const w = Math.max((x1 - x0) * 2.2, ((y1 - y0) * 2.4) / 0.46, 6);
-    return [(x0 + x1) / 2, (y0 + y1) / 2 - w * 0.04, w];
+    // the whole seat with a margin, sitting above the loading panel
+    const w = Math.max((x1 - x0) * 2.0, ((y1 - y0) * 2.9) / 0.46, 6);
+    return [(x0 + x1) / 2, (y0 + y1) / 2 + w * 0.46 * 0.14, w];
   }, [ring, px, py]);
 
   // state label positions, once the outlines are on screen
@@ -130,8 +131,10 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     if (stage === 1 && ready) { const id = window.setTimeout(() => setStage(2), 500); return () => window.clearTimeout(id); }
     if (stage === 2) { const id = window.setTimeout(() => setStage(3), 1000); return () => window.clearTimeout(id); }
     if (stage === 3) {
+      // the 3D camera is now straight overhead, north up, showing the same
+      // outline: cross-fade the map into it instead of diving into the pin
       flyOnce();
-      const id = window.setTimeout(() => { setGone(true); window.setTimeout(onDone, 500); }, 500);
+      const id = window.setTimeout(() => { setGone(true); window.setTimeout(onDone, 900); }, 150);
       return () => window.clearTimeout(id);
     }
   }, [stage, ready]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -142,7 +145,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     const stateW = home ? Math.min(400, Math.max(home.w * 1.6, (home.h * 1.75) / 0.46)) : 120;
     // nudge down so the state sits above the loading panel
     const stateBox: Box = home ? [home.x, home.y + stateW * 0.46 * 0.12, stateW] : [px + 30, py + 18, 120];
-    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? stateBox : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
+    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? stateBox : seatBox;
     const dur = 500; // every zoom 0.5 s
     from.current = box;
     startedAt.current = performance.now();
@@ -164,7 +167,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const s = box[2] / 1000; // stroke / label scale with the zoom
 
   return (
-    <div ref={wrapRef} onPointerLeave={() => { setHot(null); setTip(null); }} className="pointer-events-auto absolute inset-0 z-[150] overflow-hidden transition-opacity duration-500"
+    <div ref={wrapRef} onPointerLeave={() => { setHot(null); setTip(null); }} className={`${gone ? "pointer-events-none" : "pointer-events-auto"} absolute inset-0 z-[150] overflow-hidden transition-opacity duration-[900ms]`}
       style={{ opacity: gone ? 0 : 1, background: "radial-gradient(ellipse at 50% 45%, #0d2a3c, #04101b 75%)", fontFamily: "'Space Mono', monospace" }}>
       <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
         <defs>

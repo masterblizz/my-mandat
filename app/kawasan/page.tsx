@@ -24,7 +24,7 @@ import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
 import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
-import { boundaryAreaKm2, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
+import { boundaryAreaKm2, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2711,12 +2711,15 @@ export default function KawasanDevelopmentPage() {
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits,
       // the seat's real outline, so the city fills its shape (see city.gd shape_k)
       shape: seatOutline ? boundaryShapeK(seatOutline) : undefined,
+      // the real boundary: nothing is built outside it (coast and sea excepted)
+      outline: seatOutline ? boundaryCityOutline(seatOutline) : undefined,
       // real area: city seats are drawn at their true size (see city.gd)
       areaKm2: seatOutline ? Math.round(boundaryAreaKm2(seatOutline) * 10) / 10 : undefined }),
     [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline],
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
+  const [aerialOn, setAerialOn] = useState(false);
   const [introGeo, setIntroGeo] = useState<SeatGeo | null>(null);
   useEffect(() => {
     if (!ownSeat || !homeState) return;
@@ -3211,7 +3214,7 @@ export default function KawasanDevelopmentPage() {
   }
 
   return (
-    <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""}`}>
+    <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""} ${aerialOn ? "city-aerial-on" : ""}`}>
       <Header />
       <CityOnboarding />
       {notice && (
@@ -3226,7 +3229,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
+                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (

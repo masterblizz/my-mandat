@@ -40,12 +40,18 @@ export type GodotCityMapProps = {
   /** Map → zoom → 3D intro to play over the city (null: none). */
   intro?: CityIntroInfo | null;
   onIntroDone?: () => void;
+  /** true while the aerial establishing shot runs (the page hides its HUD) */
+  onAerial?: (on: boolean) => void;
   setSelectedZoneId: (id: string) => void;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone, onAerial }: GodotCityMapProps) {
+  // the aerial shot: Godot holds overhead then descends (camera_rig.gd,
+  // INTRO_HOLD + INTRO_DESCENT = 5.2 s); the frame gets film letterbox bars
+  const [aerial, setAerial] = useState<{ code: string; name: string; place: string } | null>(null);
+  useEffect(() => { onAerial?.(!!aerial); }, [aerial]); // eslint-disable-line react-hooks/exhaustive-deps
   const [built, setBuilt] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
@@ -74,6 +80,8 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       const data = e.data as { type?: string; id?: unknown } | null;
       if (data?.type === "kawasan-godot-ready") setReady(true);
       else if (data?.type === "kawasan-city-built") setBuilt(true);
+      else if (data?.type === "kawasan-intro-done") setAerial(null);
+      else if (data?.type === "kawasan-view") window.dispatchEvent(new CustomEvent("kawasan-view", { detail: data }));
       else if (data?.type === "kawasan-zone-click" && typeof data.id === "string") setSelectedZoneId(data.id);
     };
     window.addEventListener("message", onMessage);
@@ -94,7 +102,12 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   }, [origin]);
   const flyIn = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-intro" }, origin);
-  }, [origin]);
+    if (intro) {
+      setAerial({ code: intro.seatCode, name: intro.seatName, place: intro.stateName });
+      // ends on Godot's kawasan-intro-done; this is only a fallback
+      window.setTimeout(() => setAerial(null), 15000);
+    }
+  }, [origin, intro]);
 
   return (
     <div className="relative h-full w-full" style={{ height, background: "rgb(var(--bg-rgb))" }}>
@@ -115,6 +128,13 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       <div aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse 80% 85% at 50% 48%, transparent 62%, rgb(6 14 26 / .18) 82%, rgb(6 14 26 / .42) 100%)" }} />
       {!intro && !built && <CityLoading lang={lang} engineReady={ready} built={built} compact />}
+      {aerial && (
+        <div aria-hidden className="city-aerial-film pointer-events-none absolute inset-0 z-[140]">
+          <div className="city-aerial-film__bar city-aerial-film__bar--top" />
+          <div className="city-aerial-film__bar city-aerial-film__bar--bottom" />
+          <div className="city-aerial-film__title"><b>{aerial.code}</b> {aerial.name}<small>{aerial.place}</small></div>
+        </div>
+      )}
       {intro && <CityIntro lang={lang} geo={intro.geo} stateId={intro.stateId} stateName={intro.stateName} seatCode={intro.seatCode} seatName={intro.seatName} density={intro.density}
         ready={built} engineReady={ready} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
     </div>

@@ -113,6 +113,19 @@ func post_built() -> void:
 		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built' }, '*')", true)
 
 
+## The camera's view for the game's mini-map (yaw in degrees, target on
+## the ground, horizontal camera-to-target distance, city radius).
+func post_view(yaw: float, x: float, z: float, dist: float, ground: float, r_city: float) -> void:
+	if _embedded:
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-view', yaw: %.1f, x: %.1f, z: %.1f, dist: %.1f, ground: %.1f, rCity: %.1f }, '*')" % [yaw, x, z, dist, ground, r_city], true)
+
+
+## The aerial intro shot has finished.
+func post_intro_done() -> void:
+	if _embedded:
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-intro-done' }, '*')", true)
+
+
 func _post_click(id: String) -> void:
 	if _embedded:
 		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-zone-click', id: %s }, '*')" % JSON.stringify(id), true)
