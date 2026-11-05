@@ -42,17 +42,22 @@ export type GodotCityMapProps = {
   onIntroDone?: () => void;
   /** true while the aerial establishing shot runs (the page hides its HUD) */
   onAerial?: (on: boolean) => void;
+  /** while placing: empty land the player tapped (world x, z), shown as a site marker */
+  landPick?: [number, number] | null;
+  onLandClick?: (x: number, z: number) => void;
   setSelectedZoneId: (id: string) => void;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone, onAerial }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone, onAerial, landPick = null, onLandClick }: GodotCityMapProps) {
   // the aerial shot: Godot holds overhead then descends (camera_rig.gd,
   // INTRO_HOLD + INTRO_DESCENT = 5.2 s); the frame gets film letterbox bars
   const [aerial, setAerial] = useState<{ code: string; name: string; place: string } | null>(null);
   useEffect(() => { onAerial?.(!!aerial); }, [aerial]); // eslint-disable-line react-hooks/exhaustive-deps
   const [built, setBuilt] = useState(false);
+  const landClickRef = useRef(onLandClick);
+  landClickRef.current = onLandClick;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const origin = useMemo(() => typeof window === "undefined" ? "" : new URL(GODOT_CITY_URL, window.location.href).origin, []);
@@ -65,10 +70,13 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       id: z.id, kind: z.kind, archetype: z.archetype, name: zoneNames?.[z.id] ?? "",
       sentiment: z.sentiment, infra: z.infra, welfare: z.welfare, economy: z.economy,
       projects: z.projects.length, building: z.building?.length ?? 0,
+      // a zone founded on empty land: its spot, facility and whether it is built
+      pos: z.pos, facility: z.facility, done: z.facility ? z.projects.includes(z.facility) : undefined,
     })),
     selected: selectedZoneId,
     placing,
-  }), [profile, zones, selectedZoneId, zoneNames, placing]);
+    landPick,
+  }), [profile, zones, selectedZoneId, zoneNames, placing, landPick]);
 
   const send = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-state", state }, origin);
@@ -81,6 +89,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       if (data?.type === "kawasan-godot-ready") setReady(true);
       else if (data?.type === "kawasan-city-built") setBuilt(true);
       else if (data?.type === "kawasan-intro-done") setAerial(null);
+      else if (data?.type === "kawasan-land-click") { const d = data as unknown as { x: number; z: number }; landClickRef.current?.(d.x, d.z); }
       else if (data?.type === "kawasan-view") window.dispatchEvent(new CustomEvent("kawasan-view", { detail: data }));
       else if (data?.type === "kawasan-zone-click" && typeof data.id === "string") setSelectedZoneId(data.id);
     };

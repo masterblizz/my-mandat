@@ -1532,9 +1532,36 @@ func _rect_free(c: Vector3, yaw: float, w: float, d: float) -> bool:
 	# reject every lot whose edge merely touches a pavement cell
 	for p in _rect_points(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0)):
 		var ci := _cell(p)
+		if ci < 0 or occ[ci] != 0:
+			return false
+	return true
+
+
+## Open land the player can build on: inside the seat, off the sea, and
+## free of roads, buildings and lots (trees are cleared for the site).
+func land_free(c: Vector3, w: float, d: float) -> bool:
+	if not in_seat(c) or in_sea(c):
+		return false
+	for p in _rect_points(c, 0.0, w, d):
+		var ci := _cell(p)
 		if ci < 0 or occ[ci] == 1:
 			return false
 	return true
+
+
+## Clear the trees standing on a new building site.
+func clear_trees(c: Vector3, radius: float) -> void:
+	var meshes := [tree_palm_mesh, tree_broadleaf_mesh]
+	for node in gen.get_children():
+		if not (node is MultiMeshInstance3D):
+			continue
+		var mm: MultiMesh = (node as MultiMeshInstance3D).multimesh
+		if mm == null or not (mm.mesh in meshes):
+			continue
+		for i in mm.instance_count:
+			var xf := mm.get_instance_transform(i)
+			if Vector2(xf.origin.x - c.x, xf.origin.z - c.z).length() < radius:
+				mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * 0.001), xf.origin + Vector3(0, -50, 0)))
 
 
 func _mark_rect(c: Vector3, yaw: float, w: float, d: float) -> void:
@@ -2039,7 +2066,7 @@ func _fill_trees() -> void:
 		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
 		var p := _polar(r, a)
 		var ci := _cell(p)
-		if (ci >= 0 and occ[ci] == 1) or in_sea(p) or (ci < 0 and not seat_poly.is_empty()):
+		if (ci >= 0 and occ[ci] != 0) or in_sea(p) or (ci < 0 and not seat_poly.is_empty()):
 			continue
 		var urban := tier in ["metro", "city"]
 		var ur := _urban_r(p)
@@ -2050,7 +2077,7 @@ func _fill_trees() -> void:
 		if rng.randf() > keep or (r > r_city and n < 0.1):
 			continue
 		if ci >= 0:
-			occ[ci] = 1
+			occ[ci] = 2   # a tree: blocks lots, but a new building site may clear it
 		tree(p, rng.randf() < 0.25)
 	# mountain ranges ringing the valley, in layers: a near forested
 	# ridge, then bluer and paler ranges behind it that the haze softens
