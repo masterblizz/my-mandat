@@ -198,6 +198,22 @@ func _configure(p: Dictionary) -> void:
 	r_commercial = 265.0 * view_scale
 	r_taman = 430.0 * view_scale
 	r_city = 560.0 * view_scale
+	# a city seat is drawn at its real size: the radius of a circle with the
+	# boundary's area at KL_SCALE (Kepong ~480, Bukit Bintang ~650, Petaling
+	# Jaya ~1040), every zone band scaled with it. Towns and villages sit in
+	# seats far larger than the pekan itself, so they keep their own size.
+	var area := float(p.get("areaKm2", 0.0))
+	if area > 0.0 and tier in ["metro", "city"]:
+		var k := clampf(sqrt(area / PI) * KL_SCALE, 320.0, 1050.0) / r_city
+		r_core *= k
+		r_commercial *= k
+		r_taman *= k
+		r_city *= k
+	var kmax := 1.0
+	for v in shape_k:
+		kmax = maxf(kmax, v)
+	reach_r = r_city * kmax
+	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
 	var choices: Array = {"metro": ["radial"], "city": ["oldtown", "taman", "radial"],
 		"town": ["strip", "oldtown", "taman"], "rural": ["strip", "taman"]}[tier]
@@ -878,6 +894,8 @@ func _radial_angle(k: int, r: float) -> float:
 ## zone bands) stretches by it, so the built-up area takes the boundary's
 ## shape instead of a circle; buildings themselves keep their size.
 var shape_k := PackedFloat32Array()
+var reach_r := 560.0      # farthest built-up edge (r_city along the longest bearing)
+var pan_limit := 605.0    # camera pan bound, from the real city extent
 
 func _shape(a: float) -> float:
 	var n := shape_k.size()
@@ -1784,7 +1802,7 @@ func _fill_trees() -> void:
 		_paddy_fields()
 	for i in 9000:
 		var a := rng.randf() * TAU
-		var r := sqrt(rng.randf()) * 1150.0
+		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
 		var p := _polar(r, a)
 		var ci := _cell(p)
 		if (ci >= 0 and occ[ci] == 1) or in_sea(p):
@@ -1803,7 +1821,10 @@ func _fill_trees() -> void:
 	# mountain ranges ringing the valley, in layers: a near forested
 	# ridge, then bluer and paler ranges behind it that the haze softens
 	var hilly := bool(traits.get("hilly", false))
-	var layers := [
+	# only seats that really have hills get the ranges round the valley: a
+	# flat city (Bukit Bintang, Petaling Jaya) or a coastal plain stays flat
+	var push := maxf(1.0, reach_r * 1.25 / 900.0)
+	var layers := [] if not hilly else [
 		{"r": Vector2(900, 1100) if hilly else Vector2(1250, 1400), "n": 30, "w": Vector2(260, 380), "h": Vector2(180, 320) if hilly else Vector2(80, 170), "c0": Color(0.2, 0.33, 0.19), "c1": Color(0.28, 0.4, 0.24)},
 		{"r": Vector2(1650, 1850), "n": 46, "w": Vector2(320, 480), "h": Vector2(180, 300) if hilly else Vector2(110, 210), "c0": Color(0.14, 0.22, 0.2), "c1": Color(0.2, 0.28, 0.27)},
 		{"r": Vector2(2300, 2600), "n": 52, "w": Vector2(420, 640), "h": Vector2(260, 420) if hilly else Vector2(170, 300), "c0": Color(0.2, 0.26, 0.3), "c1": Color(0.26, 0.32, 0.36)},
@@ -1812,7 +1833,7 @@ func _fill_trees() -> void:
 		var n: int = L.n
 		for i in n:
 			var a := TAU * i / float(n) + rng.randf_range(-0.08, 0.08)
-			var hp := _polar(rng.randf_range(L.r.x, L.r.y), a)
+			var hp := _polar_raw(rng.randf_range(L.r.x, L.r.y) * push, a)
 			if in_sea(hp):
 				continue
 			var col: Color = (L.c0 as Color).lerp(L.c1, rng.randf())
@@ -1823,7 +1844,7 @@ func _fill_trees() -> void:
 			_add(sphere_mesh, mat_plain, Transform3D(b, hp + Vector3(0, -hh * 0.08, 0)), col)
 			# a lower shoulder beside each peak breaks up the dome outline
 			if rng.randf() < 0.7:
-				var sp := _polar(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
+				var sp := _polar_raw(hp.length() + rng.randf_range(-40, 40), a + rng.randf_range(0.03, 0.07))
 				var b2 := Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(rng.randf_range(140, 220), hh * rng.randf_range(0.45, 0.7), wide * 0.8))
 				_add(sphere_mesh, mat_plain, Transform3D(b2, sp), col.lightened(0.04))
 	if bool(traits.get("kinabalu", false)):

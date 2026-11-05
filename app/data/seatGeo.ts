@@ -114,3 +114,18 @@ export function boundaryShapeK(rings: Boundary, samples = 72): number[] {
   const mean = out.reduce((sum, v) => sum + v, 0) / Math.max(1, out.filter((v) => v > 0).length);
   return out.map((v) => (mean > 0 && v > 0 ? +(v / mean).toFixed(3) : 1));
 }
+
+/** Area of the boundary in km² (all rings; equirectangular, fine at seat scale). */
+export function boundaryAreaKm2(rings: Boundary): number {
+  let total = 0;
+  for (const ring of rings) {
+    const kx = 111.32 * Math.cos(((ring[0]?.[1] ?? 0) * Math.PI) / 180);
+    let a = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const [x1, y1] = ring[i]; const [x2, y2] = ring[(i + 1) % ring.length];
+      a += x1 * kx * y2 * 110.57 - x2 * kx * y1 * 110.57;
+    }
+    total += Math.abs(a) / 2;
+  }
+  return total;
+}
