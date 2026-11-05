@@ -74,11 +74,11 @@ export default function ProfilePage() {
           <div className="space-y-2 text-[11px]">
             <div className="flex flex-wrap gap-1.5 font-black tracking-widest">
               <span className="rounded-full border px-2.5 py-1 text-white" style={{ borderColor: planColor }}>🗺️ {scope}</span>
-              <span className="rounded-full border px-2.5 py-1" style={{ borderColor: hasPremium ? "rgb(0 255 136 / .4)" : "rgba(255,255,255,.15)", color: hasPremium ? "var(--neon-green)" : "var(--text-muted)" }}>{hasPremium ? "✓" : "🔒"} PRN</span>
+              <span className="rounded-full border px-2.5 py-1" style={{ borderColor: hasPremium ? "rgb(0 255 136 / .4)" : "rgba(255,255,255,.15)", color: hasPremium ? "var(--neon-green)" : "var(--text-muted)" }}>{hasPremium ? "✓ PRN" : "🔒 PRN (PERLIS ✓)"}</span>
               <span className="rounded-full border px-2.5 py-1" style={{ borderColor: hasUltimate ? "rgb(167 139 250 / .6)" : "rgba(255,255,255,.15)", color: hasUltimate ? "#a78bfa" : "var(--text-muted)" }}>{hasUltimate ? "✓" : "🔒"} {t(lang, "ARKIB SENARIO", "SCENARIO ARCHIVE")}</span>
             </div>
             <Fold className="text-text-muted" summaryClassName="text-[10px]" summary={<>ⓘ {t(lang, "BUTIRAN PELAN", "PLAN DETAILS")}</>}>
-              <p className="mt-1 leading-relaxed">{hasPremium ? t(lang, "Premium membuka kempen PRN di semua negeri, selain PRU nasional.", "Premium unlocks PRN campaigns in every state, on top of the national PRU.") : t(lang, "Akaun percuma bermain PRU nasional. PRN (pilihan raya negeri) dibuka dengan Premium.", "Free accounts play the national PRU. PRN (state elections) unlocks with Premium.")}</p>
+              <p className="mt-1 leading-relaxed">{hasPremium ? t(lang, "Premium membuka kempen PRN di semua negeri, selain PRU nasional.", "Premium unlocks PRN campaigns in every state, on top of the national PRU.") : t(lang, "Akaun percuma bermain PRU nasional dan PRN Perlis. PRN negeri lain dibuka dengan Premium.", "Free accounts play the national PRU and the Perlis PRN. Other states' PRN unlocks with Premium.")}</p>
               <p className="mt-1 leading-relaxed">{hasUltimate ? t(lang, "Semua senario eksklusif dan Arkib Senario tersedia.", "All exclusive scenarios and the Scenario Archive are available.") : t(lang, "Naik taraf untuk membuka PRN, tahap kesukaran lebih tinggi dan akses senario Ultimate.", "Upgrade to unlock PRN, higher difficulty and Ultimate scenario access.")}</p>
             </Fold>
           </div>

@@ -9,6 +9,7 @@ import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, type GameSpeed } from "../data/ybService";
 import { useLang, t } from "../i18n/useLang";
+import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { states } from "../data/states";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 
@@ -144,16 +145,16 @@ function GameplayTab() {
               </div>
             ) : (
             <div className="flex min-w-0 flex-col gap-2" style={{ width: "220px", maxWidth: "100%" }}>
-              <select value={hasPremium ? (settings.electionScope ?? "pru") : "pru"} disabled={!hasPremium && !premiumLoading} onChange={(e) => updateSettings({ electionScope: e.target.value as "pru" | "prn" })}>
+              <select value={settings.electionScope ?? "pru"} onChange={(e) => updateSettings(e.target.value === "prn" && !prnStateUnlocked(settings.prnStateId ?? "", hasPremium) ? { electionScope: "prn", prnStateId: FREE_PRN_STATE } : { electionScope: e.target.value as "pru" | "prn" })}>
                 <option value="pru">{t(lang, "settings_page.geGeneralElection")}</option>
-                <option value="prn" disabled={!hasPremium}>{t(lang, "settings_page.stateElection")}{!hasPremium ? " · PREMIUM" : ""}</option>
+                <option value="prn">{t(lang, "settings_page.stateElection")}</option>
               </select>
-              {hasPremium && settings.electionScope === "prn" && (
-                <select value={settings.prnStateId ?? "selangor"} onChange={(e) => updateSettings({ prnStateId: e.target.value })}>
-                  {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} {t(lang, "settings_page.seats")}</option>)}
+              {settings.electionScope === "prn" && (
+                <select value={settings.prnStateId ?? FREE_PRN_STATE} onChange={(e) => updateSettings({ prnStateId: e.target.value })}>
+                  {states.filter((state) => state.dunSeats > 0).map((state) => { const open = prnStateUnlocked(state.id, hasPremium); return <option key={state.id} value={state.id} disabled={!open}>{state.name} · {state.dunSeats} {t(lang, "settings_page.seats")}{open ? "" : " · 🔒 PREMIUM"}</option>; })}
                 </select>
               )}
-              {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "🔒 PERCUMA: PRU · PRN = PREMIUM", "🔒 FREE: PRU · PRN = PREMIUM")}</span>}
+              {!premiumLoading && !hasPremium && <span className="text-[9px] leading-relaxed text-gold">{t(lang, "🔒 PERCUMA: PRU + PRN PERLIS", "🔒 FREE: PRU + PRN PERLIS")}</span>}
             </div>
             )}
           </SettingRow>

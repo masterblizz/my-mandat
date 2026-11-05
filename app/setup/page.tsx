@@ -20,6 +20,7 @@ import { usePendingNav } from "../hooks/usePendingNav";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { useLang, t } from "../i18n/useLang";
 import { PREMIUM_PRICE_IDS } from "../config/premiumProducts";
+import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { PRN_CANDIDATES, getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 
 const POSITIONS = [
@@ -291,9 +292,9 @@ export default function SetupPage() {
   }, [settings.difficulty, settings.electionScope, settings.eventRandomness, settings.mediaBias, settings.oppositionStrength, settings.permanentConsequences, settings.prnStateId]);
 
   useEffect(() => {
-    // PRU is free; PRN (state elections) needs Premium
-    if (!premiumLoading && !hasPremium && electionScope !== "pru") setElectionScope("pru");
-  }, [electionScope, hasPremium, premiumLoading]);
+    // free: PRU, and PRN in Perlis only
+    if (!premiumLoading && !hasPremium && electionScope === "prn" && prnStateId !== FREE_PRN_STATE) setPrnStateId(FREE_PRN_STATE);
+  }, [electionScope, hasPremium, premiumLoading, prnStateId]);
 
   useEffect(() => {
     if (!currentDataset.parties.some((party) => party.id === selectedPartyId)) {
@@ -331,7 +332,7 @@ export default function SetupPage() {
     // A launch always starts a fresh run from the setup choices. Clearing the
     // active slot makes the autosave subscriber create a new slot instead of
     // rewriting a previously loaded one.
-    const campaignScope = hasPremium ? electionScope : "pru";
+    const campaignScope = electionScope === "prn" && !prnStateUnlocked(prnStateId, hasPremium) ? "pru" : electionScope;
     resetGame();
     setActiveSaveSlot(null);
     setDataset(selectedDataset);
@@ -531,7 +532,7 @@ export default function SetupPage() {
               <div className="grid grid-cols-2 gap-3">
                 {([
                   { id: "pru" as const, icon: "🇲🇾", title: "PRU", sub: t(lang, "Seluruh negara · Parlimen", "Nationwide · Parliament"), state: "unlocked" },
-                  { id: "prn" as const, icon: "🏛️", title: "PRN", sub: t(lang, "Satu negeri · DUN", "One state · DUN"), state: premiumLoading ? "checking" : hasPremium ? "unlocked" : "locked" },
+                  { id: "prn" as const, icon: "🏛️", title: "PRN", sub: hasPremium || premiumLoading ? t(lang, "Satu negeri · DUN", "One state · DUN") : t(lang, "Perlis percuma · DUN", "Perlis free · DUN"), state: "unlocked" },
                 ]).map((mode) => (
                   <Tile key={mode.id} active={electionScope === mode.id} disabled={mode.state !== "unlocked"} onClick={() => setElectionScope(mode.id)} className="items-center p-4 text-center"
                     badge={mode.state === "locked" ? { text: `🔒 ${t(lang, "setup_page.premium")}`, color: "var(--gold)" } : undefined}>
@@ -542,7 +543,7 @@ export default function SetupPage() {
                 ))}
               </div>
               {!premiumLoading && !hasPremium && (
-                <LockedNote text={t(lang, "PRN dibuka dengan Premium", "PRN unlocks with Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
+                <LockedNote text={t(lang, "PRN negeri lain dibuka dengan Premium", "PRN in other states unlocks with Premium")} priceId={PREMIUM_PRICE_IDS.premiumMonthly} label={t(lang, "setup_page.getPremium")} />
               )}
 
               {electionScope === "prn" && (
@@ -550,7 +551,7 @@ export default function SetupPage() {
                   <div>
                     <Label icon="📍">{t(lang, "NEGERI", "STATE")}</Label>
                     <select value={prnStateId} onChange={(e) => setPrnStateId(e.target.value)} className="w-full rounded-md text-[14px] font-bold" aria-label={t(lang, "setup_page.selectPrnState")}>
-                      {states.filter((state) => state.dunSeats > 0).map((state) => <option key={state.id} value={state.id}>{state.name} · {state.dunSeats} DUN</option>)}
+                      {states.filter((state) => state.dunSeats > 0).map((state) => { const open = prnStateUnlocked(state.id, hasPremium); return <option key={state.id} value={state.id} disabled={!open}>{state.name} · {state.dunSeats} DUN{open ? (!hasPremium && state.id === FREE_PRN_STATE ? ` · ${t(lang, "PERCUMA", "FREE")}` : "") : " · 🔒 PREMIUM"}</option>; })}
                     </select>
                   </div>
                   <div>
