@@ -1160,7 +1160,8 @@ func _gen_radial() -> void:
 					var bend := rng.randf_range(-0.08, 0.08)
 					var end := _polar(ra + spur, a + bend)
 					_make_road([_polar(ra, a), _polar(ra + spur * 0.5, a + bend * 0.4), end], 2)
-					_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+					if in_seat(end):
+						_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 					_mark_rect(end, 0.0, 17.0, 17.0)
 
 
@@ -1168,7 +1169,8 @@ func _cul_de_sac(from: Vector3, dir: Vector3, length: float) -> void:
 	var n := Vector3(-dir.z, 0, dir.x) * rng.randf_range(-0.25, 0.25) * length
 	var end := from + dir * length + n
 	_make_road([from, from + dir * length * 0.5 + n * 0.4, end], 2)
-	_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+	if in_seat(end):
+		_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 	_mark_rect(end, 0.0, 17.0, 17.0)
 
 
@@ -1461,6 +1463,30 @@ func _ribbon_piece(st: SurfaceTool, seg: PackedVector3Array, _unused: int, half:
 	var a := Vector3(seg[1].x, y, seg[1].z)
 	var b := Vector3(seg[2].x, y, seg[2].z)
 	_quad(st, a - na, a + na, b + nb, b - nb, col, Vector3.UP)
+
+
+## The paved downtown: not a perfect circle but the city's own outline
+## (stretched like everything else) at radius r, cut to the seat boundary.
+func _paving(r: float) -> void:
+	var ring := PackedVector2Array()
+	for i in 72:
+		var p := _polar(r, TAU * i / 72.0)
+		ring.append(Vector2(p.x, p.z))
+	var parts := [ring]
+	if not seat_poly.is_empty():
+		parts = []
+		for sp in seat_poly:
+			for piece in Geometry2D.intersect_polygons(ring, sp):
+				parts.append(piece)
+	for poly in parts:
+		var tris := Geometry2D.triangulate_polygon(poly)
+		ground_st.set_color(C_PAVING)
+		ground_st.set_normal(Vector3.UP)
+		for k in range(0, tris.size(), 3):
+			# both windings: the ground material may cull back faces
+			for m in [0, 1, 2, 0, 2, 1]:
+				var v: Vector2 = poly[tris[k + m]]
+				ground_st.add_vertex(Vector3(v.x, 0.015, v.y))
 
 
 func _disc(st: SurfaceTool, c: Vector3, r: float, y: float, col: Color) -> void:
@@ -2142,9 +2168,9 @@ func _build_ground() -> void:
 	# paved downtown (a smaller town centre in towns, none in villages)
 	# warm, darker paving: the old light grey bleached to white in the sun
 	if tier in ["metro", "city"]:
-		_disc(ground_st, Vector3.ZERO, r_core - 10.0, 0.015, C_PAVING)
+		_paving(r_core - 10.0)
 	elif tier == "town" and layout == "radial":
-		_disc(ground_st, Vector3.ZERO, r_core * 0.6, 0.015, C_PAVING)
+		_paving(r_core * 0.6)
 
 
 ## Lawns, planters and shade trees scattered over the paved centre, kept off
