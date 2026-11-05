@@ -2174,3 +2174,6 @@ input[type="range"].range-red::-moz-range-thumb {
 .city-swipe__track::-webkit-scrollbar { display: none; }
 .kw-map-frame .city-build-card { border-radius: 12px; }
 .kw-map-frame .city-swipe__arrow { border-radius: 999px; border: 1px solid var(--nh-edge, rgb(var(--cyan-rgb) / .35)); background: rgb(0 0 0 / .25); color: #fff; font-size: 11px; }
+/* the way back to the main menu stays reachable during the map intro
+   (the intro overlay covers the frame at z-150 while the city builds) */
+.kw-map-frame .city-main-menu-button { z-index: 160 !important; }
