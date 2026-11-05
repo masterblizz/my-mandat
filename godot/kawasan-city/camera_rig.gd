@@ -87,6 +87,11 @@ func _start_intro() -> void:
 	_intro_tween.tween_property(self, "yaw", end_yaw, 0.5)
 
 
+## Mini-map +/−: one step closer (+1) or further (−1).
+func zoom_step(dir: int) -> void:
+	dist = clampf(dist * (0.75 if dir > 0 else 1.33), MIN_DIST, MAX_DIST)
+
+
 func _limit() -> float:
 	return get_parent().SPAN * 0.55
 

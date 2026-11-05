@@ -28,6 +28,7 @@ var pin: MeshInstance3D
 var _t := 0.0
 var _js_cb: JavaScriptObject
 var _js_intro: JavaScriptObject
+var _js_cam: JavaScriptObject
 var _press := Vector2.ZERO
 var _embedded := false
 var zone_labels: Array[Label3D] = []
@@ -87,11 +88,14 @@ func _bridge() -> void:
 	win.kawasanGodotSetState = _js_cb
 	_js_intro = JavaScriptBridge.create_callback(func(_args): city.get_node("CameraRig").intro())
 	win.kawasanGodotIntro = _js_intro
+	_js_cam = JavaScriptBridge.create_callback(func(args): city.get_node("CameraRig").zoom_step(int(str(args[0]))))
+	win.kawasanGodotCamera = _js_cam
 	JavaScriptBridge.eval("""
 		window.addEventListener('message', function (e) {
 			var d = e.data;
 			if (d && d.type === 'kawasan-state') window.kawasanGodotSetState(JSON.stringify(d.state));
 			if (d && d.type === 'kawasan-intro') window.kawasanGodotIntro('1');
+			if (d && d.type === 'kawasan-camera') window.kawasanGodotCamera(String(d.zoom || 0));
 		});
 		if (window.parent !== window) window.parent.postMessage({ type: 'kawasan-godot-ready' }, '*');
 	""", true)

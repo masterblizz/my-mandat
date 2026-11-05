@@ -2001,62 +2001,91 @@ input[type="range"].range-red::-moz-range-thumb {
 }
 
 
-/* ── Soft city HUD (3D city only) ───────────────────────────────────
-   A light, friendly city-builder look over the Godot city: cream panels,
-   chunky rounded buttons with an offset ink shadow, a translucent
-   cream-to-green dock. Done by re-pointing the theme variables inside
-   the map frame, so inline styles that read them follow along. */
+/* ── Navy city HUD (3D city only) ───────────────────────────────────
+   City-builder look over the Godot city: dark navy glass panels, white
+   text, yellow accents, a labelled tool rail, top bar with meters and
+   resource chips, seat card and mini-map. Theme variables are re-pointed
+   inside the map frame so existing inline styles follow along. */
 .kw-map-frame {
-  --bg: #f7f5ea; --bg-rgb: 247 245 234;
-  --cyan-rgb: 31 122 99; --cyan: rgb(31 122 99);
-  --gold-rgb: 196 128 18; --gold: rgb(196 128 18);
-  --text-primary: #23302b; --text-muted: #6b7a70; --bar-empty: #dfe3d4;
-  --neon-green: #2e9e5b; --neon-red: #d1495b; --warn-orange: #d9822b;
-  --ink: #241f1b;
+  --bg-rgb: 14 26 48; --bg: rgb(14 26 48);
+  --cyan-rgb: 64 156 255; --cyan: rgb(64 156 255);
+  --gold-rgb: 255 204 41; --gold: rgb(255 204 41);
+  --text-primary: #ffffff; --text-muted: #a9b8cc; --bar-empty: rgb(255 255 255 / .16);
+  --nh-panel: rgb(14 26 48 / .86); --nh-edge: rgb(255 255 255 / .14); --nh-yellow: #ffcc29;
 }
-.kw-map-frame .text-white { color: var(--text-primary) !important; }
-.kw-map-frame .city-hud-box { color: var(--text-primary); }
-/* panels and dialogs: cream glass, rounded, no glow */
+.kw-map-frame iframe { filter: saturate(1.08) contrast(1.04) !important; }
+.kw-map-frame .city-hud-box, .kw-map-frame .nhud-rail { font-family: 'Inter', 'Space Mono', system-ui, sans-serif; }
+/* shared panel look */
 .kw-map-frame .city-zone-card, .kw-map-frame .city-zone-chip, .kw-map-frame .city-build-dock section,
-.kw-map-frame .city-build-dock [role="status"], .kw-map-frame .city-destination-overlay section {
-  border-radius: 22px !important; border: 2px solid var(--ink) !important;
-  background: rgb(250 249 240 / .94) !important; box-shadow: 4px 5px 0 var(--ink) !important;
+.kw-map-frame .city-build-dock [role="status"], .kw-map-frame .city-destination-overlay section,
+.kw-map-frame .city-next-goal, .kw-map-frame .city-main-menu-button, .kw-map-frame .city-hub-bar__item {
+  border-radius: 12px !important; border: 1px solid var(--nh-edge) !important;
+  background: var(--nh-panel) !important; backdrop-filter: blur(12px) !important;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .35) !important; color: #fff !important;
 }
-/* chunky buttons */
-.kw-map-frame .city-tool, .kw-page-shell .city-tool {
-  border-radius: 18px !important; border: 2px solid var(--ink, #241f1b) !important;
-  background: #f9f8f1 !important; color: #241f1b !important; box-shadow: 4px 5px 0 #241f1b !important;
-  backdrop-filter: none !important;
+.kw-map-frame .city-main-menu-button { top: 82px !important; right: 18px !important; letter-spacing: .04em !important; font-size: 12px !important; text-transform: none; }
+/* old pieces replaced by the new HUD */
+.kw-map-frame .city-seat-chip, .kw-map-frame .city-tool--view, .kw-map-frame .city-tool--activity { display: none !important; }
+.kw-map-frame .city-destination-overlay { top: 70px !important; left: 92px !important; right: auto !important; width: min(560px, calc(100% - 110px)) !important; }
+/* top bar */
+.nhud-top { position: absolute; z-index: 26; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; pointer-events: none; }
+.nhud-top__band { display: flex; align-items: center; gap: 22px; padding: 8px 46px 8px max(16px, env(safe-area-inset-left, 0px)); background: linear-gradient(90deg, rgb(10 22 44 / .94), rgb(14 30 58 / .9)); clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); }
+.nhud-logo { display: flex; flex-direction: column; line-height: .9; font-style: italic; font-weight: 900; color: #fff; transform: skewX(-6deg); margin-right: 6px; }
+.nhud-logo span { font-size: 11px; letter-spacing: .08em; }
+.nhud-logo b { font-size: 16px; border-bottom: 3px solid #e63946; }
+.nhud-meter { display: flex; align-items: center; gap: 8px; min-width: 150px; color: #fff; }
+.nhud-meter__icon { font-size: 22px; }
+.nhud-meter__body { display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.nhud-meter__label { font-size: 12px; font-weight: 700; }
+.nhud-meter__track { height: 5px; border-radius: 9px; background: rgb(255 255 255 / .18); overflow: hidden; }
+.nhud-meter__track span { display: block; height: 100%; background: var(--nh-yellow); border-radius: 9px; }
+.nhud-meter b { font-size: 15px; color: var(--nh-yellow); }
+.nhud-chips { display: flex; gap: 8px; padding: 8px max(14px, env(safe-area-inset-right, 0px)) 0 0; }
+.nhud-chip { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--nh-edge); background: var(--nh-panel); backdrop-filter: blur(12px); color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap; }
+/* left rail */
+.nhud-rail { position: absolute; z-index: 141; top: 70px; left: max(14px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; border-radius: 14px; border: 1px solid var(--nh-edge); background: var(--nh-panel); backdrop-filter: blur(12px); }
+.nhud-rail__item { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 7px 0; border-radius: 10px; color: #fff; }
+.nhud-rail__item:hover, .nhud-rail__item.is-active { background: rgb(64 156 255 / .22); }
+.nhud-rail__icon { font-size: 20px; line-height: 1; }
+.nhud-rail__label { font-size: 10px; font-weight: 700; }
+/* seat card */
+.nhud-seat { position: absolute; z-index: 25; top: 70px; left: calc(max(14px, env(safe-area-inset-left, 0px)) + 80px); width: 210px; border-radius: 12px; border: 1px solid var(--nh-edge); background: var(--nh-panel); backdrop-filter: blur(12px); color: #fff; text-align: left; overflow: hidden; }
+.nhud-seat__head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 13px; font-weight: 800; border-bottom: 1px solid var(--nh-edge); }
+.nhud-seat__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nhud-seat__body { display: flex; gap: 6px; align-items: center; padding: 6px 8px; }
+.nhud-seat__shape { width: 74px; height: 54px; flex-shrink: 0; }
+.nhud-seat__shape path { fill: var(--nh-yellow); stroke: #fff; stroke-width: 1.2; }
+.nhud-seat__stats { display: flex; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 700; color: var(--text-muted); }
+/* mini-map */
+.nhud-minimap { position: absolute; z-index: 25; bottom: 14px; left: max(14px, env(safe-area-inset-left, 0px)); width: 190px; height: 140px; border-radius: 14px; border: 2px solid rgb(255 255 255 / .22); background: rgb(14 26 48 / .9); overflow: hidden; }
+.nhud-minimap svg { width: 100%; height: 100%; }
+.nhud-minimap__seat { fill: rgb(255 255 255 / .1); stroke: rgb(255 255 255 / .55); stroke-width: 1; }
+.nhud-minimap__cone { fill: rgb(255 204 41 / .45); }
+.nhud-minimap__me { fill: #fff; }
+.nhud-minimap__n { position: absolute; top: 6px; left: 9px; font-size: 11px; font-weight: 900; color: #fff; }
+.nhud-minimap__zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
+.nhud-minimap__zoom button { width: 28px; height: 28px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .5); background: rgb(14 26 48 / .9); color: #fff; font-size: 16px; font-weight: 900; line-height: 1; }
+/* bottom dock: navy glass, clear of the mini-map */
+.kw-map-frame .city-build-dock { left: calc(max(14px, env(safe-area-inset-left, 0px)) + 204px) !important; right: max(14px, env(safe-area-inset-right, 0px)) !important; width: auto !important; transform: none !important; }
+.kw-map-frame .city-build-dock > div:last-child { border-radius: 14px !important; background: var(--nh-panel) !important; border: 1px solid var(--nh-edge) !important; backdrop-filter: blur(12px); }
+.kw-map-frame .city-build-dock button { border-radius: 10px; }
+.kw-map-frame .city-hub-bar { gap: 8px; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.kw-map-frame .city-hub-bar__tag, .kw-map-frame .city-hub-bar__item::after { display: none; }
+.kw-map-frame .city-hub-bar__track { gap: 8px; overflow: visible; }
+/* landscape phones: tighter */
+@media (orientation: landscape) and (max-height: 500px) {
+  .nhud-top__band { gap: 12px; padding: 5px 34px 5px max(10px, env(safe-area-inset-left, 0px)); }
+  .nhud-meter { min-width: 104px; } .nhud-meter__icon { font-size: 16px; } .nhud-meter__label { font-size: 10px; } .nhud-meter b { font-size: 12px; }
+  .nhud-logo b { font-size: 13px; } .nhud-logo span { font-size: 9px; }
+  .nhud-chips { gap: 5px; padding-top: 5px; } .nhud-chip { padding: 4px 8px; font-size: 10px; }
+  .nhud-rail { top: 50px; gap: 2px; padding: 4px 3px; } .nhud-rail__item { width: 46px; padding: 4px 0; } .nhud-rail__icon { font-size: 16px; } .nhud-rail__label { font-size: 8px; }
+  .nhud-seat { top: 50px; left: calc(max(10px, env(safe-area-inset-left, 0px)) + 62px); width: 180px; } .nhud-seat__shape { width: 56px; height: 40px; } .nhud-seat__head { font-size: 11px; padding: 5px 8px; }
+  .nhud-minimap { width: 130px; height: 96px; bottom: 8px; }
+  .kw-map-frame .city-build-dock { left: calc(max(10px, env(safe-area-inset-left, 0px)) + 142px) !important; bottom: 8px !important; }
+  .kw-map-frame .city-main-menu-button { top: 52px !important; }
+  .kw-map-frame .city-destination-overlay { top: 50px !important; left: 70px !important; }
 }
-.kw-map-frame .city-tool:hover { background: #ffffff; border-color: var(--ink); }
-.kw-map-frame .city-tool[aria-pressed="true"], .kw-page-shell .city-tool[aria-pressed="true"] { background: rgb(31 122 99) !important; color: #fff !important; }
-.kw-map-frame .city-tool:active { transform: translate(2px, 3px); box-shadow: 2px 2px 0 var(--ink); }
-.kw-map-frame .city-hub-bar { border: 0 !important; background: transparent !important; box-shadow: none !important; gap: 10px; }
-.kw-map-frame .city-hub-bar__tag { display: none; }
-.kw-map-frame .city-hub-bar__track { gap: 10px; overflow: visible; }
-.kw-map-frame .city-hub-bar__item {
-  border: 2px solid var(--ink) !important; border-radius: 18px; background: #f9f8f1 !important;
-  color: var(--ink) !important; box-shadow: 4px 5px 0 var(--ink); text-shadow: none;
-}
-.kw-map-frame .city-hub-bar__item::after { display: none; }
-.kw-map-frame .city-hub-bar__item:active { transform: translate(2px, 3px); box-shadow: 2px 2px 0 var(--ink); }
-/* the dock bar: translucent cream fading into green */
-.kw-map-frame .city-build-dock > div:last-child {
-  border-radius: 26px !important; border: 0 !important;
-  background: linear-gradient(90deg, rgb(255 255 250 / .94), rgb(222 238 205 / .82)) !important;
-  backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgb(0 0 0 / .12) !important;
-}
-.kw-map-frame .city-build-dock button { border-radius: 14px; }
-/* top mood bar and chips: dark ink text on a light fade */
-.kw-map-frame .city-pulse-bar { background: linear-gradient(180deg, rgb(250 249 240 / .85), rgb(250 249 240 / 0)) !important; }
-.kw-map-frame .city-pulse-bar__item { color: var(--ink) !important; text-shadow: none !important; }
-.kw-map-frame .city-next-goal, .kw-map-frame .city-seat-chip {
-  border: 2px solid var(--ink) !important; background: #fbf7e6 !important; box-shadow: 3px 4px 0 var(--ink) !important;
-  color: var(--ink) !important; backdrop-filter: none !important;
-}
-.kw-map-frame .city-main-menu-button { border-radius: 14px !important; border: 2px solid var(--ink) !important; background: #f9f8f1 !important; color: var(--ink) !important; box-shadow: 3px 4px 0 var(--ink) !important; }
-/* the iframe filter darkened the city; keep the colours soft and true */
-.kw-map-frame iframe { filter: saturate(1.05) !important; }
+
 /* Setup wizard: a centred column clear of the notch / home-bar sides,
    not an edge-to-edge sheet. */
 .setup-screen, .setup-nav { padding-left: max(16px, calc(env(safe-area-inset-left, 0px) + 12px)) !important; padding-right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px)) !important; }

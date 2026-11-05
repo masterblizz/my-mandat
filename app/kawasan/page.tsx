@@ -7,7 +7,6 @@ import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
 import CampaignBriefing from "./CampaignBriefing";
 import CityHubBar from "./CityHubBar";
-import CityPulseBar from "./CityPulseBar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
 import CityDestinations, { type CityDestination } from "./CityDestinations";
 import { resumeRoute } from "../store/journey";
@@ -22,6 +21,8 @@ import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
+import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
+import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
 import { boundaryShape, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
@@ -2630,6 +2631,7 @@ export default function KawasanDevelopmentPage() {
   // Phone screens are mostly covered by the HUD boxes; the player can hide
   // every overlay box at once to see the city, or close the zone card alone.
   const [hudHidden, setHudHidden] = useState(false);
+  const [placesOpen, setPlacesOpen] = useState(false);
   const [zonePanelOpen, setZonePanelOpen] = useState(true);
   const [buildTab, setBuildTab] = useState<DockTab>("all");
   const [overlay, setOverlay] = useState<CityOverlay>("none");
@@ -2686,8 +2688,8 @@ export default function KawasanDevelopmentPage() {
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
-    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), traits }),
-    [ownSeat, density, traits],
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits }),
+    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr],
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
@@ -3169,9 +3171,23 @@ export default function KawasanDevelopmentPage() {
                 </div>
               </div>
               {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
-              <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} />
+              <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} open={placesOpen} onOpenChange={setPlacesOpen} />
               <CityHubBar onEnter={enterHubDestination} />
-              <CityPulseBar zones={zones} lang={lang} />
+              <CityTopBar lang={lang} zones={zones} chips={[
+                { icon: "💰", value: `RM ${formatNumber(unlocked ? journey.publicBudget : resources.funds)}`, title: unlocked ? t(lang, "Bajet awam", "Public budget") : t(lang, "Dana", "Funds") },
+                { icon: "👥", value: formatNumber(ownSeat.voters), title: t(lang, "Pengundi", "Voters") },
+                { icon: "⚡", value: `${Math.round((journey.service.stamina / STAMINA_MAX) * 100)}%`, title: t(lang, "Tenaga", "Stamina") },
+                { icon: "📅", value: repTerm ? t(lang, `Hari ${termCalendar(journey.termDay).day} · Mgg ${termCalendar(journey.termDay).week}`, `Day ${termCalendar(journey.termDay).day} · Wk ${termCalendar(journey.termDay).week}`) : t(lang, `Hari ${day}/${totalDays}`, `Day ${day}/${totalDays}`), title: t(lang, "Tarikh", "Date") },
+              ]} />
+              <CityRail items={[
+                { id: "view", icon: hudHidden ? "▣" : "👁", label: hudHidden ? t(lang, "Panel", "Panels") : t(lang, "Tinjau", "View"), active: hudHidden, run: () => setHudHidden((hidden) => !hidden) },
+                { id: "places", icon: "📍", label: t(lang, "Lokasi", "Places"), active: placesOpen, run: () => setPlacesOpen((value) => !value) },
+                { id: "data", icon: "📊", label: t(lang, "Data", "Data"), run: () => router.push("/polling") },
+                { id: "team", icon: "👥", label: t(lang, "Pasukan", "Team"), run: () => router.push("/office") },
+                { id: "settings", icon: "⚙️", label: t(lang, "Tetapan", "Settings"), run: () => router.push("/settings") },
+              ]} />
+              <CitySeatCard lang={lang} code={ownSeat.code} name={ownSeat.name} stateId={homeState?.id ?? ""} sentiment={overall} density={seatRealDensity(ownSeat)} onToggle={() => setZonePanelOpen((open) => !open)} />
+              <CityMiniMap lang={lang} code={ownSeat.code} name={ownSeat.name} stateId={homeState?.id ?? ""} onZoom={(dir) => window.dispatchEvent(new CustomEvent("kawasan-camera", { detail: { zoom: dir } }))} />
               {!dockOpen && <NextGoal lang={lang} goal={nextGoal} />}
               {/* the seat (kawasan) the player represents, always in view */}
               <div className="city-seat-chip city-hud-box pointer-events-none absolute z-20 rounded-full border px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-xl"
@@ -3184,7 +3200,7 @@ export default function KawasanDevelopmentPage() {
                 data-tip={hudHidden ? t(lang, "Tunjuk panel", "Show panels") : t(lang, "Lihat bandar", "View city")}>
                 <span aria-hidden>{hudHidden ? "▣" : "👁"}</span>
               </button>
-              <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>← {t(lang, "MENU UTAMA", "MAIN MENU")}</button>
+              <button type="button" onClick={() => router.push("/menu")} className="city-main-menu-button absolute right-16 top-3 z-30 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .58)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)" }}>☰ {t(lang, "Menu Utama", "Main Menu")}</button>
               {/* the PA is not shown over the city: it would cover the map */}
               <CampaignBriefing />
               {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-zone-chip city-hud-box absolute left-1/2 top-[88px] z-20 -translate-x-1/2 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▾</button>}

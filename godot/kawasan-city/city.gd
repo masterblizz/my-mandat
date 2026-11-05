@@ -146,8 +146,16 @@ func apply_profile(p: Dictionary) -> void:
 		_build_label.visible = false
 
 
+var party_color := Color(0.12, 0.35, 0.8)
+var party_abbr := ""
+var seat_name := ""
+
+
 func _configure(p: Dictionary) -> void:
 	traits = p.get("traits", {})
+	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
+	party_abbr = str(p.get("partyAbbr", ""))
+	seat_name = str(p.get("name", ""))
 	var d := float(p.get("density", 0.9))
 	var kl := bool(traits.get("klLandmarks", false)) or bool(traits.get("bukitBintang", false))
 	landmarks = bool(traits.get("bukitBintang", false))
@@ -254,9 +262,74 @@ func _build() -> void:
 		add_child(birds)
 	$Birds.setup(self)
 	$Zones.relayout()
+	_billboards()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
 	$Zones.post_built()
+
+
+## Campaign billboards: big posters in the player's party colour on the
+## street face of the tallest towers near the centre (city-builder flavour).
+func _billboards() -> void:
+	var count: int = {"metro": 7, "city": 5, "town": 2, "rural": 0}[tier]
+	if count == 0:
+		return
+	var slogans := ["BERSAMA RAKYAT", "KEMUDAHAN RAKYAT", ("PEMBANGUNAN " + seat_name.to_upper()).strip_edges(), "SUARA ANDA", "MAJU BERSAMA"]
+	var picks := []
+	for lot in lots:
+		if lot.kind in ["tower", "condo", "flat"]:
+			picks.append(lot)
+	picks.sort_custom(func(a, b): return (a.p as Vector3).length() < (b.p as Vector3).length())
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = party_color
+	mat.emission_enabled = true
+	mat.emission = party_color
+	mat.emission_energy_multiplier = 0.35
+	mat.roughness = 0.6
+	var used := 0
+	for lot in picks:
+		if used >= count:
+			break
+		var p: Vector3 = lot.p
+		var h := height_at(p, 0)
+		if h < 18.0:
+			continue
+		var basis := Basis(Vector3.UP, float(lot.yaw))
+		var front := basis * Vector3(0, 0, -1)          # towards the street
+		var w := minf(9.0, float(lot.w) * 0.55)
+		var ph := minf(h * 0.38, 16.0)
+		var centre := p + front * 7.6 + Vector3(0, h * 0.5, 0)
+		var panel := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(w, ph, 0.3)
+		panel.mesh = bm
+		panel.material_override = mat
+		panel.transform = Transform3D(basis, centre)
+		gen.add_child(panel)
+		var lab := Label3D.new()
+		lab.text = slogans[used % slogans.size()].replace(" ", "\n")
+		lab.font_size = 96
+		var longest := 1
+		for line in lab.text.split("\n"):
+			longest = maxi(longest, line.length())
+		# fill ~85% of the panel width (a glyph is ~0.6 em wide)
+		lab.pixel_size = (w * 0.85) / (longest * 96.0 * 0.62)
+		lab.font = SystemFont.new()
+		(lab.font as SystemFont).font_weight = 900
+		lab.outline_size = 0
+		lab.modulate = Color.WHITE
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lab.transform = Transform3D(Basis(Vector3.UP, float(lot.yaw) + PI), centre + front * 0.2)
+		gen.add_child(lab)
+		var tag := Label3D.new()
+		tag.text = party_abbr
+		tag.font_size = 64
+		tag.pixel_size = (w * 0.3) / (maxi(1, party_abbr.length()) * 64.0 * 0.62)
+		tag.outline_size = 0
+		tag.modulate = Color(1, 0.85, 0.2)
+		tag.transform = Transform3D(Basis(Vector3.UP, float(lot.yaw) + PI), centre + front * 0.2 + Vector3(0, ph * 0.38, 0))
+		gen.add_child(tag)
+		used += 1
 
 
 ## Phones get a smaller shadow atlas, two cascades and a shorter shadow

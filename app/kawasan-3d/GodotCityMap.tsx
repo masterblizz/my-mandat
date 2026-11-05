@@ -25,7 +25,7 @@ export type CityIntroInfo = { geo: SeatGeo; stateId: string; stateName: string; 
 export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "/godot/kawasan-city/index.html";
 
 /** popDensity: approximate real people per km² (see data/seatDensity.ts). */
-export type GodotSeatProfile = { code: string; name: string; density: number; popDensity?: number; traits: SeatTraits };
+export type GodotSeatProfile = { code: string; name: string; density: number; popDensity?: number; partyColor?: string; partyAbbr?: string; traits: SeatTraits };
 
 export type GodotCityMapProps = {
   profile: GodotSeatProfile;
@@ -80,6 +80,15 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   useEffect(() => {
     if (ready) send();
   }, [ready, send]);
+  // mini-map zoom buttons → the 3D camera
+  useEffect(() => {
+    const onCam = (e: Event) => {
+      const detail = (e as CustomEvent<{ zoom?: number }>).detail;
+      frameRef.current?.contentWindow?.postMessage({ type: "kawasan-camera", zoom: detail?.zoom ?? 0 }, origin);
+    };
+    window.addEventListener("kawasan-camera", onCam);
+    return () => window.removeEventListener("kawasan-camera", onCam);
+  }, [origin]);
   const flyIn = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-intro" }, origin);
   }, [origin]);
