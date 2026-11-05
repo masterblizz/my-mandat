@@ -2170,3 +2170,7 @@ input[type="range"].range-red::-moz-range-thumb {
   .kw-map-frame .city-zone-card .text-gold { font-size: 12px !important; }
   .kw-map-frame .city-zone-card p { font-size: 10px !important; }
 }
+/* build cards: one swipeable row */
+.city-swipe__track::-webkit-scrollbar { display: none; }
+.kw-map-frame .city-build-card { border-radius: 12px; }
+.kw-map-frame .city-swipe__arrow { border-radius: 999px; border: 1px solid var(--nh-edge, rgb(var(--cyan-rgb) / .35)); background: rgb(0 0 0 / .25); color: #fff; font-size: 11px; }
