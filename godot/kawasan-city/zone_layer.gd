@@ -37,6 +37,7 @@ var land_pick = null                  # [x, z] of the empty land picked while pl
 var _site: Node3D                     # marker for that spot
 var _facilities: Node3D               # buildings on zones founded on empty land
 var _fac_key := ""
+var _site_roads := {}                 # zone id -> access road, routed once per city build
 
 
 func setup(c: Node3D) -> void:
@@ -180,12 +181,52 @@ func _update_facilities() -> void:
 			continue
 		var root := Node3D.new()
 		root.position = Vector3(float(zp[0]), 0, float(zp[1]))
+		var zid := str(z.get("id", ""))
+		if not _site_roads.has(zid):
+			# route and claim once: a claimed site would block its own lane
+			_site_roads[zid] = city.access_road(root.position)
+			city.claim_site(root.position, _site_roads[zid])
+		var road: Array = _site_roads[zid]
 		city.clear_trees(root.position, 18.0)
+		_access_lane(road)
 		_facilities.add_child(root)
 		if bool(z.get("done", false)):
 			_facility_model(root, str(z.facility))
 		else:
 			_scaffold(root)
+
+
+## The site's access lane: asphalt over a kerbed pavement, joining the
+## road it was routed to, with the trees along it cleared.
+func _access_lane(road: Array) -> void:
+	if road.size() != 2:
+		return
+	var a: Vector3 = road[0]
+	var b: Vector3 = road[1]
+	var d := Vector3(b.x - a.x, 0, b.z - a.z)
+	var L := d.length()
+	if L < 1.0:
+		return
+	var dir := d / L
+	var n := Vector3(-dir.z, 0, dir.x)
+	for k in int(L / 6.0) + 1:
+		city.clear_trees(a + dir * (k * 6.0), 5.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for layer in [[5.4, 0.06, Color(0.72, 0.71, 0.68)], [4.0, 0.1, Color(0.16, 0.17, 0.18)]]:
+		var w: float = layer[0]
+		var y := Vector3(0, float(layer[1]), 0)
+		st.set_color(layer[2])
+		for v in [a - n * w, a + n * w, b + n * w, a - n * w, b + n * w, b - n * w, a - n * w, b + n * w, a + n * w, a - n * w, b - n * w, b + n * w]:
+			st.add_vertex(v + y)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.95
+	mi.material_override = m
+	_facilities.add_child(mi)
 
 
 func _fbox(parent: Node3D, pos: Vector3, size: Vector3, col: Color) -> void:
@@ -372,6 +413,8 @@ func _lot_fits(lot: Dictionary, want: String) -> bool:
 ## a kind that fits its archetype. Re-run after every rebuild, since the
 ## city depends on the seat.
 func relayout() -> void:
+	_fac_key = ""   # a rebuilt city needs its founded sites claimed again
+	_site_roads = {}
 	centres = []
 	zone_lots = []
 	var n := zones.size()
@@ -476,7 +519,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				best_d = dz
 				best = i
 		if best < 0:
-			if city.land_free(hit, 28.0, 28.0):
+			# open, free of other buildings and sites, and reachable by road
+			if city.land_free(hit, 30.0, 30.0) and city.access_road(hit).size() == 2:
 				_post_land(hit)
 			return
 		selected = str(zones[best].get("id", ""))

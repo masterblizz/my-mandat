@@ -1585,6 +1585,51 @@ func land_free(c: Vector3, w: float, d: float) -> bool:
 	return true
 
 
+## An access road for a new site at c: a straight lane from the site's
+## edge to the nearest road point it can reach without crossing buildings,
+## lots, the river or the boundary. Returns [from, to] or [] if none.
+func access_road(c: Vector3) -> Array:
+	var cands := []
+	for rd in roads:
+		var pts: PackedVector3Array = rd.pts
+		var gaps: PackedByteArray = rd.gaps
+		for k in range(0, pts.size(), 2):
+			if gaps[k] == 1:
+				continue
+			var d := Vector2(pts[k].x - c.x, pts[k].z - c.z).length()
+			if d > 20.0 and d < 240.0:
+				cands.append([d, pts[k], float(rd.half)])
+	cands.sort_custom(func(x, y): return x[0] < y[0])
+	for k in mini(cands.size(), 60):
+		var q: Vector3 = cands[k][1]
+		var half: float = cands[k][2]
+		var dir := Vector3(q.x - c.x, 0, q.z - c.z).normalized()
+		var from := c + dir * 15.5
+		var stop := Vector2(q.x - from.x, q.z - from.z).length() - (half + 2.0)
+		var ok := stop > 0.0
+		var s := 0.0
+		while ok and s < stop:
+			var p := from + dir * s
+			var side := Vector3(-dir.z, 0, dir.x) * 4.0
+			for e in [p, p + side, p - side]:
+				var ci := _cell(e)
+				if ci < 0 or occ[ci] == 1 or not in_seat(e):
+					ok = false
+					break
+			s += 2.0
+		if ok:
+			return [from, Vector3(q.x, 0, q.z)]
+	return []
+
+
+## Claim a founded site and its access road in the occupancy map, so the
+## next site can't overlap them.
+func claim_site(c: Vector3, road: Array) -> void:
+	_mark_rect(c, 0.0, 32.0, 32.0)
+	if road.size() == 2:
+		_mark_polyline(PackedVector3Array([road[0], road[1]]), 6.0)
+
+
 ## Clear the trees standing on a new building site.
 func clear_trees(c: Vector3, radius: float) -> void:
 	var meshes := [tree_palm_mesh, tree_broadleaf_mesh]
