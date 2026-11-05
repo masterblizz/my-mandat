@@ -667,6 +667,22 @@ func _smooth_curve(pts: Array) -> Curve3D:
 	return c
 
 
+## Nearest point on the river (ground plane) and the river's direction there.
+func _river_near(p: Vector3) -> Array:
+	var best := INF
+	var bq := Vector3.ZERO
+	var bt := Vector3.RIGHT
+	var q0 := Vector3(p.x, 0, p.z)
+	for k in river_pts.size() - 1:
+		var a := Vector3(river_pts[k].x, 0, river_pts[k].z)
+		var b := Vector3(river_pts[k + 1].x, 0, river_pts[k + 1].z)
+		var c := Geometry3D.get_closest_point_to_segment(q0, a, b)
+		var d := q0.distance_to(c)
+		if d < best:
+			best = d; bq = c; bt = (b - a).normalized()
+	return [bq, bt]
+
+
 func _dist_to(pts: PackedVector3Array, p: Vector3) -> float:
 	var best := INF
 	if pts.is_empty():
@@ -1221,15 +1237,18 @@ func _make_road(ctrl: Array, cls: int) -> void:
 	cum[0] = 0.0
 	for i in range(1, pts.size()):
 		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
-	# over-water stretches: crossings stay as bridges, a long run along
-	# the river is dropped
+	# over the river: a short run is a crossing and stays as a bridge; a
+	# long run (the road runs along the river) is moved onto the bank it
+	# is on, so the road keeps going as a riverside road instead of being
+	# cut into dead ends. Where it changes bank, the step between is a
+	# bridge.
+	var half_w: float = ROAD_HALF[cls]
 	var wet := PackedByteArray()
 	wet.resize(pts.size())
-	for i in pts.size():
-		wet[i] = 1 if _dist_to(river_pts, pts[i]) < RIVER_HALF + 3.0 else 0
-	var gaps := PackedByteArray()
-	gaps.resize(pts.size())
+	for k in pts.size():
+		wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
 	var i := 0
+	var moved := false
 	while i < pts.size():
 		if wet[i] == 0:
 			i += 1
@@ -1238,9 +1257,37 @@ func _make_road(ctrl: Array, cls: int) -> void:
 		while e < pts.size() and wet[e] == 1:
 			e += 1
 		if e - i > 12:
-			for j in range(i, e):
-				gaps[j] = 1
+			# ease in/out of the bank over a few points either side
+			var lo := maxi(0, i - 4)
+			var hi := mini(pts.size(), e + 4)
+			for k in range(lo, hi):
+				var nt := _river_near(pts[k])
+				var q: Vector3 = nt[0]
+				var tan: Vector3 = nt[1]
+				var off := Vector3(pts[k].x - q.x, 0, pts[k].z - q.z)
+				var side := signf(tan.cross(off).y)
+				if side == 0.0:
+					side = 1.0
+				var normal := Vector3(-tan.z, 0, tan.x) * -side
+				var want := RIVER_HALF + half_w + 6.0
+				var d := off.length()
+				if d < want:
+					var w := 1.0
+					if k < i:
+						w = float(k - lo + 1) / float(i - lo + 1)
+					elif k >= e:
+						w = float(hi - k) / float(hi - e + 1)
+					var target := Vector3(q.x, pts[k].y, q.z) + normal * want
+					pts[k] = pts[k].lerp(target, w)
+			moved = true
 		i = e
+	if moved:
+		for k in range(1, pts.size()):
+			cum[k] = cum[k - 1] + pts[k].distance_to(pts[k - 1])
+		for k in pts.size():
+			wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
+	var gaps := PackedByteArray()
+	gaps.resize(pts.size())
 	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
 	roads.append(rd)
 	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
@@ -1401,6 +1448,30 @@ func _turn(pts: Array) -> Array:
 	return out
 
 
+## Continue a curve straight out past both ends until each end is at
+## least `reach` from the centre (adds smooth extra control points).
+func _extend_curve(c: Curve3D, reach: float) -> Curve3D:
+	var pts := []
+	for i in c.point_count:
+		pts.append(c.get_point_position(i))
+	if pts.size() < 2:
+		return c
+	for end in [0, 1]:
+		var a: Vector3 = pts[0] if end == 0 else pts[pts.size() - 1]
+		var b: Vector3 = pts[1] if end == 0 else pts[pts.size() - 2]
+		var dir := (a - b).normalized()
+		var p := a
+		var guard := 0
+		while Vector2(p.x, p.z).length() < reach and guard < 40:
+			p += dir * 160.0
+			guard += 1
+			if end == 0:
+				pts.push_front(p)
+			else:
+				pts.append(p)
+	return _smooth_curve(pts)
+
+
 func in_sea(p: Vector3) -> bool:
 	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > r_city + 80.0
 
@@ -1414,6 +1485,10 @@ func _build_features() -> void:
 		Vector3(-300, 0, -640), Vector3(-130, 0, -400), Vector3(80, 0, -230), Vector3(200, 0, -70),
 		Vector3(215, 0, 85), Vector3(160, 0, 230), Vector3(210, 0, 420), Vector3(360, 0, 640),
 	]))
+	# the city is drawn at its real size and outline now, so the river and
+	# expressway must run right through it and out the other side
+	river = _extend_curve(river, reach_r * 1.4)
+	highway_curve = _extend_curve(highway_curve, reach_r * 1.4)
 	# coarse polylines (16 m) for distance checks, fine ones (4 m) to draw
 	river.bake_interval = 16.0
 	highway_curve.bake_interval = 16.0
