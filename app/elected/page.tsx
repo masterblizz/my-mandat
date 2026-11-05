@@ -90,7 +90,7 @@ export default function ElectedPage() {
 
   const avatarSrc = LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0];
   const seatsWonInState = stateSeatDetails.filter((seat) => seat.result === "WIN").length;
-  const btnBase = "min-h-[44px] px-6 py-3 text-[12px] font-black tracking-widest uppercase transition-all active:scale-[.97] hover:opacity-90 disabled:opacity-50 disabled:cursor-wait";
+  const btnBase = "min-h-[44px] rounded-full px-6 py-3 text-[12px] font-black tracking-widest uppercase transition-all active:scale-[.97] hover:opacity-90 disabled:opacity-50 disabled:cursor-wait";
 
   // Three headline numbers. On the representative career the money is what
   // the player spends next; otherwise show the margin of the win itself.
@@ -107,18 +107,25 @@ export default function ElectedPage() {
       ];
 
   return (
-    <div className="min-h-screen" style={{ background: "radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb)/0.14), transparent 45%), var(--bg)", fontFamily: "Space Mono, monospace" }}>
+    <div className="relative min-h-screen overflow-hidden" style={{ background: "var(--bg)", fontFamily: "Space Mono, monospace" }}>
+      {/* the player's 3D city behind the result: same daylight, hills and
+          skyline as the kawasan they are about to enter */}
+      <div aria-hidden className="pointer-events-none fixed inset-0">
+        <Image src="/elected-city-bg.webp" alt="" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 62%" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgb(6 14 26 / .55) 0%, rgb(6 14 26 / .15) 30%, rgb(6 14 26 / .05) 55%, rgb(6 14 26 / .55) 100%)" }} />
+      </div>
       <Header />
       <main
-        className="mx-auto w-full max-w-[920px] px-4 pb-[60px] pt-[52px] sm:px-8"
+        className="relative w-full px-4 pb-[60px] pt-[52px] sm:px-8"
         style={{
           opacity: reveal ? 1 : 0,
           transform: reveal ? "translateY(0)" : "translateY(12px)",
           transition: "opacity 0.5s ease, transform 0.5s ease",
         }}
       >
+        <div className="mx-auto w-full max-w-[760px]">
         {/* Hero: portrait + the result in one glance */}
-        <section className="mt-2 flex items-center gap-4 sm:gap-6">
+        <section className="mt-2 flex items-center gap-4 rounded-2xl p-3 sm:gap-6 sm:p-4" style={{ background: "rgb(var(--bg-rgb) / 0.72)", border: "1px solid rgb(var(--cyan-rgb) / 0.35)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", boxShadow: "0 12px 40px rgb(0 0 0 / 0.35)" }}>
           <div
             className="relative shrink-0 overflow-hidden rounded-full"
             style={{ width: "92px", height: "92px", border: "2px solid var(--gold)", boxShadow: "0 0 26px rgb(var(--gold-rgb) / 0.45)" }}
@@ -147,7 +154,7 @@ export default function ElectedPage() {
         {/* Three icon stats */}
         <section className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
           {stats.map((stat) => (
-            <div key={stat.icon} className="flex flex-col items-center rounded-md border px-2 py-2.5 text-center" style={{ borderColor: `color-mix(in srgb, ${stat.color} 35%, transparent)`, background: `color-mix(in srgb, ${stat.color} 7%, transparent)` }}>
+            <div key={stat.icon} className="flex flex-col items-center rounded-2xl border px-2 py-2.5 text-center" style={{ borderColor: `color-mix(in srgb, ${stat.color} 45%, transparent)`, background: `linear-gradient(160deg, color-mix(in srgb, ${stat.color} 14%, rgb(var(--bg-rgb) / .78)), rgb(var(--bg-rgb) / .78))`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", boxShadow: "0 10px 30px rgb(0 0 0 / .3)" }}>
               <div className="text-[18px] leading-none" aria-hidden>{stat.icon}</div>
               <div className="mt-1 text-[16px] font-black leading-tight sm:text-[20px]" style={{ color: stat.color }}>{stat.value}</div>
               <div className="mt-0.5 max-w-full truncate text-[9px] font-bold tracking-widest text-text-muted">{stat.sub}</div>
@@ -189,7 +196,7 @@ export default function ElectedPage() {
         </div>
 
         {/* Optional detail: full count and the state seat map */}
-        <Fold className="mt-5 rounded-md border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.18)", background: "rgba(255,255,255,0.02)" }} summaryClassName="px-3 py-2.5 text-text-muted" summary={<>ⓘ {t(lang, "BUTIRAN UNDI", "VOTE DETAILS")}</>}>
+        <Fold className="mt-5 rounded-2xl border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.3)", background: "rgb(var(--bg-rgb) / 0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }} summaryClassName="px-3 py-2.5 text-text-muted" summary={<>ⓘ {t(lang, "BUTIRAN UNDI", "VOTE DETAILS")}</>}>
           <div className="grid gap-4 px-3 pb-3 md:grid-cols-2">
             <div className="space-y-2.5">
               {[
@@ -245,6 +252,7 @@ export default function ElectedPage() {
             </div>
           </div>
         </Fold>
+        </div>
       </main>
 
       <StatusBar leftText={`${officeTitle} · ${ownSeat.constituency.name}`} rightText={t(lang, "elected_page.majority2", { partyDisplay: partyDisplay, formatNumberOwnSeatMajorityVotes: formatNumber(ownSeat.majorityVotes) })} />

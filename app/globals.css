@@ -2057,3 +2057,11 @@ input[type="range"].range-red::-moz-range-thumb {
 .kw-map-frame .city-main-menu-button { border-radius: 14px !important; border: 2px solid var(--ink) !important; background: #f9f8f1 !important; color: var(--ink) !important; box-shadow: 3px 4px 0 var(--ink) !important; }
 /* the iframe filter darkened the city; keep the colours soft and true */
 .kw-map-frame iframe { filter: saturate(1.05) !important; }
+/* Setup wizard: a centred column clear of the notch / home-bar sides,
+   not an edge-to-edge sheet. */
+.setup-screen, .setup-nav { padding-left: max(16px, calc(env(safe-area-inset-left, 0px) + 12px)) !important; padding-right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px)) !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .setup-body, .setup-ultimate { max-width: 680px !important; }
+  .setup-ultimate { margin-left: auto !important; margin-right: auto !important; }
+}
+
