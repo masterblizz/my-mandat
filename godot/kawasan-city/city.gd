@@ -55,6 +55,9 @@ var lrt_curves := []                  # Curve3D per elevated LRT line
 
 # ── seat profile ── set from the game for each constituency (apply_profile)
 var tier := "metro"                    # metro | city | town | rural
+## 0..1 from the seat's real population density (people/km², log scale:
+## ~20 → 0, ~12,000 → 1). Scales how full and how tall the city is.
+var fill := 0.6
 var view_scale := 1.0                  # 1 = full KL metropolis footprint
 ## Kuala Lumpur landmarks keep their real layout at one map scale:
 ## 1 real km = KL_SCALE game metres, for distances and heights alike.
@@ -151,17 +154,32 @@ func _configure(p: Dictionary) -> void:
 	# Only Kuala Lumpur seats reach the full metropolis; elsewhere density
 	# picks a state city, a pekan or a village, and paddy / coastal seats
 	# stay a town even when busy.
-	if kl:
-		tier = "metro" if d >= 0.62 else "city"
-	elif d >= 0.62:
-		tier = "city"
-	elif d >= 0.3:
-		tier = "town"
+	var pd := float(p.get("popDensity", -1.0))
+	if pd > 0.0:
+		# real density decides the kind of place: KL core and Klang Valley
+		# satellites are a metropolis, state capitals a city, then pekan, kampung
+		fill = clampf((log(pd) / log(10.0) - 1.3) / (4.1 - 1.3), 0.0, 1.0)
+		if pd >= 4500.0:
+			tier = "metro"
+		elif pd >= 1500.0:
+			tier = "city"
+		elif pd >= 250.0:
+			tier = "town"
+		else:
+			tier = "rural"
 	else:
-		tier = "rural"
-	if not kl and tier == "city" and (bool(traits.get("paddy", false)) or bool(traits.get("coastal", false))):
+		fill = clampf(d, 0.0, 1.0)
+		if kl:
+			tier = "metro" if d >= 0.62 else "city"
+		elif d >= 0.62:
+			tier = "city"
+		elif d >= 0.3:
+			tier = "town"
+		else:
+			tier = "rural"
+	if not kl and tier == "city" and pd < 1500.0 and (bool(traits.get("paddy", false)) or bool(traits.get("coastal", false))):
 		tier = "town"
-	view_scale = {"metro": 1.2, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
+	view_scale = {"metro": 1.2 if kl else 1.0, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
 	cbd_axis = Vector3(MERDEKA_KM.x, 0, MERDEKA_KM.y) * KL_SCALE if landmarks else Vector3.ZERO
 	r_core = 175.0 * view_scale
 	r_commercial = 265.0 * view_scale
@@ -1451,6 +1469,9 @@ func _back_row(c: Vector3, n: Vector3, yaw: float, front: Dictionary, p0: Vector
 		return
 	if not (front.kind in BACK_ROW_KINDS):
 		return
+	# denser seats fill every back lot; a sleepy pekan only some
+	if rng.randf() > lerpf(0.3, 1.0, fill):
+		return
 	var back := _pick_building(p0 + n * (front.d + 8.0), cls)
 	if back.kind == "skip" or back.kind == "trees" or not (back.kind in BACK_ROW_KINDS):
 		return
@@ -1582,7 +1603,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 func _build_spec(spec: Dictionary, r: float) -> void:
 	match spec.kind:
 		"tower":
-			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0))    # ~240 m real at most: landmarks stay taller
+			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0)) * lerpf(0.7, 1.1, fill)    # ~240 m real at most: landmarks stay taller
 			var h: float = spec.get("h", hmax * rng.randf_range(0.55, 1.0))
 			_office_tower(Vector3.ZERO, rng.randf_range(10, 14), rng.randf_range(10, 14), h)
 		"flat":
@@ -1623,7 +1644,9 @@ func _fill_trees() -> void:
 			continue
 		var urban := tier in ["metro", "city"]
 		var ur := _urban_r(p)
-		var keep := (0.08 if urban else 0.35) if ur < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8)
+		var keep := ((0.08 if urban else 0.35) if ur < r_core else ((0.22 if urban else 0.55) if r < r_city else 0.8))
+		if r < r_city:
+			keep *= lerpf(1.3, 0.6, fill)   # denser seats keep less filler greenery
 		var n := sin(p.x * 0.02) * sin(p.z * 0.023) + sin((p.x + p.z) * 0.011)
 		if rng.randf() > keep or (r > r_city and n < 0.1):
 			continue
@@ -2022,6 +2045,7 @@ const TEST_SEATS := {
 	"strip": {"code": "T1", "density": 0.45, "traits": {}, "layout": "strip"},
 	"oldtown": {"code": "T2", "density": 0.7, "traits": {}, "layout": "oldtown"},
 	"taman": {"code": "T3", "density": 0.5, "traits": {}, "layout": "taman"},
+	"petalingjaya": {"code": "P.105", "density": 0.9, "popDensity": 7000, "traits": {}},
 	"bukitbintang": {"code": "P.120", "density": 0.9, "traits": {"klLandmarks": true, "bukitBintang": true}},
 	"kualaselangor": {"code": "P.095", "density": 0.9, "traits": {"coastal": true, "paddy": true}},
 	"ipoh": {"code": "P.064", "density": 0.7, "traits": {"hilly": true, "industrial": true}},

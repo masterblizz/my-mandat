@@ -22,6 +22,7 @@ import type { Operation } from "../store/gameStore";
 import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab, type DockWork } from "./BuildDock";
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
+import { seatRealDensity } from "../data/seatDensity";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2684,8 +2685,8 @@ export default function KawasanDevelopmentPage() {
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
-    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, traits }),
-    [ownSeat?.code, ownSeat?.name, density, traits],
+    () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), traits }),
+    [ownSeat, density, traits],
   );
   const godotZoneNames = useMemo(
     () => Object.fromEntries(zones.map((zone) => [zone.id, zoneName(lang, zone)])),
@@ -3150,7 +3151,7 @@ export default function KawasanDevelopmentPage() {
               {/* the seat (kawasan) the player represents, always in view */}
               <div className="city-seat-chip city-hud-box pointer-events-none absolute z-20 rounded-full border px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-xl"
                 style={{ borderColor: "rgb(var(--cyan-rgb) / .45)", background: "rgb(var(--bg-rgb) / .82)", backdropFilter: "blur(10px)", fontFamily: "'Space Mono', monospace" }}>
-                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span>
+                📍 <span className="text-cyan">{ownSeat.code}</span> {ownSeat.name} <span className="text-gold">· {overall}%</span> <span className="text-text-muted">· 👥 {formatNumber(seatRealDensity(ownSeat))}/km²</span>
               </div>
               <button type="button" onClick={() => setHudHidden((hidden) => !hidden)} aria-pressed={hudHidden}
                 className="city-tool city-tool--view city-hud-toggle absolute z-[140]"

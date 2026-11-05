@@ -20,7 +20,8 @@ import CitySkyLife from "./CitySkyLife";
 
 export const GODOT_CITY_URL = process.env.NEXT_PUBLIC_GODOT_CITY_URL ?? "/godot/kawasan-city/index.html";
 
-export type GodotSeatProfile = { code: string; name: string; density: number; traits: SeatTraits };
+/** popDensity: approximate real people per km² (see data/seatDensity.ts). */
+export type GodotSeatProfile = { code: string; name: string; density: number; popDensity?: number; traits: SeatTraits };
 
 export type GodotCityMapProps = {
   profile: GodotSeatProfile;
