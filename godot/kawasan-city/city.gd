@@ -1434,9 +1434,33 @@ func _frontage() -> void:
 					_place(c, yaw, spec.kind, spec.w, spec.d)
 					_build_spec(spec, _urban_r(p0))
 					frame = Transform3D.IDENTITY
+					_back_row(c, n, yaw, spec, p0, rd.cls)
 					s += spec.w + spec.gap
 				else:
 					s += 4.0 if spec.kind != "skip" else spec.w
+
+
+## Density: a second building on the lot behind a frontage building, so
+## the blocks between streets fill in instead of staying open grass.
+## Out to the edge of a town (only the inner ring of a village), and only
+## for small/medium kinds — towers, malls and factories keep their space.
+const BACK_ROW_KINDS := ["terrace", "bungalow", "shoprow", "flat", "kampung", "condo"]
+func _back_row(c: Vector3, n: Vector3, yaw: float, front: Dictionary, p0: Vector3, cls: int) -> void:
+	# towns and cities fill out to their edge; villages only near the centre
+	if _urban_r(p0) > (r_taman if tier == "rural" else r_city):
+		return
+	if not (front.kind in BACK_ROW_KINDS):
+		return
+	var back := _pick_building(p0 + n * (front.d + 8.0), cls)
+	if back.kind == "skip" or back.kind == "trees" or not (back.kind in BACK_ROW_KINDS):
+		return
+	var c2: Vector3 = c + n * (front.d * 0.5 + 3.0 + back.d * 0.5)
+	# the back yard faces away from the street: same yaw, so rows line up
+	if _rect_free(c2, yaw, back.w, back.d):
+		_mark_rect(c2, yaw, back.w, back.d)
+		_place(c2, yaw, back.kind, back.w, back.d)
+		_build_spec(back, _urban_r(c2))
+		frame = Transform3D.IDENTITY
 
 
 func _shoprow(lo: int, hi: int) -> Dictionary:
@@ -1521,10 +1545,10 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 					return _terrace()
 				return bungalow if x < 0.9 else trees
 			_:
-				return kampung if x < 0.55 else (_shoprow(2, 3) if x < 0.7 else skip)
+				return kampung if x < 0.65 else (_shoprow(2, 3) if x < 0.82 else skip)
 	if r < r_taman:
 		if tier == "rural":
-			return kampung if x < 0.6 else skip
+			return kampung if x < 0.75 else skip
 		# condo blocks cluster along a metropolis's main roads
 		if tier == "metro" and cls == 0 and rng.randf() < lerpf(0.35, 0.08, clampf((r - r_commercial) / (r_taman - r_commercial), 0.0, 1.0)):
 			return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 4.0}
@@ -1541,7 +1565,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 			return kampung
 		if x < 0.56:
 			return _terrace()
-		return bungalow if x < 0.9 else trees
+		return bungalow if x < 0.95 else trees
 	if r < r_city:
 		if tier == "metro":
 			if x < 0.45:
@@ -1551,7 +1575,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 			if x < 0.85:
 				return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(10, 18)}
 			return kampung
-		return kampung if x < 0.55 else skip
+		return kampung if x < 0.72 else (bungalow if x < 0.85 else skip)
 	return {"kind": "skip", "w": 40.0, "d": 0.0, "gap": 0.0}
 
 
