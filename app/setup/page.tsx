@@ -140,7 +140,7 @@ function UltimateStrip({ hasUltimate, isLoading }: { hasUltimate: boolean; isLoa
   const lang = useLang();
   if (hasUltimate || isLoading) return null;
   return (
-    <div className="setup-ultimate mb-3 flex w-full max-w-[1100px] items-center justify-between gap-3 rounded-md border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / 0.4)", background: "linear-gradient(90deg, rgb(var(--gold-rgb) / 0.12), transparent)" }}>
+    <div className="setup-ultimate mb-3 flex w-full max-w-[880px] items-center justify-between gap-3 rounded-md border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / 0.4)", background: "linear-gradient(90deg, rgb(var(--gold-rgb) / 0.12), transparent)" }}>
       <div className="min-w-0 truncate text-[11px] font-black tracking-[0.16em]" style={{ color: "var(--gold)" }}>✦ ULTIMATE · <span className="text-white">{t(lang, "Arkib Senario", "Scenario Archive")}</span></div>
       <UpgradeButton priceId={PREMIUM_PRICE_IDS.ultimateMonthly} mode="subscription" label={t(lang, "setup_page.getUltimate")} className="shrink-0 rounded border border-gold bg-gold px-3 py-1.5 text-[10px] font-black tracking-wider text-black disabled:opacity-50" />
     </div>
@@ -415,7 +415,7 @@ export default function SetupPage() {
             <span className="h-px flex-1 bg-white/10" />
           </div>
         )}
-        <div className="w-full max-w-[1100px] mt-2">
+        <div className="setup-body mx-auto w-full max-w-[880px] mt-2">
           {/* Step track: icon + one word each, tap to go back */}
           <div className="setup-steps mb-3 flex items-center gap-1">
             {STEPS.map((s, i) => {
@@ -772,7 +772,7 @@ export default function SetupPage() {
           borderTop: "1px solid rgb(var(--cyan-rgb) / 0.18)",
         }}
       >
-        <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-2">
+        <div className="setup-body mx-auto flex w-full max-w-[880px] items-center justify-between gap-2">
           <button
             onClick={handleBack}
             disabled={step === 0}
