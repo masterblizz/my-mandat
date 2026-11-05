@@ -78,9 +78,9 @@ func _start_intro() -> void:
 	if _intro_tween:
 		_intro_tween.kill()
 	_intro_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	_intro_tween.tween_property(self, "dist", end_dist, 3.2)
-	_intro_tween.tween_property(self, "pitch", end_pitch, 3.2)
-	_intro_tween.tween_property(self, "yaw", end_yaw, 3.2)
+	_intro_tween.tween_property(self, "dist", end_dist, 0.5)
+	_intro_tween.tween_property(self, "pitch", end_pitch, 0.5)
+	_intro_tween.tween_property(self, "yaw", end_yaw, 0.5)
 
 
 func _limit() -> float:
