@@ -22,6 +22,7 @@ import type { GodotWorldState, OfficeInteraction } from "../components/world/God
 const OFFICE_ENGINE_KEY = "office-engine";
 const OFFICE_INTRO_KEY = "office-intro-day";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
+import { playerModel } from "../lib/playerAvatar";
 
 type Hotspot = {
   icon: string;
@@ -465,17 +466,17 @@ export default function PoliticalOfficePage() {
     setPanel("inbox");
   };
   // Avatars 2 and 4 (index 1, 3) are the women in the setup line-up.
-  const playerModel: GodotWorldState["player"] = [1, 3].includes(leader.avatarIndex) ? "pa_female" : "pa_male";
+  const playerBody: GodotWorldState["player"] = playerModel(leader.avatarIndex);
   const godotState = useMemo<GodotWorldState>(() => ({
     lang,
-    player: playerModel,
+    player: playerBody,
     playerName: leader.name,
     playerColor: leader.partyColor,
     pa: assistantModel as GodotWorldState["pa"],
     night: isNight,
     badges: { meeting: unreadMailCount, files: newsBulletins.length, residents: officeActionDone("prepare") ? 0 : 1 },
     intro: introToday,
-  }), [lang, playerModel, leader.name, leader.partyColor, assistantModel, isNight, unreadMailCount, newsBulletins.length, introToday, journey.actionsToday, journey.termActions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [lang, playerBody, leader.name, leader.partyColor, assistantModel, isNight, unreadMailCount, newsBulletins.length, introToday, journey.actionsToday, journey.termActions]); // eslint-disable-line react-hooks/exhaustive-deps
   // Each Godot interaction opens the same panel its old hotspot did.
   const openInteraction = (id: OfficeInteraction) => {
     if (id === "desk") setActive(hotspots[0].title);

@@ -17,6 +17,7 @@ import { computeElectionOutcome } from "../utils/electionOutcome";
 import { getGovernmentTerms } from "../utils/governmentTerms";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { HudButton, InfoFold, PageHead, StatChip } from "../components/formation/Hud";
+import { playerPortraitSrc } from "../lib/playerAvatar";
 
 type AssignmentMap = Record<string, string | null>;
 
@@ -113,13 +114,6 @@ function scoreBreakdown(member: PartyMember, post: CabinetPost) {
   return { total, specialty, experience, influence, credibility, charisma };
 }
 
-const LEADER_AVATARS = [
-  "/avatars/leader-01.png",
-  "/avatars/leader-02.png",
-  "/avatars/leader-03.png",
-  "/avatars/leader-04.png",
-  "/avatars/leader-05.png",
-];
 
 const CABINET_PORTRAIT_MAP: Map<string, string> = new Map([
   ["pm-001", "/candidate-portraits/v1/v1-001.png"],
@@ -414,7 +408,7 @@ export default function CabinetPage() {
                 <div className="relative mx-auto max-w-[980px]">
                   <div className="flex justify-center">
                     <div className="relative flex w-full min-w-0 max-w-[340px] items-center gap-3 border p-3 text-left" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.13), rgb(var(--bg-rgb) / 0.88))", boxShadow: "0 0 24px rgb(var(--gold-rgb)/0.13)" }}>
-                      <CabinetPortrait src={LEADER_AVATARS[leader.avatarIndex] ?? LEADER_AVATARS[0]} alt={`${leader.name} avatar`} size="lg" tone="var(--gold)" partyColor={leader.partyColor} label={terms.headAbbr} />
+                      <CabinetPortrait src={playerPortraitSrc(leader.avatarIndex)} alt={`${leader.name} avatar`} size="lg" tone="var(--gold)" partyColor={leader.partyColor} label={terms.headAbbr} />
                       <div className="min-w-0">
                         <div className="text-[10px] font-black tracking-[0.28em]" style={{ color: "var(--gold)" }}>{isPrn ? terms.headTitle : postTitle(PM_POST)}</div>
                         <div className="mt-1 truncate text-xl font-black tracking-wider text-white">{leader.name}</div>
