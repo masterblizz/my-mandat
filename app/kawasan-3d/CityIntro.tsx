@@ -8,7 +8,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "../i18n/useLang";
-import { geoToSvg, type SeatGeo } from "../data/seatGeo";
+import { geoToSvg, loadStateBoundaries, type SeatGeo } from "../data/seatGeo";
+import { states } from "../data/states";
+import CityLoading from "./CityLoading";
 
 const SVG_TO_STATE: Record<string, string> = {
   MY01: "johor", MY02: "kedah", MY03: "kelantan", MY04: "melaka", MY05: "ns",
@@ -21,8 +23,13 @@ type Path = { id: string; d: string };
 
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
-export default function CityIntro({ lang, geo, stateId, stateName, seatCode, seatName, density, ready, onFlyIn, onDone }: {
+const titleCase = (s: string) => s.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+type Tip = { x: number; y: number; title: string; sub?: string } | null;
+
+export default function CityIntro({ lang, geo, stateId, stateName, seatCode, seatName, density, ready, engineReady = false, onFlyIn, onDone }: {
   lang: Lang; geo: SeatGeo; stateId: string; stateName: string; seatCode: string; seatName: string; density?: number;
+  /** the Godot engine has loaded (the city build comes next) */
+  engineReady?: boolean;
   /** the 3D city has loaded; the last zoom waits for it */
   ready: boolean;
   /** start the 3D camera fly-in (fired as the map zooms through the pin) */
@@ -33,6 +40,17 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const [stage, setStage] = useState(0); // 0 country, 1 state, 2 seat, 3 dive
   const [box, setBox] = useState<Box>([500, 166, 1000]);
   const [gone, setGone] = useState(false);
+  // interactivity: state names on the country map, every seat of the
+  // state on the state map, and a tooltip for whatever is touched
+  const pathRefs = useRef<Record<string, SVGPathElement | null>>({});
+  const [labels, setLabels] = useState<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
+  const [seats, setSeats] = useState<{ name: string; d: string; mine: boolean }[]>([]);
+  const [hot, setHot] = useState<string | null>(null);
+  const [tip, setTip] = useState<Tip>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const kindMs = seatCode.startsWith("N") ? "DUN" : "Parlimen";
+  const homeState = states.find((state) => state.id === stateId);
+  const seatTotal = seatCode.startsWith("N") ? homeState?.dunSeats : homeState?.seats;
   const from = useRef<Box>([500, 166, 1000]);
   const startedAt = useRef(0);
   // fly-in fires once, whether from the dive or from SKIP
@@ -48,6 +66,50 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     const w = Math.max((x1 - x0) * 2.2, ((y1 - y0) * 2.4) / 0.46, 6);
     return [(x0 + x1) / 2, (y0 + y1) / 2 - w * 0.04, w];
   }, [ring, px, py]);
+
+  // state label positions, once the outlines are on screen
+  useEffect(() => {
+    if (!paths.length) return;
+    const id = requestAnimationFrame(() => {
+      const out: { id: string; x: number; y: number; w: number; h: number }[] = [];
+      for (const p of paths) {
+        const el = pathRefs.current[p.id];
+        if (!el || out.some((o) => o.id === p.id)) continue;
+        const b = el.getBBox();
+        if (b.width * b.height > 40 || p.id === stateId) out.push({ id: p.id, x: b.x + b.width / 2, y: b.y + b.height / 2, w: b.width, h: b.height });
+      }
+      setLabels(out);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [paths]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // every seat of the state, in SVG units
+  useEffect(() => {
+    let alive = true;
+    loadStateBoundaries(seatCode, stateId).then((all) => {
+      if (!alive) return;
+      const mine = seatName.toLowerCase();
+      setSeats(Object.entries(all).map(([name, rings]) => ({
+        name, mine: name === mine,
+        d: rings.map((r) => `M${r.map(([lon, lat]) => geoToSvg(lat, lon).map((v) => v.toFixed(3)).join(",")).join("L")}Z`).join(""),
+      })));
+    });
+    return () => { alive = false; };
+  }, [seatCode, stateId, seatName]);
+
+  const point = (e: { clientX: number; clientY: number }) => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
+  };
+  const showState = (id: string, e: { clientX: number; clientY: number }) => {
+    const st = states.find((state) => state.id === id);
+    setHot(id);
+    setTip({ ...point(e), title: st?.name ?? id, sub: st ? t(lang, `${st.seats} kerusi Parlimen · ${st.dunSeats || "tiada"} DUN`, `${st.seats} parliament seats · ${st.dunSeats || "no"} DUN`) : undefined });
+  };
+  const showSeat = (name: string, mine: boolean, e: { clientX: number; clientY: number }) => {
+    setHot(name);
+    setTip({ ...point(e), title: titleCase(name), sub: mine ? t(lang, "★ Kawasan anda", "★ Your seat") : `${kindMs} · ${stateName}` });
+  };
 
   useEffect(() => {
     fetch("/malaysia.svg").then((r) => r.text()).then((text) => {
@@ -76,7 +138,11 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
 
   // camera: glide the viewBox between stage boxes (log-scaled width)
   useEffect(() => {
-    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? [px + 30, py + 18, 120] : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
+    const home = labels.find((l) => l.id === stateId);
+    const stateW = home ? Math.min(400, Math.max(home.w * 1.6, (home.h * 1.75) / 0.46)) : 120;
+    // nudge down so the state sits above the loading panel
+    const stateBox: Box = home ? [home.x, home.y + stateW * 0.46 * 0.12, stateW] : [px + 30, py + 18, 120];
+    const target: Box = stage === 0 ? [500, 166, 1000] : stage === 1 ? stateBox : stage === 2 ? seatBox : [px, py, Math.max(0.8, seatBox[2] * 0.08)];
     const dur = 500; // every zoom 0.5 s
     from.current = box;
     startedAt.current = performance.now();
@@ -90,14 +156,15 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [stage]); // eslint-disable-line react-hooks/exhaustive-deps
+    // the state box needs the state outline: re-aim once its labels exist
+  }, [stage, stage === 1 && labels.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const h = box[2] * 0.46; // frame is landscape; keep the map's aspect
   const viewBox = `${box[0] - box[2] / 2} ${box[1] - h / 2} ${box[2]} ${h}`;
   const s = box[2] / 1000; // stroke / label scale with the zoom
 
   return (
-    <div className="pointer-events-auto absolute inset-0 z-[150] overflow-hidden transition-opacity duration-500"
+    <div ref={wrapRef} onPointerLeave={() => { setHot(null); setTip(null); }} className="pointer-events-auto absolute inset-0 z-[150] overflow-hidden transition-opacity duration-500"
       style={{ opacity: gone ? 0 : 1, background: "radial-gradient(ellipse at 50% 45%, #0d2a3c, #04101b 75%)", fontFamily: "'Space Mono', monospace" }}>
       <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
         <defs>
@@ -109,7 +176,24 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
         <rect x="-500" y="-500" width="2000" height="1400" fill="url(#intro-grid)" />
         {paths.map((p, i) => {
           const home = p.id === stateId;
-          return <path key={i} d={p.d} fill={home ? "#2f6b4a" : "#1d4636"} stroke={home ? "#f2b01e" : "#5fb6a8"} strokeWidth={(home ? 1.4 : 0.6) * s} strokeLinejoin="round" />;
+          return <path key={i} ref={(el) => { if (!pathRefs.current[p.id]) pathRefs.current[p.id] = el; }} d={p.d}
+            className={`city-intro-state ${home ? "city-intro-home" : ""} ${hot === p.id ? "is-hot" : ""}`}
+            fill={home ? "#2f6b4a" : "#1d4636"} stroke={home ? "#f2b01e" : "#5fb6a8"} strokeWidth={(home ? 1.4 : 0.6) * s} strokeLinejoin="round"
+            onPointerMove={(e) => showState(p.id, e)} onClick={(e) => showState(p.id, e)} />;
+        })}
+        {/* every seat of the home state (state view onwards) */}
+        {stage >= 1 && stage < 3 && seats.map((seat) => (
+          <path key={seat.name} d={seat.d} className={`city-intro-seat ${seat.mine ? "city-intro-myseat" : ""} ${hot === seat.name ? "is-hot" : ""}`}
+            fill={seat.mine ? "rgb(255 204 41 / .45)" : "rgb(92 200 255 / .06)"} stroke={seat.mine ? "#ffcc29" : "rgb(160 220 255 / .55)"}
+            strokeWidth={(seat.mine ? 1.1 : 0.35) * s} strokeLinejoin="round"
+            onPointerMove={(e) => showSeat(seat.name, seat.mine, e)} onClick={(e) => showSeat(seat.name, seat.mine, e)} />
+        ))}
+        {/* state names on the country map */}
+        {stage === 0 && labels.filter((l) => !["wp", "putrajaya", "labuan"].includes(l.id)).map((l) => {
+          const st = states.find((state) => state.id === l.id);
+          const home = l.id === stateId;
+          return <text key={l.id} x={l.x} y={l.y} textAnchor="middle" fontSize={(home ? 13 : 9) * s} fontWeight={home ? 900 : 700} pointerEvents="none"
+            fill={home ? "#ffcc29" : "#cfe9f2"} stroke="#04101b" strokeWidth={2.4 * s} paintOrder="stroke" style={{ fontFamily: "Inter, system-ui, sans-serif", letterSpacing: ".04em" }}>{st?.name ?? ""}</text>;
         })}
         {/* the seat: a dotted boundary ring and a pin */}
         {stage >= 1 && (
@@ -120,7 +204,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
                 strokeWidth={Math.max(0.05, 2.2 * s)} strokeDasharray={`${Math.max(0.16, 6 * s)} ${Math.max(0.12, 4 * s)}`} strokeLinejoin="round"
                 style={{ animation: "mm-goal-in .6s ease-out" }} />
             )) : <circle cx={px} cy={py} r={1.7} fill="rgb(242 176 30 / .12)" stroke="#ff5a4e" strokeWidth={Math.max(0.06, 2.2 * s)} strokeDasharray={`${Math.max(0.2, 6 * s)} ${Math.max(0.15, 4 * s)}`} />}
-            <g transform={`translate(${px} ${py}) scale(${box[2] * 0.011})`}>
+            <g transform={`translate(${px} ${py}) scale(${box[2] * (stage === 1 ? 0.006 : 0.011)})`} pointerEvents="none">
               <path d="M0 0 C -1.3 -1.6 -2 -2.6 -2 -3.6 A 2 2 0 1 1 2 -3.6 C 2 -2.6 1.3 -1.6 0 0 Z" fill="#e8463c" stroke="#fff" strokeWidth="0.25" />
               <circle cx="0" cy="-3.6" r="0.75" fill="#7a1410" />
             </g>
@@ -142,7 +226,15 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
           </div>
         )}
       </div>
-      {stage <= 1 && !ready && <div className="absolute bottom-[16%] left-1/2 -translate-x-1/2 text-[9px] font-black tracking-[.24em] text-cyan">{t(lang, "MEMBINA BANDAR 3D…", "BUILDING THE 3D CITY…")}</div>}
+      {stage === 1 && (
+        <div className="city-intro-card">
+          <b>{stateName.toUpperCase()}</b>
+          <p>{seatTotal ? t(lang, `${seatTotal} kerusi ${kindMs}`, `${seatTotal} ${kindMs === "DUN" ? "state" : "parliament"} seats`) : kindMs}{seats.length ? t(lang, " · ketik kawasan untuk lihat nama", " · tap a seat to see its name") : ""}</p>
+          <p className="is-mine">★ {seatCode} {seatName}</p>
+        </div>
+      )}
+      {tip && stage < 3 && <div className="city-intro-tip" style={{ left: tip.x, top: tip.y }}>{tip.title}{tip.sub && <small>{tip.sub}</small>}</div>}
+      {stage <= 2 && <CityLoading lang={lang} engineReady={engineReady} built={ready} />}
       {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan: DOSM, data terbuka (CC BY 4.0)", "Boundary: DOSM open data (CC BY 4.0)")}</div>}
       <button type="button" onClick={() => { flyOnce(); setGone(true); window.setTimeout(onDone, 400); }}
         className="absolute right-4 top-3 rounded border px-3 py-1.5 text-[10px] font-black tracking-widest text-text-muted"
