@@ -509,7 +509,7 @@ func _make_materials() -> void:
 
 	mat_water = StandardMaterial3D.new()
 	mat_water.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat_water.albedo_color = Color(0.22, 0.42, 0.5)
+	mat_water.albedo_color = Color(0.2, 0.62, 0.72)   # soft turquoise
 	mat_water.metallic = 0.3
 	mat_water.roughness = 0.05
 
@@ -1754,8 +1754,26 @@ func _build_ground() -> void:
 	var g := PlaneMesh.new()
 	g.size = Vector2(16000, 16000)
 	var gm := StandardMaterial3D.new()
-	gm.albedo_color = Color(0.27, 0.4, 0.22)
+	# soft painted grass: large yellow-green to deep-green patches
+	gm.albedo_color = Color(1, 1, 1)
 	gm.roughness = 1.0
+	var nt := NoiseTexture2D.new()
+	nt.width = 512
+	nt.height = 512
+	nt.seamless = true
+	var fn := FastNoiseLite.new()
+	fn.frequency = 0.006
+	fn.fractal_octaves = 3
+	fn.seed = seat_seed
+	nt.noise = fn
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.33, 0.52, 0.24))
+	ramp.set_color(1, Color(0.62, 0.7, 0.32))
+	ramp.add_point(0.5, Color(0.45, 0.62, 0.27))
+	nt.color_ramp = ramp
+	gm.albedo_texture = nt
+	gm.uv1_scale = Vector3(6, 6, 1)
+	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_single(g, gm, Transform3D.IDENTITY)
 	# The 16 km ground must not cast shadows onto itself: with phone-sized
 	# cascades that acne turned everything inside the shadow range grey
