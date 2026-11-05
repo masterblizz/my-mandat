@@ -276,6 +276,9 @@ func _lighten_for_mobile() -> void:
 	env.ambient_light_sky_contribution = 0.45
 	env.ambient_light_color = Color(0.34, 0.4, 0.55)
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# roll highlights off instead of clipping (sun-facing walls went white)
+	env.tonemap_white = 3.0
+	env.tonemap_exposure = 0.85
 	get_window().content_scale_factor = clampf(DisplayServer.screen_get_scale(), 1.0, 3.0)
 
 
@@ -441,6 +444,7 @@ func _make_materials() -> void:
 	mat_plain.vertex_color_use_as_albedo = true
 	mat_plain.vertex_color_is_srgb = true
 	mat_plain.roughness = 0.85
+	mat_plain.metallic_specular = 0.2   # no sun glare off pale walls at grazing angles
 
 	mat_roof = StandardMaterial3D.new()
 	mat_roof.vertex_color_use_as_albedo = true
@@ -468,6 +472,7 @@ func _make_materials() -> void:
 	mat_lowrise.emission_texture = _window_texture(4, 4, Color.BLACK, Color.BLACK, true, 0.45, 0.42)
 	mat_lowrise.emission_energy_multiplier = 0.0
 	mat_lowrise.roughness = 0.8
+	mat_lowrise.metallic_specular = 0.2
 	_triplanar(mat_lowrise, 14.0)
 
 	mat_landmark = StandardMaterial3D.new()
@@ -504,7 +509,7 @@ func _make_materials() -> void:
 
 	mat_water = StandardMaterial3D.new()
 	mat_water.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat_water.albedo_color = Color(0.22, 0.42, 0.5)
+	mat_water.albedo_color = Color(0.2, 0.62, 0.72)   # soft turquoise
 	mat_water.metallic = 0.3
 	mat_water.roughness = 0.05
 
@@ -716,7 +721,8 @@ func set_tod(t: int) -> void:
 		0:
 			sun.rotation_degrees = Vector3(-52, -35, 0)
 			sun.light_color = Color(1.0, 0.96, 0.88)
-			sun.light_energy = 1.7
+			# 1.7 clipped pale walls facing the sun to flat white
+			sun.light_energy = 1.35
 			sky_mat.sky_top_color = Color(0.32, 0.55, 0.85)
 			sky_mat.sky_horizon_color = Color(0.72, 0.82, 0.9)
 			sky_mat.ground_horizon_color = Color(0.6, 0.66, 0.6)
@@ -1748,8 +1754,26 @@ func _build_ground() -> void:
 	var g := PlaneMesh.new()
 	g.size = Vector2(16000, 16000)
 	var gm := StandardMaterial3D.new()
-	gm.albedo_color = Color(0.27, 0.4, 0.22)
+	# soft painted grass: large yellow-green to deep-green patches
+	gm.albedo_color = Color(1, 1, 1)
 	gm.roughness = 1.0
+	var nt := NoiseTexture2D.new()
+	nt.width = 512
+	nt.height = 512
+	nt.seamless = true
+	var fn := FastNoiseLite.new()
+	fn.frequency = 0.006
+	fn.fractal_octaves = 3
+	fn.seed = seat_seed
+	nt.noise = fn
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.33, 0.52, 0.24))
+	ramp.set_color(1, Color(0.62, 0.7, 0.32))
+	ramp.add_point(0.5, Color(0.45, 0.62, 0.27))
+	nt.color_ramp = ramp
+	gm.albedo_texture = nt
+	gm.uv1_scale = Vector3(6, 6, 1)
+	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_single(g, gm, Transform3D.IDENTITY)
 	# The 16 km ground must not cast shadows onto itself: with phone-sized
 	# cascades that acne turned everything inside the shadow range grey

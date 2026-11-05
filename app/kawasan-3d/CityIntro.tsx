@@ -35,6 +35,9 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
   const [gone, setGone] = useState(false);
   const from = useRef<Box>([500, 166, 1000]);
   const startedAt = useRef(0);
+  // fly-in fires once, whether from the dive or from SKIP
+  const flown = useRef(false);
+  const flyOnce = () => { if (!flown.current) { flown.current = true; onFlyIn(); } };
   const [px, py] = geoToSvg(geo.lat, geo.lon);
   // the seat's official boundary in SVG units, and a close-up box that fits it
   const ring = useMemo(() => (geo.boundary ?? []).map((r) => r.map(([lon, lat]) => geoToSvg(lat, lon))), [geo.boundary]);
@@ -65,7 +68,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
     if (stage === 1 && ready) { const id = window.setTimeout(() => setStage(2), 500); return () => window.clearTimeout(id); }
     if (stage === 2) { const id = window.setTimeout(() => setStage(3), 1000); return () => window.clearTimeout(id); }
     if (stage === 3) {
-      onFlyIn();
+      flyOnce();
       const id = window.setTimeout(() => { setGone(true); window.setTimeout(onDone, 500); }, 500);
       return () => window.clearTimeout(id);
     }
@@ -141,7 +144,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
       </div>
       {stage <= 1 && !ready && <div className="absolute bottom-[16%] left-1/2 -translate-x-1/2 text-[9px] font-black tracking-[.24em] text-cyan">{t(lang, "MEMBINA BANDAR 3D…", "BUILDING THE 3D CITY…")}</div>}
       {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan: DOSM, data terbuka (CC BY 4.0)", "Boundary: DOSM open data (CC BY 4.0)")}</div>}
-      <button type="button" onClick={() => { onFlyIn(); setGone(true); window.setTimeout(onDone, 400); }}
+      <button type="button" onClick={() => { flyOnce(); setGone(true); window.setTimeout(onDone, 400); }}
         className="absolute right-4 top-3 rounded border px-3 py-1.5 text-[10px] font-black tracking-widest text-text-muted"
         style={{ borderColor: "rgb(var(--cyan-rgb) / .35)", background: "rgb(4 16 27 / .7)" }}>
         {t(lang, "LANGKAU", "SKIP")} ▸▸

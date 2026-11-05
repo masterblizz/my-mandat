@@ -68,6 +68,10 @@ func intro() -> void:
 
 func _start_intro() -> void:
 	intro_pending = false
+	# a second fly-in request while one runs must not take the mid-flight
+	# top-down pose as its end point (that left the camera stuck overhead)
+	if _intro_tween and _intro_tween.is_running():
+		return
 	var end_yaw := yaw
 	var end_pitch := pitch
 	var end_dist := dist
