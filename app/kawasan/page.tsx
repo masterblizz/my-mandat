@@ -322,6 +322,14 @@ function weakestStat(zone: Zone): ZoneStat {
 }
 
 // Returns a localised "what unlocks this" line, or null when the project is open.
+/** A project does more where the need is greatest: a weak stat gets up to
+ *  +50%, an already strong one half. Never past 100. */
+function projectGain(project: Project, zone: Zone) {
+  const value = zone[project.target];
+  const k = value < 35 ? 1.5 : value < 50 ? 1.25 : value > 80 ? 0.5 : value > 65 ? 0.75 : 1;
+  return Math.max(0, Math.min(100 - value, Math.round(project.boost * k)));
+}
+
 function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<typeof useLang>) {
   const requires = project.requires;
   if (!requires || !zone) return null;
@@ -2614,6 +2622,8 @@ export default function KawasanDevelopmentPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ zoneId: string; at: number } | null>(null);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  // placement: the zone the player is aiming at (confirmed before building)
+  const [placeTargetId, setPlaceTargetId] = useState<string | null>(null);
   const [manifestoDraft, setManifestoDraft] = useState(leader.manifesto ?? "");
   const [manifestoSaved, setManifestoSaved] = useState(true);
   // Transient feedback states — Save flips a button to a green "✓ SAVED"
@@ -2868,6 +2878,26 @@ export default function KawasanDevelopmentPage() {
   const totalProjects = zones.reduce((sum, zone) => sum + zone.projects.length, 0);
 
   const pendingProject = pendingProjectId ? PROJECTS.find((project) => project.id === pendingProjectId) ?? null : null;
+  // Where the pending project can go, best first: biggest gain (the most
+  // need), then the weakest stat. The top few are labelled on the map.
+  const placementOptions = useMemo(() => {
+    if (!pendingProject) return [];
+    return zones
+      .filter((zone) => !zone.projects.includes(pendingProject.id) && !seatWorks.some((work) => work.zone === zone.id && work.project === pendingProject.id) && !lockReason(pendingProject, zone, lang))
+      .map((zone) => ({ zone, gain: projectGain(pendingProject, zone) }))
+      .sort((a, b) => b.gain - a.gain || a.zone[pendingProject.target] - b.zone[pendingProject.target]);
+  }, [pendingProject, zones, seatWorks, lang]);
+  const placementTop = placementOptions.slice(0, 6);
+  const placeTarget = pendingProject && placeTargetId ? zones.find((zone) => zone.id === placeTargetId) ?? null : null;
+  // While placing, only the recommended zones (and the aimed one) carry a
+  // name on the map, with their gain, instead of every zone in the seat.
+  const placingZoneNames = useMemo(() => {
+    if (!pendingProject) return null;
+    const names: Record<string, string> = {};
+    for (const { zone, gain } of placementTop) names[zone.id] = `★ ${zoneName(lang, zone)} +${gain}`;
+    if (placeTarget && !names[placeTarget.id]) names[placeTarget.id] = zoneName(lang, placeTarget);
+    return names;
+  }, [pendingProject, placementTop.map((option) => option.zone.id).join(), placeTarget?.id, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
   const cityActivity = repTerm && journey.chapter === "government" && selectedZone?.kind === "industry"
     ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Semak dasar kerajaan dan rekod penggal anda.", "Review government policy and your term record."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }
@@ -2934,10 +2964,11 @@ export default function KawasanDevelopmentPage() {
     useGameStore.setState(state => ({ journey: { ...state.journey,
       publicBudget: state.journey.publicBudget - project.cost,
       cityZones: { ...state.journey.cityZones, [seatId]: zones },
-      construction: [...state.journey.construction, { seat: seatId, zone: targetZone.id, project: project.id, target: project.target, boost: project.boost, remaining: 2 }],
+      construction: [...state.journey.construction, { seat: seatId, zone: targetZone.id, project: project.id, target: project.target, boost: projectGain(project, targetZone), remaining: 2 }],
     } }));
     setSelectedZoneId(targetZone.id);
     setPendingProjectId(null);
+    setPlaceTargetId(null);
     setOverlay("none");
 
     setNotice(t(lang, "Pembinaan bermula. Siap dalam dua suku tahun.", "Construction started. Completion in two quarters."));
@@ -2949,7 +2980,17 @@ export default function KawasanDevelopmentPage() {
     setFocusZoneId(null);
     setZonePanelOpen(true);
     setHudHidden(false);
-    if (pendingProject) runProject(pendingProject, zoneId);
+    if (pendingProject) { setPlaceTargetId(zoneId); setZonePanelOpen(false); }
+  }
+
+  function confirmPlacement() {
+    if (pendingProject && placeTargetId) runProject(pendingProject, placeTargetId);
+  }
+
+  function cancelPlacement() {
+    setPendingProjectId(null);
+    setPlaceTargetId(null);
+    setOverlay("none");
   }
 
   // Picking a place from the city's location list goes straight in, the
@@ -3014,6 +3055,15 @@ export default function KawasanDevelopmentPage() {
     setPendingProjectId(project.id);
     // Civitas-style: show where the city actually needs this kind of project.
     setOverlay(project.target);
+    // fold the build panel away so the city is visible, and aim at the
+    // zone that gains the most (the player can tap another one)
+    setDockMode(null);
+    setZonePanelOpen(false);
+    const best = zones
+      .filter((zone) => !zone.projects.includes(project.id) && !seatWorks.some((work) => work.zone === zone.id && work.project === project.id) && !lockReason(project, zone, lang))
+      .sort((a, b) => projectGain(project, b) - projectGain(project, a) || a[project.target] - b[project.target])[0];
+    setPlaceTargetId(best?.id ?? null);
+    if (best) focusZone(best.id);
     setNotice(t(lang, "kawasan_page.clickZoneToPlaceProject"));
   }
 
@@ -3158,7 +3208,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
+                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3172,7 +3222,7 @@ export default function KawasanDevelopmentPage() {
               </div>
               {journey.chapter === "campaign" && day < totalDays && <div className="city-campaign-timeline city-hud-box absolute left-4 top-20 z-20 w-[min(360px,calc(100%-32px))]"><CampaignTimeline day={day} totalDays={totalDays} lang={lang} compact /></div>}
               <CityDestinations onFocus={focusDestination} variant="overlay" onActivityMarkersChange={setActivityMarkersVisible} open={placesOpen} onOpenChange={setPlacesOpen} />
-              <CityHubBar onEnter={enterHubDestination} />
+              {!pendingProject && dockMode !== "build" && <CityHubBar onEnter={enterHubDestination} />}
               <CityTopBar lang={lang} zones={zones} chips={[
                 { icon: "💰", value: `RM ${formatNumber(unlocked ? journey.publicBudget : resources.funds)}`, title: unlocked ? t(lang, "Bajet awam", "Public budget") : t(lang, "Dana", "Funds") },
                 { icon: "👥", value: formatNumber(ownSeat.voters), title: t(lang, "Pengundi", "Voters") },
@@ -3231,9 +3281,18 @@ export default function KawasanDevelopmentPage() {
                 problems={dockProblems}
                 works={dockWorks}
                 selectedZone={selectedZone ? { label: zoneName(lang, selectedZone), icon: zoneIcon(selectedZone.kind), sentiment: selectedZone.sentiment, stats: STAT_ORDER.map((key) => ({ key, label: statLabel(lang, key), value: selectedZone[key] })) } : null}
-                pending={pendingProject ? { icon: pendingProject.icon, title: projectTitle(pendingProject.id) } : null}
+                pending={pendingProject ? {
+                  icon: pendingProject.icon, title: projectTitle(pendingProject.id), cost: pendingProject.cost, statLabel: statLabel(lang, pendingProject.target),
+                  options: placementTop.map(({ zone, gain }) => ({ zoneId: zone.id, label: zoneName(lang, zone), icon: zoneIcon(zone.kind), from: zone[pendingProject.target], gain })),
+                  target: placeTarget ? { zoneId: placeTarget.id, label: zoneName(lang, placeTarget), icon: zoneIcon(placeTarget.kind), from: placeTarget[pendingProject.target], gain: projectGain(pendingProject, placeTarget),
+                    blocked: placeTarget.projects.includes(pendingProject.id) ? t(lang, "Sudah dibina di zon ini", "Already built in this zone")
+                      : seatWorks.some((work) => work.zone === placeTarget.id && work.project === pendingProject.id) ? t(lang, "Sedang dibina di zon ini", "Under construction in this zone")
+                      : lockReason(pendingProject, placeTarget, lang) ?? (journey.publicBudget < pendingProject.cost ? t(lang, "kawasan_page.insufficientBudget") : null) } : null,
+                } : null}
+                onPlacementTarget={(zoneId) => { setPlaceTargetId(zoneId); focusZone(zoneId); }}
+                onConfirmPlacement={confirmPlacement}
                 onPickProject={pickProject}
-                onCancelPlacement={() => setPendingProjectId(null)}
+                onCancelPlacement={cancelPlacement}
                 onBuildSuggested={(zoneId, projectId) => { const project = PROJECTS.find((item) => item.id === projectId); if (project) { runProject(project, zoneId); focusZone(zoneId); } }}
                 onFocusZone={focusZone}
                 onAdvanceQuarter={advanceQuarter}
