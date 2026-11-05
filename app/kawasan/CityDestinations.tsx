@@ -63,9 +63,15 @@ export function useCityDestinations(): CityDestination[] {
   return visible;
 }
 
-export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void }) {
+export default function CityDestinations({ onFocus, variant = "panel", onActivityMarkersChange, open: openProp, onOpenChange }: { onFocus?: (destination: CityDestination) => void; variant?: "panel" | "overlay"; onActivityMarkersChange?: (visible: boolean) => void; open?: boolean; onOpenChange?: (open: boolean) => void }) {
   const lang = useLang();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean | ((value: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(open) : next;
+    setOpenState(value);
+    onOpenChange?.(value);
+  };
   const visible = useCityDestinations();
 
   if (variant === "overlay") return (

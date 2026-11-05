@@ -193,13 +193,13 @@ export default function BuildDock({
       <div className="flex flex-wrap items-stretch gap-1.5 border p-1.5 shadow-2xl" style={{ ...box, borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
         {agenda && (
           <button type="button" onClick={() => toggle("agenda")} aria-expanded={mode === "agenda"}
-            className="shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
+            className="nhud-btn nhud-btn--cream shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
             style={{ borderColor: "rgb(var(--cyan-rgb) / .65)", color: mode === "agenda" ? "var(--bg)" : "var(--cyan)", background: mode === "agenda" ? "var(--cyan)" : "rgb(var(--cyan-rgb) / .1)" }}>
             📋 <span className="hidden sm:inline">{t(lang, "AGENDA", "AGENDA")}</span>{agendaBadge ? <span className="ml-1 opacity-80">{agendaBadge}</span> : null}
           </button>
         )}
         <button type="button" onClick={() => toggle("build")} aria-expanded={open}
-          className="shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
+          className="nhud-btn nhud-btn--gold shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
           style={{ borderColor: "rgb(var(--gold-rgb) / .65)", color: open ? "var(--bg)" : "var(--gold)", background: open ? "var(--gold)" : "rgb(var(--gold-rgb) / .1)" }}>
           🏗 <span className={agenda ? "hidden sm:inline" : undefined}>{t(lang, "BINA", "BUILD")}</span> {open ? "▾" : "▴"}
         </button>

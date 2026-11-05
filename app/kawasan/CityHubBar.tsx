@@ -42,6 +42,7 @@ export default function CityHubBar({ onEnter }: { onEnter: (destination: CityDes
               onClick={() => onEnter(destination)}
               title={`${copy.name} — ${copy.detail}`}
               aria-label={copy.name}
+              data-hub={destination.id}
               className={`city-hub-bar__item${primary ? " city-hub-bar__item--primary" : ""}`}
             >
               <span className="city-hub-bar__icon" aria-hidden>{destination.icon}</span>
