@@ -2094,3 +2094,79 @@ input[type="range"].range-red::-moz-range-thumb {
   .setup-ultimate { margin-left: auto !important; margin-right: auto !important; }
 }
 
+
+/* ── Glossy tile buttons (3D city) ───────────────────────────────────
+   Hub tiles: a coloured, bevelled square per destination with a top
+   shine and a soft glow; action buttons in the zone card / dock as
+   rounded glossy pills (green go, gold build, cream agenda). */
+.kw-map-frame .city-hub-bar__track { gap: 12px; padding: 4px 2px 6px; }
+.kw-map-frame .city-hub-bar__item {
+  --hub: 37 99 235; --hub-dark: 23 51 140;
+  position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-width: 96px; min-height: 92px; padding: 10px 10px 9px !important;
+  border-radius: 18px !important; border: 2px solid rgb(255 255 255 / .55) !important;
+  background: linear-gradient(180deg, rgb(var(--hub) / 1) 0%, rgb(var(--hub-dark) / 1) 100%) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .45), inset 0 -5px 0 rgb(0 0 0 / .28), 0 0 0 2px rgb(var(--hub-dark) / .9), 0 6px 0 rgb(var(--hub-dark) / 1), 0 10px 22px rgb(var(--hub) / .55) !important;
+  color: #fff !important; text-shadow: 0 2px 0 rgb(0 0 0 / .35);
+  transition: transform .12s ease, filter .12s ease;
+}
+.kw-map-frame .city-hub-bar__item::before {
+  content: ""; position: absolute; inset: 3px 4px auto; height: 44%; border-radius: 14px 14px 40% 40% / 14px 14px 22px 22px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .42), rgb(255 255 255 / 0)); pointer-events: none;
+}
+.kw-map-frame .city-hub-bar__item:hover, .kw-map-frame .city-hub-bar__item:focus-visible { transform: translateY(-2px); filter: brightness(1.1); background: linear-gradient(180deg, rgb(var(--hub) / 1), rgb(var(--hub-dark) / 1)) !important; }
+.kw-map-frame .city-hub-bar__item:active { transform: translateY(3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .4), inset 0 -2px 0 rgb(0 0 0 / .25), 0 0 0 2px rgb(var(--hub-dark) / .9), 0 2px 0 rgb(var(--hub-dark) / 1), 0 4px 12px rgb(var(--hub) / .5) !important; }
+.kw-map-frame .city-hub-bar__icon { position: relative; font-size: 34px !important; filter: drop-shadow(0 3px 2px rgb(0 0 0 / .45)) !important; }
+.kw-map-frame .city-hub-bar__label { position: relative; display: block !important; font-size: 11px !important; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.kw-map-frame .city-hub-bar__item[data-hub="office"] { --hub: 46 120 255; --hub-dark: 22 56 160; }
+.kw-map-frame .city-hub-bar__item[data-hub="party"], .kw-map-frame .city-hub-bar__item[data-hub="cabinet"] { --hub: 236 72 90; --hub-dark: 140 26 46; }
+.kw-map-frame .city-hub-bar__item[data-hub="operations"] { --hub: 20 184 196; --hub-dark: 10 98 112; }
+.kw-map-frame .city-hub-bar__item[data-hub="calendar"] { --hub: 240 120 40; --hub-dark: 150 62 14; }
+.kw-map-frame .city-hub-bar__item[data-hub="media"] { --hub: 150 70 235; --hub-dark: 78 28 150; }
+.kw-map-frame .city-hub-bar__item[data-hub="commission"], .kw-map-frame .city-hub-bar__item[data-hub="report"] { --hub: 90 110 140; --hub-dark: 40 52 76; }
+.kw-map-frame .city-hub-bar__item[data-hub="administration"] { --hub: 226 150 20; --hub-dark: 132 76 6; }
+.kw-map-frame .city-hub-bar__item[data-hub="national"] { --hub: 34 178 76; --hub-dark: 14 100 40; }
+.kw-map-frame .city-hub-bar__item[data-hub="continue"] { --hub: 255 196 30; --hub-dark: 168 108 0; color: #2a1a00 !important; text-shadow: 0 1px 0 rgb(255 255 255 / .4); }
+/* glossy pills */
+.kw-map-frame .nhud-btn {
+  position: relative; border-radius: 999px !important; border: 2px solid rgb(255 255 255 / .5) !important;
+  font-family: 'Inter', system-ui, sans-serif !important; font-size: 12px !important; font-weight: 900 !important; letter-spacing: .03em !important;
+  padding: 8px 16px !important; text-transform: none;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), inset 0 -3px 0 rgb(0 0 0 / .18), 0 3px 0 var(--pill-dark), 0 6px 14px rgb(0 0 0 / .3) !important;
+  transition: transform .12s ease, filter .12s ease;
+}
+.kw-map-frame .nhud-btn:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
+.kw-map-frame .nhud-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .45), 0 1px 0 var(--pill-dark), 0 3px 8px rgb(0 0 0 / .3) !important; }
+.kw-map-frame .nhud-btn--green { --pill-dark: #6f9a78; color: #0d2a1c !important; background: linear-gradient(180deg, #f3fbef, #cfe9cf) !important; }
+.kw-map-frame .nhud-btn--gold { --pill-dark: #a86c00; color: #2a1a00 !important; background: linear-gradient(180deg, #ffe066, #f5a90f) !important; }
+.kw-map-frame .nhud-btn--cream { --pill-dark: #9aa6b2; color: #13233a !important; background: linear-gradient(180deg, #ffffff, #dde6ee) !important; }
+.kw-map-frame .nhud-btn[aria-expanded="true"] { filter: brightness(1.05) saturate(1.2); outline: 2px solid #ffcc29; outline-offset: 1px; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .kw-map-frame .city-hub-bar__track { gap: 8px; }
+  .kw-map-frame .city-hub-bar__item { min-width: 68px; min-height: 64px; padding: 6px 6px !important; border-radius: 14px !important; gap: 3px; }
+  .kw-map-frame .city-hub-bar__icon { font-size: 24px !important; }
+  .kw-map-frame .city-hub-bar__label { font-size: 8.5px !important; }
+  .kw-map-frame .nhud-btn { font-size: 10px !important; padding: 5px 11px !important; }
+}
+/* zone card copy and term clock in the same friendly look */
+.kw-map-frame .city-zone-card { font-family: 'Inter', system-ui, sans-serif !important; }
+.kw-map-frame .city-zone-card .text-gold { font-size: 15px !important; letter-spacing: .01em !important; color: #fff !important; }
+.kw-map-frame .city-zone-card p { font-size: 12px !important; color: rgb(255 255 255 / .82) !important; }
+.kw-map-frame .city-hub-bar { margin-bottom: 8px; }
+.kw-map-frame .term-clock { gap: 6px; align-items: center; }
+.kw-map-frame .term-clock > button:first-child {
+  width: 40px; height: 40px; border-radius: 999px !important; border: 2px solid rgb(255 255 255 / .6) !important;
+  color: #fff !important; background: linear-gradient(180deg, #5fe36a, #1f9e2e) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .45), 0 3px 0 #136b1d, 0 6px 12px rgb(31 158 46 / .45) !important; font-size: 15px !important;
+}
+.kw-map-frame .term-clock > button[aria-pressed="true"]:first-child { background: linear-gradient(180deg, #ffe066, #f5a90f) !important; box-shadow: inset 0 2px 0 rgb(255 255 255 / .45), 0 3px 0 #a86c00 !important; color: #2a1a00 !important; }
+.kw-map-frame .term-clock [role="radiogroup"] { border-radius: 12px; overflow: hidden; border: 1px solid var(--nh-edge) !important; background: rgb(0 0 0 / .25); }
+.kw-map-frame .term-clock [role="radio"] { width: 30px; font-family: 'Inter', system-ui, sans-serif; font-size: 12px !important; color: #fff !important; }
+.kw-map-frame .term-clock [role="radio"][aria-checked="true"] { background: linear-gradient(180deg, #5cc8ff, #1a8fe0) !important; color: #fff !important; box-shadow: inset 0 2px 0 rgb(255 255 255 / .4); }
+.kw-map-frame .term-clock > button:not(:first-child) { border-radius: 12px !important; width: 34px; color: #fff !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .kw-map-frame .term-clock > button:first-child { width: 32px; height: 32px; font-size: 12px !important; }
+  .kw-map-frame .term-clock [role="radio"] { width: 24px; font-size: 10px !important; }
+  .kw-map-frame .city-zone-card .text-gold { font-size: 12px !important; }
+  .kw-map-frame .city-zone-card p { font-size: 10px !important; }
+}
