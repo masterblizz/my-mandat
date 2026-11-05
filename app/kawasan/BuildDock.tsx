@@ -6,7 +6,7 @@
 // problems list and the construction queue. Pure view: /kawasan computes
 // every card and owns all state changes, so gameplay rules stay in one place.
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t, type Lang } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
 import type { CityLedger } from "../data/cityEconomy";
@@ -170,13 +170,13 @@ export default function BuildDock({
 
           <div className="city-build-dock__body max-h-[min(38vh,300px)] overflow-y-auto p-2">
             {(tab === "all" || tab === "infra" || tab === "welfare" || tab === "economy") && (
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+              <SwipeRow lang={lang} resetKey={tab}>
                 {visibleCards.map((card) => {
                   const disabled = card.status === "budget" || termEnded;
                   const accent = card.status === "ready" ? "var(--gold)" : card.status === "built" ? "var(--neon-green)" : card.status === "building" ? "var(--cyan)" : card.status === "locked" ? "var(--warn-orange)" : "var(--neon-red)";
                   return (
                     <button key={card.id} type="button" disabled={disabled} onClick={() => onPickProject(card.id)}
-                      className="border p-2 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-gold/70 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="city-build-card w-[46%] shrink-0 snap-start border p-2 text-left sm:w-[31%] lg:w-[23.5%] transition enabled:hover:-translate-y-0.5 enabled:hover:border-gold/70 disabled:cursor-not-allowed disabled:opacity-45"
                       style={{ borderColor: pending?.title === card.title ? "rgb(var(--gold-rgb) / .8)" : "rgb(var(--cyan-rgb) / .2)", background: "rgb(var(--bg-rgb) / .7)" }}>
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-lg leading-none">{card.status === "locked" ? "🔒" : card.icon}</span>
@@ -190,7 +190,7 @@ export default function BuildDock({
                     </button>
                   );
                 })}
-              </div>
+              </SwipeRow>
             )}
 
             {tab === "issues" && (problems.length ? (
@@ -265,6 +265,41 @@ export default function BuildDock({
           style={{ borderColor: "rgb(var(--cyan-rgb) / .55)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>
           {termEnded ? t(lang, "KAD LAPORAN →", "REPORT CARD →") : <>{t(lang, `S${quarter}/20`, `Q${quarter}/20`)}<span className="hidden sm:inline"> · {t(lang, "MAJU", "NEXT")}</span> →</>}
         </button>}
+      </div>
+    </div>
+  );
+}
+
+/** One row of build cards: swipe left/right (or the ◀ ▶ buttons), with
+ *  a "1–4 / 12" counter, so the panel stays one card tall over the city. */
+function SwipeRow({ lang, resetKey, children }: { lang: Lang; resetKey: string; children: ReactNode }) {
+  const track = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState({ first: 1, last: 1, total: 0, start: true, end: true });
+  const measure = () => {
+    const el = track.current;
+    if (!el) return;
+    const cards = Array.from(el.children) as HTMLElement[];
+    const left = el.scrollLeft, right = left + el.clientWidth;
+    const shown = cards.map((card, i) => ({ i, a: card.offsetLeft, b: card.offsetLeft + card.offsetWidth })).filter((c) => (c.a + c.b) / 2 > left && (c.a + c.b) / 2 < right);
+    setView({ first: (shown[0]?.i ?? 0) + 1, last: (shown[shown.length - 1]?.i ?? 0) + 1, total: cards.length, start: left <= 2, end: right >= el.scrollWidth - 2 });
+  };
+  useEffect(() => {
+    if (track.current) track.current.scrollLeft = 0;
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const page = (dir: 1 | -1) => track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.92, behavior: "smooth" });
+  return (
+    <div className="city-swipe relative">
+      <div ref={track} onScroll={measure} className="city-swipe__track flex snap-x snap-mandatory gap-1.5 overflow-x-auto scroll-smooth pb-1" style={{ scrollbarWidth: "none", touchAction: "pan-x" }}>
+        {children}
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[8px] font-black tracking-widest text-text-muted">
+        <button type="button" onClick={() => page(-1)} disabled={view.start} aria-label={t(lang, "Sebelum", "Previous")} className="city-swipe__arrow px-2 py-0.5 disabled:opacity-30">◀</button>
+        <span>{view.total ? `${view.first}–${view.last} / ${view.total}` : ""} · {t(lang, "leret kiri / kanan", "swipe left / right")}</span>
+        <button type="button" onClick={() => page(1)} disabled={view.end} aria-label={t(lang, "Seterusnya", "Next")} className="city-swipe__arrow px-2 py-0.5 disabled:opacity-30">▶</button>
       </div>
     </div>
   );
