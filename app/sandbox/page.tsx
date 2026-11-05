@@ -8,6 +8,7 @@ import TacticalPanel from "../components/layout/TacticalPanel";
 import { useGameStore } from "../store/gameStore";
 import { useLang, t } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
+import { generateConstituencies } from "../data/constituencies";
 
 const PARLIAMENT_SEATS = 222;
 
@@ -132,7 +133,7 @@ export default function SandboxPage() {
   const prnState = isPrn ? states.find((state) => state.id === settings.prnStateId) : undefined;
   const houseSeats = isPrn && prnState?.dunSeats ? prnState.dunSeats : PARLIAMENT_SEATS;
 
-  const selectedLevers = LEVERS.filter((lever) => activeLevers.includes(lever.id));
+  const selectedLevers = (isPrn && prnState && !["sabah", "sarawak"].includes(prnState.id) ? LEVERS.filter((lever) => lever.id !== "ma63") : LEVERS).filter((lever) => activeLevers.includes(lever.id));
   const federalBase = Math.round(states.reduce((sum, state) => sum + state.mandatSupport, 0) / Math.max(1, states.length));
   const economyBase = Math.round(resources.funds / 46000);
   const parliamentBase = Math.round(42 + leader.negotiation / 3 + leader.credibility / 6);
@@ -147,8 +148,16 @@ export default function SandboxPage() {
   const international = clamp(internationalBase + selectedLevers.reduce((sum, lever) => sum + lever.international, 0));
   const nationalStability = clamp(Math.round((economy + federal + parliament + institution + international) / 5));
   const scenario = SCENARIOS.find((item) => item.condition(economy, institution, parliament)) ?? SCENARIOS.at(-1)!;
-  const strongestStates = useMemo(() => [...states].sort((a, b) => b.mandatSupport - a.mandatSupport).slice(0, 4), [states]);
-  const pressureStates = useMemo(() => [...states].sort((a, b) => a.mandatSupport - b.mandatSupport).slice(0, 4), [states]);
+  // PRN looks inside the one negeri: its DUN seats rank as strongholds and
+  // pressure points; PRU compares the states
+  const ranked = useMemo<{ id: string; name: string; value: number }[]>(() => isPrn && prnState
+    ? generateConstituencies(prnState, "dun").map((seat) => ({ id: seat.id, name: seat.name, value: seat.mandat }))
+    : states.map((state) => ({ id: state.id, name: state.name, value: state.mandatSupport })), [isPrn, prnState, states]);
+  const strongestStates = useMemo(() => [...ranked].sort((a, b) => b.value - a.value).slice(0, 4), [ranked]);
+  const pressureStates = useMemo(() => [...ranked].sort((a, b) => a.value - b.value).slice(0, 4), [ranked]);
+  // the Borneo autonomy package only fits Sabah / Sarawak in a PRN
+  const levers = isPrn && prnState && !["sabah", "sarawak"].includes(prnState.id) ? LEVERS.filter((lever) => lever.id !== "ma63") : LEVERS;
+  const L = (ms: string, en: string) => t(lang, ms, en);
 
   function toggleLever(id: LeverId) {
     setSandboxProgress({ activeLevers: activeLevers.includes(id) ? activeLevers.filter((item) => item !== id) : [...activeLevers, id] });
@@ -165,7 +174,7 @@ export default function SandboxPage() {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <div className="text-[12px] text-text-muted tracking-widest mb-1">◇ {t(lang, "sandbox_page.phase4MalaysiaPoliticalSandbox")}</div>
-            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{t(lang, "sandbox_page.nationalSimulation")}</h1>
+            <h1 className="text-2xl font-black tracking-widest text-white" style={{ fontFamily: "Space Mono, monospace" }}>{isPrn && prnState ? L(`SIMULASI NEGERI ${prnState.name.toUpperCase()}`, `${prnState.name.toUpperCase()} STATE SIMULATION`) : t(lang, "sandbox_page.nationalSimulation")}</h1>
             <div className="mt-1 text-[12px] tracking-wider" style={{ color: "var(--gold)" }}>
               {leader.partyAbbr} · {t(lang, `sandbox_page.scenarioLabel_${scenario.id}`)} · RUN {simulationTick}
             </div>
@@ -178,27 +187,27 @@ export default function SandboxPage() {
 
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_390px]">
           <div className="space-y-4">
-            <TacticalPanel title={t(lang, "sandbox_page.nationalOutcome")}>
+            <TacticalPanel title={isPrn ? L("OUTCOME NEGERI", "STATE OUTCOME") : t(lang, "sandbox_page.nationalOutcome")}>
               <div className="text-[11px] font-bold tracking-[0.24em] text-text-muted">{t(lang, "sandbox_page.alternateScenario")}</div>
               <div className="mt-2 text-xl font-black leading-tight" style={{ color: scenario.color }}>{t(lang, `sandbox_page.scenarioLabel_${scenario.id}`)}</div>
               <div className="mt-4 text-6xl font-black" style={{ color: nationalStability >= 70 ? "var(--neon-green)" : nationalStability >= 55 ? "var(--gold)" : "var(--warn-orange)" }}>{nationalStability}</div>
-              <div className="text-[12px] text-text-muted tracking-wider">{t(lang, "sandbox_page.nationalStabilityIndex")}</div>
+              <div className="text-[12px] text-text-muted tracking-wider">{isPrn ? L("indeks kestabilan negeri", "state stability index") : t(lang, "sandbox_page.nationalStabilityIndex")}</div>
             </TacticalPanel>
 
             <TacticalPanel title={t(lang, "sandbox_page.sandboxMetrics")}>
               <div className="space-y-2">
                 <Metric label={t(lang, "sandbox_page.economy")} value={economy} color="var(--neon-green)" />
                 <Metric label={t(lang, "sandbox_page.federalState")} value={federal} color="var(--gold)" />
-                <Metric label={t(lang, "sandbox_page.parliament")} value={parliament} color="var(--cyan)" />
+                <Metric label={isPrn ? "DUN" : t(lang, "sandbox_page.parliament")} value={parliament} color="var(--cyan)" />
                 <Metric label={t(lang, "sandbox_page.institutions")} value={institution} color="var(--warn-orange)" />
                 <Metric label={t(lang, "sandbox_page.international")} value={international} color="var(--neon-red)" />
               </div>
             </TacticalPanel>
           </div>
 
-          <TacticalPanel title={t(lang, "sandbox_page.nationalPolicyLevers")} noPadding>
+          <TacticalPanel title={isPrn ? L("TUAS DASAR NEGERI", "STATE POLICY LEVERS") : t(lang, "sandbox_page.nationalPolicyLevers")} noPadding>
             <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-4 space-y-3">
-              {LEVERS.map((lever) => {
+              {levers.map((lever) => {
                 const active = activeLevers.includes(lever.id);
                 return (
                   <button
@@ -209,8 +218,8 @@ export default function SandboxPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-[14px] font-black tracking-wider text-white">{t(lang, `sandbox_page.leverTitle_${lever.id}`)}</div>
-                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{t(lang, `sandbox_page.leverDetail_${lever.id}`)}</div>
+                        <div className="text-[14px] font-black tracking-wider text-white">{isPrn && lever.id === "parliamentReform" ? L("Reformasi DUN & Undi Percaya", "State Assembly Reform & Confidence Vote") : t(lang, `sandbox_page.leverTitle_${lever.id}`)}</div>
+                        <div className="mt-1 text-[11px] leading-relaxed text-text-muted">{isPrn && prnState && lever.id === "foreignInvestment" ? L(`Tarik pelaburan, teknologi dan kerja bernilai tinggi ke ${prnState.name}.`, `Attracts investment, technology and high-value jobs to ${prnState.name}.`) : t(lang, `sandbox_page.leverDetail_${lever.id}`)}</div>
                         <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold tracking-wider">
                           <span style={{ color: "var(--neon-green)" }}>Eco {lever.economy >= 0 ? "+" : ""}{lever.economy}</span>
                           <span style={{ color: "var(--gold)" }}>Fed {lever.federal >= 0 ? "+" : ""}{lever.federal}</span>
@@ -229,24 +238,24 @@ export default function SandboxPage() {
           </TacticalPanel>
 
           <div className="space-y-4">
-            <TacticalPanel title={t(lang, "sandbox_page.federalStateRelations")}>
+            <TacticalPanel title={isPrn && prnState ? L(`KAWASAN DUN ${prnState.name.toUpperCase()}`, `${prnState.name.toUpperCase()} STATE SEATS`) : t(lang, "sandbox_page.federalStateRelations")}>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{t(lang, "sandbox_page.strongholds")}</div>
                   <div className="mt-2 space-y-1">
-                    {strongestStates.map((state) => <div key={state.id} className="flex justify-between text-[11px]"><span className="text-white">{state.name}</span><span style={{ color: "var(--neon-green)" }}>{Math.round(state.mandatSupport)}</span></div>)}
+                    {strongestStates.map((state) => <div key={state.id} className="flex justify-between text-[11px]"><span className="text-white">{state.name}</span><span style={{ color: "var(--neon-green)" }}>{Math.round(state.value)}</span></div>)}
                   </div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">{t(lang, "sandbox_page.pressure")}</div>
                   <div className="mt-2 space-y-1">
-                    {pressureStates.map((state) => <div key={state.id} className="flex justify-between text-[11px]"><span className="text-white">{state.name}</span><span style={{ color: "var(--warn-orange)" }}>{Math.round(state.mandatSupport)}</span></div>)}
+                    {pressureStates.map((state) => <div key={state.id} className="flex justify-between text-[11px]"><span className="text-white">{state.name}</span><span style={{ color: "var(--warn-orange)" }}>{Math.round(state.value)}</span></div>)}
                   </div>
                 </div>
               </div>
             </TacticalPanel>
 
-            <TacticalPanel title={t(lang, "sandbox_page.parliamentInstitutions")}>
+            <TacticalPanel title={isPrn ? L("DUN & INSTITUSI", "STATE ASSEMBLY & INSTITUTIONS") : t(lang, "sandbox_page.parliamentInstitutions")}>
               <div className="space-y-2 text-[11px] leading-relaxed text-text-muted">
                 <div>{t(lang, "sandbox_page.effectiveMajority")}: <span className="font-black text-white">{Math.round((parliament / 100) * houseSeats)}/{houseSeats} {isPrn ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT")}</span></div>
                 <div>{t(lang, "sandbox_page.fiscalSpaceAfterPolicy")}: <span className="font-black" style={{ color: resources.funds - policyCost >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>RM {formatNumber(resources.funds - policyCost)}</span></div>

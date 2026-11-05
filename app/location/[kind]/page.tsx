@@ -34,6 +34,7 @@ import {
 } from "../../data/liveNews";
 import type { TacticalOverlay } from "../../data/tacticalMap";
 import { playerModel } from "../../lib/playerAvatar";
+import { useHasMounted } from "../../hooks/useHasMounted";
 
 type Scene = {
   icon: string;
@@ -574,7 +575,15 @@ function TelemetryWall({
   );
 }
 
-function OperationsDesk({ onClose }: { onClose: () => void }) {
+// The desk shows saved-game numbers (seat projection, funds): render it only
+// after mount, once StoreHydrator has restored the save, so the first client
+// render matches the server HTML (otherwise React logs #425 and re-renders).
+function OperationsDesk(props: { onClose: () => void }) {
+  const mounted = useHasMounted();
+  return mounted ? <OperationsDeskInner {...props} /> : null;
+}
+
+function OperationsDeskInner({ onClose }: { onClose: () => void }) {
   const lang = useLang();
   const [overlay, setOverlay] = useState<TacticalOverlay>("default");
   const {
