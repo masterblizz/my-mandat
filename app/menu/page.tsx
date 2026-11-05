@@ -286,8 +286,7 @@ export default function MainMenuPage() {
       >
         <div className="flex items-center gap-3">
           <span style={{ color: "var(--cyan)" }}>◇</span>
-          <span className="font-bold tracking-[0.18em] text-white">MANDAT//AI</span>
-          <span className="main-menu-ops" style={{ color: "var(--text-muted)" }}>· {t(lang, "menu_page.tacticalOps")}</span>
+          <span className="main-menu-ops" style={{ color: "var(--text-muted)" }}>{t(lang, "menu_page.tacticalOps")}</span>
         </div>
         <div className="main-menu-title hidden md:block" style={{ color: "var(--text-muted)" }}>
           {isPrn
