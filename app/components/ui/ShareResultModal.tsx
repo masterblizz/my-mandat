@@ -75,7 +75,7 @@ function drawResultCard(canvas: HTMLCanvasElement, data: ShareResultData, lang: 
   ctx.fillStyle = PALETTE.cyan;
   ctx.font = "700 15px 'Space Mono', monospace";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("MANDAT//AI · SIMULATOR PILIHAN RAYA", m + 24, 58);
+  ctx.fillText("MY MANDAT · SIMULATOR PILIHAN RAYA", m + 24, 58);
   ctx.textAlign = "right";
   ctx.fillStyle = PALETTE.muted;
   ctx.font = "600 14px 'Space Mono', monospace";

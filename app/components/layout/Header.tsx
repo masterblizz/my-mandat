@@ -81,7 +81,6 @@ export default function Header() {
       }}
     >
       <div className="flex items-center gap-3 text-xs">
-        <span className="font-bold tracking-widest text-cyan">MANDAT//AI</span>
         <span className="app-header__ops tracking-wider text-text-muted">{t(lang, "components_layout_Header.tacticalOps")}</span>
 
         {/* Only rendered once hasPremium is confirmed true — nothing shows
