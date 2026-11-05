@@ -44,11 +44,16 @@ export function geoToSvg(lat: number, lon: number): [number, number] {
 export type Boundary = [number, number][][];
 const boundaryCache = new Map<string, Promise<Record<string, Boundary>>>();
 
-export function loadSeatBoundary(seatCode: string, stateId: string, name: string): Promise<Boundary | null> {
+/** Every seat boundary of a state (parlimen for P. codes, DUN for N. codes). */
+export function loadStateBoundaries(seatCode: string, stateId: string): Promise<Record<string, Boundary>> {
   const kind = seatCode.startsWith("N") ? "dun" : "parlimen";
   const url = `/data/boundaries/${kind}/${stateId}.json`;
   if (!boundaryCache.has(url)) boundaryCache.set(url, fetch(url).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
-  return boundaryCache.get(url)!.then((seats) => seats[name.toLowerCase()] ?? null);
+  return boundaryCache.get(url)!;
+}
+
+export function loadSeatBoundary(seatCode: string, stateId: string, name: string): Promise<Boundary | null> {
+  return loadStateBoundaries(seatCode, stateId).then((seats) => seats[name.toLowerCase()] ?? null);
 }
 
 /** Area-weighted centre of the largest ring, and the bounding box of all rings. */

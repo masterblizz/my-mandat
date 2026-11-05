@@ -18,6 +18,7 @@ import type { SeatTraits, Zone } from "./cityData";
 import { t, type Lang } from "../i18n/useLang";
 import CitySkyLife from "./CitySkyLife";
 import CityIntro from "./CityIntro";
+import CityLoading from "./CityLoading";
 import type { SeatGeo } from "../data/seatGeo";
 
 export type CityIntroInfo = { geo: SeatGeo; stateId: string; stateName: string; seatCode: string; seatName: string; density?: number };
@@ -111,16 +112,9 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       <CitySkyLife />
       <div aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse 80% 85% at 50% 48%, transparent 62%, rgb(6 14 26 / .18) 82%, rgb(6 14 26 / .42) 100%)" }} />
-      {!ready && (
-        <div
-          className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 border px-3 py-1.5 text-[9px] font-black tracking-[.2em] text-cyan"
-          style={{ borderColor: "rgb(var(--cyan-rgb) / .4)", background: "rgb(var(--bg-rgb) / .82)", fontFamily: "'Space Mono', monospace" }}
-        >
-          {t(lang, "MEMUATKAN ENJIN GODOT…", "LOADING GODOT ENGINE…")}
-        </div>
-      )}
+      {!intro && !built && <CityLoading lang={lang} engineReady={ready} built={built} compact />}
       {intro && <CityIntro lang={lang} geo={intro.geo} stateId={intro.stateId} stateName={intro.stateName} seatCode={intro.seatCode} seatName={intro.seatName} density={intro.density}
-        ready={built} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
+        ready={built} engineReady={ready} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
     </div>
   );
 }
