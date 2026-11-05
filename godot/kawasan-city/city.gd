@@ -79,6 +79,7 @@ var has_highway := true
 var traits := {}
 var seat_seed := 2026
 var feature_turn := 0.0                # rotates river / highway / LRT per seat
+var sea_edge := 0.0                    # distance along sea_dir where the sea starts
 var sea_dir := Vector3.ZERO            # coastal seats: direction of the sea
 var industrial_bearing := INF
 var gen: Node3D                        # everything generated for the current seat
@@ -265,6 +266,15 @@ func _build() -> void:
 	sea_dir = Vector3.ZERO
 	if bool(traits.get("coastal", false)):
 		sea_dir = Vector3(cos(feature_turn + PI), 0, sin(feature_turn + PI))
+	sea_edge = r_city + 80.0
+	if sea_dir != Vector3.ZERO and not seat_poly.is_empty():
+		# a cut-out seat: its coast is a strip along the seaward edge of the
+		# boundary itself, so sea and beach stay inside the piece
+		var far := 0.0
+		for ring in seat_poly:
+			for v in ring:
+				far = maxf(far, Vector2(sea_dir.x, sea_dir.z).dot(v))
+		sea_edge = far - maxf(60.0, far * 0.14)
 	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
@@ -1160,7 +1170,8 @@ func _gen_radial() -> void:
 					var bend := rng.randf_range(-0.08, 0.08)
 					var end := _polar(ra + spur, a + bend)
 					_make_road([_polar(ra, a), _polar(ra + spur * 0.5, a + bend * 0.4), end], 2)
-					_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+					if in_seat(end):
+						_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 					_mark_rect(end, 0.0, 17.0, 17.0)
 
 
@@ -1168,7 +1179,8 @@ func _cul_de_sac(from: Vector3, dir: Vector3, length: float) -> void:
 	var n := Vector3(-dir.z, 0, dir.x) * rng.randf_range(-0.25, 0.25) * length
 	var end := from + dir * length + n
 	_make_road([from, from + dir * length * 0.5 + n * 0.4, end], 2)
-	_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
+	if in_seat(end):
+		_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 	_mark_rect(end, 0.0, 17.0, 17.0)
 
 
@@ -1463,6 +1475,30 @@ func _ribbon_piece(st: SurfaceTool, seg: PackedVector3Array, _unused: int, half:
 	_quad(st, a - na, a + na, b + nb, b - nb, col, Vector3.UP)
 
 
+## The paved downtown: not a perfect circle but the city's own outline
+## (stretched like everything else) at radius r, cut to the seat boundary.
+func _paving(r: float) -> void:
+	var ring := PackedVector2Array()
+	for i in 72:
+		var p := _polar(r, TAU * i / 72.0)
+		ring.append(Vector2(p.x, p.z))
+	var parts := [ring]
+	if not seat_poly.is_empty():
+		parts = []
+		for sp in seat_poly:
+			for piece in Geometry2D.intersect_polygons(ring, sp):
+				parts.append(piece)
+	for poly in parts:
+		var tris := Geometry2D.triangulate_polygon(poly)
+		ground_st.set_color(C_PAVING)
+		ground_st.set_normal(Vector3.UP)
+		for k in range(0, tris.size(), 3):
+			# both windings: the ground material may cull back faces
+			for m in [0, 1, 2, 0, 2, 1]:
+				var v: Vector2 = poly[tris[k + m]]
+				ground_st.add_vertex(Vector3(v.x, 0.015, v.y))
+
+
 func _disc(st: SurfaceTool, c: Vector3, r: float, y: float, col: Color) -> void:
 	st.set_color(col)
 	st.set_normal(Vector3.UP)
@@ -1608,7 +1644,7 @@ func _extend_curve(c: Curve3D, reach: float) -> Curve3D:
 
 
 func in_sea(p: Vector3) -> bool:
-	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > r_city + 80.0
+	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > sea_edge
 
 
 func _build_features() -> void:
@@ -1649,12 +1685,22 @@ func _build_features() -> void:
 	# coastal seats: open sea beyond a beach on one side
 	if sea_dir != Vector3.ZERO:
 		var yaw := atan2(-sea_dir.z, sea_dir.x)
-		var edge := r_city + 80.0
-		box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
-		box(sea_dir * (edge - 14.0), Vector3(30, 0.05, 8000), Color(0.86, 0.8, 0.62), null, yaw)
+		var edge := sea_edge
+		if seat_poly.is_empty():
+			box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
+			box(sea_dir * (edge - 14.0), Vector3(30, 0.05, 8000), Color(0.86, 0.8, 0.62), null, yaw)
+		else:
+			# sea and beach cut to the seat, like the land
+			_single(_poly_mesh(_seat_band(sea_dir, edge, 9000.0), 0.06, 1.0 / 40.0), mat_water, Transform3D.IDENTITY)
+			var sand := StandardMaterial3D.new()
+			sand.albedo_color = Color(0.86, 0.8, 0.62)
+			sand.roughness = 1.0
+			_single(_poly_mesh(_seat_band(sea_dir, edge - 30.0, edge), 0.05, 1.0 / 40.0), sand, Transform3D.IDENTITY)
 		for i in 40:
 			var along := Vector3(-sea_dir.z, 0, sea_dir.x) * rng.randf_range(-700, 700)
-			tree(sea_dir * (edge - rng.randf_range(24, 40)) + along, true)
+			var tp := sea_dir * (edge - rng.randf_range(24, 40)) + along
+			if in_seat(tp):
+				tree(tp, true)
 
 	if not has_highway:
 		highway_pts = PackedVector3Array()
@@ -2126,7 +2172,7 @@ func _paddy_fields() -> void:
 		while v < reach:
 			var c := b * Vector3(u, 0, v)
 			var r := _shape_r(c)
-			if r > r_city * 0.85 and r < reach and _rect_free(c, yaw, 40, 30):
+			if r > r_city * 0.85 and r < reach and in_seat(c) and _rect_free(c, yaw, 40, 30):
 				_mark_rect(c, yaw, 40, 30)
 				lots.append({"p": c, "kind": "paddy", "yaw": yaw, "w": 40.0, "d": 30.0})
 				var col := Color(0.42, 0.62, 0.28).lerp(Color(0.72, 0.68, 0.3), rng.randf() * 0.6)
@@ -2135,6 +2181,62 @@ func _paddy_fields() -> void:
 				box(c + b * Vector3(-20, 0, 0), Vector3(0.8, 0.35, 30), Color(0.5, 0.42, 0.3), null, yaw)
 			v += 31.0
 		u += 41.0
+
+
+## The seat's pieces (rings) cut to a band along `dir`: lo <= p.dir <= hi.
+func _seat_band(dir: Vector3, lo: float, hi: float) -> Array:
+	var d := Vector2(dir.x, dir.z).normalized()
+	var n := Vector2(-d.y, d.x)
+	var band := PackedVector2Array([d * lo - n * 9000.0, d * hi - n * 9000.0, d * hi + n * 9000.0, d * lo + n * 9000.0])
+	var out := []
+	for ring in seat_poly:
+		for piece in Geometry2D.intersect_polygons(ring, band):
+			out.append(piece)
+	return out
+
+
+## Flat triangulated polygons into a mesh (both windings), UV from world x/z.
+func _poly_mesh(polys: Array, y: float, uv_per_m: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for poly in polys:
+		var tris := Geometry2D.triangulate_polygon(poly)
+		for k in range(0, tris.size(), 3):
+			for m in [0, 1, 2, 0, 2, 1]:
+				var v: Vector2 = poly[tris[k + m]]
+				st.set_uv(v * uv_per_m)
+				st.add_vertex(Vector3(v.x, y, v.y))
+	return st.commit()
+
+
+## A cut-out seat stands like a model: its ground is the boundary shape,
+## with an earth edge dropping away under it — nothing outside.
+func _cutout_ground(gm: StandardMaterial3D) -> void:
+	_single(_poly_mesh(seat_poly, 0.0, 6.0 / 16000.0), gm, Transform3D.IDENTITY)
+	(gen.get_child(gen.get_child_count() - 1) as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var depth := maxf(24.0, r_city * 0.05)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ring in seat_poly:
+		var n: int = ring.size()
+		for i in n:
+			var a: Vector2 = ring[i]
+			var b: Vector2 = ring[(i + 1) % n]
+			if a.distance_to(b) < 0.01:
+				continue
+			var t := (b - a).normalized()
+			st.set_normal(Vector3(t.y, 0, -t.x))
+			var top := Color(0.42, 0.33, 0.22)
+			var bot := Color(0.24, 0.18, 0.12)
+			for v in [[a, 0.0, top], [b, 0.0, top], [b, -depth, bot], [a, 0.0, top], [b, -depth, bot], [a, -depth, bot]]:
+				st.set_color(v[2])
+				st.add_vertex(Vector3(v[0].x, v[1], v[0].y))
+	var em := StandardMaterial3D.new()
+	em.vertex_color_use_as_albedo = true
+	em.cull_mode = BaseMaterial3D.CULL_DISABLED
+	em.roughness = 1.0
+	_single(st.commit(), em, Transform3D.IDENTITY)
 
 
 func _build_ground() -> void:
@@ -2161,17 +2263,25 @@ func _build_ground() -> void:
 	gm.albedo_texture = nt
 	gm.uv1_scale = Vector3(6, 6, 1)
 	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_single(g, gm, Transform3D.IDENTITY)
+	if not seat_poly.is_empty():
+		gm.uv1_scale = Vector3(1, 1, 1)
+		_cutout_ground(gm)
+	else:
+		_single(g, gm, Transform3D.IDENTITY)
+		_ground_no_shadow()
+	# paved downtown (a smaller town centre in towns, none in villages)
+	# warm, darker paving: the old light grey bleached to white in the sun
+	if tier in ["metro", "city"]:
+		_paving(r_core - 10.0)
+	elif tier == "town" and layout == "radial":
+		_paving(r_core * 0.6)
+
+
+func _ground_no_shadow() -> void:
 	# The 16 km ground must not cast shadows onto itself: with phone-sized
 	# cascades that acne turned everything inside the shadow range grey
 	# at night, and the patch moved as the camera rotated.
 	(gen.get_child(gen.get_child_count() - 1) as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# paved downtown (a smaller town centre in towns, none in villages)
-	# warm, darker paving: the old light grey bleached to white in the sun
-	if tier in ["metro", "city"]:
-		_disc(ground_st, Vector3.ZERO, r_core - 10.0, 0.015, C_PAVING)
-	elif tier == "town" and layout == "radial":
-		_disc(ground_st, Vector3.ZERO, r_core * 0.6, 0.015, C_PAVING)
 
 
 ## Lawns, planters and shade trees scattered over the paved centre, kept off
