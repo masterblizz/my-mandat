@@ -2950,14 +2950,10 @@ export default function KawasanDevelopmentPage() {
     if (pendingProject) runProject(pendingProject, zoneId);
   }
 
+  // Picking a place from the city's location list goes straight in, the
+  // same as the hub bar (it used to only mark the building on the map).
   function focusDestination(destination: CityDestination) {
-    const preferredKind: Record<string, ZoneKind> = { office: "urban", party: "commercial", operations: "industry", calendar: "education", media: "housing", commission: "river", cabinet: "commercial", administration: "industry", national: "river" };
-    const target = zones.find((zone) => zone.kind === preferredKind[destination.id]) ?? zones[0];
-    if (!target) return;
-    setSelectedZoneId(target.id);
-    setFocusZoneId(target.id);
-    setFocusedDestination(destination.id);
-    setNotice(t(lang, `PA: ${destination[lang].name} telah ditanda pada peta. Klik bangunan yang ditanda untuk masuk.`, `PA: ${destination[lang].name} is marked on the map. Click the marked building to go inside.`));
+    enterHubDestination(destination);
   }
 
   function enterFocusedBuilding() {
