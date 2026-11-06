@@ -58,6 +58,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   const [aerial, setAerial] = useState<{ code: string; name: string; place: string } | null>(null);
   useEffect(() => { onAerial?.(!!aerial); }, [aerial]); // eslint-disable-line react-hooks/exhaustive-deps
   const [built, setBuilt] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const landClickRef = useRef(onLandClick);
   landClickRef.current = onLandClick;
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -88,9 +89,10 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin || e.source !== frameRef.current?.contentWindow) return;
-      const data = e.data as { type?: string; id?: unknown } | null;
+      const data = e.data as { type?: string; id?: unknown; p?: unknown } | null;
       if (data?.type === "kawasan-godot-ready") setReady(true);
       else if (data?.type === "kawasan-city-built") setBuilt(true);
+      else if (data?.type === "kawasan-build-progress" && typeof data.p === "number") setProgress(data.p);
       else if (data?.type === "kawasan-intro-done") setAerial(null);
       else if (data?.type === "kawasan-land-click") { const d = data as unknown as { x: number; z: number }; landClickRef.current?.(d.x, d.z); }
       else if (data?.type === "kawasan-view") window.dispatchEvent(new CustomEvent("kawasan-view", { detail: data }));
@@ -139,7 +141,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       <CitySkyLife />
       <div aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse 80% 85% at 50% 48%, transparent 62%, rgb(6 14 26 / .18) 82%, rgb(6 14 26 / .42) 100%)" }} />
-      {!intro && !built && <CityLoading lang={lang} engineReady={ready} built={built} compact />}
+      {!intro && !built && <CityLoading lang={lang} engineReady={ready} built={built} progress={progress} compact />}
       {aerial && (
         <div aria-hidden className="city-aerial-film pointer-events-none absolute inset-0 z-[140]">
           <div className="city-aerial-film__bar city-aerial-film__bar--top" />
@@ -148,7 +150,7 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
         </div>
       )}
       {intro && <CityIntro lang={lang} geo={intro.geo} stateId={intro.stateId} stateName={intro.stateName} seatCode={intro.seatCode} seatName={intro.seatName} density={intro.density}
-        ready={built} engineReady={ready} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
+        ready={built} engineReady={ready} progress={progress} onFlyIn={flyIn} onDone={() => onIntroDone?.()} />}
     </div>
   );
 }
