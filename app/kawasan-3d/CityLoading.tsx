@@ -17,18 +17,22 @@ const TIPS: { ms: string; en: string }[] = [
   { ms: "Bajet awam bertambah setiap suku tahun — rancang projek besar awal.", en: "The public budget grows every quarter — plan big projects early." },
 ];
 
-export default function CityLoading({ lang, engineReady, built, compact = false }: { lang: Lang; engineReady: boolean; built: boolean; compact?: boolean }) {
+export default function CityLoading({ lang, engineReady, built, progress = null, compact = false }: { lang: Lang; engineReady: boolean; built: boolean; progress?: number | null; compact?: boolean }) {
   const [pct, setPct] = useState(0);
   const [tip, setTip] = useState(0);
   const start = useRef(performance.now());
   const engineAt = useRef<number | null>(null);
   useEffect(() => { if (engineReady && engineAt.current === null) engineAt.current = performance.now(); }, [engineReady]);
+  const real = useRef<number | null>(null);
+  useEffect(() => { real.current = progress; }, [progress]);
   useEffect(() => {
     let raf = 0;
     const step = (now: number) => {
       // engine download/compile fills to 55 %, the city build to 95 %, done = 100 %
+      // the city reports its real build progress while it builds
       const p = built ? 100
-        : engineAt.current !== null ? 55 + 40 * (1 - Math.exp(-(now - engineAt.current) / 6000))
+        : real.current !== null ? 55 + 43 * Math.min(1, Math.max(0, real.current))
+        : engineReady || engineAt.current !== null ? 55 + 40 * (1 - Math.exp(-(now - (engineAt.current ?? now)) / 6000))
         : 55 * (1 - Math.exp(-(now - start.current) / 5000));
       setPct((old) => Math.max(old, p));
       if (!built) raf = requestAnimationFrame(step);

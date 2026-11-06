@@ -139,12 +139,35 @@ func apply_profile(p: Dictionary) -> void:
 		_build_label.visible = true
 	await get_tree().process_frame
 	await get_tree().process_frame
+	while _building:
+		await get_tree().process_frame
 	if key != _profile_key:
 		return   # a newer seat arrived while waiting; that one builds
 	_configure(p)
-	_build()
+	_building = true
+	# nothing needs drawing while the city builds (the page covers it with
+	# its loading panel): the frames handed back stay cheap
+	RenderingServer.render_loop_enabled = false
+	await _build()
+	RenderingServer.render_loop_enabled = true
+	_building = false
 	if _build_label:
 		_build_label.visible = false
+
+
+var _building := false
+var _breath_at := 0
+var _build_t0 := 0
+
+## Hand the browser a frame now and then during the build (and tell the
+## page how far it has got), so the loading bar keeps moving instead of
+## the whole page freezing until the city is done.
+func _breathe(progress: float) -> void:
+	if Time.get_ticks_msec() - _breath_at < 120:
+		return
+	$Zones.post_progress(progress)
+	await get_tree().process_frame
+	_breath_at = Time.get_ticks_msec()
 
 
 var party_color := Color(0.12, 0.35, 0.8)
@@ -290,6 +313,8 @@ func _configure(p: Dictionary) -> void:
 
 
 func _build() -> void:
+	_breath_at = Time.get_ticks_msec()
+	_build_t0 = _breath_at
 	if gen:
 		gen.free()
 	gen = Node3D.new()
@@ -316,6 +341,9 @@ func _build() -> void:
 	lots = []
 	town_centre = Vector3.ZERO
 	buckets = {}
+	_last_bk = {}
+	_last_mesh = null
+	_last_mat = null
 	lrt_curves = []
 	_rad_ang = []
 	_rad_ph = []
@@ -325,16 +353,22 @@ func _build() -> void:
 	ground_st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_build_ground()
 	_build_features()
+	await _breathe(0.15)
 	_gen_roads()
+	await _breathe(0.25)
 	_draw_roads()
 	_build_specials()
 	if has_lrt:
 		_build_lrt()
 	homes_built = 0.0
 	_build_tourism()
+	await _breathe(0.3)
 	_plan_lanes()
+	await _breathe(0.35)
 	_frontage()
-	_infill_homes()
+	await _breathe(0.45)
+	await _infill_homes()
+	await _breathe(0.85)
 	if true:
 		print("CITYSTATS homes=", int(homes_built), " target=", int(home_target), " hotels=", hotels_built, " chalets=", chalets_built, " tier=", tier, " tourists=", int(tourists))
 	# lawns and shade trees on the paved centre, in whatever space the
@@ -344,6 +378,7 @@ func _build() -> void:
 	elif tier == "town" and layout == "radial":
 		_plaza_greenery(r_core * 0.6)
 	_fill_trees()
+	await _breathe(0.9)
 	_flush_buckets()
 	var gmi := MeshInstance3D.new()
 	gmi.mesh = ground_st.commit()
@@ -365,6 +400,7 @@ func _build() -> void:
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
 	$Zones.post_built()
+	print("CITYBUILT ms=", Time.get_ticks_msec() - _build_t0)
 
 
 ## The seat boundary as a glowing gold ribbon on the ground (the same
@@ -845,13 +881,40 @@ func _quad(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, 
 
 
 # ── instancing helpers ───────────────────────────────────────────────
+## Instances go into a bucket per mesh and material, kept per ground tile
+## so each MultiMesh chunk later covers one compact patch of the seat
+## (the camera can then skip the chunks it isn't looking at).
+const TILE := 400.0
+var _last_mesh: Mesh
+var _last_mat: Material
+var _last_bk: Dictionary
 func _add(mesh: Mesh, mat: Material, xf: Transform3D, col: Color) -> void:
 	xf = frame * xf
-	var key := "%d:%d" % [mesh.get_instance_id(), mat.get_instance_id()]
-	if not buckets.has(key):
-		buckets[key] = {"mesh": mesh, "mat": mat, "xf": [], "col": []}
-	buckets[key].xf.append(xf)
-	buckets[key].col.append(col)
+	var bk: Dictionary
+	if mesh == _last_mesh and mat == _last_mat and not _last_bk.is_empty():
+		bk = _last_bk
+	else:
+		var bm: Dictionary = buckets.get(mesh, {})
+		if bm.is_empty():
+			buckets[mesh] = bm
+		bk = bm.get(mat, {})
+		if bk.is_empty():
+			bk = {"mesh": mesh, "mat": mat, "tiles": {}}
+			bm[mat] = bk
+		_last_mesh = mesh
+		_last_mat = mat
+		_last_bk = bk
+	var o := xf.origin
+	var tk := Vector2i(floori(o.x / TILE), floori(o.z / TILE))
+	var tiles: Dictionary = bk.tiles
+	var arr: Array = tiles.get(tk, [])
+	if arr.is_empty():
+		tiles[tk] = arr
+	var x := xf.basis.x
+	var y := xf.basis.y
+	var z := xf.basis.z
+	# MultiMesh buffer layout: basis rows with origin, then the colour
+	arr.append_array([x.x, y.x, z.x, o.x, x.y, y.y, z.y, o.y, x.z, y.z, z.z, o.z, col.r, col.g, col.b, col.a])
 
 
 ## Box standing on `pos` (bottom-centre).
@@ -925,29 +988,41 @@ func height_at(p: Vector3, reach := 1) -> float:
 
 
 func _flush_buckets() -> void:
-	for key in buckets:
-		var bk: Dictionary = buckets[key]
-		for xf in bk.xf:
-			_note_height(xf)
-		# chunked: very large instance buffers break on some WebGL drivers
-		var total: int = bk.xf.size()
-		var start := 0
-		while start < total:
-			var n := mini(4096, total - start)
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.use_colors = true
-			mm.mesh = bk.mesh
-			mm.instance_count = n
-			for i in n:
-				mm.set_instance_transform(i, bk.xf[start + i])
-				mm.set_instance_color(i, bk.col[start + i])
-			var mmi := MultiMeshInstance3D.new()
-			mmi.multimesh = mm
-			mmi.material_override = bk.mat
-			gen.add_child(mmi)
-			start += n
+	for bm: Dictionary in buckets.values():
+		for bk: Dictionary in bm.values():
+			var tiles: Dictionary = bk.tiles
+			var keys := tiles.keys()
+			keys.sort()
+			var all := []
+			for k in keys:
+				all.append_array(tiles[k])
+			var buf := PackedFloat32Array(all)
+			var total := buf.size() / 16
+			for i in total:
+				var top := buf[i * 16 + 7] + absf(buf[i * 16 + 5]) * 0.5
+				if top >= 4.0:
+					var sk := Vector2i(floori(buf[i * 16 + 3] / SKY_CELL), floori(buf[i * 16 + 11] / SKY_CELL))
+					if top > float(sky_cells.get(sk, 0.0)):
+						sky_cells[sk] = top
+			# chunked: very large instance buffers break on some WebGL drivers
+			var start := 0
+			while start < total:
+				var n := mini(4096, total - start)
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.use_colors = true
+				mm.mesh = bk.mesh
+				mm.instance_count = n
+				mm.buffer = buf.slice(start * 16, (start + n) * 16)
+				var mmi := MultiMeshInstance3D.new()
+				mmi.multimesh = mm
+				mmi.material_override = bk.mat
+				gen.add_child(mmi)
+				start += n
 	buckets.clear()
+	_last_mesh = null
+	_last_mat = null
+	_last_bk = {}
 
 
 func _single(mesh: Mesh, mat: Material, xf: Transform3D) -> void:
@@ -1100,11 +1175,18 @@ var coast_dir := Vector2.ZERO  # real sea direction (x east, z south) from the p
 var land_n := []
 var land_rings := []
 var landmask := PackedByteArray()   # 1 = land, per occupancy cell
+var seatmask := PackedByteArray()   # 1 = inside the seat boundary, per cell
 var coast_edge := 1.0          # coastline distance along it, in r_city units
 
 func in_seat(p: Vector3) -> bool:
 	if seat_poly.is_empty():
 		return true
+	if seatmask.size() == GN * GN:
+		var ix := int((p.x + EXT) / CELL)
+		var iz := int((p.z + EXT) / CELL)
+		if ix < 0 or iz < 0 or ix >= GN or iz >= GN:
+			return false
+		return seatmask[iz * GN + ix] == 1
 	var q := Vector2(p.x, p.z)
 	for ring in seat_poly:
 		if Geometry2D.is_point_in_polygon(q, ring):
@@ -1128,40 +1210,59 @@ func on_land(p: Vector3) -> bool:
 
 ## Mark every occupancy cell outside the boundary as taken (scanline fill).
 func _mask_outside() -> void:
+	# built as images with native rect fills: a per-cell loop over the
+	# whole raster (millions of cells) was the slowest step of a build
+	landmask = PackedByteArray()
+	seatmask = PackedByteArray()
+	var land_runs := [] if land_rings.is_empty() else _row_runs(land_rings)
+	if not land_runs.is_empty():
+		var lm := Image.create(GN, GN, false, Image.FORMAT_L8)
+		_fill_runs(lm, land_runs, 1)
+		landmask = lm.get_data()
+	var img := Image.create(GN, GN, false, Image.FORMAT_L8)
 	if seat_poly.is_empty():
-		_mask_sea()
+		if not land_runs.is_empty():
+			# open ground: everything off the land is taken
+			img.fill(Color(1.0 / 255.0, 0, 0))
+			_fill_runs(img, land_runs, 0)
+		occ = img.get_data()
+		if land_runs.is_empty():
+			_mask_sea_line()
 		return
-	occ.fill(1)
-	var xs := PackedFloat32Array()
+	img.fill(Color(1.0 / 255.0, 0, 0))
+	var seat_runs := _row_runs(seat_poly)
+	# the seat itself as a raster too: in_seat() is asked for every road,
+	# lane and lot point, far too often for a polygon test each time
+	var sm := Image.create(GN, GN, false, Image.FORMAT_L8)
+	_fill_runs(sm, seat_runs, 1)
+	seatmask = sm.get_data()
+	if land_runs.is_empty():
+		_fill_runs(img, seat_runs, 0)
+	else:
+		# free only where the seat and the land overlap
+		for iz in GN:
+			var sr: PackedInt32Array = seat_runs[iz]
+			var lr: PackedInt32Array = land_runs[iz]
+			if sr.is_empty() or lr.is_empty():
+				continue
+			for i in range(0, sr.size(), 2):
+				for j in range(0, lr.size(), 2):
+					var x0 := maxi(sr[i], lr[j])
+					var x1 := mini(sr[i + 1], lr[j + 1])
+					if x1 > x0:
+						img.fill_rect(Rect2i(x0, iz, x1 - x0, 1), Color(0, 0, 0))
+	occ = img.get_data()
+	if land_runs.is_empty():
+		_mask_sea_line()
+
+
+## Per raster row, the [from, to) cell runs inside each ring (rings taken
+## one by one, so overlapping neighbours don't cancel out).
+func _row_runs(rings: Array) -> Array:
+	var rows := []
+	rows.resize(GN)
 	for iz in GN:
-		var z := -EXT + (iz + 0.5) * CELL
-		xs.clear()
-		for ring in seat_poly:
-			var n: int = ring.size()
-			for k in n:
-				var a: Vector2 = ring[k]
-				var b: Vector2 = ring[(k + 1) % n]
-				if (a.y <= z and b.y > z) or (b.y <= z and a.y > z):
-					xs.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
-		if xs.size() < 2:
-			continue
-		xs.sort()
-		var row := iz * GN
-		var k2 := 0
-		while k2 + 1 < xs.size():
-			var i0 := clampi(int((xs[k2] + EXT) / CELL), 0, GN)
-			var i1 := clampi(int((xs[k2 + 1] + EXT) / CELL), 0, GN)
-			for ix in range(i0, i1):
-				occ[row + ix] = 0
-			k2 += 2
-	_mask_sea()
-
-
-## The sea and its beach are taken in the occupancy map.
-## Rasterise rings into a per-cell mask (each ring on its own, so
-## overlapping neighbours don't cancel out).
-func _raster_rings(rings: Array, out: PackedByteArray) -> void:
-	var xs := PackedFloat32Array()
+		rows[iz] = PackedInt32Array()
 	for ring in rings:
 		var n: int = ring.size()
 		var z0 := INF
@@ -1171,44 +1272,79 @@ func _raster_rings(rings: Array, out: PackedByteArray) -> void:
 			z1 = maxf(z1, v.y)
 		var iz0 := clampi(int((z0 + EXT) / CELL), 0, GN - 1)
 		var iz1 := clampi(int((z1 + EXT) / CELL) + 1, 0, GN)
-		for iz in range(iz0, iz1):
-			var z := -EXT + (iz + 0.5) * CELL
-			xs.clear()
-			for k in n:
-				var a: Vector2 = ring[k]
-				var b: Vector2 = ring[(k + 1) % n]
-				if (a.y <= z and b.y > z) or (b.y <= z and a.y > z):
-					xs.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
-			if xs.size() < 2:
+		if iz1 <= iz0:
+			continue
+		# each edge drops its crossing into just the rows it spans
+		var xs := []
+		xs.resize(iz1 - iz0)
+		for i in xs.size():
+			xs[i] = PackedFloat32Array()
+		for k in n:
+			var a: Vector2 = ring[k]
+			var b: Vector2 = ring[(k + 1) % n]
+			if a.y == b.y:
 				continue
-			xs.sort()
-			var row := iz * GN
+			var lo := minf(a.y, b.y)
+			var hi := maxf(a.y, b.y)
+			# row centres z with lo <= z < hi
+			var r0 := maxi(iz0, int(ceil((lo + EXT) / CELL - 0.5)))
+			var r1 := mini(iz1 - 1, int(ceil((hi + EXT) / CELL - 0.5)) - 1)
+			for iz in range(r0, r1 + 1):
+				var z := -EXT + (iz + 0.5) * CELL
+				if z < lo or z >= hi:
+					continue
+				var arr: PackedFloat32Array = xs[iz - iz0]
+				arr.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
+				xs[iz - iz0] = arr
+		for li in xs.size():
+			var arr: PackedFloat32Array = xs[li]
+			if arr.size() < 2:
+				continue
+			arr.sort()
+			var iz := iz0 + li
+			var row: PackedInt32Array = rows[iz]
 			var k2 := 0
-			while k2 + 1 < xs.size():
-				var i0 := clampi(int((xs[k2] + EXT) / CELL), 0, GN)
-				var i1 := clampi(int((xs[k2 + 1] + EXT) / CELL), 0, GN)
-				for ix in range(i0, i1):
-					out[row + ix] = 1
+			while k2 + 1 < arr.size():
+				var i0 := clampi(int((arr[k2] + EXT) / CELL), 0, GN)
+				var i1 := clampi(int((arr[k2 + 1] + EXT) / CELL), 0, GN)
+				if i1 > i0:
+					row.append(i0)
+					row.append(i1)
 				k2 += 2
+			rows[iz] = row
+	return rows
 
 
-func _mask_sea() -> void:
-	if not land_rings.is_empty():
-		landmask = PackedByteArray()
-		landmask.resize(GN * GN)
-		_raster_rings(land_rings, landmask)
-		for i in GN * GN:
-			if landmask[i] == 0:
-				occ[i] = 1
-		return
+func _fill_runs(img: Image, rows: Array, v: int) -> void:
+	var col := Color(float(v) / 255.0, 0, 0)
+	for iz in GN:
+		var r: PackedInt32Array = rows[iz]
+		for i in range(0, r.size(), 2):
+			img.fill_rect(Rect2i(r[i], iz, r[i + 1] - r[i], 1), col)
+
+
+## No real coast: the sea beyond a straight line (and its beach) is taken.
+func _mask_sea_line() -> void:
 	if sea_dir == Vector3.ZERO:
 		return
+	var img := Image.create_from_data(GN, GN, false, Image.FORMAT_L8, occ)
+	var col := Color(1.0 / 255.0, 0, 0)
+	var lim := sea_edge - 32.0
 	for iz in GN:
 		var z := -EXT + (iz + 0.5) * CELL
-		for ix in GN:
-			var x := -EXT + (ix + 0.5) * CELL
-			if x * sea_dir.x + z * sea_dir.z > sea_edge - 32.0:
-				occ[iz * GN + ix] = 1
+		# taken where x * sx + z * sz > lim
+		if absf(sea_dir.x) < 1e-6:
+			if z * sea_dir.z > lim:
+				img.fill_rect(Rect2i(0, iz, GN, 1), col)
+			continue
+		var xb := (lim - z * sea_dir.z) / sea_dir.x
+		var ib := clampi(int(ceil((xb + EXT) / CELL - 0.5)), 0, GN)
+		if sea_dir.x > 0.0:
+			if ib < GN:
+				img.fill_rect(Rect2i(ib, iz, GN - ib, 1), col)
+		elif ib > 0:
+			img.fill_rect(Rect2i(0, iz, ib, 1), col)
+	occ = img.get_data()
 
 
 ## Draw a polyline only where it is inside the seat, as separate runs.
@@ -1749,16 +1885,43 @@ func _rect_points(c: Vector3, yaw: float, w: float, d: float) -> Array:
 	return out
 
 
+const RECT_STEP := CELL * 0.9   # under a cell, so no cell is skipped
+
+## Scan the cells under a w x d rectangle at c turned by yaw, without
+## building a point list. mode 0: free of anything; 1: free of all but
+## trees; 2: mark taken. Returns false as soon as a check fails.
+func _rect_scan(c: Vector3, yaw: float, w: float, d: float, mode: int) -> bool:
+	var cy := cos(yaw)
+	var sy := sin(yaw)
+	# basis(UP, yaw) * (u, 0, v) = (u cos + v sin, 0, -u sin + v cos)
+	var nu := maxi(1, int(ceil(w / RECT_STEP)))
+	var nv := maxi(1, int(ceil(d / RECT_STEP)))
+	for iu in nu + 1:
+		var u := -w * 0.5 + w * float(iu) / float(nu)
+		for iv in nv + 1:
+			var v := -d * 0.5 + d * float(iv) / float(nv)
+			var px := c.x + u * cy + v * sy
+			var pz := c.z - u * sy + v * cy
+			var ix := int((px + EXT) / CELL)
+			var iz := int((pz + EXT) / CELL)
+			if ix < 0 or iz < 0 or ix >= GN or iz >= GN:
+				if mode == 2:
+					continue
+				return false
+			var ci := iz * GN + ix
+			if mode == 2:
+				occ[ci] = 1
+			elif occ[ci] == 1 or (mode == 0 and occ[ci] != 0):
+				return false
+	return true
+
+
 func _rect_free(c: Vector3, yaw: float, w: float, d: float) -> bool:
 	if in_sea(c):
 		return false
 	# probe slightly inside the footprint: the 2 m raster would otherwise
 	# reject every lot whose edge merely touches a pavement cell
-	for p in _rect_points(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0)):
-		var ci := _cell(p)
-		if ci < 0 or occ[ci] != 0:
-			return false
-	return true
+	return _rect_scan(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0), 0)
 
 
 ## Open land the player can build on: inside the seat, off the sea, and
@@ -1838,18 +2001,11 @@ func clear_trees(c: Vector3, radius: float) -> void:
 func _rect_free_soft(c: Vector3, yaw: float, w: float, d: float) -> bool:
 	if in_sea(c):
 		return false
-	for p in _rect_points(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0)):
-		var ci := _cell(p)
-		if ci < 0 or occ[ci] == 1:
-			return false
-	return true
+	return _rect_scan(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0), 1)
 
 
 func _mark_rect(c: Vector3, yaw: float, w: float, d: float) -> void:
-	for p in _rect_points(c, yaw, w + 1.0, d + 1.0):
-		var ci := _cell(p)
-		if ci >= 0:
-			occ[ci] = 1
+	_rect_scan(c, yaw, w + 1.0, d + 1.0, 2)
 
 
 # ── river & expressway ───────────────────────────────────────────────
@@ -1934,7 +2090,9 @@ func _build_shore() -> void:
 			var e := Vector2(-t.y, t.x) * sea_side
 			nrm[k] = e
 			var m := (a + b) * 0.5
-			wet[k] = 1 if in_sea(Vector3(m.x + e.x * 12.0, 0, m.y + e.y * 12.0)) else 0
+			var probe := Vector3(m.x + e.x * 12.0, 0, m.y + e.y * 12.0)
+			# beyond the raster the coast is far past the fog: no beach drawn
+			wet[k] = 1 if _cell(probe) >= 0 and in_sea(probe) else 0
 		var y := 0.03
 		for k in n:
 			if wet[k] == 0:
@@ -2507,6 +2665,7 @@ func _infill_homes() -> void:
 		if homes_built >= home_target:
 			break
 		_homes_on_lane(ln, urban)
+		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 	# then country roads: from the nearest point of the road-and-lane
 	# network out toward open land further off, each with side lanes
 	var net := {}
@@ -2521,6 +2680,7 @@ func _infill_homes() -> void:
 	var tries := 0
 	while homes_built < home_target and tries < 80000 and not net.is_empty():
 		tries += 1
+		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var seed := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
 		if not on_land(seed) or in_sea(seed):
 			continue
@@ -2560,6 +2720,7 @@ func _infill_homes() -> void:
 	var t2 := 0
 	while homes_built < home_target and t2 < 60000:
 		t2 += 1
+		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
 		var c := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
 		if not on_land(c) or in_sea(c):
@@ -2601,7 +2762,9 @@ func _net_near(net: Dictionary, p: Vector3) -> Vector3:
 	var c := Vector2i(floori(p.x / NET_CELL), floori(p.z / NET_CELL))
 	var best := Vector3(INF, 0, INF)
 	var bd := INF
-	for r in 30:
+	# out to ~10 cells: a seed further from every road waits until the
+	# network has grown nearer (searching wider cost most of a build)
+	for r in 10:
 		for dx in range(-r, r + 1):
 			for dz in range(-r, r + 1):
 				if maxi(absi(dx), absi(dz)) != r:
@@ -3145,13 +3308,12 @@ func _kampung_house() -> void:
 	var w := rng.randf_range(7, 9)
 	var dd := rng.randf_range(6, 8)
 	var wood := Color(0.55, 0.38, 0.24).lerp(Color(0.72, 0.56, 0.38), rng.randf())
-	for sx in [-1, 1]:
-		for sz in [-1, 1]:
-			box(Vector3(sx * (w * 0.5 - 0.4), 0, sz * (dd * 0.5 - 0.4)), Vector3(0.3, 1.4, 0.3), Color(0.35, 0.26, 0.18))
+	# the stilts read as one dark under-floor block at true scale
+	box(Vector3.ZERO, Vector3(w - 0.8, 1.4, dd - 0.8), Color(0.35, 0.26, 0.18))
 	box(Vector3(0, 1.4, 0), Vector3(w, 3.0, dd), wood)
-	box(Vector3(0, 0.6, -dd * 0.5 - 0.8), Vector3(1.2, 0.2, 1.8), wood)   # tangga
 	gable(Vector3(0, 4.4, 0), w, dd, 3.6, ZINC[rng.randi() % ZINC.size()])
-	for k in 2:
+	tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
+	if rng.randf() < 0.5:
 		tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
 
 

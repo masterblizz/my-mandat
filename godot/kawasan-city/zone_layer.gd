@@ -143,6 +143,12 @@ func _probe_land() -> void:
 	print("LANDPROBE tried=", tried, " free=", free, " reachable=", ok)
 
 
+## Build progress (0..1) for the page's loading bar.
+func post_progress(p: float) -> void:
+	if _embedded:
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-build-progress', p: %.3f }, '*')" % p, true)
+
+
 func post_built() -> void:
 	if "--probe-land" in OS.get_cmdline_user_args():
 		_probe_land()
@@ -635,7 +641,7 @@ func _lot_fits(lot: Dictionary, want: String) -> bool:
 	if want.begins_with("@"):
 		var parts := want.substr(1).split(":")
 		var p: Vector3 = lot.p
-		if parts[0] == "river" and city._dist_to(city.river_pts, p) > city.RIVER_HALF + 60.0:
+		if parts[0] == "river" and city._river_dist(p) > city.RIVER_HALF + 60.0:
 			return false
 		if parts[0] == "coast" and (city.sea_dir == Vector3.ZERO or p.dot(city.sea_dir) < city.r_city * 0.6):
 			return false
@@ -657,6 +663,15 @@ func relayout() -> void:
 	var R: float = city.r_taman * 0.95
 	var lots: Array = city.lots
 	var used := {}
+	var by_kind := {}
+	var all_idx := []
+	all_idx.resize(lots.size())
+	for j in lots.size():
+		all_idx[j] = j
+		var k := str(lots[j].kind)
+		if not by_kind.has(k):
+			by_kind[k] = []
+		(by_kind[k] as Array).append(j)
 	for i in n:
 		var z: Dictionary = zones[i]
 		var zp = z.get("pos", null)
@@ -674,7 +689,10 @@ func relayout() -> void:
 		var best := -1
 		for kind in prefs + ["*"]:
 			var best_d := INF
-			for j in lots.size():
+			# only the lots of the wanted kind (a seat has tens of thousands)
+			var base := str(kind).split(":")[-1] if str(kind).begins_with("@") else str(kind)
+			var cand: Array = all_idx if base == "*" else by_kind.get(base, [])
+			for j in cand:
 				if used.has(j) or not _lot_fits(lots[j], kind):
 					continue
 				var d: float = (lots[j].p as Vector3).distance_squared_to(want)
@@ -785,9 +803,11 @@ func _demo_state() -> Dictionary:
 			if f:
 				var prof = JSON.parse_string(f.get_as_text())
 				if prof is Dictionary:
+					# the game's mix of zone types, so relayout is timed as in play
+					var kinds := ["townCentre", "commercialHub", "housingEstate", "paddyVillage", "schoolZone", "mainVillage", "riverside", "marketHawkers", "clinicHall", "fishingVillage", "industrialArea"]
 					var zs2 := []
 					for i in 36:
-						zs2.append({"id": "zone-%d" % i, "archetype": "housingEstate"})
+						zs2.append({"id": "zone-%d" % i, "archetype": kinds[i % kinds.size()]})
 					return {"profile": prof, "zones": zs2, "selected": "zone-0"}
 	var zs := []
 	var types := ["townCentre", "commercialHub", "housingEstate", "paddyVillage", "schoolZone", "mainVillage", "riverside", "marketHawkers", "clinicHall"]
