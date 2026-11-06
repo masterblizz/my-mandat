@@ -13,8 +13,8 @@ extends Node3D
 ## Command line (after `--`): --shot=<png> --view=city|core|taman --tod=0|1|2
 
 const SPAN := 1100.0           # rough city diameter; the camera pans within it
-const CELL := 2.0              # occupancy map resolution, metres
-const EXT := 1200.0            # occupancy map half-extent
+const CELL := 3.0              # occupancy map resolution, metres
+const EXT := 4400.0            # occupancy map half-extent (a seat at true scale)
 const GN := int(EXT * 2.0 / CELL)
 const RIVER_HALF := 15.0
 const HIGHWAY_HALF := 11.0
@@ -64,7 +64,7 @@ var view_scale := 1.0                  # 1 = full KL metropolis footprint
 ## Real positions (WGS84): Petronas 3.15785 N 101.71165 E, Menara KL
 ## 3.15278 N 101.70384 E, Merdeka 118 3.14194 N 101.70028 E. Game x is
 ## east, z is south, the twin towers at the origin.
-const KL_SCALE := 250.0
+const KL_SCALE := 1000.0       # true scale: buildings, roads and land all in real metres
 const KL_TOWER_KM := Vector2(-0.868, 0.561)    # 1.03 km WSW of KLCC
 const MERDEKA_KM := Vector2(-1.264, 1.759)     # 2.17 km SSW of KLCC
 const KLCC_PARK_KM := Vector2(0.24, 0.2)       # the park just SE of the towers
@@ -238,7 +238,7 @@ func _configure(p: Dictionary) -> void:
 	# seats far larger than the pekan itself, so they keep their own size.
 	var area := float(p.get("areaKm2", 0.0))
 	if area > 0.0:
-		var k := clampf(sqrt(area / PI) * KL_SCALE, 320.0, 1050.0) / r_city
+		var k := clampf(sqrt(area / PI) * KL_SCALE, 900.0, 4200.0) / r_city
 		# a town keeps its small pekan core; the seat around it (where its
 		# people live) is drawn at the seat's size
 		if tier in ["metro", "city"]:
@@ -273,6 +273,9 @@ func _configure(p: Dictionary) -> void:
 		# round off the survey polygon's corners so coasts curve smoothly
 		land_rings.append(_chaikin(_chaikin(w3)))
 	reach_r = r_city * kmax
+	if env:
+		env.fog_depth_begin = maxf(900.0, reach_r * 0.8)
+		env.fog_depth_end = maxf(5200.0, reach_r * 3.0)
 	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
 	var choices: Array = {"metro": ["radial"], "city": ["oldtown", "taman", "radial"],
@@ -2351,8 +2354,8 @@ func _build_tourism() -> void:
 	# a drawn hotel stands for ~300 rooms (towns: ~200 in lower blocks), a
 	# chalet resort for ~40; capped so the city stays a city
 	var urban := tier in ["metro", "city"]
-	var n_hotels := clampi(int(round(rooms * hotel_share / (300.0 if urban else 200.0))), 0, 20 if urban else 8)
-	var n_chalets := clampi(int(round(rooms * (1.0 - hotel_share) / 40.0)), 0, 40) if resort else 0
+	var n_hotels := clampi(int(round(rooms * hotel_share / (300.0 if urban else 200.0))), 0, 80 if urban else 30)
+	var n_chalets := clampi(int(round(rooms * (1.0 - hotel_share) / 40.0)), 0, 120) if resort else 0
 	# hotels: facing the main roads, nearest the centre first, set back
 	# from the kerb like any frontage building
 	var cands := []
@@ -2485,7 +2488,7 @@ func _spec_homes(spec: Dictionary) -> float:
 	return 0.0
 
 
-const HOMES_SCALE := 4.0      # households per drawn home: one scale for every seat, so homes keep the real ratio
+const HOMES_SCALE := 1.0      # one drawn home per household (true scale)
 var homes_built := 0.0
 var tourists := 0.0            # visitors a year (simulated)
 var hotels_built := 0
@@ -2671,7 +2674,7 @@ func _cutout_ground(gm: StandardMaterial3D) -> void:
 
 func _build_ground() -> void:
 	var g := PlaneMesh.new()
-	g.size = Vector2(16000, 16000)
+	g.size = Vector2(40000, 40000)
 	var gm := StandardMaterial3D.new()
 	# soft painted grass: large yellow-green to deep-green patches
 	gm.albedo_color = Color(1, 1, 1)
@@ -2700,7 +2703,7 @@ func _build_ground() -> void:
 		_ground_no_shadow()
 	else:
 		# the real shoreline: open water underneath, the land on top of it
-		box(Vector3(0, -0.4, 0), Vector3(16000, 0.05, 16000), Color.WHITE, mat_water)
+		box(Vector3(0, -0.4, 0), Vector3(40000, 0.05, 40000), Color.WHITE, mat_water)
 		gm.uv1_scale = Vector3(1, 1, 1)
 		_single(_poly_mesh(land_rings, 0.0, 6.0 / 16000.0), gm, Transform3D.IDENTITY)
 		_ground_no_shadow()
