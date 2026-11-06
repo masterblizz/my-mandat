@@ -772,6 +772,47 @@ func _river_near(p: Vector3) -> Array:
 	return [bq, bt]
 
 
+## Distance from p to the river, through a coarse grid of the river's
+## segments (rebuilt whenever the river changes), so a road's every point
+## can be checked without walking the whole river each time.
+const RIVER_CELL := 80.0
+var _rgrid := {}
+var _rgrid_n := -1
+func _river_dist(p: Vector3) -> float:
+	if river_pts.size() < 2:
+		return INF
+	if _rgrid_n != river_pts.size() or _rgrid.is_empty():
+		_rgrid = {}
+		_rgrid_n = river_pts.size()
+		for i in river_pts.size() - 1:
+			var a := river_pts[i]
+			var b := river_pts[i + 1]
+			var x0 := floori(minf(a.x, b.x) / RIVER_CELL)
+			var x1 := floori(maxf(a.x, b.x) / RIVER_CELL)
+			var z0 := floori(minf(a.z, b.z) / RIVER_CELL)
+			var z1 := floori(maxf(a.z, b.z) / RIVER_CELL)
+			for gx in range(x0, x1 + 1):
+				for gz in range(z0, z1 + 1):
+					var key := Vector2i(gx, gz)
+					if not _rgrid.has(key):
+						_rgrid[key] = []
+					(_rgrid[key] as Array).append(i)
+	var c := Vector2i(floori(p.x / RIVER_CELL), floori(p.z / RIVER_CELL))
+	var q := Vector3(p.x, 0, p.z)
+	var best := INF
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var key := c + Vector2i(dx, dz)
+			if not _rgrid.has(key):
+				continue
+			for i: int in _rgrid[key]:
+				var a := Vector3(river_pts[i].x, 0, river_pts[i].z)
+				var b := Vector3(river_pts[i + 1].x, 0, river_pts[i + 1].z)
+				best = minf(best, q.distance_to(Geometry3D.get_closest_point_to_segment(q, a, b)))
+	# beyond the searched cells the river is at least a cell away
+	return best if best < RIVER_CELL else maxf(best, RIVER_CELL)
+
+
 func _dist_to(pts: PackedVector3Array, p: Vector3) -> float:
 	var best := INF
 	if pts.is_empty():
@@ -1237,59 +1278,81 @@ func _gen_radial() -> void:
 	for k in radials:
 		_rad_ang.append(deg_to_rad(k * 360.0 / radials + 8.0 + rng.randf_range(-9, 9)))
 		_rad_ph.append(rng.randf() * TAU)
-	# radials: from the core loop out into the countryside
+	# radials: from the core out across the whole seat
 	for k in radials:
 		var ctrl := []
 		var r := 55.0 * view_scale
-		while r <= 600.0 * view_scale:
+		while r <= r_city * 1.2:
 			ctrl.append(_polar(r, _radial_angle(k, r)))
-			r += 30.0 * view_scale
+			r += 30.0
 		_make_road(ctrl, (0 if k % 2 == 0 else 1) if tier in ["metro", "city"] else 1)
-	# ring arcs sector by sector
-	for ri in RING_DEFS.size():
-		var R: float = RING_DEFS[ri][0] * view_scale
+	# three ring roads (inner, middle, outer) instead of a ring every block
+	var rings := [[r_core * 0.32, 1.0, 1], [r_core, 1.0, 0], [r_taman * 0.85, ring_keep, 1]]
+	for ri in rings.size():
+		var R: float = rings[ri][0]
 		for k in radials:
-			if rng.randf() > RING_DEFS[ri][1] * (1.0 if ri == 0 else ring_keep):
+			if rng.randf() > float(rings[ri][1]):
 				continue
 			var a0 := _radial_angle(k, R)
 			var a1 := _radial_angle((k + 1) % radials, R)
 			if a1 <= a0:
 				a1 += TAU
-			var arc := {"R": R, "a0": a0, "a1": a1, "amp": 0.0 if ri == 0 else rng.randf_range(0.03, 0.09), "ph": rng.randf() * TAU}
+			var arc := {"R": R, "a0": a0, "a1": a1, "amp": 0.0 if ri == 0 else rng.randf_range(0.02, 0.05), "ph": rng.randf() * TAU}
 			_arcs["%d:%d" % [ri, k]] = arc
 			var n := maxi(3, int(ceil((a1 - a0) * R / 24.0)))
 			var ctrl := []
 			for j in n + 1:
 				var a := lerpf(a0, a1, float(j) / n)
 				ctrl.append(_polar(_arc_r(arc, a), a))
-			_make_road(ctrl, RING_DEFS[ri][2] if tier in ["metro", "city"] else maxi(RING_DEFS[ri][2], 1))
-	# lorong connectors and cul-de-sacs between neighbouring arcs (a
-	# village keeps to its main roads)
+			var cls: int = rings[ri][2]
+			_make_road(ctrl, cls if tier in ["metro", "city"] else maxi(cls, 1))
+	# a street grid of city blocks in the centre
+	_core_grid(minf(r_core * 0.9, 700.0))
 	if tier == "rural":
 		return
-	for ri in range(2, RING_DEFS.size() - 1):
-		for k in radials:
-			var A: Dictionary = _arcs.get("%d:%d" % [ri, k], {})
-			if A.is_empty():
+	# taman estates (street grids) off both sides of every radial
+	for k in radials:
+		var side := 1.0 if rng.randf() < 0.5 else -1.0
+		var r := r_core + rng.randf_range(40.0, 80.0)
+		while r < r_taman:
+			var p0 := _polar(r, _radial_angle(k, r))
+			var tdir := (_polar(r + 5.0, _radial_angle(k, r + 5.0)) - p0).normalized()
+			var out := Vector3(-tdir.z, 0, tdir.x) * side
+			_taman_loop(p0, out, rng.randf_range(38.0, 62.0) * maxf(view_scale, 0.75))
+			side = -side
+			r += rng.randf_range(110.0, 160.0)
+
+
+## A gently bent grid of city blocks, clipped to a circle of radius half
+## (the old town or the CBD).
+func _core_grid(half: float) -> void:
+	var g := rng.randf() * PI
+	var b := Basis(Vector3.UP, g)
+	var bend := rng.randf_range(4.0, 10.0)
+	var xs := [0.0]
+	var x := 0.0
+	while x < half:
+		x += rng.randf_range(48.0, 66.0)
+		xs.append(x)
+		xs.append(-x)
+	var zs := [0.0]
+	var z := 0.0
+	while z < half:
+		z += rng.randf_range(58.0, 80.0)
+		zs.append(z)
+		zs.append(-z)
+	for axis in 2:
+		for c in (xs if axis == 0 else zs):
+			var h := sqrt(maxf(half * half - c * c, 0.0)) * rng.randf_range(0.8, 1.0)
+			if h < 40.0:
 				continue
-			var B: Dictionary = _arcs.get("%d:%d" % [ri + 1, k], {})
-			var spans := int((A.a1 - A.a0) * A.R / 90.0)
-			for c in maxi(1, spans):
-				var a := lerpf(A.a0, A.a1, (c + rng.randf_range(0.3, 0.7)) / maxf(1, spans))
-				var ra := _arc_r(A, a)
-				if not B.is_empty() and rng.randf() < 0.5:
-					var rb := _arc_r(B, a)
-					var bend := rng.randf_range(-0.04, 0.04)
-					_make_road([_polar(ra, a), _polar((ra + rb) * 0.5, a + bend), _polar(rb, a)], 2)
-				elif rng.randf() < 0.6:
-					# cul-de-sac: a short bent spur ending in a turning circle
-					var spur := rng.randf_range(26.0, 34.0) * view_scale
-					var bend := rng.randf_range(-0.08, 0.08)
-					var end := _polar(ra + spur, a + bend)
-					_make_road([_polar(ra, a), _polar(ra + spur * 0.5, a + bend * 0.4), end], 2)
-					if on_land(end):
-						_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
-					_mark_rect(end, 0.0, 17.0, 17.0)
+			var pts := []
+			var steps := maxi(6, int(h / 40.0))
+			for k in steps + 1:
+				var u := lerpf(-h, h, float(k) / steps)
+				var w: float = c + bend * sin(u * 0.02 + c)
+				pts.append(b * (Vector3(w, 0, u) if axis == 0 else Vector3(u, 0, w)))
+			_make_road(pts, _trunk_cls() if c == 0.0 else 2)
 
 
 func _cul_de_sac(from: Vector3, dir: Vector3, length: float) -> void:
@@ -1367,33 +1430,8 @@ func _gen_strip() -> void:
 ## block sizes, gently bent), clipped to a round core; arterials run out
 ## from it with looped taman estates hanging off them.
 func _gen_oldtown() -> void:
-	var g := rng.randf() * PI
-	var b := Basis(Vector3.UP, g)
 	var half := r_commercial * 0.95
-	var bend := rng.randf_range(4.0, 10.0)
-	var xs := [0.0]
-	var x := 0.0
-	while x < half:
-		x += rng.randf_range(48.0, 66.0)
-		xs.append(x)
-		xs.append(-x)
-	var zs := [0.0]
-	var z := 0.0
-	while z < half:
-		z += rng.randf_range(58.0, 80.0)
-		zs.append(z)
-		zs.append(-z)
-	for axis in 2:
-		for c in (xs if axis == 0 else zs):
-			var h := sqrt(maxf(half * half - c * c, 0.0)) * rng.randf_range(0.8, 1.0)
-			if h < 40.0:
-				continue
-			var pts := []
-			for k in 7:
-				var u := lerpf(-h, h, k / 6.0)
-				var w: float = c + bend * sin(u * 0.02 + c)
-				pts.append(b * (Vector3(w, 0, u) if axis == 0 else Vector3(u, 0, w)))
-			_make_road(pts, _trunk_cls() if c == 0.0 else 2)
+	_core_grid(half)
 	_gen_arterials_with_estates(rng.randi_range(3, 5), half)
 
 
@@ -1497,7 +1535,7 @@ func _make_road(ctrl: Array, cls: int) -> void:
 	var wet := PackedByteArray()
 	wet.resize(pts.size())
 	for k in pts.size():
-		wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
+		wet[k] = 1 if _river_dist(pts[k]) < RIVER_HALF + 3.0 else 0
 	var i := 0
 	var moved := false
 	while i < pts.size():
@@ -1536,7 +1574,7 @@ func _make_road(ctrl: Array, cls: int) -> void:
 		for k in range(1, pts.size()):
 			cum[k] = cum[k - 1] + pts[k].distance_to(pts[k - 1])
 		for k in pts.size():
-			wet[k] = 1 if _dist_to(river_pts, pts[k]) < RIVER_HALF + 3.0 else 0
+			wet[k] = 1 if _river_dist(pts[k]) < RIVER_HALF + 3.0 else 0
 	var gaps := PackedByteArray()
 	gaps.resize(pts.size())
 	# outside the seat boundary the road is not drawn (and cars hide there)
