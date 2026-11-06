@@ -299,6 +299,12 @@ func _apply() -> void:
 		if cp.y < clear:
 			cam.global_position = Vector3(cp.x, clear, cp.z)
 			cam.look_at(_target, Vector3.UP)
+	# shadows reach as far as the view does: zoomed in they stay sharp,
+	# zoomed out the far blocks keep their shadows instead of going flat
+	var sun_l = city.get("sun")
+	if sun_l is DirectionalLight3D:
+		var base := 450.0 if bool(city.get("_mobile")) else 900.0
+		(sun_l as DirectionalLight3D).directional_shadow_max_distance = clampf(_dist * 1.7, base, base * 3.5)
 	# portrait phones: hold the horizontal field so the city isn't cropped
 	var vs := get_viewport().get_visible_rect().size
 	cam.keep_aspect = Camera3D.KEEP_WIDTH if vs.y > vs.x else Camera3D.KEEP_HEIGHT
