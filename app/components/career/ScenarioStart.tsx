@@ -43,7 +43,7 @@ export default function ScenarioStart() {
     useGameStore.getState().setPhase("playing");
     if (useGameStore.getState().startAsRepresentative()) {
       useGameStore.setState((state) => ({ journey: { ...state.journey, scenarioPackTerm: state.careerProgress.term + 1 } }));
-      router.push("/elected");
+      router.push("/kawasan");
       return;
     }
     store.startCampaign();

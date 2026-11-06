@@ -31,6 +31,7 @@ import { usePageVisible } from "../hooks/usePageVisible";
 import { applyCompletedWorks, cityLedger } from "../data/cityEconomy";
 import { REP_QUARTER_GRANT, repSide } from "../store/representative";
 import type { CityOverlay } from "../kawasan-3d/cityData";
+import { seatVisitors } from "../data/seatTourism";
 
 
 // ── 3D city map: WebGL cutover ────────────────────────────────────────
@@ -2752,6 +2753,9 @@ export default function KawasanDevelopmentPage() {
       // the real boundary: nothing is built outside it (coast and sea excepted)
       outline: seatOutline ? boundaryCityOutline(seatOutline) : undefined,
       coast: seatCoast ?? undefined,
+      // households decide how many homes stand; visitors the hotels and chalets
+      population: ownSeat?.population,
+      tourists: ownSeat ? seatVisitors(ownSeat.name, { coastal: traits.coastal || !!seatCoast, hilly: traits.hilly, klLandmarks: traits.klLandmarks }) : undefined,
       land: seatLand ?? undefined,
       // real area: city seats are drawn at their true size (see city.gd)
       areaKm2: seatOutline ? Math.round(boundaryAreaKm2(seatOutline) * 10) / 10 : undefined }),

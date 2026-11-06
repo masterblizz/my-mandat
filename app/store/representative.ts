@@ -167,7 +167,7 @@ export function continueRepresentativeCareer(state: GameState): { patch: Partial
   const side: StartingSide = outcome.status === "majority" ? "government" : "opposition";
   const allocation = REP_OPENING_ALLOCATION[side];
   return {
-    route: "/elected",
+    route: "/kawasan",
     patch: {
       hasWonElection: true,
       careerProgress: { ...state.careerProgress, month: 1 },
