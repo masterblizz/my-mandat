@@ -2,7 +2,7 @@
 // industry, lake, plantation state, state capital, KL landmarks), from its
 // name and state. Shared by the kawasan screen and the 3D city's profile.
 
-export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean; bukitBintang: boolean; plantation: boolean; capital: boolean };
+export type SeatTraits = { coastal: boolean; paddy: boolean; hilly: boolean; industrial: boolean; lake: boolean; kinabalu: boolean; klLandmarks: boolean; bukitBintang: boolean; plantation: boolean; capital: boolean; tea: boolean };
 
 // "bukit" ("hill") appears in plenty of fully urban seat names too (Bukit
 // Bintang, Bukit Gelugor, Bukit Mertajam...) — a blanket substring match
@@ -63,5 +63,8 @@ export function deriveSeatTraits(seatName: string, stateId: string, seatCode = "
     bukitBintang,
     plantation: PLANTATION_STATES.includes(stateId),
     capital: CAPITAL_SEATS.has(name),
+    // highland tea estates: Cameron Highlands (BOH, Sungai Palas) and
+    // Sabah Tea at Ranau / Kundasang
+    tea: has("cameron", "ranau", "kundasang"),
   };
 }
