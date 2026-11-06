@@ -386,10 +386,6 @@ export default function MainMenuPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-black tracking-[.08em] text-white">{leader.name}</div>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="rounded-full px-1.5 py-px text-[9px] font-black text-black" style={{ background: leader.partyColor || "var(--cyan)" }}>{leader.partyAbbr || leader.party}</span>
-                {mounted && hasSave && <span className="truncate text-[9px] font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>{isPrn ? `PRN · ${prnState?.name ?? ""}` : "PRU"}</span>}
-              </div>
             </div>
             <span className="text-[14px]" style={{ color: "var(--cyan)" }}>›</span>
           </Link>
