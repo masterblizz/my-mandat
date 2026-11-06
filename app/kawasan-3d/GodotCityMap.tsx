@@ -89,9 +89,13 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin || e.source !== frameRef.current?.contentWindow) return;
-      const data = e.data as { type?: string; id?: unknown; p?: unknown } | null;
+      const data = e.data as { type?: string; id?: unknown; p?: unknown; summary?: unknown } | null;
       if (data?.type === "kawasan-godot-ready") setReady(true);
-      else if (data?.type === "kawasan-city-built") setBuilt(true);
+      else if (data?.type === "kawasan-city-built") {
+        setBuilt(true);
+        // what the city built (households, shop/industry lots, bridges…) for the HUD
+        if (data.summary) window.dispatchEvent(new CustomEvent("kawasan-city-summary", { detail: data.summary }));
+      }
       else if (data?.type === "kawasan-build-progress" && typeof data.p === "number") setProgress(data.p);
       else if (data?.type === "kawasan-intro-done") setAerial(null);
       else if (data?.type === "kawasan-land-click") { const d = data as unknown as { x: number; z: number }; landClickRef.current?.(d.x, d.z); }
