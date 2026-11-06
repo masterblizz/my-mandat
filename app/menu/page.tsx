@@ -251,7 +251,7 @@ export default function MainMenuPage() {
 
   return (
     <main
-      className="main-menu-screen relative min-h-screen overflow-hidden"
+      className="main-menu-screen navy-ui relative min-h-screen overflow-hidden"
       style={{
         background:
           "radial-gradient(circle at 62% 42%, rgb(var(--cyan-rgb) / 0.08), transparent 34%), radial-gradient(circle at 18% 18%, rgb(var(--gold-rgb) / 0.035), transparent 26%), var(--bg)",
@@ -259,6 +259,10 @@ export default function MainMenuPage() {
         fontFamily: "'Space Mono', 'Chakra Petch', monospace",
       }}
     >
+      {/* the 3D city behind the menu, as in the game */}
+      <div aria-hidden className="navy-ui__backdrop pointer-events-none fixed inset-0">
+        <Image src="/elected-city-bg.webp" alt="" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 60%" }} />
+      </div>
       {showCredits && <CreditsModal lang={lang} onClose={() => setShowCredits(false)} />}
       {lockedNotice && <div role="alert" onClick={() => setLockedNotice(null)} className="fixed left-1/2 top-14 z-[90] w-[min(520px,calc(100%-32px))] -translate-x-1/2 cursor-pointer rounded-md border px-4 py-3 text-[12px] font-bold text-white shadow-2xl" style={{ borderColor: "rgb(var(--gold-rgb) / .7)", background: "rgb(var(--bg-rgb) / .96)" }}>🔒 {lockedNotice}</div>}
       {continueSlot && <ContinueRunModal lang={lang} slot={continueSlot} onClose={() => setContinueSlot(null)} onConfirm={() => resumeSavedGame(continueSlot)} />}
@@ -312,7 +316,7 @@ export default function MainMenuPage() {
       </header>
 
       <section className="main-menu-layout relative z-10 grid overflow-hidden" style={{ height: "calc(100vh - 54px)", gridTemplateColumns: "480px minmax(0, 1fr)" }}>
-        <div className="absolute inset-0 z-[2] flex items-center justify-center pl-[300px] pr-10">
+        <div className="main-menu-map absolute inset-0 z-[2] flex items-center justify-center pl-[300px] pr-10">
           <div className="w-full max-w-[1180px] scale-[1.28] opacity-[0.58]" style={{ filter: "drop-shadow(0 0 36px rgb(var(--cyan-rgb) / 0.55)) saturate(1.45)" }}>
             <MalaysiaMap states={highlightedStates} compact showLabels={false} showHotspots tooltipPlacement="menu-static" onStateClick={() => undefined} />
           </div>
