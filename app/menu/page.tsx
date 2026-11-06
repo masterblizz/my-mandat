@@ -37,7 +37,7 @@ const MENU_ICONS: Record<string, string> = {
   solo: "🎮", "02": "▶", "01": "✚", "03": "💾", "05": "📊", online: "🌐", "04": "⚙️", "06": "⭐", "07": "⏻",
 };
 
-// Top level: Solo Campaign · Multiplayer · Settings · Credits · Exit.
+// Top level: Solo Campaign · Settings · Credits · Exit.
 // Solo Campaign expands to show its run-specific actions.
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "solo", href: null, toggles: "solo" },
@@ -45,8 +45,7 @@ const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "01", href: "/setup", group: "solo" },
   { id: "03", href: "/load-game", group: "solo" },
   { id: "05", href: "/stats", group: "solo" },
-  // Shared persistent worlds; separate from solo saves.
-  { id: "online", href: "/online" },
+  // Shared persistent worlds (/online) are hidden from the menu for now.
   { id: "04", href: "/settings" },
   { id: "06", href: null },
   { id: "07", href: null, danger: true },
@@ -306,9 +305,6 @@ export default function MainMenuPage() {
             : t(lang, "menu_page.generalElectionCommandSimulator")}
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/online" className="main-menu-online-link border px-2 py-1 text-[9px] font-bold tracking-[0.12em]" style={{ borderColor: "rgb(var(--gold-rgb) / 0.55)", color: "var(--gold)" }}>
-            {t(lang, "DUNIA ONLINE", "ONLINE WORLDS")}
-          </Link>
           <span className="main-menu-clock font-bold tracking-[0.15em] text-white tabular-nums">{clock}</span>
           <span className="main-menu-presence flex items-center gap-1 font-bold" style={{ color: "var(--neon-green)" }}><span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "var(--neon-green)" }} />{t(lang, "menu_page.sysOnline")}</span>
           <LangThemeToggle />
