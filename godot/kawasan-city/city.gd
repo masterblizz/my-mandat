@@ -249,6 +249,10 @@ func _configure(p: Dictionary) -> void:
 			tier = "rural"
 	if not kl and tier == "city" and pd < 1500.0 and (bool(traits.get("paddy", false)) or bool(traits.get("coastal", false))):
 		tier = "town"
+	# a state capital is a city with a real downtown, however spread out
+	# its seat's population is on average
+	if bool(traits.get("capital", false)) and tier in ["town", "rural"]:
+		tier = "city"
 	view_scale = {"metro": 1.2 if kl else 1.0, "city": 0.8, "town": 0.62, "rural": 0.48}[tier]
 	cbd_axis = Vector3(MERDEKA_KM.x, 0, MERDEKA_KM.y) * KL_SCALE if landmarks else Vector3.ZERO
 	r_core = 175.0 * view_scale
@@ -278,10 +282,20 @@ func _configure(p: Dictionary) -> void:
 	# the whole seat must fit the occupancy raster: shrink it evenly if not
 	if r_city * kmax > EXT - 60.0:
 		var fit := (EXT - 60.0) / (r_city * kmax)
-		r_core *= fit
-		r_commercial *= fit
-		r_taman *= fit
+		# the seat shrinks, but a pekan's centre keeps its real size (a town
+		# of shophouses is a few hundred metres whatever the seat around it)
+		var core0 := 175.0 * view_scale
+		var comm0 := 265.0 * view_scale
 		r_city *= fit
+		r_taman = maxf(r_taman * fit, minf(430.0 * view_scale, r_city * 0.6))
+		r_core = maxf(r_core * fit, minf(core0, r_taman * 0.4))
+		r_commercial = maxf(r_commercial * fit, minf(comm0, r_taman * 0.6))
+	# a state city's downtown is a few hundred metres across, however big
+	# its seat: only KL's metro seats keep a downtown the size of the seat
+	# (Bukit Bintang, Petaling Jaya)
+	if tier == "city":
+		r_core = minf(r_core, 520.0)
+		r_commercial = minf(r_commercial, 820.0)
 	seat_poly = []
 	for ring in seat_poly_n:
 		var w2 := PackedVector2Array()
@@ -333,7 +347,7 @@ func _build() -> void:
 			sea_edge = coast_edge * r_city
 	elif bool(traits.get("coastal", false)):
 		sea_dir = Vector3(cos(feature_turn + PI), 0, sin(feature_turn + PI))
-	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
+	_set_zoning()
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
 	_mask_outside()
@@ -399,6 +413,7 @@ func _build() -> void:
 	_build_outline()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
+	print("CITYZONES ", JSON.stringify(city_summary()))
 	$Zones.post_built()
 	print("CITYBUILT ms=", Time.get_ticks_msec() - _build_t0)
 
@@ -1402,12 +1417,90 @@ func _arc_r(arc: Dictionary, a: float) -> float:
 ##   strip   - a pekan strung along one trunk road, lorongs off both sides
 ##   oldtown - a colonial shophouse grid core with taman estates outside
 ##   taman   - a ring road and spokes, each sector its own looped estate
+# ── zoning preset ────────────────────────────────────────────────────
+## How the seat is zoned, from its kind of place (tier) and its traits:
+## the share of semi-detached among landed houses, whether and how big an
+## industrial district it has (an estate for real industrial seats, light
+## industry for cities and some towns), oil-palm estates on the rural
+## fringe of plantation states. One table, so a new kind of seat is a
+## new row rather than a new code path.
+const ZONING_BY_TIER := {
+	"metro": {"semi_d": 0.3, "industry": "light", "plantation": false},
+	"city": {"semi_d": 0.4, "industry": "light", "plantation": false},
+	"town": {"semi_d": 0.35, "industry": "maybe", "plantation": true},
+	"rural": {"semi_d": 0.1, "industry": "none", "plantation": true},
+}
+var zoning := {}
+var industry_width := 0.0     # half-angle of the industrial sector (rad)
+var industry_r0 := 0.0
+var industry_r1 := 0.0
+
+func _set_zoning() -> void:
+	zoning = (ZONING_BY_TIER.get(tier, ZONING_BY_TIER["town"]) as Dictionary).duplicate()
+	var ind := str(zoning.industry)
+	if bool(traits.get("industrial", false)):
+		ind = "estate"
+	elif ind == "maybe":
+		ind = "light" if absi(seat_seed) % 2 == 0 else "none"
+	if landmarks:
+		ind = "none"   # downtown KL: no factory sector
+	zoning.industry = ind
+	zoning.plantation = bool(zoning.plantation) and bool(traits.get("plantation", false)) and not bool(traits.get("paddy", false))
+	industrial_bearing = INF
+	if ind == "none":
+		return
+	# industry sits away from the beach and the tourist coast: on the far
+	# side of town from the sea, give or take
+	var away := rng.randf() * TAU
+	var sea := Vector2(sea_dir.x, sea_dir.z) if sea_dir != Vector3.ZERO else coast_dir
+	if sea != Vector2.ZERO:
+		away = atan2(-sea.y, -sea.x) + rng.randf_range(-0.6, 0.6)
+	industrial_bearing = away
+	industry_width = 0.5 if ind == "estate" else 0.28
+	industry_r0 = r_commercial * 1.05
+	industry_r1 = r_taman * (1.15 if ind == "estate" else 0.95)
+
+
+## Inside the industrial district (by bearing and distance from centre)?
+func in_industry(p: Vector3) -> bool:
+	if industrial_bearing == INF:
+		return false
+	var r := _shape_r(p)
+	if r < industry_r0 or r > industry_r1:
+		return false
+	return absf(angle_difference(atan2(p.z, p.x), industrial_bearing)) < industry_width
+
+
+## The industrial district's own street grid: wide lorry roads (class 1)
+## spaced for big factory and warehouse plots, turned to face the centre.
+func _industrial_grid() -> void:
+	if industrial_bearing == INF:
+		return
+	var rm := (industry_r0 + industry_r1) * 0.5
+	var c := _polar(rm, industrial_bearing)
+	var u := Vector3(c.x, 0, c.z).normalized()       # out from the centre
+	var v := Vector3(-u.z, 0, u.x)
+	var depth := (industry_r1 - industry_r0) * 0.5
+	var half_w := rm * sin(industry_width) * 0.85
+	var sp := rng.randf_range(78.0, 92.0)
+	# streets across, then a spine and side streets along
+	var d := -depth
+	while d <= depth:
+		_make_road([c + u * d - v * half_w, c + u * d, c + u * d + v * half_w], 1)
+		d += sp
+	var w := -half_w
+	while w <= half_w + 1.0:
+		_make_road([c - u * depth + v * w, c + v * w, c + u * depth + v * w], 1 if absf(w) < sp * 0.5 else 2)
+		w += sp * 1.6
+
+
 func _gen_roads() -> void:
 	match layout:
 		"strip": _gen_strip()
 		"oldtown": _gen_oldtown()
 		"taman": _gen_taman()
 		_: _gen_radial()
+	_industrial_grid()
 
 
 func _gen_radial() -> void:
@@ -1523,6 +1616,9 @@ func _gen_strip() -> void:
 		ctrl.append(spine.call(t))
 		t += 30.0
 	_make_road(ctrl, _trunk_cls())
+	# the pekan's shophouse blocks either side of the main road
+	if tier != "rural":
+		_core_grid(r_core * 0.9)
 	# a cross road through the town centre
 	var cross := []
 	for k in 9:
@@ -1581,9 +1677,12 @@ func _gen_taman() -> void:
 		var a := TAU * k / 18.0
 		ring.append(_polar(R * (1.0 + 0.12 * sin(3.0 * a + ph)), a))
 	_make_road(ring, 1)
-	# a short shopping street across the middle
+	# a short shopping street across the middle, and the pekan's grid of
+	# shophouse blocks round it
 	var a0 := rng.randf() * PI
 	_make_road([_polar(R, a0), Vector3.ZERO, _polar(R, a0 + PI)], 1)
+	if tier != "rural":
+		_core_grid(r_core * 0.95)
 	_gen_arterials_with_estates(rng.randi_range(4, 6), R)
 
 
@@ -2278,10 +2377,63 @@ func _lrt_station(p: Vector3, yaw: float) -> void:
 ## `frame` carries them to their lot.
 ## `kind` says what stands on the lot (shoprow, kampung, school, paddy...);
 ## zone_layer.gd matches each game zone to a lot of a fitting kind.
+## What each kind of lot is, for the simulation side (zone of the plan).
+const LOT_ZONE := {
+	"terrace": "residential", "bungalow": "residential", "semid": "residential",
+	"kampung": "residential", "flat": "residential", "condo": "residential",
+	"shoprow": "commercial", "tower": "commercial", "mall": "commercial",
+	"carpark": "commercial", "market": "commercial",
+	"hotel": "tourism", "chalet": "tourism",
+	"factory": "industrial", "warehouse": "industrial",
+	"paddy": "agriculture", "plantation": "agriculture",
+	"trees": "green", "park": "green", "field": "green", "lake": "green",
+}
+
+## Totals the simulation side can read: lots and households per zone,
+## lots per district, and the zoning preset in force.
+func city_summary() -> Dictionary:
+	var by_zone := {}
+	var by_district := {}
+	var homes := 0
+	for lot in lots:
+		var z := str(lot.get("zone", "civic"))
+		var e: Dictionary = by_zone.get(z, {"lots": 0, "homes": 0})
+		e.lots += 1
+		e.homes += int(lot.get("homes", 0))
+		by_zone[z] = e
+		var dk := str(lot.get("district", ""))
+		by_district[dk] = int(by_district.get(dk, 0)) + 1
+		homes += int(lot.get("homes", 0))
+	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size()}
+
+## The planning district a point falls in: the band out from the centre
+## (core, commercial, taman, outskirts) and, for the outer bands, which
+## eighth of the compass it lies in, e.g. "taman-3".
+func district_of(p: Vector3) -> String:
+	if in_industry(p):
+		return "industry"
+	var r := _urban_r(p)
+	if r < r_core:
+		return "core"
+	var band := "commercial" if r < r_commercial else ("taman" if r < r_taman else "outskirts")
+	var sector := posmod(int(floor((atan2(p.z, p.x) + PI) / (TAU / 8.0))), 8)
+	return "%s-%d" % [band, sector]
+
+
+## Record a lot without moving the build frame (for builders that place
+## in world coordinates themselves).
+func _lot(c: Vector3, yaw: float, kind: String, w: float, d: float) -> void:
+	var p := Vector3(c.x, 0, c.z)
+	lots.append({"p": p, "kind": kind, "yaw": yaw, "w": w, "d": d,
+		"zone": LOT_ZONE.get(kind, "civic"), "district": district_of(p), "homes": 0})
+
+
 func _place(c: Vector3, yaw: float, kind := "", w := 0.0, d := 0.0) -> void:
 	frame = Transform3D(Basis(Vector3.UP, yaw), c)
 	if kind != "":
-		lots.append({"p": Vector3(c.x, 0, c.z), "kind": kind, "yaw": yaw, "w": w, "d": d})
+		var p := Vector3(c.x, 0, c.z)
+		lots.append({"p": p, "kind": kind, "yaw": yaw, "w": w, "d": d,
+			"zone": LOT_ZONE.get(kind, "civic"), "district": district_of(p), "homes": 0})
 
 
 ## A landmark on the free lot nearest its real map position (spiral
@@ -2416,7 +2568,7 @@ func _frontage() -> void:
 ## the blocks between streets fill in instead of staying open grass.
 ## Out to the edge of a town (only the inner ring of a village), and only
 ## for small/medium kinds — towers, malls and factories keep their space.
-const BACK_ROW_KINDS := ["terrace", "bungalow", "shoprow", "flat", "kampung", "condo"]
+const BACK_ROW_KINDS := ["terrace", "bungalow", "semid", "shoprow", "flat", "kampung", "condo"]
 func _back_row(c: Vector3, n: Vector3, yaw: float, front: Dictionary, p0: Vector3, cls: int) -> void:
 	# towns and cities fill out to their edge; villages only near the centre
 	if _urban_r(p0) > (r_taman if tier == "rural" else r_city):
@@ -2470,9 +2622,16 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 	var trees := {"kind": "trees", "w": 12.0, "d": 12.0, "gap": 3.0}
 	var kampung := {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": rng.randf_range(6, 20)}
 	var skip := {"kind": "skip", "w": rng.randf_range(10, 30), "d": 0.0, "gap": 0.0}
-	# industrial seats: a factory estate in one sector
-	if industrial_bearing != INF and r > r_core and r < r_taman and absf(angle_difference(a, industrial_bearing)) < 0.45 and x < 0.75:
-		return {"kind": "factory", "w": 28.0, "d": 22.0, "gap": rng.randf_range(4, 10)}
+	# the industrial district: factories and warehouses, no houses
+	if in_industry(p):
+		if x < 0.5:
+			return {"kind": "factory", "w": 28.0, "d": 22.0, "gap": rng.randf_range(4, 10)}
+		if x < 0.88:
+			return {"kind": "warehouse", "w": 36.0, "d": 26.0, "gap": rng.randf_range(4, 10)}
+		return {"kind": "skip", "w": rng.randf_range(12, 30), "d": 0.0, "gap": 0.0}
+	# landed houses: some are semi-detached pairs (rumah berkembar)
+	if rng.randf() < float(zoning.get("semi_d", 0.0)) * 0.5:
+		bungalow = {"kind": "semid", "w": 20.0, "d": 15.0, "gap": rng.randf_range(1, 4)}
 	if r < r_core:
 		match tier:
 			"metro":
@@ -2585,10 +2744,16 @@ func _build_tourism() -> void:
 			if (rd.gaps as PackedByteArray)[sm[2]] == 0:
 				cands.append([_urban_r(sm[0]), sm[0], sm[1], float(rd.half)])
 			s += 28.0
-	cands.sort_custom(func(a, b): return a[0] < b[0])
+	# the centre itself is left to the shophouses and offices: hotels
+	# cluster on the main roads round the edge of the commercial district
+	var ring := r_commercial
+	cands.sort_custom(func(a, b): return absf(a[0] - ring) < absf(b[0] - ring))
+	var min_r := r_core * (0.6 if urban else 1.0)
 	for cnd in cands:
 		if hotels_built >= n_hotels:
 			break
+		if float(cnd[0]) < min_r:
+			continue
 		var q: Vector3 = cnd[1]
 		var t: Vector3 = cnd[2]
 		for side in [1.0, -1.0]:
@@ -2597,6 +2762,7 @@ func _build_tourism() -> void:
 			var yaw := atan2(nrm.x, nrm.z)
 			if on_land(c) and _rect_free(c, yaw, 22.0, 20.0):
 				_mark_rect(c, yaw, 22.0, 20.0)
+				_lot(c, yaw, "hotel", 22.0, 20.0)
 				_hotel(c)
 				hotels_built += 1
 				break
@@ -2615,6 +2781,7 @@ func _build_tourism() -> void:
 				continue
 		if on_land(p) and _rect_free(p, 0.0, 34.0, 26.0):
 			_mark_rect(p, 0.0, 34.0, 26.0)
+			_lot(p, 0.0, "chalet", 34.0, 26.0)
 			_chalets(p)
 			chalets_built += 1
 
@@ -2682,7 +2849,7 @@ func _infill_homes() -> void:
 		tries += 1
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var seed := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
-		if not on_land(seed) or in_sea(seed):
+		if not on_land(seed) or in_sea(seed) or in_industry(seed) or _urban_r(seed) < r_commercial:
 			continue
 		var ci := _cell(seed)
 		if ci < 0 or occ[ci] == 1:
@@ -2723,7 +2890,7 @@ func _infill_homes() -> void:
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
 		var c := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
-		if not on_land(c) or in_sea(c):
+		if not on_land(c) or in_sea(c) or in_industry(c) or _urban_r(c) < r_core:
 			continue
 		var q := _net_near(net, c)
 		var off := Vector3(c.x - q.x, 0, c.z - q.z)
@@ -2799,6 +2966,9 @@ func _plan_lanes() -> void:
 			var sm := road_sample(rd, s)
 			s += rng.randf_range(50.0, 95.0) if urban else rng.randf_range(60.0, 130.0)
 			if (rd.gaps as PackedByteArray)[sm[2]] == 1:
+				continue
+			# the town centre is shophouse streets, not housing lanes
+			if _urban_r(sm[0]) < r_commercial:
 				continue
 			var t: Vector3 = sm[1]
 			var dir := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
@@ -2879,7 +3049,7 @@ func _homes_on_lane(pts: PackedVector3Array, urban: bool) -> void:
 			var x := rng.randf()
 			var spec: Dictionary
 			if urban:
-				spec = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if x < 0.4 else (_terrace() if x < 0.85 else {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0})
+				spec = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if x < 0.4 else (_terrace() if x < 0.8 else ({"kind": "semid", "w": 20.0, "d": 15.0, "gap": 2.0} if x < 0.8 + 0.2 * float(zoning.get("semi_d", 0.0)) else {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0}))
 			else:
 				spec = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(12, 20)} if x < 0.08 else (_terrace() if x < 0.4 else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": rng.randf_range(3.0, 8.0)})
 			var t := (pts[i + 1] - pts[i - 1]).normalized()
@@ -2888,7 +3058,7 @@ func _homes_on_lane(pts: PackedVector3Array, urban: bool) -> void:
 			var c: Vector3 = pts[i] + o * setb
 			var yaw := atan2(o.x, o.z)
 			var step := int(ceil((spec.w + spec.gap) / 4.0))
-			if on_land(c) and _rect_free_soft(c, yaw, spec.w, spec.d):
+			if on_land(c) and not in_industry(c) and _rect_free_soft(c, yaw, spec.w, spec.d):
 				_mark_rect(c, yaw, spec.w, spec.d)
 				_place(c, yaw, spec.kind, spec.w, spec.d)
 				_build_spec(spec, _urban_r(c))
@@ -2914,7 +3084,7 @@ func _back_rows(p: Vector3, t: Vector3, o: Vector3, front: Dictionary, urban: bo
 		var c := p + o * (depth + float(spec.d) * 0.5) + t * (lat - signf(lat) * (float(spec.w) * 0.5 + 2.2))
 		var b := p + o * (depth + float(spec.d) * 0.5) + t * lat
 		var yaw := atan2(o.x, o.z)
-		if not on_land(c) or not _rect_free_soft(c, yaw, spec.w, spec.d) or not _path_free(a + o * (2.5 if rows == 0 else 0.0), b):
+		if not on_land(c) or in_industry(c) or not _rect_free_soft(c, yaw, spec.w, spec.d) or not _path_free(a + o * (2.5 if rows == 0 else 0.0), b):
 			break
 		_mark_rect(c, yaw, spec.w, spec.d)
 		_place(c, yaw, spec.kind, spec.w, spec.d)
@@ -2948,6 +3118,7 @@ func _spec_homes(spec: Dictionary) -> float:
 		"terrace": return float(spec.get("units", 6))
 		"shoprow": return float(spec.get("units", 4)) * 0.6
 		"bungalow", "kampung": return 1.0
+		"semid": return 2.0
 		"flat": return float(spec.get("h", 20.0)) / 3.2 * 6.0
 		"condo": return float(spec.get("top", 40.0)) / 3.2 * 10.0
 	return 0.0
@@ -2963,6 +3134,10 @@ var home_target := -1.0        # drawn homes the seat's households call for (-1:
 ## A residential building is only placed while the seat still needs
 ## homes for its households; past that the lot stays open.
 func _homes_left(spec: Dictionary) -> bool:
+	# shophouses are the commercial street first (the flats upstairs are
+	# a bonus): they never wait on the household budget
+	if str(spec.kind) == "shoprow":
+		return true
 	var h := _spec_homes(spec)
 	if h <= 0.0 or home_target < 0.0:
 		return true
@@ -2970,7 +3145,11 @@ func _homes_left(spec: Dictionary) -> bool:
 
 
 func _build_spec(spec: Dictionary, r: float) -> void:
-	homes_built += _spec_homes(spec)
+	var hh := _spec_homes(spec)
+	homes_built += hh
+	# capacity on the lot just placed (its households)
+	if not lots.is_empty() and (lots[-1].p as Vector3).distance_squared_to(Vector3(frame.origin.x, 0, frame.origin.z)) < 0.01:
+		lots[-1].homes = int(round(hh))
 	match spec.kind:
 		"tower":
 			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0)) * lerpf(0.7, 1.1, fill)    # ~240 m real at most: landmarks stay taller
@@ -2993,6 +3172,10 @@ func _build_spec(spec: Dictionary, r: float) -> void:
 			_terrace_row(Vector3(0, 0, 1.0), spec.units, true)
 		"bungalow":
 			_bungalow()
+		"semid":
+			_semi_detached()
+		"warehouse":
+			_warehouse()
 		"kampung":
 			_kampung_house()
 		"trees":
@@ -3005,6 +3188,8 @@ func _build_spec(spec: Dictionary, r: float) -> void:
 func _fill_trees() -> void:
 	if bool(traits.get("paddy", false)):
 		_paddy_fields()
+	if bool(zoning.get("plantation", false)):
+		_oil_palm_estates()
 	for i in 9000:
 		var a := rng.randf() * TAU
 		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
@@ -3056,6 +3241,57 @@ func _fill_trees() -> void:
 		var mp := _polar_raw(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
 		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))
+
+
+## Ladang sawit on the rural fringe of a plantation seat: rectangular
+## blocks of oil palms in staggered rows (about 9 m apart, as planted),
+## each block on open land past the taman ring with a laterite track
+## along one side. Each block is a lot ("plantation").
+func _oil_palm_estates() -> void:
+	var made := 0
+	var want := 70 if tier == "rural" else 40
+	for attempt in want * 8:
+		if made >= want:
+			break
+		var r := rng.randf_range(maxf(r_taman, r_city * 0.35), r_city * 1.05)
+		var a := rng.randf() * TAU
+		var c := _polar(r, a)
+		var out := Vector3(c.x, 0, c.z).normalized()
+		var yaw := atan2(out.x, out.z) + rng.randf_range(-0.2, 0.2)
+		var w := rng.randf_range(110.0, 170.0)
+		var d := rng.randf_range(80.0, 130.0)
+		if not on_land(c) or in_industry(c) or not _rect_free(c, yaw, w, d):
+			continue
+		_mark_rect(c, yaw, w, d)
+		_lot(c, yaw, "plantation", w, d)
+		var b := Basis(Vector3.UP, yaw)
+		var row := 0
+		var v := -d * 0.5 + 5.0
+		while v < d * 0.5 - 4.0:
+			var u := -w * 0.5 + 5.0 + (4.5 if row % 2 == 1 else 0.0)
+			while u < w * 0.5 - 4.0:
+				var p := c + b * Vector3(u, 0, v)
+				if on_land(p):
+					_oil_palm(p)
+				u += 9.0
+			v += 7.8
+			row += 1
+		# laterite estate track along the near side
+		var e0 := c + b * Vector3(-w * 0.5, 0, -d * 0.5 - 3.0)
+		var e1 := c + b * Vector3(w * 0.5, 0, -d * 0.5 - 3.0)
+		_ribbon_piece(ground_st, PackedVector3Array([e0, e0, e1, e1]), 1, 2.2, 0.04, Color(0.62, 0.42, 0.3))
+		made += 1
+
+
+## An oil palm: a short, thick-crowned palm, darker than a coconut palm.
+func _oil_palm(p: Vector3) -> void:
+	if tree_palm_mesh:
+		var sc := rng.randf_range(0.95, 1.2)
+		var bs := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc * 1.25, sc * 0.8, sc * 1.25))
+		var sh := rng.randf_range(0.62, 0.78)
+		_add(tree_palm_mesh, mat_tree, Transform3D(bs, p), Color(sh, sh * 1.02, sh * 0.9))
+	else:
+		tree(p, true)
 
 
 ## Sawah on the outskirts: flooded green-gold plots with earth bunds,
@@ -3301,6 +3537,38 @@ func _bungalow() -> void:
 	if rng.randf() < 0.6:
 		box(Vector3(0, 0, -5.2), Vector3(1.8, 1.4, 4.0), SIGNS[rng.randi() % SIGNS.size()].lerp(Color.WHITE, 0.35), null, PI * 0.5)
 	tree(Vector3(rng.randf_range(-5, 5), 0, 6.0), rng.randf() < 0.5)
+
+
+## Rumah berkembar: two mirrored houses under one roof, a shared party
+## wall down the middle, a car porch and gate each.
+func _semi_detached() -> void:
+	var w := rng.randf_range(7.5, 8.5)
+	var dd := rng.randf_range(8.0, 9.5)
+	var h := rng.randf_range(6.4, 7.4)
+	var wall: Color = HOUSE_WALLS[rng.randi() % HOUSE_WALLS.size()]
+	for sx in [-1.0, 1.0]:
+		box(Vector3(sx * w * 0.5, 0, 1), Vector3(w, h, dd), wall.lerp(Color.WHITE, 0.08 * (sx + 1.0)), mat_lowrise)
+		box(Vector3(sx * w * 0.55, 0, -5.4), Vector3(3.6, 0.03, 4.0), Color(0.55, 0.55, 0.53))   # porch
+	gable(Vector3(0, h, 1), w * 2.0, dd, rng.randf_range(2.4, 3.0), ROOFS[rng.randi() % ROOFS.size()])
+	var fc := Color(0.9, 0.88, 0.84)
+	box(Vector3(0, 0, 7.4), Vector3(19.6, 1.3, 0.25), fc)
+	box(Vector3(0, 0, 0), Vector3(0.25, 1.3, 14.6), fc)
+	if rng.randf() < 0.6:
+		box(Vector3(-w * 0.55, 0, -5.2), Vector3(1.8, 1.4, 4.0), SIGNS[rng.randi() % SIGNS.size()].lerp(Color.WHITE, 0.35), null, PI * 0.5)
+
+
+## Gudang: a long low warehouse with a shallow roof, loading bays and a
+## lorry at the dock.
+func _warehouse() -> void:
+	var col := Color(0.78, 0.79, 0.8).lerp(Color(0.62, 0.68, 0.74), rng.randf())
+	var h := rng.randf_range(7.0, 9.0)
+	box(Vector3(0, 0, 2), Vector3(34, h, 20), col, mat_lowrise)
+	gable(Vector3(0, h, 2), 34, 20, 1.6, Color(0.5, 0.56, 0.62).lerp(Color(0.32, 0.42, 0.55), rng.randf()))
+	for k in 4:
+		box(Vector3(-12 + k * 8, 0, -8.1), Vector3(4.2, 4.6, 0.3), Color(0.42, 0.44, 0.46))   # roller doors
+	box(Vector3(0, 0, -11), Vector3(34, 0.04, 5), Color(0.4, 0.4, 0.4))                     # apron
+	if rng.randf() < 0.7:
+		box(Vector3(rng.randf_range(-10, 10), 0, -11.5), Vector3(2.4, 3.2, 8.0), Color(0.92, 0.92, 0.9), null, PI * 0.5)
 
 
 ## Rumah kampung on stilts, tangga at the front, fruit trees behind.
