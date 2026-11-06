@@ -237,11 +237,14 @@ func _configure(p: Dictionary) -> void:
 	# Jaya ~1040), every zone band scaled with it. Towns and villages sit in
 	# seats far larger than the pekan itself, so they keep their own size.
 	var area := float(p.get("areaKm2", 0.0))
-	if area > 0.0 and tier in ["metro", "city"]:
+	if area > 0.0:
 		var k := clampf(sqrt(area / PI) * KL_SCALE, 320.0, 1050.0) / r_city
-		r_core *= k
-		r_commercial *= k
-		r_taman *= k
+		# a town keeps its small pekan core; the seat around it (where its
+		# people live) is drawn at the seat's size
+		if tier in ["metro", "city"]:
+			r_core *= k
+			r_commercial *= k
+		r_taman *= maxf(1.0, k * 0.6) if not (tier in ["metro", "city"]) else k
 		r_city *= k
 	var kmax := 1.0
 	for v in shape_k:
@@ -324,8 +327,9 @@ func _build() -> void:
 	if has_lrt:
 		_build_lrt()
 	homes_built = 0.0
-	_frontage()
 	_build_tourism()
+	_frontage()
+	_infill_homes()
 	if true:
 		print("CITYSTATS homes=", int(homes_built), " target=", int(home_target), " hotels=", hotels_built, " chalets=", chalets_built, " tier=", tier, " tourists=", int(tourists))
 	# lawns and shade trees on the paved centre, in whatever space the
@@ -1768,6 +1772,17 @@ func clear_trees(c: Vector3, radius: float) -> void:
 				mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * 0.001), xf.origin + Vector3(0, -50, 0)))
 
 
+## Like _rect_free, but a tree in the way may be cleared.
+func _rect_free_soft(c: Vector3, yaw: float, w: float, d: float) -> bool:
+	if in_sea(c):
+		return false
+	for p in _rect_points(c, yaw, maxf(w - 2.0, 1.0), maxf(d - 2.0, 1.0)):
+		var ci := _cell(p)
+		if ci < 0 or occ[ci] == 1:
+			return false
+	return true
+
+
 func _mark_rect(c: Vector3, yaw: float, w: float, d: float) -> void:
 	for p in _rect_points(c, yaw, w + 1.0, d + 1.0):
 		var ci := _cell(p)
@@ -2303,29 +2318,36 @@ func _build_tourism() -> void:
 	var rooms := tourists * 2.2 / 365.0 / 0.65
 	var resort := sea_dir != Vector3.ZERO or not land_rings.is_empty() or bool(traits.get("hilly", false)) or tier in ["town", "rural"]
 	var hotel_share := 0.85 if tier in ["metro", "city"] else (0.35 if resort else 0.6)
-	var n_hotels := clampi(int(round(rooms * hotel_share / 180.0)), 0, 30)
-	var n_chalets := clampi(int(round(rooms * (1.0 - hotel_share) / 24.0)), 0, 24) if resort else 0
-	# hotels: open lots beside the bigger roads, nearest the centre first
+	# a drawn hotel stands for ~300 rooms (towns: ~200 in lower blocks), a
+	# chalet resort for ~40; capped so the city stays a city
+	var urban := tier in ["metro", "city"]
+	var n_hotels := clampi(int(round(rooms * hotel_share / (300.0 if urban else 200.0))), 0, 20 if urban else 8)
+	var n_chalets := clampi(int(round(rooms * (1.0 - hotel_share) / 40.0)), 0, 40) if resort else 0
+	# hotels: facing the main roads, nearest the centre first, set back
+	# from the kerb like any frontage building
 	var cands := []
 	for rd in roads:
 		if int(rd.cls) > 1:
 			continue
-		var pts: PackedVector3Array = rd.pts
-		var gaps: PackedByteArray = rd.gaps
-		for k in range(0, pts.size(), 6):
-			if gaps[k] == 0:
-				cands.append(pts[k])
-	cands.sort_custom(func(a, b): return _urban_r(a) < _urban_r(b))
-	var tries := 0
-	for q in cands:
-		if hotels_built >= n_hotels or tries > 4000:
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var s := 20.0
+		while s < L - 20.0:
+			var sm := road_sample(rd, s)
+			if (rd.gaps as PackedByteArray)[sm[2]] == 0:
+				cands.append([_urban_r(sm[0]), sm[0], sm[1], float(rd.half)])
+			s += 28.0
+	cands.sort_custom(func(a, b): return a[0] < b[0])
+	for cnd in cands:
+		if hotels_built >= n_hotels:
 			break
-		tries += 1
+		var q: Vector3 = cnd[1]
+		var t: Vector3 = cnd[2]
 		for side in [1.0, -1.0]:
-			var off: Vector3 = Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized() * 22.0 * float(side)
-			var c: Vector3 = q + off
-			if on_land(c) and _rect_free(c, 0.0, 22.0, 18.0):
-				_mark_rect(c, 0.0, 22.0, 18.0)
+			var nrm := Vector3(-t.z, 0, t.x) * float(side)
+			var c: Vector3 = q + nrm * (float(cnd[3]) + 4.0 + 11.0)
+			var yaw := atan2(nrm.x, nrm.z)
+			if on_land(c) and _rect_free(c, yaw, 22.0, 20.0):
+				_mark_rect(c, yaw, 22.0, 20.0)
 				_hotel(c)
 				hotels_built += 1
 				break
@@ -2349,7 +2371,7 @@ func _build_tourism() -> void:
 
 
 func _hotel(c: Vector3) -> void:
-	var h := rng.randf_range(26.0, 48.0) * lerpf(0.7, 1.0, fill)
+	var h := (rng.randf_range(26.0, 48.0) if tier in ["metro", "city"] else rng.randf_range(12.0, 22.0)) * lerpf(0.7, 1.0, fill)
 	var facade: Color = [Color(0.95, 0.93, 0.88), Color(0.86, 0.9, 0.95), Color(0.93, 0.86, 0.78)][rng.randi() % 3]
 	flat_block(c, Vector3(20, 6, 16), Color(0.8, 0.78, 0.74))                       # lobby podium
 	box(c + Vector3(0, 6, 0), Vector3(16, h, 11), facade, mat_glass)
@@ -2358,7 +2380,7 @@ func _hotel(c: Vector3) -> void:
 	var sign := Label3D.new()
 	sign.text = "HOTEL"
 	sign.font_size = 96
-	sign.pixel_size = 0.06
+	sign.pixel_size = 0.03
 	sign.outline_size = 10
 	sign.modulate = Color(1.0, 0.85, 0.3)
 	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -2380,6 +2402,46 @@ func _chalets(c: Vector3) -> void:
 		tree(c + Vector3(rng.randf_range(-15, 15), 0, rng.randf_range(-12, 12)), true)
 
 
+## Homes for the households the street frontage could not house: kampung
+## houses, terraces and bungalows on free land beside the streets (inside
+## the seat, off the water), until the seat's household target is met.
+func _infill_homes() -> void:
+	if home_target < 0.0 or homes_built >= home_target or roads.is_empty():
+		return
+	var tries := 0
+	while homes_built < home_target and tries < 60000:
+		tries += 1
+		var rd: Dictionary = roads[rng.randi() % roads.size()]
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var sm := road_sample(rd, rng.randf() * L)
+		if (rd.gaps as PackedByteArray)[sm[2]] == 1:
+			continue
+		var t: Vector3 = sm[1]
+		var nrm := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
+		var depth := rng.randf_range(0.0, 120.0)
+		var x := rng.randf()
+		var urban := tier in ["metro", "city"]
+		var flat := {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)}
+		var spec: Dictionary
+		if urban:
+			spec = flat if x < 0.5 else (_terrace() if x < 0.85 else {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0})
+		else:
+			spec = flat if x < 0.15 else (_terrace() if x < 0.5 else {"kind": "kampung", "w": 12.0, "d": 12.0, "gap": 4.0})
+		var c: Vector3 = sm[0] + nrm * (float(rd.half) + 4.0 + spec.d * 0.5 + depth)
+		var yaw := atan2(nrm.x, nrm.z)
+		# kampung houses also stand off the road in the seat's open land
+		if rng.randf() < 0.5 and not seat_poly.is_empty():
+			c = _polar(rng.randf_range(0.2, 1.0) * r_city, rng.randf() * TAU)
+			yaw = rng.randf() * TAU
+		if not on_land(c) or not _rect_free_soft(c, yaw, spec.w, spec.d):
+			continue
+		clear_trees(c, maxf(spec.w, spec.d) * 0.6)
+		_mark_rect(c, yaw, spec.w, spec.d)
+		_place(c, yaw, spec.kind, spec.w, spec.d)
+		_build_spec(spec, _urban_r(c))
+		frame = Transform3D.IDENTITY
+
+
 ## Homes a drawn building stands for, before the seat's homes-per-model
 ## scale: one per terrace unit / bungalow / kampung house / shophouse,
 ## and per flat or condo floor several.
@@ -2393,7 +2455,7 @@ func _spec_homes(spec: Dictionary) -> float:
 	return 0.0
 
 
-const HOMES_SCALE := 1.25     # households per drawn home (Bukit Bintang ≈ real)
+const HOMES_SCALE := 4.0      # households per drawn home: one scale for every seat, so homes keep the real ratio
 var homes_built := 0.0
 var tourists := 0.0            # visitors a year (simulated)
 var hotels_built := 0
