@@ -270,7 +270,8 @@ func _configure(p: Dictionary) -> void:
 		var w3 := PackedVector2Array()
 		for v in ring:
 			w3.append((v as Vector2) * r_city)
-		land_rings.append(w3)
+		# round off the survey polygon's corners so coasts curve smoothly
+		land_rings.append(_chaikin(_chaikin(w3)))
 	reach_r = r_city * kmax
 	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
@@ -1826,43 +1827,72 @@ func _extend_curve(c: Curve3D, reach: float) -> Curve3D:
 	return _smooth_curve(pts)
 
 
-## Sand along every stretch of land edge that faces open water, and palms
-## on it inside the seat.
+## Chaikin corner cutting: each pass replaces every corner of a closed
+## ring by two points a quarter of the way along its edges.
+func _chaikin(ring: PackedVector2Array) -> PackedVector2Array:
+	var n := ring.size()
+	if n < 3:
+		return ring
+	var out := PackedVector2Array()
+	for k in n:
+		var a: Vector2 = ring[k]
+		var b: Vector2 = ring[(k + 1) % n]
+		out.append(a.lerp(b, 0.25))
+		out.append(a.lerp(b, 0.75))
+	return out
+
+
+## Sand along every stretch of land edge that faces open water, as one
+## continuous strip per stretch: each vertex is offset along the average
+## of its two edge normals (a mitred join), so curves stay an even width
+## with no gaps or overlaps at the corners. Palms on it inside the seat.
 func _build_shore() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
 	st.set_color(Color(0.86, 0.8, 0.62))
-	var y := Vector3(0, 0.03, 0)
+	const IN := 26.0
+	const OUT := 3.0
 	for ring in land_rings:
 		var n: int = ring.size()
+		if n < 3:
+			continue
+		# which way is the water from this ring (sign of the left normal)?
+		var area := 0.0
+		for k in n:
+			area += ring[k].x * ring[(k + 1) % n].y - ring[(k + 1) % n].x * ring[k].y
+		var sea_side := -1.0 if area > 0.0 else 1.0   # outward normal side
+		var wet := PackedByteArray()
+		wet.resize(n)
+		var nrm := PackedVector2Array()
+		nrm.resize(n)
 		for k in n:
 			var a: Vector2 = ring[k]
 			var b: Vector2 = ring[(k + 1) % n]
-			var L := a.distance_to(b)
-			if L < 0.5:
-				continue
-			var t := (b - a) / L
-			var nrm := Vector2(-t.y, t.x)
+			var t := (b - a).normalized()
+			var e := Vector2(-t.y, t.x) * sea_side
+			nrm[k] = e
 			var m := (a + b) * 0.5
-			# which side is the water? (none: an inland shared border)
-			var side := 0.0
-			if in_sea(Vector3(m.x + nrm.x * 12.0, 0, m.y + nrm.y * 12.0)):
-				side = 1.0
-			elif in_sea(Vector3(m.x - nrm.x * 12.0, 0, m.y - nrm.y * 12.0)):
-				side = -1.0
-			if side == 0.0:
+			wet[k] = 1 if in_sea(Vector3(m.x + e.x * 12.0, 0, m.y + e.y * 12.0)) else 0
+		var y := 0.03
+		for k in n:
+			if wet[k] == 0:
 				continue
-			var inward := -nrm * side * 26.0
-			var out := nrm * side * 3.0
-			var A := Vector3(a.x + out.x, 0, a.y + out.y) + y
-			var B := Vector3(b.x + out.x, 0, b.y + out.y) + y
-			var C := Vector3(b.x + inward.x, 0, b.y + inward.y) + y
-			var D := Vector3(a.x + inward.x, 0, a.y + inward.y) + y
+			var a: Vector2 = ring[k]
+			var b: Vector2 = ring[(k + 1) % n]
+			var na := (nrm[k] + nrm[(k - 1 + n) % n]).normalized() if wet[(k - 1 + n) % n] == 1 else nrm[k]
+			var nb := (nrm[k] + nrm[(k + 1) % n]).normalized() if wet[(k + 1) % n] == 1 else nrm[k]
+			var ka := 1.0 / maxf(0.5, na.dot(nrm[k]))
+			var kb := 1.0 / maxf(0.5, nb.dot(nrm[k]))
+			var A := Vector3(a.x + na.x * OUT * ka, y, a.y + na.y * OUT * ka)
+			var B := Vector3(b.x + nb.x * OUT * kb, y, b.y + nb.y * OUT * kb)
+			var C := Vector3(b.x - nb.x * IN * kb, y, b.y - nb.y * IN * kb)
+			var D := Vector3(a.x - na.x * IN * ka, y, a.y - na.y * IN * ka)
 			for v in [A, B, C, A, C, D, A, C, B, A, D, C]:
 				st.add_vertex(v)
-			if rng.randf() < 0.25:
-				var tp := Vector3(m.x - nrm.x * side * 30.0, 0, m.y - nrm.y * side * 30.0)
+			if rng.randf() < 0.08:
+				var m := (a + b) * 0.5 - nrm[k] * 30.0
+				var tp := Vector3(m.x, 0, m.y)
 				if in_seat(tp) and not in_sea(tp):
 					tree(tp, true)
 	var sand := StandardMaterial3D.new()
