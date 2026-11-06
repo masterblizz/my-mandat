@@ -24,12 +24,6 @@ import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { PRN_CANDIDATES, getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { PLAYER_AVATAR_COUNT, playerStandingSrc } from "../lib/playerAvatar";
 
-const POSITIONS = [
-  { id: "PRESIDENT" },
-  { id: "SECRETARY GENERAL" },
-  { id: "CHAIRMAN" },
-  { id: "DEPUTY PRESIDENT" },
-];
 const EXPERIENCE_OPTIONS = [
   { id: "veteran" },
   { id: "moderate" },
@@ -197,7 +191,8 @@ export default function SetupPage() {
   // Step 1 state
   const [avatarIndex, setAvatarIndex] = useState(0);
   const [leaderName, setLeaderName] = useState("");
-  const [position, setPosition] = useState("PRESIDENT");
+  // the party post is not chosen at setup: every leader starts as president
+  const position = "PRESIDENT";
   const [experience, setExperience] = useState<"veteran" | "moderate" | "rookie">("veteran");
   const [homeState, setHomeState] = useState("selangor");
   const [influence, setInfluence] = useState(85);
@@ -471,12 +466,6 @@ export default function SetupPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <Label icon="🎖️">{t(lang, "setup_page.position")}</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {POSITIONS.map((p) => <Chip key={p.id} active={position === p.id} onClick={() => setPosition(p.id)}>{t(lang, `setup_page.position_${p.id}`)}</Chip>)}
-                    </div>
-                  </div>
-                  <div>
                     <Label icon="⭐">{t(lang, "setup_page.experience")}</Label>
                     <div className="flex flex-wrap gap-1.5">
                       {EXPERIENCE_OPTIONS.map((opt) => <Chip key={opt.id} active={experience === opt.id} onClick={() => setExperience(opt.id)}>{t(lang, `setup_page.experience_${opt.id}`)}</Chip>)}
@@ -692,7 +681,7 @@ export default function SetupPage() {
                   <div className="truncate text-[20px] font-black tracking-wide text-white">{leaderName || "—"}</div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
                     <span className="rounded-full px-2 py-0.5 text-black" style={{ background: partyColor }}>{partyAbbr}</span>
-                    <span className="text-text-muted">{t(lang, `setup_page.position_${position}`)} · {t(lang, `setup_page.experience_${experience}`)}</span>
+                    <span className="text-text-muted">{t(lang, `setup_page.experience_${experience}`)}</span>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-3">
                     {[
