@@ -276,7 +276,7 @@ func _configure(p: Dictionary) -> void:
 	if env:
 		env.fog_depth_begin = maxf(900.0, reach_r * 0.8)
 		env.fog_depth_end = maxf(5200.0, reach_r * 3.0)
-	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
+	pan_limit = maxf(SPAN * 0.55, reach_r * 1.05)
 	has_lrt = tier == "metro"
 	var choices: Array = {"metro": ["radial"], "city": ["oldtown", "taman", "radial"],
 		"town": ["strip", "oldtown", "taman"], "rural": ["strip", "taman"]}[tier]
@@ -1438,25 +1438,44 @@ func _gen_arterials_with_estates(count: int, start_r: float) -> void:
 			r += rng.randf_range(110.0, 160.0)
 
 
-## One taman: an entrance road off the arterial into a closed loop
-## street, with a cul-de-sac or two inside and out.
+## One taman, laid out the Malaysian way: an entrance road off the
+## arterial, parallel streets (Jalan Taman 1, 2, 3...) across it spaced for
+## two back-to-back terrace rows, and side streets closing the grid into
+## blocks. R sets the estate's size.
 func _taman_loop(gate: Vector3, out: Vector3, R: float) -> void:
-	var c := gate + out * (24.0 + R)
-	var squash := rng.randf_range(0.65, 1.0)
-	var spin := atan2(out.z, out.x)
-	var b := Basis(Vector3.UP, -spin)
-	var loop := []
-	for k in 13:
-		var a := TAU * k / 12.0
-		loop.append(c + b * Vector3(cos(a) * R, 0, sin(a) * R * squash))
-	_make_road([gate, gate + out * 12.0, c - out * R], 2)
-	_make_road(loop, 2)
-	if R > 45.0 and rng.randf() < 0.7:
-		_make_road([c - out * R, c, c + out * R * 0.2], 2)
-	for k in rng.randi_range(1, 2):
-		var a := rng.randf_range(0.6, 2.6) * (1.0 if k == 0 else -1.0)
-		var edge := c + b * Vector3(cos(a) * R, 0, sin(a) * R * squash)
-		_cul_de_sac(edge, (edge - c).normalized(), rng.randf_range(30.0, 50.0))
+	var u := out.normalized()
+	var v := Vector3(-u.z, 0, u.x)
+	# a slight skew so neighbouring estates don't line up exactly
+	var tw := rng.randf_range(-0.12, 0.12)
+	u = (u + v * tw).normalized()
+	v = Vector3(-u.z, 0, u.x)
+	var depth := R * rng.randf_range(2.4, 3.2)
+	var half_w := R * rng.randf_range(0.9, 1.3)
+	var start := 30.0
+	var spacing := rng.randf_range(42.0, 50.0)
+	_make_road([gate, gate + u * start, gate + u * (start + depth)], 2)
+	var rows := []
+	var d := start + spacing * 0.6
+	while d <= start + depth:
+		# streets differ a little in length, so the block edge isn't ruled
+		var l0 := half_w * rng.randf_range(0.75, 1.0)
+		var l1 := half_w * rng.randf_range(0.75, 1.0)
+		var c := gate + u * d
+		_make_road([c - v * l0, c, c + v * l1], 2)
+		rows.append([c, l0, l1])
+		d += spacing
+	if rows.size() < 2:
+		return
+	# side streets join the ends of each pair of rows into blocks; one
+	# side is sometimes left open (dead ends onto the next field)
+	for sgn: float in [-1.0, 1.0]:
+		if rng.randf() < 0.25:
+			continue
+		var line := []
+		for r in rows:
+			var l: float = r[1] if sgn < 0.0 else r[2]
+			line.append((r[0] as Vector3) + v * sgn * minf(l, half_w * 0.75))
+		_make_road(line, 2)
 
 
 func _make_road(ctrl: Array, cls: int) -> void:

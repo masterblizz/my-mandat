@@ -2058,7 +2058,7 @@ input[type="range"].range-red::-moz-range-thumb {
 .nhud-seat__stats { display: flex; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 700; color: var(--text-muted); }
 /* mini-map */
 .nhud-minimap { position: absolute; z-index: 25; bottom: 14px; left: max(14px, env(safe-area-inset-left, 0px)); width: 190px; height: 140px; border-radius: 14px; border: 2px solid rgb(255 255 255 / .22); background: rgb(14 26 48 / .9); overflow: hidden; }
-.nhud-minimap svg { width: 100%; height: 100%; }
+.nhud-minimap svg { width: 100%; height: 100%; cursor: crosshair; touch-action: manipulation; }
 .nhud-minimap__seat { fill: rgb(255 255 255 / .1); stroke: rgb(255 255 255 / .55); stroke-width: 1; }
 .nhud-minimap__cone { fill: rgb(255 204 41 / .45); }
 .nhud-minimap__me { fill: #fff; }

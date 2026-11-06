@@ -165,8 +165,9 @@ func _pan_pixels(dx: float, dy: float) -> void:
 	target.z = clampf(target.z, -lim, lim)
 
 
-## Touch: one finger orbits (through Godot's mouse emulation), two fingers
-## pinch-zoom and pan together; emulated mouse motion is ignored meanwhile.
+## Touch, like a map: one finger drags the city around (left, right, up,
+## down); two fingers pinch to zoom, twist to turn and move together to
+## pan. Emulated mouse motion is ignored while a finger is down.
 func _touch(e: InputEvent) -> void:
 	if e is InputEventScreenTouch:
 		if e.pressed:
@@ -176,9 +177,15 @@ func _touch(e: InputEvent) -> void:
 		return
 	var before := _touches.duplicate()
 	_touches[e.index] = e.position
-	if _touches.size() < 2 or before.size() < 2:
+	if not before.has(e.index):
+		return
+	if _touches.size() == 1:
+		var d: Vector2 = e.position - before[e.index]
+		_pan_pixels(d.x, d.y)
 		return
 	var k := _touches.keys()
+	if not (before.has(k[0]) and before.has(k[1])):
+		return
 	var a0: Vector2 = before[k[0]]
 	var b0: Vector2 = before[k[1]]
 	var a1: Vector2 = _touches[k[0]]
@@ -186,25 +193,36 @@ func _touch(e: InputEvent) -> void:
 	var d1 := a1.distance_to(b1)
 	if d1 > 1.0:
 		dist = clampf(dist * a0.distance_to(b0) / d1, MIN_DIST, MAX_DIST)
+	# twist to turn the view
+	var ang := (b1 - a1).angle() - (b0 - a0).angle()
+	yaw -= rad_to_deg(wrapf(ang, -PI, PI))
 	var mv := ((a1 + b1) - (a0 + b0)) * 0.5
 	_pan_pixels(mv.x, mv.y)
+
+
+## Look at world point (x, z), e.g. from a tap on the mini-map.
+func goto(x: float, z: float) -> void:
+	var lim := _limit()
+	target = Vector3(clampf(x, -lim, lim), 0, clampf(z, -lim, lim))
 
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch or e is InputEventScreenDrag:
 		_touch(e)
 		return
-	if e is InputEventMouseMotion and _touches.size() >= 2:
+	if e is InputEventMouseMotion and not _touches.is_empty():
 		return
 	if e is InputEventMouseMotion:
 		var m: int = e.button_mask
-		var pan: bool = (m & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0 \
+		# left drag moves around the seat; right/middle (or shift+left) drag
+		# turns and tilts the view
+		var orbit: bool = (m & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0 \
 			or ((m & MOUSE_BUTTON_MASK_LEFT) != 0 and e.shift_pressed)
-		if pan:
-			_pan_pixels(e.relative.x, e.relative.y)
-		elif m & MOUSE_BUTTON_MASK_LEFT:
+		if orbit:
 			yaw -= e.relative.x * 0.25
 			pitch = clampf(pitch - e.relative.y * 0.18, PITCH_MIN, PITCH_MAX)
+		elif m & MOUSE_BUTTON_MASK_LEFT:
+			_pan_pixels(e.relative.x, e.relative.y)
 	elif e is InputEventMouseButton and e.pressed:
 		if e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			dist = maxf(MIN_DIST, dist * 0.87)

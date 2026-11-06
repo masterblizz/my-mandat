@@ -96,17 +96,28 @@ func _bridge() -> void:
 	win.kawasanGodotSetState = _js_cb
 	_js_intro = JavaScriptBridge.create_callback(func(_args): city.get_node("CameraRig").intro())
 	win.kawasanGodotIntro = _js_intro
-	_js_cam = JavaScriptBridge.create_callback(func(args): city.get_node("CameraRig").zoom_step(int(str(args[0]))))
+	_js_cam = JavaScriptBridge.create_callback(_on_js_camera)
 	win.kawasanGodotCamera = _js_cam
 	JavaScriptBridge.eval("""
 		window.addEventListener('message', function (e) {
 			var d = e.data;
 			if (d && d.type === 'kawasan-state') window.kawasanGodotSetState(JSON.stringify(d.state));
 			if (d && d.type === 'kawasan-intro') window.kawasanGodotIntro('1');
-			if (d && d.type === 'kawasan-camera') window.kawasanGodotCamera(String(d.zoom || 0));
+			if (d && d.type === 'kawasan-camera') window.kawasanGodotCamera(String(d.zoom || 0), d.gx == null ? '' : String(d.gx), d.gz == null ? '' : String(d.gz));
 		});
 		if (window.parent !== window) window.parent.postMessage({ type: 'kawasan-godot-ready' }, '*');
 	""", true)
+
+
+## Mini-map: zoom buttons (+1/-1), or a tap that moves the view there
+## (the tap comes in units of the city radius).
+func _on_js_camera(args: Array) -> void:
+	var rig = city.get_node("CameraRig")
+	var zm := int(str(args[0]))
+	if zm != 0:
+		rig.zoom_step(zm)
+	if args.size() >= 3 and str(args[1]) != "" and str(args[2]) != "":
+		rig.goto(float(str(args[1])) * city.r_city, float(str(args[2])) * city.r_city)
 
 
 func _on_js_state(args: Array) -> void:
