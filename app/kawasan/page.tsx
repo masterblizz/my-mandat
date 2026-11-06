@@ -24,7 +24,7 @@ import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
 import { STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
-import { boundaryAreaKm2, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
+import { boundaryAreaKm2, boundaryCityCoast, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
 import { clockRunnable, ybActivityBlocker } from "../store/termClock";
 import { usePageVisible } from "../hooks/usePageVisible";
@@ -2735,6 +2735,8 @@ export default function KawasanDevelopmentPage() {
   const traits = useMemo(() => deriveSeatTraits(ownSeat?.name ?? "", homeState?.id ?? "", ownSeat?.code ?? ""), [ownSeat?.name, ownSeat?.code, homeState?.id]);
   // the seat's official boundary (DOSM), for the city's outline
   const [seatOutline, setSeatOutline] = useState<Boundary | null>(null);
+  // the real coast (sea direction + coastline), from every seat boundary
+  const [seatCoast, setSeatCoast] = useState<{ dir: [number, number]; edge: number } | null>(null);
   // What the Godot city builds for this seat (see GodotCityMap).
   const godotProfile = useMemo(
     () => ({ code: ownSeat?.code ?? "", name: ownSeat?.name ?? "", density, popDensity: seatRealDensity(ownSeat), partyColor: leader.partyColor, partyAbbr: leader.partyAbbr, traits,
@@ -2742,9 +2744,10 @@ export default function KawasanDevelopmentPage() {
       shape: seatOutline ? boundaryShapeK(seatOutline) : undefined,
       // the real boundary: nothing is built outside it (coast and sea excepted)
       outline: seatOutline ? boundaryCityOutline(seatOutline) : undefined,
+      coast: seatCoast ?? undefined,
       // real area: city seats are drawn at their true size (see city.gd)
       areaKm2: seatOutline ? Math.round(boundaryAreaKm2(seatOutline) * 10) / 10 : undefined }),
-    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline],
+    [ownSeat, density, traits, leader.partyColor, leader.partyAbbr, seatOutline, seatCoast],
   );
   // Map → zoom → 3D intro: once per seat per browser session (or ?intro=1)
   const [introOn, setIntroOn] = useState(false);
@@ -2757,6 +2760,8 @@ export default function KawasanDevelopmentPage() {
     loadSeatBoundary(ownSeat.code, homeState.id, ownSeat.name).then((boundary) => {
       if (!alive) return;
       setSeatOutline(boundary);
+      setSeatCoast(null);
+      if (boundary) boundaryCityCoast(boundary).then((coast) => { if (alive) setSeatCoast(coast); });
       if (boundary) {
         const shape = boundaryShape(boundary);
         setIntroGeo({ lat: shape.lat, lon: shape.lon, district: manual?.district ?? "", towns: manual?.towns ?? [], boundary });

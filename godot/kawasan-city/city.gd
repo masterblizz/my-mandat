@@ -157,6 +157,11 @@ func _configure(p: Dictionary) -> void:
 	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
 	party_abbr = str(p.get("partyAbbr", ""))
 	seat_name = str(p.get("name", ""))
+	coast_dir = Vector2.ZERO
+	var co = p.get("coast", null)
+	if co is Dictionary and co.get("dir") is Array:
+		coast_dir = Vector2(float(co.dir[0]), float(co.dir[1])).normalized()
+		coast_edge = float(co.get("edge", 1.0))
 	seat_poly_n = []
 	var poly = p.get("outline", [])
 	if poly is Array:
@@ -264,17 +269,15 @@ func _build() -> void:
 	rng.seed = seat_seed
 	feature_turn = rng.randf() * TAU
 	sea_dir = Vector3.ZERO
-	if bool(traits.get("coastal", false)):
-		sea_dir = Vector3(cos(feature_turn + PI), 0, sin(feature_turn + PI))
 	sea_edge = r_city + 80.0
-	if sea_dir != Vector3.ZERO and not seat_poly.is_empty():
-		# a cut-out seat: its coast is a strip along the seaward edge of the
-		# boundary itself, so sea and beach stay inside the piece
-		var far := 0.0
-		for ring in seat_poly:
-			for v in ring:
-				far = maxf(far, Vector2(sea_dir.x, sea_dir.z).dot(v))
-		sea_edge = far - maxf(60.0, far * 0.14)
+	if not seat_poly.is_empty():
+		# a seat with its real boundary: the sea is where the real coast is
+		# (the page finds it from every seat boundary), else none
+		if coast_dir != Vector2.ZERO:
+			sea_dir = Vector3(coast_dir.x, 0, coast_dir.y)
+			sea_edge = coast_edge * r_city
+	elif bool(traits.get("coastal", false)):
+		sea_dir = Vector3(cos(feature_turn + PI), 0, sin(feature_turn + PI))
 	industrial_bearing = rng.randf() * TAU if bool(traits.get("industrial", false)) else INF
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
@@ -1013,6 +1016,8 @@ var shape_k := PackedFloat32Array()
 ## expressway and LRT are clipped to it.
 var seat_poly_n := []          # normalised rings from the profile
 var seat_poly := []            # in world units, after r_city is known
+var coast_dir := Vector2.ZERO  # real sea direction (x east, z south) from the page
+var coast_edge := 1.0          # coastline distance along it, in r_city units
 
 func in_seat(p: Vector3) -> bool:
 	if seat_poly.is_empty():
@@ -1732,16 +1737,8 @@ func _build_features() -> void:
 	if sea_dir != Vector3.ZERO:
 		var yaw := atan2(-sea_dir.z, sea_dir.x)
 		var edge := sea_edge
-		if seat_poly.is_empty():
-			box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
-			box(sea_dir * (edge - 14.0), Vector3(30, 0.05, 8000), Color(0.86, 0.8, 0.62), null, yaw)
-		else:
-			# sea and beach cut to the seat, like the land
-			_single(_poly_mesh(_seat_band(sea_dir, edge, 9000.0), 0.06, 1.0 / 40.0), mat_water, Transform3D.IDENTITY)
-			var sand := StandardMaterial3D.new()
-			sand.albedo_color = Color(0.86, 0.8, 0.62)
-			sand.roughness = 1.0
-			_single(_poly_mesh(_seat_band(sea_dir, edge - 30.0, edge), 0.05, 1.0 / 40.0), sand, Transform3D.IDENTITY)
+		box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
+		box(sea_dir * (edge - 14.0), Vector3(30, 0.05, 8000), Color(0.86, 0.8, 0.62), null, yaw)
 		for i in 40:
 			var along := Vector3(-sea_dir.z, 0, sea_dir.x) * rng.randf_range(-700, 700)
 			var tp := sea_dir * (edge - rng.randf_range(24, 40)) + along
@@ -2309,12 +2306,10 @@ func _build_ground() -> void:
 	gm.albedo_texture = nt
 	gm.uv1_scale = Vector3(6, 6, 1)
 	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	if not seat_poly.is_empty():
-		gm.uv1_scale = Vector3(1, 1, 1)
-		_cutout_ground(gm)
-	else:
-		_single(g, gm, Transform3D.IDENTITY)
-		_ground_no_shadow()
+	# the land carries on past the boundary as plain grass (nothing is
+	# built there: the occupancy raster is taken outside the seat)
+	_single(g, gm, Transform3D.IDENTITY)
+	_ground_no_shadow()
 	# paved downtown (a smaller town centre in towns, none in villages)
 	# warm, darker paving: the old light grey bleached to white in the sun
 	if tier in ["metro", "city"]:
