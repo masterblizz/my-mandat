@@ -332,6 +332,7 @@ func _build() -> void:
 		_build_lrt()
 	homes_built = 0.0
 	_build_tourism()
+	_plan_lanes()
 	_frontage()
 	_infill_homes()
 	if true:
@@ -1331,7 +1332,7 @@ func _gen_strip() -> void:
 	_make_road(cross, 1)
 	# back lanes behind the frontage on each side
 	var backs := {}
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		if tier == "rural" and side > 0.0:
 			continue
 		var off: float = side * rng.randf_range(58.0, 72.0)
@@ -1347,7 +1348,7 @@ func _gen_strip() -> void:
 	# lorongs off both sides
 	t = -L * 0.85
 	while t < L * 0.85:
-		for side in [-1.0, 1.0]:
+		for side: float in [-1.0, 1.0]:
 			if rng.randf() < 0.3:
 				continue
 			var p0: Vector3 = spine.call(t)
@@ -2170,7 +2171,7 @@ func _frontage() -> void:
 		var rd: Dictionary = roads[ri]
 		var L: float = rd.cum[rd.cum.size() - 1]
 		var setback: float = rd.half + (2.6 if rd.cls < 2 else 1.6)
-		for side in [-1.0, 1.0]:
+		for side: float in [-1.0, 1.0]:
 			var s := rng.randf_range(0.0, 6.0)
 			while s < L - 6.0:
 				var p0: Vector3 = road_sample(rd, s)[0]
@@ -2252,7 +2253,7 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 	var x := rng.randf()
 	var bungalow := {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": rng.randf_range(1, 5)}
 	var trees := {"kind": "trees", "w": 12.0, "d": 12.0, "gap": 3.0}
-	var kampung := {"kind": "kampung", "w": 12.0, "d": 12.0, "gap": rng.randf_range(6, 20)}
+	var kampung := {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": rng.randf_range(6, 20)}
 	var skip := {"kind": "skip", "w": rng.randf_range(10, 30), "d": 0.0, "gap": 0.0}
 	# industrial seats: a factory estate in one sector
 	if industrial_bearing != INF and r > r_core and r < r_taman and absf(angle_difference(a, industrial_bearing)) < 0.45 and x < 0.75:
@@ -2441,38 +2442,282 @@ func _chalets(c: Vector3) -> void:
 func _infill_homes() -> void:
 	if home_target < 0.0 or homes_built >= home_target or roads.is_empty():
 		return
+	# every home past the main-road frontage stands on a lane: a narrow
+	# road sprouting from a street (or from an earlier lane) out into the
+	# open land, with houses on both sides facing it
+	var urban := tier in ["metro", "city"]
+	for ln in lanes:
+		if homes_built >= home_target:
+			break
+		_homes_on_lane(ln, urban)
+	# then country roads: from the nearest point of the road-and-lane
+	# network out toward open land further off, each with side lanes
+	var net := {}
+	for rd in roads:
+		var pts: PackedVector3Array = rd.pts
+		for k in range(0, pts.size(), 3):
+			if (rd.gaps as PackedByteArray)[k] == 0:
+				_net_add(net, pts[k])
+	for ln: PackedVector3Array in lanes:
+		for k in range(4, ln.size(), 4):
+			_net_add(net, ln[k])
 	var tries := 0
-	while homes_built < home_target and tries < 60000:
+	while homes_built < home_target and tries < 80000 and not net.is_empty():
 		tries += 1
-		var rd: Dictionary = roads[rng.randi() % roads.size()]
-		var L: float = rd.cum[rd.cum.size() - 1]
-		var sm := road_sample(rd, rng.randf() * L)
-		if (rd.gaps as PackedByteArray)[sm[2]] == 1:
+		var seed := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
+		if not on_land(seed) or in_sea(seed):
 			continue
-		var t: Vector3 = sm[1]
-		var nrm := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
-		var depth := rng.randf_range(0.0, 120.0)
-		var x := rng.randf()
-		var urban := tier in ["metro", "city"]
-		var flat := {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)}
-		var spec: Dictionary
-		if urban:
-			spec = flat if x < 0.5 else (_terrace() if x < 0.85 else {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0})
-		else:
-			spec = flat if x < 0.15 else (_terrace() if x < 0.5 else {"kind": "kampung", "w": 12.0, "d": 12.0, "gap": 4.0})
-		var c: Vector3 = sm[0] + nrm * (float(rd.half) + 4.0 + spec.d * 0.5 + depth)
-		var yaw := atan2(nrm.x, nrm.z)
-		# kampung houses also stand off the road in the seat's open land
-		if rng.randf() < 0.5 and not seat_poly.is_empty():
-			c = _polar(rng.randf_range(0.2, 1.0) * r_city, rng.randf() * TAU)
-			yaw = rng.randf() * TAU
-		if not on_land(c) or not _rect_free_soft(c, yaw, spec.w, spec.d):
+		var ci := _cell(seed)
+		if ci < 0 or occ[ci] == 1:
 			continue
-		clear_trees(c, maxf(spec.w, spec.d) * 0.6)
+		var best := _net_near(net, seed)
+		var bd := Vector2(best.x - seed.x, best.z - seed.z).length()
+		if bd < 30.0 or bd == INF:
+			continue
+		var dir := Vector3(seed.x - best.x, 0, seed.z - best.z).normalized()
+		var pts := _grow_lane(best + dir * (LANE_HALF + 2.0), dir, bd + rng.randf_range(60.0, 200.0), seed)
+		if pts.size() < 10:
+			continue
+		var made := [pts]
+		# side lanes off the new road
+		var i := rng.randi_range(8, 14)
+		while i < pts.size() - 3:
+			var t := (pts[i + 1] - pts[i]).normalized()
+			var sd := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
+			_mark_polyline(pts, LANE_HALF + 0.5)
+			var sub := _grow_lane(pts[i] + sd * (LANE_HALF + 0.6), sd, rng.randf_range(60.0, 140.0 if urban else 220.0))
+			if sub.size() >= 10:
+				_mark_polyline(sub, LANE_HALF + 0.5)
+				made.append(sub)
+			i += rng.randi_range(12, 22)
+		for ln: PackedVector3Array in made:
+			_mark_polyline(ln, LANE_HALF + 0.5)
+			_draw_lane(ln)
+			lanes.append(ln)
+			for k in range(4, ln.size(), 4):
+				_net_add(net, ln[k])
+		for ln: PackedVector3Array in made:
+			_homes_on_lane(ln, urban)
+	# last, single houses in the land left between lanes, each with its
+	# own driveway to the nearest lane or street
+	var t2 := 0
+	while homes_built < home_target and t2 < 60000:
+		t2 += 1
+		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
+		var c := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
+		if not on_land(c) or in_sea(c):
+			continue
+		var q := _net_near(net, c)
+		var off := Vector3(c.x - q.x, 0, c.z - q.z)
+		var dist := off.length()
+		if dist == INF or dist > 70.0 or dist < float(spec.d) * 0.5 + LANE_HALF + 4.0:
+			continue
+		var o := off / dist
+		var yaw := atan2(o.x, o.z)
+		if not _rect_free_soft(c, yaw, spec.w, spec.d):
+			continue
+		var a2 := q + o * (LANE_HALF + 0.4)
+		var b2 := c - o * (float(spec.d) * 0.5 + 0.2)
+		if a2.distance_to(b2) > 3.0 and not _path_free(a2 + o * 2.5, b2 - o * 1.5):
+			continue
 		_mark_rect(c, yaw, spec.w, spec.d)
 		_place(c, yaw, spec.kind, spec.w, spec.d)
 		_build_spec(spec, _urban_r(c))
 		frame = Transform3D.IDENTITY
+		if a2.distance_to(b2) > 1.0:
+			_ribbon_piece(ground_st, PackedVector3Array([a2, a2, b2, b2]), 1, 1.3, 0.045, C_CONCRETE.darkened(0.08))
+			_mark_polyline(PackedVector3Array([a2, b2]), 1.4)
+
+
+const NET_CELL := 60.0
+
+func _net_add(net: Dictionary, p: Vector3) -> void:
+	var k := Vector2i(floori(p.x / NET_CELL), floori(p.z / NET_CELL))
+	if not net.has(k):
+		net[k] = []
+	(net[k] as Array).append(p)
+
+
+## The nearest network point to p (searching outward ring by ring), or a
+## point at infinity when none lies within reach.
+func _net_near(net: Dictionary, p: Vector3) -> Vector3:
+	var c := Vector2i(floori(p.x / NET_CELL), floori(p.z / NET_CELL))
+	var best := Vector3(INF, 0, INF)
+	var bd := INF
+	for r in 30:
+		for dx in range(-r, r + 1):
+			for dz in range(-r, r + 1):
+				if maxi(absi(dx), absi(dz)) != r:
+					continue
+				var k := c + Vector2i(dx, dz)
+				if not net.has(k):
+					continue
+				for q: Vector3 in net[k]:
+					var d := Vector2(q.x - p.x, q.z - p.z).length_squared()
+					if d < bd:
+						bd = d
+						best = q
+		if bd < INF and sqrt(bd) < (r - 1) * NET_CELL:
+			break
+	return best
+
+
+var lanes := []
+
+## Lanes laid out before the street frontage is built, so they can leave
+## every street at intervals and branch again into the land behind it.
+func _plan_lanes() -> void:
+	lanes = []
+	if home_target < 0.0:
+		return
+	var urban := tier in ["metro", "city"]
+	var fresh := []
+	for rd in roads:
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var s := rng.randf_range(20.0, 60.0)
+		while s < L - 20.0:
+			var sm := road_sample(rd, s)
+			s += rng.randf_range(50.0, 95.0) if urban else rng.randf_range(60.0, 130.0)
+			if (rd.gaps as PackedByteArray)[sm[2]] == 1:
+				continue
+			var t: Vector3 = sm[1]
+			var dir := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
+			var pts := _grow_lane(sm[0] + dir * (float(rd.half) - 0.5), dir, rng.randf_range(80.0, 170.0 if urban else 280.0))
+			if pts.size() >= 10:
+				_mark_polyline(pts, LANE_HALF + 0.5)
+				lanes.append(pts)
+				fresh.append(pts)
+	# two generations of side lanes off the first
+	for gen_i in 2:
+		var next := []
+		for ln: PackedVector3Array in fresh:
+			var i := rng.randi_range(8, 14)
+			while i < ln.size() - 3:
+				var t := (ln[i + 1] - ln[i]).normalized()
+				var dir := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0)
+				var pts := _grow_lane(ln[i] + dir * (LANE_HALF + 0.6), dir, rng.randf_range(60.0, 140.0 if urban else 220.0))
+				if pts.size() >= 10:
+					_mark_polyline(pts, LANE_HALF + 0.5)
+					lanes.append(pts)
+					next.append(pts)
+				i += rng.randi_range(12, 22)
+		fresh = next
+	for ln in lanes:
+		_draw_lane(ln)
+
+
+const LANE_HALF := 2.4
+
+## A lane walked out from p in 4 m steps, bending gently, until it meets
+## something already built, the boundary or the sea, or runs its length.
+func _grow_lane(p: Vector3, dir: Vector3, length: float, aim := Vector3(INF, 0, 0)) -> PackedVector3Array:
+	var pts := PackedVector3Array([p])
+	var head := atan2(dir.z, dir.x)
+	var bend := rng.randf_range(-0.03, 0.03)
+	var s := 0.0
+	# the first metres cross the parent road's own pavement
+	var skip := 9.0
+	while s < length:
+		head += bend + rng.randf_range(-0.02, 0.02)
+		if aim.x != INF:
+			var last := pts[pts.size() - 1]
+			if Vector2(aim.x - last.x, aim.z - last.z).length() < 40.0:
+				aim = Vector3(INF, 0, 0)
+			else:
+				head = lerp_angle(head, atan2(aim.z - last.z, aim.x - last.x), 0.12)
+		var d := Vector3(cos(head), 0, sin(head))
+		var q := pts[pts.size() - 1] + d * 4.0
+		s += 4.0
+		if not on_land(q) or in_sea(q):
+			break
+		if s > skip:
+			var side := Vector3(-d.z, 0, d.x) * (LANE_HALF + 1.5)
+			var hit := false
+			for e in [q + d * 3.0, q + side, q - side]:
+				var ci := _cell(e)
+				if ci < 0 or occ[ci] == 1:
+					hit = true
+					break
+			if hit:
+				break
+		pts.append(q)
+	return pts
+
+
+func _draw_lane(pts: PackedVector3Array) -> void:
+	for i in pts.size() - 1:
+		var seg := PackedVector3Array([pts[maxi(i - 1, 0)], pts[i], pts[i + 1], pts[mini(i + 2, pts.size() - 1)]])
+		_ribbon_piece(ground_st, seg, 1, LANE_HALF + 0.7, 0.05, C_CONCRETE)
+		_ribbon_piece(ground_st, seg, 1, LANE_HALF, 0.085, C_ASPHALT)
+
+
+## Houses down both sides of a lane, each facing it.
+func _homes_on_lane(pts: PackedVector3Array, urban: bool) -> void:
+	for side: float in [-1.0, 1.0]:
+		var i := 3
+		while i < pts.size() - 1 and homes_built < home_target:
+			var x := rng.randf()
+			var spec: Dictionary
+			if urban:
+				spec = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if x < 0.4 else (_terrace() if x < 0.85 else {"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0})
+			else:
+				spec = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(12, 20)} if x < 0.08 else (_terrace() if x < 0.4 else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": rng.randf_range(3.0, 8.0)})
+			var t := (pts[i + 1] - pts[i - 1]).normalized()
+			var o: Vector3 = Vector3(-t.z, 0, t.x) * side
+			var setb: float = LANE_HALF + 1.5 + spec.d * 0.5 + (rng.randf_range(0.0, 5.0) if spec.kind == "kampung" else 0.0)
+			var c: Vector3 = pts[i] + o * setb
+			var yaw := atan2(o.x, o.z)
+			var step := int(ceil((spec.w + spec.gap) / 4.0))
+			if on_land(c) and _rect_free_soft(c, yaw, spec.w, spec.d):
+				_mark_rect(c, yaw, spec.w, spec.d)
+				_place(c, yaw, spec.kind, spec.w, spec.d)
+				_build_spec(spec, _urban_r(c))
+				frame = Transform3D.IDENTITY
+				_back_rows(pts[i], t, o, spec, urban)
+				i += step
+			else:
+				i += 1
+
+
+## Houses set back behind the first row, reached by a short driveway
+## from the lane that runs past the side of the front house.
+func _back_rows(p: Vector3, t: Vector3, o: Vector3, front: Dictionary, urban: bool) -> void:
+	var lat := (float(front.w) * 0.5 + 4.0) * (1.0 if rng.randf() < 0.5 else -1.0)
+	var a := p + o * (LANE_HALF + 0.4) + t * lat
+	var depth := LANE_HALF + 1.5 + float(front.d)
+	var rows := 0
+	for r in (3 if urban else 5):
+		if homes_built >= home_target or rng.randf() > (0.75 if urban else 0.9):
+			break
+		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
+		depth += rng.randf_range(3.0, 8.0)
+		var c := p + o * (depth + float(spec.d) * 0.5) + t * (lat - signf(lat) * (float(spec.w) * 0.5 + 2.2))
+		var b := p + o * (depth + float(spec.d) * 0.5) + t * lat
+		var yaw := atan2(o.x, o.z)
+		if not on_land(c) or not _rect_free_soft(c, yaw, spec.w, spec.d) or not _path_free(a + o * (2.5 if rows == 0 else 0.0), b):
+			break
+		_mark_rect(c, yaw, spec.w, spec.d)
+		_place(c, yaw, spec.kind, spec.w, spec.d)
+		_build_spec(spec, _urban_r(c))
+		frame = Transform3D.IDENTITY
+		depth += float(spec.d)
+		rows += 1
+		var seg := PackedVector3Array([a, a, b, b])
+		_ribbon_piece(ground_st, seg, 1, 1.3, 0.045, C_CONCRETE.darkened(0.08))
+		_mark_polyline(PackedVector3Array([a, b]), 1.4)
+		a = b
+
+
+func _path_free(a: Vector3, b: Vector3) -> bool:
+	var L := a.distance_to(b)
+	var d := (b - a) / maxf(L, 0.01)
+	var s := 0.0
+	while s <= L:
+		var ci := _cell(a + d * s)
+		if ci < 0 or occ[ci] == 1:
+			return false
+		s += 2.0
+	return true
 
 
 ## Homes a drawn building stands for, before the seat's homes-per-model
