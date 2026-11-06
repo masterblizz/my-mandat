@@ -1079,18 +1079,39 @@ func _flush_buckets() -> void:
 					if top > float(sky_cells.get(sk, 0.0)):
 						sky_cells[sk] = top
 			# chunked: very large instance buffers break on some WebGL drivers
+			var is_tree: bool = bk.mesh == tree_palm_mesh or bk.mesh == tree_broadleaf_mesh
 			var start := 0
 			while start < total:
 				var n := mini(4096, total - start)
+				var cb := buf.slice(start * 16, (start + n) * 16)
+				# each chunk stands at its own centre (so distance culling
+				# works per patch) and its instances are kept relative to it
+				var cen := Vector3.ZERO
+				var top := 0.0
+				for i in n:
+					cen += Vector3(cb[i * 16 + 3], 0, cb[i * 16 + 11])
+					top = maxf(top, cb[i * 16 + 7] + absf(cb[i * 16 + 5]) * 0.5)
+				cen /= float(n)
+				for i in n:
+					cb[i * 16 + 3] -= cen.x
+					cb[i * 16 + 11] -= cen.z
 				var mm := MultiMesh.new()
 				mm.transform_format = MultiMesh.TRANSFORM_3D
 				mm.use_colors = true
 				mm.mesh = bk.mesh
 				mm.instance_count = n
-				mm.buffer = buf.slice(start * 16, (start + n) * 16)
+				mm.buffer = cb
 				var mmi := MultiMeshInstance3D.new()
 				mmi.multimesh = mm
 				mmi.material_override = bk.mat
+				mmi.position = cen
+				# far patches of small things drop out (they are a few pixels
+				# by then, and in the haze); towers and landmarks always show
+				if is_tree:
+					mmi.visibility_range_end = maxf(3200.0, reach_r * 1.25)
+				elif top < 12.0:
+					mmi.visibility_range_end = maxf(4500.0, reach_r * 1.9)
+				mmi.visibility_range_end_margin = 300.0
 				gen.add_child(mmi)
 				start += n
 	buckets.clear()
@@ -1476,6 +1497,183 @@ func _arc_r(arc: Dictionary, a: float) -> float:
 ##   strip   - a pekan strung along one trunk road, lorongs off both sides
 ##   oldtown - a colonial shophouse grid core with taman estates outside
 ##   taman   - a ring road and spokes, each sector its own looped estate
+# ── road graph ───────────────────────────────────────────────────────
+## A road that stops just short of another (a street ending a few metres
+## from the next one, a spur running past an arterial) is carried on to
+## meet it, so it becomes a T-junction instead of a dead end. Real
+## cul-de-sacs (ending far from any road) are left alone.
+const SNAP_REACH := 34.0
+func _connect_dead_ends() -> void:
+	var n0 := roads.size()
+	# every other point of every road, bucketed in 40 m cells
+	var grid := {}
+	for rj in n0:
+		var op: PackedVector3Array = roads[rj].pts
+		var og: PackedByteArray = roads[rj].gaps
+		for k in range(0, op.size(), 2):
+			if og[k] == 1:
+				continue
+			var key := Vector2i(floori(op[k].x / 40.0), floori(op[k].z / 40.0))
+			if not grid.has(key):
+				grid[key] = []
+			(grid[key] as Array).append(Vector2i(rj, k))
+	for ri in n0:
+		var rd: Dictionary = roads[ri]
+		var pts: PackedVector3Array = rd.pts
+		var gaps: PackedByteArray = rd.gaps
+		if pts.size() < 4:
+			continue
+		for end in [0, pts.size() - 1]:
+			if gaps[end] == 1:
+				continue
+			var p: Vector3 = pts[end]
+			var inward: int = 3 if end == 0 else pts.size() - 4
+			var out := (p - pts[inward]).normalized()
+			var best := Vector3.ZERO
+			var bd := INF
+			var bcls := 2
+			var c := Vector2i(floori(p.x / 40.0), floori(p.z / 40.0))
+			for dx in [-1, 0, 1]:
+				for dz in [-1, 0, 1]:
+					for e: Vector2i in grid.get(c + Vector2i(dx, dz), []):
+						if e.x == ri:
+							continue
+						var q: Vector3 = (roads[e.x].pts as PackedVector3Array)[e.y]
+						var dl := Vector2(q.x - p.x, q.z - p.z).length()
+						if dl < bd and dl < SNAP_REACH:
+							bd = dl
+							best = q
+							bcls = int(roads[e.x].cls)
+			if bd == INF:
+				continue
+			var gap: float = bd - float(rd.half)
+			# already touching, or the other road is behind this end
+			if gap < 3.0 or (best - p).normalized().dot(out) < 0.35:
+				continue
+			var mid := (p + best) * 0.5
+			if not (on_land(mid) and on_land(best)):
+				continue
+			_make_road([p, mid, best], maxi(int(rd.cls), bcls))
+
+
+var road_graph := {}   # {nodes: [[x, z, arms]], edges: [[a, b, road, length]]}
+var junctions := []    # [Vector3 position, radius] where roads cross or meet
+
+## Junctions where roads meet or cross (segment intersections found
+## through a coarse grid), and the graph of road pieces between them.
+## The graph is metadata for the simulation side; the junction list also
+## keeps lane markings out of the crossing.
+func _build_road_graph() -> void:
+	junctions = []
+	var grid := {}
+	const GC := 40.0
+	var segs := []   # [road, k, a, b]
+	for ri in roads.size():
+		var rd: Dictionary = roads[ri]
+		var pts: PackedVector3Array = rd.pts
+		var gaps: PackedByteArray = rd.gaps
+		var k := 0
+		while k + 2 < pts.size():
+			if gaps[k] == 0:
+				var a := Vector2(pts[k].x, pts[k].z)
+				var b := Vector2(pts[k + 2].x, pts[k + 2].z)
+				var si := segs.size()
+				segs.append([ri, k, a, b])
+				for key in [Vector2i(floori(a.x / GC), floori(a.y / GC)), Vector2i(floori(b.x / GC), floori(b.y / GC))]:
+					if not grid.has(key):
+						grid[key] = []
+					if not (grid[key] as Array).has(si):
+						(grid[key] as Array).append(si)
+			k += 2
+	# per road: arc positions of its junctions, for the graph edges
+	var cuts := {}
+	var seen := {}
+	for key in grid:
+		var lst: Array = grid[key]
+		for i in lst.size():
+			for j in range(i + 1, lst.size()):
+				var A: Array = segs[lst[i]]
+				var B: Array = segs[lst[j]]
+				if A[0] == B[0]:
+					continue
+				var hit = Geometry2D.segment_intersects_segment(A[2], A[3], B[2], B[3])
+				if hit == null:
+					continue
+				var hp: Vector2 = hit
+				var hk := Vector2i(floori(hp.x / 6.0), floori(hp.y / 6.0))
+				if seen.has(hk):
+					continue
+				seen[hk] = true
+				var ra: Dictionary = roads[A[0]]
+				var rb: Dictionary = roads[B[0]]
+				var rad := maxf(float(ra.half), float(rb.half)) + 2.0
+				junctions.append([Vector3(hp.x, 0, hp.y), rad])
+				for pr in [[A[0], A[1]], [B[0], B[1]]]:
+					if not cuts.has(pr[0]):
+						cuts[pr[0]] = []
+					(cuts[pr[0]] as Array).append(float((roads[pr[0]].cum as PackedFloat32Array)[pr[1]]))
+	# graph: nodes at junctions and road ends, edges along each road
+	var nodes := []
+	var node_at := {}
+	# a node's last field counts the road arms meeting there: a road
+	# passing through adds two, a road ending there adds one
+	var add_node := func(p: Vector3, arms: int) -> int:
+		var key := Vector2i(floori(p.x / 8.0), floori(p.z / 8.0))
+		if node_at.has(key):
+			nodes[node_at[key]][2] += arms
+			return node_at[key]
+		node_at[key] = nodes.size()
+		nodes.append([snappedf(p.x, 0.1), snappedf(p.z, 0.1), arms])
+		return nodes.size() - 1
+	var edges := []
+	for ri in roads.size():
+		var rd: Dictionary = roads[ri]
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var cs: Array = cuts.get(ri, [])
+		cs.sort()
+		var stops := [0.0] + cs + [L]
+		var prev := -1
+		var prev_s := 0.0
+		for st in stops:
+			var idx: int = add_node.call(road_sample(rd, st)[0], 1 if (st <= 0.0 or st >= L) else 2)
+			if prev >= 0 and idx != prev and st - prev_s > 1.0:
+				edges.append([prev, idx, ri, snappedf(st - prev_s, 0.1)])
+			prev = idx
+			prev_s = st
+	road_graph = {"nodes": nodes, "edges": edges}
+
+
+## Fast junction test through a grid built on first use per build.
+var _jgrid := {}
+var _jgrid_n := -1
+func _near_junction(p: Vector3) -> bool:
+	if _jgrid_n != junctions.size():
+		_jgrid = {}
+		_jgrid_n = junctions.size()
+		for i in junctions.size():
+			var q: Vector3 = junctions[i][0]
+			var key := Vector2i(floori(q.x / 30.0), floori(q.z / 30.0))
+			if not _jgrid.has(key):
+				_jgrid[key] = []
+			(_jgrid[key] as Array).append(i)
+	var c := Vector2i(floori(p.x / 30.0), floori(p.z / 30.0))
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			for i: int in _jgrid.get(c + Vector2i(dx, dz), []):
+				var j: Array = junctions[i]
+				if Vector2(p.x - j[0].x, p.z - j[0].z).length() < float(j[1]):
+					return true
+	return false
+
+
+## Inside a junction (lane markings stop there)?
+func in_junction(p: Vector3) -> bool:
+	for j in junctions:
+		if Vector2(p.x - j[0].x, p.z - j[0].z).length() < float(j[1]):
+			return true
+	return false
+
+
 # ── zoning preset ────────────────────────────────────────────────────
 ## How the seat is zoned, from its kind of place (tier) and its traits:
 ## the share of semi-detached among landed houses, whether and how big an
@@ -1562,6 +1760,8 @@ func _gen_roads() -> void:
 		"taman": _gen_taman()
 		_: _gen_radial()
 	_industrial_grid()
+	_connect_dead_ends()
+	_build_road_graph()
 
 
 func _gen_radial() -> void:
@@ -1992,7 +2192,7 @@ func _draw_roads() -> void:
 		var s := 8.0
 		while s < L - 8.0:
 			var sm := road_sample(rd, s)
-			if gaps[sm[2]] == 0:
+			if gaps[sm[2]] == 0 and not _near_junction(sm[0]):
 				var p: Vector3 = sm[0]
 				var t: Vector3 = sm[1]
 				var yaw := atan2(-t.z, t.x)
@@ -2222,7 +2422,9 @@ func clear_trees(c: Vector3, radius: float) -> void:
 			continue
 		for i in mm.instance_count:
 			var xf := mm.get_instance_transform(i)
-			if Vector2(xf.origin.x - c.x, xf.origin.z - c.z).length() < radius:
+			# chunks stand at their own centre: instance origins are local
+			var wo: Vector3 = (node as Node3D).position + xf.origin
+			if Vector2(wo.x - c.x, wo.z - c.z).length() < radius:
 				mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * 0.001), xf.origin + Vector3(0, -50, 0)))
 
 
@@ -2571,7 +2773,18 @@ func city_summary() -> Dictionary:
 				bridges.append([snappedf(m.x, 1.0), snappedf(m.z, 1.0)])
 			k = e
 	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size(),
-		"hills": hills_built, "tea": tea_hills, "bridges": bridges, "r_city": snappedf(r_city, 1.0)}
+		"hills": hills_built, "tea": tea_hills, "bridges": bridges, "r_city": snappedf(r_city, 1.0),
+		"junctions": _junction_degrees(), "graph": {"nodes": (road_graph.get("nodes", []) as Array).size(), "edges": (road_graph.get("edges", []) as Array).size()}}
+
+
+## Junction count by number of road arms (3 = T, 4 = crossroads...).
+func _junction_degrees() -> Dictionary:
+	var out := {}
+	for nd in road_graph.get("nodes", []):
+		var d: int = nd[2]
+		if d >= 3:
+			out[str(d)] = int(out.get(str(d), 0)) + 1
+	return out
 
 ## The planning district a point falls in: the band out from the centre
 ## (core, commercial, taman, outskirts) and, for the outer bands, which
@@ -2806,9 +3019,11 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": rng.randf_range(2, 6)}
 				return {"kind": "condo", "w": 18.0, "d": 17.0, "gap": 3.0}
 			"city":
-				if x < 0.4:
+				# a state capital's downtown is mostly mid-rise: shophouse
+				# blocks and flats, with a scatter of office towers
+				if x < 0.2:
 					return {"kind": "tower", "w": 20.0, "d": 20.0, "gap": 4.0, "h": rng.randf_range(30, 75)}
-				if x < 0.75:
+				if x < 0.7:
 					return _shoprow(3, 7)
 				if x < 0.92:
 					return {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 4.0, "h": rng.randf_range(16, 30)}
