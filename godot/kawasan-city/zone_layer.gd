@@ -153,7 +153,17 @@ func post_built() -> void:
 	if "--probe-land" in OS.get_cmdline_user_args():
 		_probe_land()
 	if _embedded:
-		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built' }, '*')", true)
+		# with a short profile of what was built, for the game's HUD
+		var sm: Dictionary = city.city_summary()
+		var zs: Dictionary = sm.get("zones", {})
+		var lots_of := func(k: String) -> int: return int((zs.get(k, {}) as Dictionary).get("lots", 0))
+		var jn := 0
+		for v in (sm.get("junctions", {}) as Dictionary).values():
+			jn += int(v)
+		var brief := {"homes": int(sm.get("homes", 0)), "commercial": lots_of.call("commercial"), "industrial": lots_of.call("industrial"),
+			"tourism": lots_of.call("tourism"), "agriculture": lots_of.call("agriculture"), "bridges": (sm.get("bridges", []) as Array).size(),
+			"junctions": jn, "hills": int(sm.get("hills", 0)), "tier": str(sm.get("tier", ""))}
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built', summary: %s }, '*')" % JSON.stringify(brief), true)
 
 
 ## The camera's view for the game's mini-map (yaw in degrees, target on

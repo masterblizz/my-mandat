@@ -3557,8 +3557,17 @@ func _infill_homes() -> void:
 		for k in range(4, ln.size(), 4):
 			_net_add(net, ln[k])
 	var tries := 0
-	while homes_built < home_target and tries < 80000 and not net.is_empty():
+	# stop early once open land has clearly run out: a long run of misses,
+	# or 4000 tries that added almost no homes
+	var since := 0
+	var mark := homes_built
+	while homes_built < home_target and tries < 80000 and since < 3000 and not net.is_empty():
 		tries += 1
+		since += 1
+		if tries % 4000 == 0:
+			if homes_built - mark < home_target * 0.004:
+				break
+			mark = homes_built
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var seed := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
 		if not on_land(seed) or in_sea(seed) or in_industry(seed) or _urban_r(seed) < r_commercial:
@@ -3574,6 +3583,7 @@ func _infill_homes() -> void:
 		var pts := _grow_lane(best + dir * (LANE_HALF + 2.0), dir, bd + rng.randf_range(60.0, 200.0), seed)
 		if pts.size() < 10:
 			continue
+		since = 0
 		var made := [pts]
 		# side lanes off the new road
 		var i := rng.randi_range(8, 14)
@@ -3597,8 +3607,10 @@ func _infill_homes() -> void:
 	# last, single houses in the land left between lanes, each with its
 	# own driveway to the nearest lane or street
 	var t2 := 0
-	while homes_built < home_target and t2 < 60000:
+	var miss := 0
+	while homes_built < home_target and t2 < 60000 and miss < 2500:
 		t2 += 1
+		miss += 1
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
 		var c := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
@@ -3617,6 +3629,7 @@ func _infill_homes() -> void:
 		var b2 := c - o * (float(spec.d) * 0.5 + 0.2)
 		if a2.distance_to(b2) > 3.0 and not _path_free(a2 + o * 2.5, b2 - o * 1.5):
 			continue
+		miss = 0
 		_mark_rect(c, yaw, spec.w, spec.d)
 		_place(c, yaw, spec.kind, spec.w, spec.d)
 		_build_spec(spec, _urban_r(c))

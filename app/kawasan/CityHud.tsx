@@ -87,16 +87,42 @@ function useBoundaryPath(code: string, stateId: string, name: string, w: number,
   }, [rings, w, h]);
 }
 
+/** What the 3D city reported it built (GodotCityMap relays it on build). */
+type CitySummary = { homes: number; commercial: number; industrial: number; tourism: number; agriculture: number; bridges: number; junctions: number; hills: number; tier: string };
+
+function useCitySummary() {
+  const [sum, setSum] = useState<CitySummary | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setSum((e as CustomEvent<CitySummary>).detail);
+    window.addEventListener("kawasan-city-summary", on);
+    return () => window.removeEventListener("kawasan-city-summary", on);
+  }, []);
+  return sum;
+}
+
+/** 25,608 -> "25.6k" for the tight HUD line. */
+function compact(n: number) {
+  return n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k` : formatNumber(n);
+}
+
 export function CitySeatCard({ lang, code, name, stateId, sentiment, density, onToggle }: {
   lang: Lang; code: string; name: string; stateId: string; sentiment: number; density: number; onToggle: () => void;
 }) {
   const path = useBoundaryPath(code, stateId, name, 96, 70)?.d;
+  const city = useCitySummary();
   return (
     <button type="button" onClick={onToggle} className="nhud-seat city-hud-box" title={t(lang, "Panel zon", "Zone panel")}>
       <div className="nhud-seat__head"><span aria-hidden>📍</span><b>{code}</b><span className="nhud-seat__name">{name}</span><span aria-hidden>▾</span></div>
       <div className="nhud-seat__body">
         {path ? <svg viewBox="0 0 96 70" className="nhud-seat__shape" aria-hidden><path d={path} /></svg> : <div className="nhud-seat__shape" />}
-        <div className="nhud-seat__stats"><span>😊 {sentiment}%</span><span>👥 {formatNumber(density)}/km²</span></div>
+        <div className="nhud-seat__stats"><span>😊 {sentiment}%</span><span>👥 {formatNumber(density)}/km²</span>
+          {city && <span className="nhud-seat__city" title={t(lang,
+            `${formatNumber(city.homes)} rumah · ${city.commercial} lot niaga · ${city.industrial} lot industri · ${city.bridges} jambatan · ${city.junctions} simpang`,
+            `${formatNumber(city.homes)} homes · ${city.commercial} shop lots · ${city.industrial} industrial lots · ${city.bridges} bridges · ${city.junctions} junctions`)}>
+            <span>🏠 {compact(city.homes)} · 🏪 {city.commercial}</span>
+            {(city.industrial > 0 || city.bridges > 0) && <span>{city.industrial > 0 ? `🏭 ${city.industrial}` : ""}{city.industrial > 0 && city.bridges > 0 ? " · " : ""}{city.bridges > 0 ? `🌉 ${city.bridges}` : ""}</span>}
+          </span>}
+        </div>
       </div>
     </button>
   );
