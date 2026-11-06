@@ -262,7 +262,7 @@ func _process(dt: float) -> void:
 				c.t = 0.0
 				c.dir = 1.0
 			var sm: Array = city.road_sample(rd, c.t)
-			pos = sm[0] + Vector3(0, 0.12, 0)
+			pos = sm[0] + Vector3(0, 0.12 + city.road_elev(rd, c.t), 0)
 			fwd = sm[1] * c.dir
 			hidden = rd.gaps[sm[2]] == 1
 		# keep left: offset to the left of the direction of travel

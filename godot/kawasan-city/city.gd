@@ -1892,9 +1892,50 @@ func _make_road(ctrl: Array, cls: int) -> void:
 			for k in range(k0, k1):
 				gaps[k] = 1
 		k0 = k1
-	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
+	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps, "elev": _bridge_profile(cum, wet)}
 	roads.append(rd)
 	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
+
+
+## Height of the deck along a road: up to BRIDGE_H over the river, with
+## ramps of BRIDGE_RAMP either side. Empty when the road crosses no water.
+const BRIDGE_H := 3.4
+const BRIDGE_RAMP := 34.0
+func _bridge_profile(cum: PackedFloat32Array, wet: PackedByteArray) -> PackedFloat32Array:
+	var n := cum.size()
+	var out := PackedFloat32Array()
+	if wet.find(1) < 0:
+		return out
+	out.resize(n)
+	var last := -INF
+	var dist := PackedFloat32Array()
+	dist.resize(n)
+	for k in n:
+		if wet[k] == 1:
+			last = cum[k]
+		dist[k] = cum[k] - last
+	last = INF
+	for k in range(n - 1, -1, -1):
+		if wet[k] == 1:
+			last = cum[k]
+		dist[k] = minf(dist[k], last - cum[k])
+	for k in n:
+		var f := clampf(1.0 - dist[k] / BRIDGE_RAMP, 0.0, 1.0)
+		out[k] = BRIDGE_H * f * f * (3.0 - 2.0 * f)
+	return out
+
+
+## Deck height at arc length s (0 off any bridge).
+func road_elev(rd: Dictionary, s: float) -> float:
+	var e: PackedFloat32Array = rd.get("elev", PackedFloat32Array())
+	if e.is_empty():
+		return 0.0
+	var cum: PackedFloat32Array = rd.cum
+	s = clampf(s, 0.0, cum[cum.size() - 1])
+	var i := clampi(cum.bsearch(s) - 1, 0, cum.size() - 2)
+	var seg := cum[i + 1] - cum[i]
+	var f := 0.0 if seg <= 0.0 else (s - cum[i]) / seg
+	return lerpf(e[i], e[i + 1], f)
 
 
 ## Point and unit tangent at arc length s along a road, plus segment index.
@@ -1914,20 +1955,36 @@ func _draw_roads() -> void:
 		var half: float = rd.half
 		var pts: PackedVector3Array = rd.pts
 		var gaps: PackedByteArray = rd.gaps
+		var elev: PackedFloat32Array = rd.get("elev", PackedFloat32Array())
 		var walk := half + (2.6 if cls < 2 else 1.6)
 		# pavement under, carriageway over, piece by piece so gaps can drop out
 		for i in pts.size() - 1:
 			if gaps[i] == 1:
 				continue
 			var seg := PackedVector3Array([pts[maxi(i - 1, 0)], pts[i], pts[i + 1], pts[mini(i + 2, pts.size() - 1)]])
-			_ribbon_piece(ground_st, seg, 1, walk, 0.06, C_CONCRETE)
-			_ribbon_piece(ground_st, seg, 1, half, ROAD_Y[cls], C_ASPHALT)
-			if rd.wet[i] == 1:
-				var t := (pts[i + 1] - pts[i]).normalized()
-				var n := Vector3(-t.z, 0, t.x)
-				var yaw := atan2(-t.z, t.x)
-				for s in [-1.0, 1.0]:
-					box((pts[i] + pts[i + 1]) * 0.5 + n * s * (half + 0.2), Vector3(pts[i].distance_to(pts[i + 1]) + 0.2, 1.0, 0.35), C_CONCRETE, null, yaw)
+			var ea: float = 0.0 if elev.is_empty() else elev[i]
+			var eb: float = 0.0 if elev.is_empty() else elev[i + 1]
+			if ea <= 0.0 and eb <= 0.0:
+				_ribbon_piece(ground_st, seg, 1, walk, 0.06, C_CONCRETE)
+				_ribbon_piece(ground_st, seg, 1, half, ROAD_Y[cls], C_ASPHALT)
+				continue
+			# a bridge: the deck rises over the water on ramps, with a
+			# concrete edge beam, parapets and piers down into the river
+			_ribbon_piece_h(ground_st, seg, walk, 0.06 + ea, 0.06 + eb, C_CONCRETE)
+			_ribbon_piece_h(ground_st, seg, half, ROAD_Y[cls] + ea, ROAD_Y[cls] + eb, C_ASPHALT)
+			var t := (pts[i + 1] - pts[i]).normalized()
+			var n := Vector3(-t.z, 0, t.x)
+			var yaw := atan2(-t.z, t.x)
+			var mid := (pts[i] + pts[i + 1]) * 0.5
+			var e := (ea + eb) * 0.5
+			var len := pts[i].distance_to(pts[i + 1]) + 0.2
+			for s in [-1.0, 1.0]:
+				box(mid + n * s * (walk - 0.2) + Vector3(0, e - 0.6, 0), Vector3(len, 0.6, 0.4), C_CONCRETE.darkened(0.12), null, yaw)
+				if e > 0.8:
+					box(mid + n * s * (walk - 0.2) + Vector3(0, e + 0.05, 0), Vector3(len, 1.0, 0.3), C_CONCRETE, null, yaw)
+			if rd.wet[i] == 1 and i % 4 == 0:
+				for s in [-0.5, 0.5]:
+					cyl(mid + n * s * half, 0.7, e - 0.5, Color(0.62, 0.62, 0.6))
 		if cls == 2:
 			continue
 		# centre line (yellow) and, on arterials, white lane dashes
@@ -1940,11 +1997,23 @@ func _draw_roads() -> void:
 				var t: Vector3 = sm[1]
 				var yaw := atan2(-t.z, t.x)
 				var n := Vector3(-t.z, 0, t.x)
-				box(p + Vector3(0, ROAD_Y[cls], 0), Vector3(3.0, 0.03, 0.22), Color(0.95, 0.78, 0.2), null, yaw)
+				var de := road_elev(rd, s)
+				box(p + Vector3(0, ROAD_Y[cls] + de, 0), Vector3(3.0, 0.03, 0.22), Color(0.95, 0.78, 0.2), null, yaw)
 				if cls == 0:
 					for o in [-half * 0.5, half * 0.5]:
-						box(p + n * o + Vector3(0, ROAD_Y[cls], 0), Vector3(3.0, 0.03, 0.18), Color(0.92, 0.92, 0.88), null, yaw)
+						box(p + n * o + Vector3(0, ROAD_Y[cls] + de, 0), Vector3(3.0, 0.03, 0.18), Color(0.92, 0.92, 0.88), null, yaw)
 			s += 7.0
+
+
+## A ribbon quad whose two ends stand at their own heights (bridge decks).
+func _ribbon_piece_h(st: SurfaceTool, seg: PackedVector3Array, half: float, ya: float, yb: float, col: Color) -> void:
+	var ta := (seg[2] - seg[0]).normalized()
+	var tb := (seg[3] - seg[1]).normalized()
+	var na := Vector3(-ta.z, 0, ta.x) * half
+	var nb := Vector3(-tb.z, 0, tb.x) * half
+	var a := Vector3(seg[1].x, ya, seg[1].z)
+	var b := Vector3(seg[2].x, yb, seg[2].z)
+	_quad(st, a - na, a + na, b + nb, b - nb, col, Vector3.UP)
 
 
 ## One quad of a ribbon: `seg` holds [prev, a, b, next] so the joint
@@ -2485,7 +2554,24 @@ func city_summary() -> Dictionary:
 		var dk := str(lot.get("district", ""))
 		by_district[dk] = int(by_district.get(dk, 0)) + 1
 		homes += int(lot.get("homes", 0))
-	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size(), "hills": hills_built}
+	# bridges: one per run of a road over water, at its middle
+	var bridges := []
+	for rd in roads:
+		var wet: PackedByteArray = rd.wet
+		var k := 0
+		while k < wet.size():
+			if wet[k] == 0:
+				k += 1
+				continue
+			var e := k
+			while e < wet.size() and wet[e] == 1:
+				e += 1
+			var m: Vector3 = (rd.pts as PackedVector3Array)[(k + e) / 2]
+			if (rd.gaps as PackedByteArray)[(k + e) / 2] == 0:
+				bridges.append([snappedf(m.x, 1.0), snappedf(m.z, 1.0)])
+			k = e
+	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size(),
+		"hills": hills_built, "tea": tea_hills, "bridges": bridges, "r_city": snappedf(r_city, 1.0)}
 
 ## The planning district a point falls in: the band out from the centre
 ## (core, commercial, taman, outskirts) and, for the outer bands, which
@@ -3331,8 +3417,10 @@ func _fill_trees() -> void:
 ## whose real terrain is hilly get them.
 var _hill_mesh: ArrayMesh
 var hills_built := 0
+var tea_hills := []        # tea estate hill centres (world x, z)
 func _forest_hills() -> void:
 	hills_built = 0
+	tea_hills = []
 	if _hill_mesh == null:
 		_hill_mesh = _unit_hill()
 	var hills := []
@@ -3381,8 +3469,13 @@ func _forest_hills() -> void:
 		# keep the rest of the generator off it, and plant its slopes
 		if in_seat(c):
 			_rect_scan(c, yaw, sx * 1.6, sz * 1.6, 2)
+		# highland tea seats: every other hill near town is a tea estate,
+		# its slopes ringed with rows of bushes along the contours
+		if bool(traits.get("tea", false)) and hills_built % 2 == 1 and r < reach_r * 1.1:
+			_tea_rows(c, yaw, sx, sz, H)
+			tea_hills.append([snappedf(c.x, 1.0), snappedf(c.z, 1.0)])
+			continue
 		var n := int(R * R / 420.0)
-		var inv := bs.inverse()
 		for k in n:
 			var u := Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1))
 			var t2 := u.x * u.x + u.z * u.z
@@ -3391,6 +3484,29 @@ func _forest_hills() -> void:
 			var y := H * _hill_h(sqrt(t2))
 			var p := c + Basis(Vector3.UP, yaw) * Vector3(u.x * sx, 0, u.z * sz)
 			tree(p + Vector3(0, y - 0.6, 0), rng.randf() < 0.12)
+
+
+## Tea bushes in contour rows round a hill: each row a ring at one
+## height, cut into clipped hedge segments with a path gap here and there.
+func _tea_rows(c: Vector3, yaw: float, sx: float, sz: float, H: float) -> void:
+	var b := Basis(Vector3.UP, yaw)
+	var R := (sx + sz) * 0.5
+	var t := 0.12
+	while t < 0.9:
+		var circ := TAU * R * t
+		var nseg := maxi(8, int(circ / 7.0))
+		var y := H * _hill_h(t) + 0.2
+		var shade := rng.randf_range(0.0, 1.0)
+		for j in nseg:
+			if rng.randf() < 0.06:
+				continue   # a picking path through the rows
+			var a := TAU * (float(j) + 0.5) / nseg
+			var p := c + b * Vector3(cos(a) * t * sx, 0, sin(a) * t * sz)
+			var tan := b * Vector3(-sin(a) * sx, 0, cos(a) * sz)
+			var hy := atan2(-tan.z, tan.x)
+			var bs := Basis(Vector3.UP, hy) * Basis.from_scale(Vector3(7.4, 1.2, 1.5))
+			_add(sphere_mesh, mat_plain, Transform3D(bs, p + Vector3(0, y, 0)), Color(0.3, 0.58, 0.2).lerp(Color(0.42, 0.66, 0.24), shade))
+		t += 9.0 / R
 
 
 func _hill_h(t: float) -> float:
