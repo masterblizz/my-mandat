@@ -114,7 +114,7 @@ const kawasan_page = {
   projectTitle_museum: { ms: "Muzium & Galeri Warisan", en: "Heritage Museum & Gallery" },
   projectDetail_museum: { ms: "Pamerkan sejarah tempatan dan tarik pelancongan budaya.", en: "Showcase local history and draw cultural tourism." },
 
-  zoneName_townCentre: { ms: "Pusat Bandar", en: "Town Centre" },
+  zoneName_townCentre: { ms: "Kawasan Utama", en: "Main Area" },
   zoneType_townCentre: { ms: "Bandar", en: "Urban" },
   zoneName_mainVillage: { ms: "Kampung Utama", en: "Main Village" },
   zoneType_mainVillage: { ms: "Kampung", en: "Village" },

@@ -881,7 +881,7 @@ export const TOD_ENV: Record<Tod, TodEnv> = {
 };
 
 export const ZONE_KIND_LABEL: Record<ZoneKind, string> = {
-  urban: "Pusat Bandar", village: "Kampung", housing: "Taman Perumahan",
+  urban: "Kawasan Utama", village: "Kampung", housing: "Taman Perumahan",
   commercial: "Pusat Komersial", education: "Zon Sekolah", industry: "Kawasan Industri",
   river: "Tebing Sungai", market: "Pasar / Penjaja", community: "Dewan / Klinik",
 };

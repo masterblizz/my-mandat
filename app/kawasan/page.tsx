@@ -378,8 +378,13 @@ function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<t
   return t(lang, "kawasan_page.requires", { missingJoin: missing.join(" & ") });
 }
 
+// The seat's main settlement is named after the seat itself (not every
+// kawasan has a "town centre"); set by the page before zones are named.
+let SEAT_PLACE_NAME = "";
+
 function zoneName(lang: Lang, zone: Zone) {
   if (zone.realName) return zone.realName;
+  if (zone.archetype === "townCentre" && SEAT_PLACE_NAME) return zone.repeat ? `${SEAT_PLACE_NAME} ${zone.repeat}` : SEAT_PLACE_NAME;
   // a zone the player founded on empty land is named after its facility
   if (zone.facility) return `${t(lang, `kawasan_page.projectTitle_${zone.facility}`)} · ${t(lang, "Tapak", "Site")} ${zone.repeat}`;
   const name = t(lang, `kawasan_page.zoneName_${zone.archetype}`);
@@ -2697,6 +2702,7 @@ export default function KawasanDevelopmentPage() {
   const seatMode = settings.electionScope === "prn" ? "dun" : "parliament";
   const constituencies = useMemo(() => homeState ? generateConstituencies(homeState, seatMode) : [], [homeState, seatMode]);
   const ownSeat = constituencies.find((seat) => seat.id === leader.homeConstituencyId) ?? constituencies[0];
+  SEAT_PLACE_NAME = ownSeat?.name ?? "";
   const seatKindMS = settings.electionScope === "prn" ? "DUN" : t(lang, "PARLIMEN", "PARLIAMENT");
 
   // City density scales with population per km² (people actually living
