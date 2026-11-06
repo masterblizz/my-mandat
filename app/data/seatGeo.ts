@@ -277,3 +277,30 @@ export async function boundaryCityCoast(rings: Boundary): Promise<{ dir: [number
   const edge = coastPts.reduce((a, b) => a + b, 0) / Math.max(1, coastPts.length);
   return { dir: [+dir[0].toFixed(3), +dir[1].toFixed(3)], edge: +edge.toFixed(3) };
 }
+
+/**
+ * The real land around a coastal seat, for the 3D city's shoreline: every
+ * seat boundary (any state) whose box comes within `radius` mean rays of
+ * the city centre, in the city frame ([x, z, x, z, ...] per ring, x east /
+ * z south, in mean-ray units). Everything outside these rings is sea.
+ */
+export async function boundaryCityLand(rings: Boundary, radius = 8, minStep = 0.02): Promise<number[][]> {
+  const land = await loadLand();
+  const f = boundaryCityFrame(rings);
+  if (!f.meanDeg) return [];
+  const kx = Math.cos((f.lat * Math.PI) / 180);
+  const rLat = radius * f.meanDeg, rLon = rLat / kx;
+  const out: number[][] = [];
+  for (const { ring, box } of land) {
+    if (box[2] < f.lon - rLon || box[0] > f.lon + rLon || box[3] < f.lat - rLat || box[1] > f.lat + rLat) continue;
+    const flat: number[] = [];
+    let lx = Infinity, lz = Infinity;
+    for (const [lon, lat] of ring) {
+      const x = ((lon - f.lon) * kx) / f.meanDeg, z = -(lat - f.lat) / f.meanDeg;
+      if (Math.hypot(x - lx, z - lz) < minStep) continue;
+      flat.push(+x.toFixed(3), +z.toFixed(3)); lx = x; lz = z;
+    }
+    if (flat.length >= 6) out.push(flat);
+  }
+  return out;
+}

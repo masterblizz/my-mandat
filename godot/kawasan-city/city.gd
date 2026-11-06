@@ -162,6 +162,17 @@ func _configure(p: Dictionary) -> void:
 	if co is Dictionary and co.get("dir") is Array:
 		coast_dir = Vector2(float(co.dir[0]), float(co.dir[1])).normalized()
 		coast_edge = float(co.get("edge", 1.0))
+	land_n = []
+	var lp = p.get("land", [])
+	if lp is Array:
+		for ring in lp:
+			if ring is Array and ring.size() >= 6:
+				var r2 := PackedVector2Array()
+				var k := 0
+				while k + 1 < ring.size():
+					r2.append(Vector2(float(ring[k]), float(ring[k + 1])))
+					k += 2
+				land_n.append(r2)
 	seat_poly_n = []
 	var poly = p.get("outline", [])
 	if poly is Array:
@@ -245,6 +256,12 @@ func _configure(p: Dictionary) -> void:
 		for v in ring:
 			w2.append((v as Vector2) * r_city)
 		seat_poly.append(w2)
+	land_rings = []
+	for ring in land_n:
+		var w3 := PackedVector2Array()
+		for v in ring:
+			w3.append((v as Vector2) * r_city)
+		land_rings.append(w3)
 	reach_r = r_city * kmax
 	pan_limit = maxf(SPAN * 0.55, reach_r * 0.95)
 	has_lrt = tier == "metro"
@@ -1017,6 +1034,12 @@ var shape_k := PackedFloat32Array()
 var seat_poly_n := []          # normalised rings from the profile
 var seat_poly := []            # in world units, after r_city is known
 var coast_dir := Vector2.ZERO  # real sea direction (x east, z south) from the page
+## The real land around a coastal seat (every nearby seat's boundary, in
+## world units): the sea is everything outside them, so the coast follows
+## the true shoreline instead of a straight line.
+var land_n := []
+var land_rings := []
+var landmask := PackedByteArray()   # 1 = land, per occupancy cell
 var coast_edge := 1.0          # coastline distance along it, in r_city units
 
 func in_seat(p: Vector3) -> bool:
@@ -1034,6 +1057,12 @@ func in_seat(p: Vector3) -> bool:
 func on_land(p: Vector3) -> bool:
 	if not in_seat(p):
 		return false
+	if not land_rings.is_empty():
+		# land, and a beach-width away from the water in every direction
+		for d in [Vector3.ZERO, Vector3(32, 0, 0), Vector3(-32, 0, 0), Vector3(0, 0, 32), Vector3(0, 0, -32)]:
+			if in_sea(p + d):
+				return false
+		return true
 	return sea_dir == Vector3.ZERO or p.dot(sea_dir) < sea_edge - 32.0
 
 
@@ -1069,7 +1098,49 @@ func _mask_outside() -> void:
 
 
 ## The sea and its beach are taken in the occupancy map.
+## Rasterise rings into a per-cell mask (each ring on its own, so
+## overlapping neighbours don't cancel out).
+func _raster_rings(rings: Array, out: PackedByteArray) -> void:
+	var xs := PackedFloat32Array()
+	for ring in rings:
+		var n: int = ring.size()
+		var z0 := INF
+		var z1 := -INF
+		for v in ring:
+			z0 = minf(z0, v.y)
+			z1 = maxf(z1, v.y)
+		var iz0 := clampi(int((z0 + EXT) / CELL), 0, GN - 1)
+		var iz1 := clampi(int((z1 + EXT) / CELL) + 1, 0, GN)
+		for iz in range(iz0, iz1):
+			var z := -EXT + (iz + 0.5) * CELL
+			xs.clear()
+			for k in n:
+				var a: Vector2 = ring[k]
+				var b: Vector2 = ring[(k + 1) % n]
+				if (a.y <= z and b.y > z) or (b.y <= z and a.y > z):
+					xs.append(a.x + (z - a.y) / (b.y - a.y) * (b.x - a.x))
+			if xs.size() < 2:
+				continue
+			xs.sort()
+			var row := iz * GN
+			var k2 := 0
+			while k2 + 1 < xs.size():
+				var i0 := clampi(int((xs[k2] + EXT) / CELL), 0, GN)
+				var i1 := clampi(int((xs[k2 + 1] + EXT) / CELL), 0, GN)
+				for ix in range(i0, i1):
+					out[row + ix] = 1
+				k2 += 2
+
+
 func _mask_sea() -> void:
+	if not land_rings.is_empty():
+		landmask = PackedByteArray()
+		landmask.resize(GN * GN)
+		_raster_rings(land_rings, landmask)
+		for i in GN * GN:
+			if landmask[i] == 0:
+				occ[i] = 1
+		return
 	if sea_dir == Vector3.ZERO:
 		return
 	for iz in GN:
@@ -1730,7 +1801,61 @@ func _extend_curve(c: Curve3D, reach: float) -> Curve3D:
 	return _smooth_curve(pts)
 
 
+## Sand along every stretch of land edge that faces open water, and palms
+## on it inside the seat.
+func _build_shore() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	st.set_color(Color(0.86, 0.8, 0.62))
+	var y := Vector3(0, 0.03, 0)
+	for ring in land_rings:
+		var n: int = ring.size()
+		for k in n:
+			var a: Vector2 = ring[k]
+			var b: Vector2 = ring[(k + 1) % n]
+			var L := a.distance_to(b)
+			if L < 0.5:
+				continue
+			var t := (b - a) / L
+			var nrm := Vector2(-t.y, t.x)
+			var m := (a + b) * 0.5
+			# which side is the water? (none: an inland shared border)
+			var side := 0.0
+			if in_sea(Vector3(m.x + nrm.x * 12.0, 0, m.y + nrm.y * 12.0)):
+				side = 1.0
+			elif in_sea(Vector3(m.x - nrm.x * 12.0, 0, m.y - nrm.y * 12.0)):
+				side = -1.0
+			if side == 0.0:
+				continue
+			var inward := -nrm * side * 26.0
+			var out := nrm * side * 3.0
+			var A := Vector3(a.x + out.x, 0, a.y + out.y) + y
+			var B := Vector3(b.x + out.x, 0, b.y + out.y) + y
+			var C := Vector3(b.x + inward.x, 0, b.y + inward.y) + y
+			var D := Vector3(a.x + inward.x, 0, a.y + inward.y) + y
+			for v in [A, B, C, A, C, D, A, C, B, A, D, C]:
+				st.add_vertex(v)
+			if rng.randf() < 0.25:
+				var tp := Vector3(m.x - nrm.x * side * 30.0, 0, m.y - nrm.y * side * 30.0)
+				if in_seat(tp) and not in_sea(tp):
+					tree(tp, true)
+	var sand := StandardMaterial3D.new()
+	sand.vertex_color_use_as_albedo = true
+	sand.roughness = 1.0
+	_single(st.commit(), sand, Transform3D.IDENTITY)
+
+
 func in_sea(p: Vector3) -> bool:
+	if not land_rings.is_empty():
+		var ci := _cell(p)
+		if ci >= 0 and landmask.size() == GN * GN:
+			return landmask[ci] == 0
+		var q := Vector2(p.x, p.z)
+		for ring in land_rings:
+			if Geometry2D.is_point_in_polygon(q, ring):
+				return false
+		return true
 	return sea_dir != Vector3.ZERO and p.dot(sea_dir) > sea_edge
 
 
@@ -1770,7 +1895,9 @@ func _build_features() -> void:
 	_mark_polyline(river_fine, RIVER_HALF + 6.0)
 
 	# coastal seats: open sea beyond a beach on one side
-	if sea_dir != Vector3.ZERO:
+	if not land_rings.is_empty():
+		_build_shore()
+	elif sea_dir != Vector3.ZERO:
 		var yaw := atan2(-sea_dir.z, sea_dir.x)
 		var edge := sea_edge
 		box(sea_dir * (edge + 4000.0) + Vector3(0, 0.0, 0), Vector3(8000, 0.06, 8000), Color.WHITE, mat_water, yaw)
@@ -2344,8 +2471,15 @@ func _build_ground() -> void:
 	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	# the land carries on past the boundary as plain grass (nothing is
 	# built there: the occupancy raster is taken outside the seat)
-	_single(g, gm, Transform3D.IDENTITY)
-	_ground_no_shadow()
+	if land_rings.is_empty():
+		_single(g, gm, Transform3D.IDENTITY)
+		_ground_no_shadow()
+	else:
+		# the real shoreline: open water underneath, the land on top of it
+		box(Vector3(0, -0.4, 0), Vector3(16000, 0.05, 16000), Color.WHITE, mat_water)
+		gm.uv1_scale = Vector3(1, 1, 1)
+		_single(_poly_mesh(land_rings, 0.0, 6.0 / 16000.0), gm, Transform3D.IDENTITY)
+		_ground_no_shadow()
 	# paved downtown (a smaller town centre in towns, none in villages)
 	# warm, darker paving: the old light grey bleached to white in the sun
 	if tier in ["metro", "city"]:
