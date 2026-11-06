@@ -767,6 +767,17 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _demo_state() -> Dictionary:
+	# headless checks: --profile=<path to a JSON profile> builds that seat
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--profile="):
+			var f := FileAccess.open(arg.substr(10), FileAccess.READ)
+			if f:
+				var prof = JSON.parse_string(f.get_as_text())
+				if prof is Dictionary:
+					var zs2 := []
+					for i in 36:
+						zs2.append({"id": "zone-%d" % i, "archetype": "housingEstate"})
+					return {"profile": prof, "zones": zs2, "selected": "zone-0"}
 	var zs := []
 	var types := ["townCentre", "commercialHub", "housingEstate", "paddyVillage", "schoolZone", "mainVillage", "riverside", "marketHawkers", "clinicHall"]
 	for i in 36:
