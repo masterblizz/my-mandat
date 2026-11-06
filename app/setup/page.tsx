@@ -362,8 +362,8 @@ export default function SetupPage() {
     setPhase("playing");
     // Day one as the seat's elected representative; the election is settled
     // to match the chosen bench (see store/representative.ts).
-    const started = useGameStore.getState().startAsRepresentative();
-    navigate(started ? "/elected" : "/kawasan");
+    useGameStore.getState().startAsRepresentative();
+    navigate("/kawasan");
   }
 
   const meta = STEPS[step];

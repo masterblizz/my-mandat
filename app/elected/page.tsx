@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "../components/layout/Header";
 import StatusBar from "../components/layout/StatusBar";
@@ -17,6 +18,7 @@ import { playerPortraitSrc } from "../lib/playerAvatar";
 export default function ElectedPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
+  const router = useRouter();
   const { states, leader, settings, setHasWonElection, journey, careerProgress } = useGameStore();
   // Representative career: this page is the new game's day one.
   const side = repSide(journey);
@@ -42,9 +44,14 @@ export default function ElectedPage() {
   // was actually won (see the guard below) — that makes it the single
   // correct place to flip the /kawasan develop-system gate open, instead
   // of duplicating this same win check somewhere else.
+  // The "you are an MP" screen is no longer shown: a won seat goes straight
+  // on — into the kawasan for a serving representative, to the mandate
+  // talks otherwise.
   useEffect(() => {
-    if (wonOwnSeat) setHasWonElection(true);
-  }, [wonOwnSeat, setHasWonElection]);
+    if (!wonOwnSeat) return;
+    setHasWonElection(true);
+    router.replace(side ? "/kawasan" : "/mandate");
+  }, [wonOwnSeat, setHasWonElection, side, router]);
 
   // Guard against direct navigation when the leader's own seat wasn't actually won.
   if (!ownSeat || ownSeat.result !== "WIN") {

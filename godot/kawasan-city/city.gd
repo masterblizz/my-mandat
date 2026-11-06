@@ -157,6 +157,12 @@ func _configure(p: Dictionary) -> void:
 	party_color = Color.from_string(str(p.get("partyColor", "#1e5ac8")), Color(0.12, 0.35, 0.8))
 	party_abbr = str(p.get("partyAbbr", ""))
 	seat_name = str(p.get("name", ""))
+	# homes: one drawn home stands for HOMES_SCALE households, so the
+	# seat's real households decide how many homes stand (a city at real
+	# size reaches that; a pekan in a huge rural seat cannot)
+	var pop := float(p.get("population", 0.0))
+	home_target = pop / 4.2 / HOMES_SCALE if pop > 0.0 else -1.0
+	tourists = float(p.get("tourists", 0.0))
 	coast_dir = Vector2.ZERO
 	var co = p.get("coast", null)
 	if co is Dictionary and co.get("dir") is Array:
@@ -317,7 +323,11 @@ func _build() -> void:
 	_build_specials()
 	if has_lrt:
 		_build_lrt()
+	homes_built = 0.0
 	_frontage()
+	_build_tourism()
+	if true:
+		print("CITYSTATS homes=", int(homes_built), " target=", int(home_target), " hotels=", hotels_built, " chalets=", chalets_built, " tier=", tier, " tourists=", int(tourists))
 	# lawns and shade trees on the paved centre, in whatever space the
 	# buildings left (runs after them so it never takes a lot)
 	if tier in ["metro", "city"]:
@@ -2125,6 +2135,8 @@ func _frontage() -> void:
 				var n: Vector3 = Vector3(-t.z, 0, t.x) * side
 				var c: Vector3 = sm[0] + n * (setback + 1.5 + spec.d * 0.5)
 				var yaw := atan2(n.x, n.z)
+				if spec.kind != "skip" and not _homes_left(spec):
+					spec = {"kind": "skip", "w": spec.w, "d": 0.0, "gap": 0.0}
 				if spec.kind != "skip" and _rect_free(c, yaw, spec.w, spec.d):
 					_mark_rect(c, yaw, spec.w, spec.d)
 					_place(c, yaw, spec.kind, spec.w, spec.d)
@@ -2151,7 +2163,7 @@ func _back_row(c: Vector3, n: Vector3, yaw: float, front: Dictionary, p0: Vector
 	if rng.randf() > lerpf(0.3, 1.0, fill):
 		return
 	var back := _pick_building(p0 + n * (front.d + 8.0), cls)
-	if back.kind == "skip" or back.kind == "trees" or not (back.kind in BACK_ROW_KINDS):
+	if back.kind == "skip" or back.kind == "trees" or not (back.kind in BACK_ROW_KINDS) or not _homes_left(back):
 		return
 	var c2: Vector3 = c + n * (front.d * 0.5 + 3.0 + back.d * 0.5)
 	# the back yard faces away from the street: same yaw, so rows line up
@@ -2278,7 +2290,127 @@ func _pick_building(p: Vector3, cls: int) -> Dictionary:
 	return {"kind": "skip", "w": 40.0, "d": 0.0, "gap": 0.0}
 
 
+## Hotels and chalets for the seat's visitors: rooms = visitors × 2.2
+## nights / 365 / 65 % occupancy. Cities and towns get hotels (about 180
+## rooms each) by the main roads near the centre; coasts, hills and
+## kampung seats get chalet resorts (about 24 rooms each) by the beach or
+## at the edge of town.
+func _build_tourism() -> void:
+	hotels_built = 0
+	chalets_built = 0
+	if tourists <= 0.0:
+		return
+	var rooms := tourists * 2.2 / 365.0 / 0.65
+	var resort := sea_dir != Vector3.ZERO or not land_rings.is_empty() or bool(traits.get("hilly", false)) or tier in ["town", "rural"]
+	var hotel_share := 0.85 if tier in ["metro", "city"] else (0.35 if resort else 0.6)
+	var n_hotels := clampi(int(round(rooms * hotel_share / 180.0)), 0, 30)
+	var n_chalets := clampi(int(round(rooms * (1.0 - hotel_share) / 24.0)), 0, 24) if resort else 0
+	# hotels: open lots beside the bigger roads, nearest the centre first
+	var cands := []
+	for rd in roads:
+		if int(rd.cls) > 1:
+			continue
+		var pts: PackedVector3Array = rd.pts
+		var gaps: PackedByteArray = rd.gaps
+		for k in range(0, pts.size(), 6):
+			if gaps[k] == 0:
+				cands.append(pts[k])
+	cands.sort_custom(func(a, b): return _urban_r(a) < _urban_r(b))
+	var tries := 0
+	for q in cands:
+		if hotels_built >= n_hotels or tries > 4000:
+			break
+		tries += 1
+		for side in [1.0, -1.0]:
+			var off: Vector3 = Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized() * 22.0 * float(side)
+			var c: Vector3 = q + off
+			if on_land(c) and _rect_free(c, 0.0, 22.0, 18.0):
+				_mark_rect(c, 0.0, 22.0, 18.0)
+				_hotel(c)
+				hotels_built += 1
+				break
+	# chalets: by the beach when there is one, else round the town's edge
+	for i in 2000:
+		if chalets_built >= n_chalets:
+			break
+		var a := rng.randf() * TAU
+		var p := _polar(rng.randf_range(r_taman * 0.6, r_city * 1.05), a)
+		var near_sea := false
+		if sea_dir != Vector3.ZERO or not land_rings.is_empty():
+			for d in [Vector3(70, 0, 0), Vector3(-70, 0, 0), Vector3(0, 0, 70), Vector3(0, 0, -70)]:
+				if in_sea(p + d):
+					near_sea = true
+			if not near_sea and i < 1500:
+				continue
+		if on_land(p) and _rect_free(p, 0.0, 34.0, 26.0):
+			_mark_rect(p, 0.0, 34.0, 26.0)
+			_chalets(p)
+			chalets_built += 1
+
+
+func _hotel(c: Vector3) -> void:
+	var h := rng.randf_range(26.0, 48.0) * lerpf(0.7, 1.0, fill)
+	var facade: Color = [Color(0.95, 0.93, 0.88), Color(0.86, 0.9, 0.95), Color(0.93, 0.86, 0.78)][rng.randi() % 3]
+	flat_block(c, Vector3(20, 6, 16), Color(0.8, 0.78, 0.74))                       # lobby podium
+	box(c + Vector3(0, 6, 0), Vector3(16, h, 11), facade, mat_glass)
+	box(c + Vector3(0, 6 + h, 0), Vector3(16.6, 1.2, 11.6), Color(0.2, 0.35, 0.6))
+	box(c + Vector3(6, 0, 9), Vector3(6, 0.15, 4), Color(0.3, 0.65, 0.9))           # pool
+	var sign := Label3D.new()
+	sign.text = "HOTEL"
+	sign.font_size = 96
+	sign.pixel_size = 0.06
+	sign.outline_size = 10
+	sign.modulate = Color(1.0, 0.85, 0.3)
+	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sign.position = c + Vector3(0, 6 + h + 4.0, 0)
+	gen.add_child(sign)
+
+
+func _chalets(c: Vector3) -> void:
+	var roof: Color = [Color(0.62, 0.32, 0.2), Color(0.3, 0.45, 0.32), Color(0.5, 0.35, 0.22)][rng.randi() % 3]
+	box(c, Vector3(8, 0.15, 5), Color(0.3, 0.65, 0.9))                              # pool
+	for k in 6:
+		var a := TAU * k / 6.0 + 0.3
+		var p := c + Vector3(cos(a) * 12.0, 0, sin(a) * 9.0)
+		var yaw := -a
+		box(p, Vector3(4.2, 2.6, 4.2), Color(0.9, 0.82, 0.66), null, yaw)              # timber chalet
+		var b := Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(5.0, 2.2, 5.0))
+		_add(prism_mesh, mat_plain, Transform3D(b, p + Vector3(0, 2.6 + 1.1, 0)), roof)
+	for k in 4:
+		tree(c + Vector3(rng.randf_range(-15, 15), 0, rng.randf_range(-12, 12)), true)
+
+
+## Homes a drawn building stands for, before the seat's homes-per-model
+## scale: one per terrace unit / bungalow / kampung house / shophouse,
+## and per flat or condo floor several.
+func _spec_homes(spec: Dictionary) -> float:
+	match str(spec.kind):
+		"terrace": return float(spec.get("units", 6))
+		"shoprow": return float(spec.get("units", 4)) * 0.6
+		"bungalow", "kampung": return 1.0
+		"flat": return float(spec.get("h", 20.0)) / 3.2 * 6.0
+		"condo": return float(spec.get("top", 40.0)) / 3.2 * 10.0
+	return 0.0
+
+
+const HOMES_SCALE := 1.25     # households per drawn home (Bukit Bintang ≈ real)
+var homes_built := 0.0
+var tourists := 0.0            # visitors a year (simulated)
+var hotels_built := 0
+var chalets_built := 0
+var home_target := -1.0        # drawn homes the seat's households call for (-1: no limit)
+
+## A residential building is only placed while the seat still needs
+## homes for its households; past that the lot stays open.
+func _homes_left(spec: Dictionary) -> bool:
+	var h := _spec_homes(spec)
+	if h <= 0.0 or home_target < 0.0:
+		return true
+	return homes_built < home_target
+
+
 func _build_spec(spec: Dictionary, r: float) -> void:
+	homes_built += _spec_homes(spec)
 	match spec.kind:
 		"tower":
 			var hmax := lerpf(60.0, 30.0, clampf(r / r_core, 0.0, 1.0)) * lerpf(0.7, 1.1, fill)    # ~240 m real at most: landmarks stay taller
