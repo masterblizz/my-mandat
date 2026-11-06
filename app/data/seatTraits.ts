@@ -49,7 +49,8 @@ export function deriveSeatTraits(seatName: string, stateId: string, seatCode = "
   return {
     coastal: has("pantai", "teluk", "tanjung", "kuala", "pelabuhan", "port", "langkawi", "mersing", "pengerang", "sabak", "labuan", "sandakan", "tawau", "kudat", "semporna", "miri", "bintulu", "santubong", "bagan", "kepala batas", "balik pulau", "marang", "dungun", "kemaman", "besut", "bachok", "tumpat", "pontian", "batu pahat", "muar", "klang", "lumut", "beruas"),
     paddy: ["kedah", "perlis", "kelantan"].includes(stateId) || has("sabak bernam", "sungai besar", "sekinchan", "tanjung karang", "pendang", "yan", "kubang"),
-    hilly: HILLY_BUKIT_EXCEPTIONS.includes(name) || has("gua", "hulu", "ulu", "cameron", "kundasang", "ranau", "keningau", "tambunan", "lipis", "raub", "bentong", "jelebu", "tapah", "kinta", "lenggong", "gerik", "baling", "jeli", "tenom"),
+    // Langkawi: Gunung Raya and Mat Cincang rise straight out of the island
+    hilly: HILLY_BUKIT_EXCEPTIONS.includes(name) || name === "langkawi" || has("gua", "hulu", "ulu", "cameron", "kundasang", "ranau", "keningau", "tambunan", "lipis", "raub", "bentong", "jelebu", "tapah", "kinta", "lenggong", "gerik", "baling", "jeli", "tenom"),
     // real industrial districts: Gebeng (Kuantan), Kerteh (Kemaman), Bintulu LNG,
     // Pengerang RAPID, Nilai, Batu Kawan, Rawang, Seberang Perai…
     industrial: has("gudang", "kulim", "shah alam", "klang", "perai", "prai", "senai", "skudai", "subang", "kapar", "larkin", "pasir gudang", "kuantan", "kemaman", "bintulu", "pengerang", "nilai", "batu kawan", "rawang", "seberang perai"),
