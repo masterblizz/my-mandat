@@ -5,7 +5,7 @@ extends Node3D
 ## toward the requested values so every input glides.
 
 const MIN_DIST := 40.0
-const MAX_DIST := 1500.0
+const MAX_DIST := 7000.0     # true scale: room to see a whole seat
 # Held to a low, skyline-showing tilt: you can orbit and zoom, but the
 # camera never swings to a flat top-down map view.
 const PITCH_MIN := -36.0
@@ -135,8 +135,8 @@ func _intro_pose(v: float) -> void:
 			city.set_outline_alpha(lerpf(1.0, 0.3, smoothstep(0.35, 0.8, k)))
 	# the valley haze is set for the low view: push it out while high up
 	if "env" in city and city.env:
-		city.env.fog_depth_begin = 900.0 + maxf(0.0, _dist - 700.0)
-		city.env.fog_depth_end = 5200.0 + maxf(0.0, _dist - 700.0) * 1.5
+		city.env.fog_depth_begin = maxf(900.0, float(city.reach_r) * 0.8) + maxf(0.0, _dist - 700.0)
+		city.env.fog_depth_end = maxf(5200.0, float(city.reach_r) * 3.0) + maxf(0.0, _dist - 700.0) * 1.5
 	# drive the shown camera directly: the intro is the camera move
 	_yaw = yaw; _pitch = pitch; _dist = dist; _target = target
 	cam.far = maxf(6000.0, _dist * 2.5)
@@ -271,6 +271,7 @@ func _apply() -> void:
 	cam.position = Vector3(0, 0, _dist)
 	cam.rotation = Vector3.ZERO
 	cam.near = maxf(0.3, _dist * 0.004)
+	cam.far = maxf(6000.0, _dist * 3.0 + float(get_parent().reach_r if "reach_r" in get_parent() else 0.0) * 2.0)
 	# never inside a tower: lift the camera over the roofs around it and
 	# keep looking at the same spot
 	var city := get_parent()
