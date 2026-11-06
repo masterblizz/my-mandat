@@ -378,7 +378,7 @@ func _ev_mat(col: Color, emit := 0.0) -> StandardMaterial3D:
 
 
 func _flood(root: Node3D, entry: Dictionary) -> void:
-	var r := clampf(_spacing() * 0.55, 45.0, 110.0)
+	var r := clampf(float(city.r_city) * 0.16, 70.0, 170.0)
 	var water := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = r
@@ -386,8 +386,9 @@ func _flood(root: Node3D, entry: Dictionary) -> void:
 	cm.height = 1.2
 	cm.radial_segments = 40
 	water.mesh = cm
-	water.material_override = _ev_mat(Color(0.35, 0.5, 0.42, 0.72))
-	water.position = Vector3(0, 0.8, 0)
+	water.material_override = _ev_mat(Color(0.25, 0.55, 0.85, 0.8), 0.4)
+	water.position = Vector3(0, 2.5, 0)
+	cm.height = 5.0
 	root.add_child(water)
 	entry["water"] = water
 	# floating debris
@@ -410,20 +411,20 @@ func _fire(root: Node3D, entry: Dictionary) -> void:
 		h = float(city.height_at(root.position, 0))
 	for k in 5:
 		var a := TAU * k / 5.0
-		var d := 10.0 + 6.0 * float(k % 2)
+		var d := 12.0 + 10.0 * float(k % 2)
 		var flame := MeshInstance3D.new()
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = 4.5
-		cone.height = 14.0
+		cone.bottom_radius = 9.0
+		cone.height = 30.0
 		cone.radial_segments = 8
 		flame.mesh = cone
 		flame.material_override = _ev_mat(Color(1.0, 0.45 if k % 2 == 0 else 0.7, 0.1, 0.9), 3.0)
-		flame.position = Vector3(cos(a) * d, h + 7.0, sin(a) * d)
+		flame.position = Vector3(cos(a) * d, h + 15.0, sin(a) * d)
 		root.add_child(flame)
 		entry.parts.append(flame)
 	var smoke := CPUParticles3D.new()
-	smoke.amount = 40
+	smoke.amount = 70
 	smoke.lifetime = 6.0
 	smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	smoke.emission_sphere_radius = 10.0
@@ -432,8 +433,8 @@ func _fire(root: Node3D, entry: Dictionary) -> void:
 	smoke.gravity = Vector3(1.5, 3.0, 0)
 	smoke.initial_velocity_min = 6.0
 	smoke.initial_velocity_max = 10.0
-	smoke.scale_amount_min = 4.0
-	smoke.scale_amount_max = 9.0
+	smoke.scale_amount_min = 8.0
+	smoke.scale_amount_max = 18.0
 	var sm := SphereMesh.new()
 	sm.radius = 1.0
 	sm.height = 2.0
@@ -441,19 +442,19 @@ func _fire(root: Node3D, entry: Dictionary) -> void:
 	sm.rings = 4
 	smoke.mesh = sm
 	smoke.material_override = _ev_mat(Color(0.25, 0.25, 0.27, 0.55))
-	smoke.position = Vector3(0, h + 14.0, 0)
+	smoke.position = Vector3(0, h + 30.0, 0)
 	root.add_child(smoke)
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(1.0, 0.5, 0.15)
 	glow.light_energy = 4.0
-	glow.omni_range = 60.0
+	glow.omni_range = 120.0
 	glow.position = Vector3(0, h + 12.0, 0)
 	root.add_child(glow)
 	entry["glow"] = glow
 
 
 func _drought(root: Node3D, entry: Dictionary) -> void:
-	var r := clampf(_spacing() * 0.6, 50.0, 120.0)
+	var r := clampf(float(city.r_city) * 0.18, 80.0, 190.0)
 	var ground := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = r
@@ -461,7 +462,7 @@ func _drought(root: Node3D, entry: Dictionary) -> void:
 	cm.height = 0.3
 	cm.radial_segments = 40
 	ground.mesh = cm
-	ground.material_override = _ev_mat(Color(0.66, 0.52, 0.32, 0.85))
+	ground.material_override = _ev_mat(Color(0.72, 0.55, 0.3, 0.92))
 	ground.position = Vector3(0, 0.25, 0)
 	root.add_child(ground)
 	# cracks
@@ -510,9 +511,9 @@ func _process_events(dt: float) -> void:
 		match str(e.type):
 			"flood":
 				var w: Node3D = e.water
-				w.position.y = 0.8 + sin(t * 0.8) * 0.5
+				w.position.y = 2.5 + sin(t * 0.8) * 0.8
 				for p in e.parts:
-					(p as Node3D).position.y = 1.6 + sin(t * 1.3 + (p as Node3D).position.x) * 0.4
+					(p as Node3D).position.y = 5.3 + sin(t * 1.3 + (p as Node3D).position.x) * 0.4
 					(p as Node3D).rotation.y += dt * 0.2
 			"fire":
 				var i := 0
