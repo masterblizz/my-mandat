@@ -15,7 +15,7 @@ import { formatNumber } from "../utils/format";
 import { states } from "../data/states";
 import { isRulerState } from "../utils/governmentTerms";
 import { generateConstituencies } from "../data/constituencies";
-import { type DatasetKind, availableDatasets, getDatasetById } from "../data/datasets";
+import { type DatasetKind, getDatasetById } from "../data/datasets";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { useLang, t } from "../i18n/useLang";
@@ -24,12 +24,6 @@ import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { PRN_CANDIDATES, getPrnCandidate, prnCandidateStateImpact, type PrnCandidateId } from "../data/prnCandidates";
 import { PLAYER_AVATAR_COUNT, playerStandingSrc } from "../lib/playerAvatar";
 
-const POSITIONS = [
-  { id: "PRESIDENT" },
-  { id: "SECRETARY GENERAL" },
-  { id: "CHAIRMAN" },
-  { id: "DEPUTY PRESIDENT" },
-];
 const EXPERIENCE_OPTIONS = [
   { id: "veteran" },
   { id: "moderate" },
@@ -184,17 +178,21 @@ export default function SetupPage() {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const [step, setStep] = useState(0);
+  // The world is always the fictional dataset; the old "choose your world"
+  // step (index 0) is skipped, so the wizard starts at the leader step.
+  const FIRST_STEP = 1;
+  const [step, setStep] = useState(FIRST_STEP);
 
 
   // Step 0 state
-  const [selectedDataset, setSelectedDataset] = useState<DatasetKind>("dummy");
+  const selectedDataset: DatasetKind = "dummy";
   const currentDataset = useMemo(() => getDatasetById(selectedDataset), [selectedDataset]);
 
   // Step 1 state
   const [avatarIndex, setAvatarIndex] = useState(0);
   const [leaderName, setLeaderName] = useState("");
-  const [position, setPosition] = useState("PRESIDENT");
+  // the party post is not chosen at setup: every leader starts as president
+  const position = "PRESIDENT";
   const [experience, setExperience] = useState<"veteran" | "moderate" | "rookie">("veteran");
   const [homeState, setHomeState] = useState("selangor");
   const [influence, setInfluence] = useState(85);
@@ -297,12 +295,6 @@ export default function SetupPage() {
     }
   }, [currentDataset, selectedPartyId]);
 
-  function handleDatasetSelect(datasetId: DatasetKind) {
-    const dataset = getDatasetById(datasetId);
-    setSelectedDataset(datasetId);
-    setSelectedPartyId(dataset.parties[0]?.id ?? "");
-  }
-
   function handleDifficultySelect(d: typeof DIFFICULTIES[number]) {
     setDifficulty(d.id);
     setOppStrength(d.opp);
@@ -316,7 +308,7 @@ export default function SetupPage() {
   }
 
   function handleBack() {
-    if (step > 0) setStep(step - 1);
+    if (step > FIRST_STEP) setStep(step - 1);
   }
 
   function handleLaunch() {
@@ -399,11 +391,11 @@ export default function SetupPage() {
         </div>
       )}
       <main className="setup-screen pt-[40px] pb-[96px] min-h-screen flex flex-col items-center px-4">
-        {step === 0 && <UltimateStrip hasUltimate={hasUltimate} isLoading={premiumLoading} />}
+        {step === FIRST_STEP && <UltimateStrip hasUltimate={hasUltimate} isLoading={premiumLoading} />}
         {/* Scenario Archive is deliberately invisible unless Ultimate access
             is verified; standard Premium users continue to the custom builder. */}
-        {step === 0 && hasUltimate && !premiumLoading && <ScenarioStart />}
-        {step === 0 && hasUltimate && !premiumLoading && (
+        {step === FIRST_STEP && hasUltimate && !premiumLoading && <ScenarioStart />}
+        {step === FIRST_STEP && hasUltimate && !premiumLoading && (
           <div className="mt-2 flex w-full max-w-[1100px] items-center gap-3 text-[10px] font-black tracking-[0.28em] text-text-muted">
             <span className="h-px flex-1 bg-white/10" />
             {t(lang, "ATAU BINA KEMPEN TERSUAI", "OR BUILD A CUSTOM CAMPAIGN")}
@@ -414,6 +406,7 @@ export default function SetupPage() {
           {/* Step track: icon + one word each, tap to go back */}
           <div className="setup-steps mb-3 flex items-center gap-1">
             {STEPS.map((s, i) => {
+              if (i < FIRST_STEP) return null;
               const done = i < step;
               const current = i === step;
               return (
@@ -433,33 +426,6 @@ export default function SetupPage() {
             })}
           </div>
           <h1 className="setup-title mb-4 text-center text-[18px] font-black tracking-wide text-white sm:text-[22px]">{t(lang, meta.titleMs, meta.titleEn)}</h1>
-
-          {/* Step 0: world / data mode */}
-          {step === 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {availableDatasets.map((ds) => {
-                const isReal = ds.id === "real-malaysia";
-                const accent = isReal ? "var(--gold)" : "var(--cyan)";
-                return (
-                  <Tile key={ds.id} active={selectedDataset === ds.id} onClick={() => handleDatasetSelect(ds.id as DatasetKind)} accent={accent} className="items-center p-4 text-center">
-                    <span className="setup-tile-icon text-[40px] leading-none sm:text-[52px]">{isReal ? "🇲🇾" : "🎮"}</span>
-                    <span className="mt-2 w-full text-center text-[14px] font-black tracking-wider" style={{ color: selectedDataset === ds.id ? accent : "var(--text-primary)" }}>
-                      {t(lang, isReal ? "setup_page.dataModeReal" : "setup_page.dataModeFictional")}
-                    </span>
-                    <span className="mt-1 w-full text-center text-[11px] text-text-muted">
-                      {isReal ? t(lang, "Parti sebenar · angka simulasi", "Real parties · simulated numbers") : t(lang, "Parti rekaan · bebas", "Made-up parties · no politics")}
-                    </span>
-                    <span className="mt-3 flex w-full flex-wrap justify-center gap-1">
-                      {ds.parties.slice(0, 6).map((party) => (
-                        <span key={party.id} className="rounded-full px-1.5 py-0.5 text-[9px] font-black" style={{ border: `1px solid ${party.color}`, color: party.color }}>{party.abbreviation}</span>
-                      ))}
-                      {ds.parties.length > 6 && <span className="text-[9px] text-text-muted">+{ds.parties.length - 6}</span>}
-                    </span>
-                  </Tile>
-                );
-              })}
-            </div>
-          )}
 
           {/* Step 1: leader */}
           {step === 1 && (
@@ -499,12 +465,6 @@ export default function SetupPage() {
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label icon="🎖️">{t(lang, "setup_page.position")}</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {POSITIONS.map((p) => <Chip key={p.id} active={position === p.id} onClick={() => setPosition(p.id)}>{t(lang, `setup_page.position_${p.id}`)}</Chip>)}
-                    </div>
-                  </div>
                   <div>
                     <Label icon="⭐">{t(lang, "setup_page.experience")}</Label>
                     <div className="flex flex-wrap gap-1.5">
@@ -721,7 +681,7 @@ export default function SetupPage() {
                   <div className="truncate text-[20px] font-black tracking-wide text-white">{leaderName || "—"}</div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
                     <span className="rounded-full px-2 py-0.5 text-black" style={{ background: partyColor }}>{partyAbbr}</span>
-                    <span className="text-text-muted">{t(lang, `setup_page.position_${position}`)} · {t(lang, `setup_page.experience_${experience}`)}</span>
+                    <span className="text-text-muted">{t(lang, `setup_page.experience_${experience}`)}</span>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-3">
                     {[
@@ -770,16 +730,16 @@ export default function SetupPage() {
         <div className="setup-body mx-auto flex w-full max-w-[880px] items-center justify-between gap-2">
           <button
             onClick={handleBack}
-            disabled={step === 0}
+            disabled={step === FIRST_STEP}
             className="whitespace-nowrap rounded-md px-4 py-2 text-[12px] font-bold tracking-wider uppercase transition-all disabled:opacity-30"
-            style={{ border: "1px solid var(--gold)", color: "var(--gold)", background: "transparent", fontFamily: "Space Mono, monospace", cursor: step === 0 ? "not-allowed" : "pointer" }}
+            style={{ border: "1px solid var(--gold)", color: "var(--gold)", background: "transparent", fontFamily: "Space Mono, monospace", cursor: step === FIRST_STEP ? "not-allowed" : "pointer" }}
           >
             {t(lang, "setup_page.back")}
           </button>
 
           <div className="flex min-w-0 flex-col items-center gap-1">
             <div className="flex gap-1">
-              {STEPS.map((s, i) => <span key={s.en} className="h-1.5 rounded-full transition-all" style={{ width: i === step ? 18 : 6, background: i <= step ? "var(--gold)" : "var(--bar-empty)" }} />)}
+              {STEPS.slice(FIRST_STEP).map((s, j) => { const i = j + FIRST_STEP; return <span key={s.en} className="h-1.5 rounded-full transition-all" style={{ width: i === step ? 18 : 6, background: i <= step ? "var(--gold)" : "var(--bar-empty)" }} />; })}
             </div>
             {nextHint && <span className="truncate text-[10px] font-bold text-amber-300">{nextHint}</span>}
           </div>
