@@ -5,7 +5,7 @@
 // card with its real boundary outline, and a mini-map with zoom buttons.
 // Pure view: /kawasan passes the numbers and the actions.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { t, type Lang } from "../i18n/useLang";
 import { formatNumber } from "../utils/format";
 import { boundaryCityFrame, loadSeatBoundary, type Boundary } from "../data/seatGeo";
@@ -128,9 +128,17 @@ export function CityMiniMap({ lang, code, name, stateId, onZoom }: { lang: Lang;
   const half = 0.42;
   const tip = (side: number) => [Math.sin(side * half) * len, -Math.cos(half) * len] as const;
   const [lx, ly] = tip(-1), [rx, ry] = tip(1);
+  // a tap on the map moves the 3D view to that spot of the seat
+  const goto = (e: MouseEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (!frame?.rPx || r.width <= 0) return;
+    const px = ((e.clientX - r.left) / r.width) * 150, py = ((e.clientY - r.top) / r.height) * 110;
+    // in units of the city radius: the 3D side scales it to its world
+    window.dispatchEvent(new CustomEvent("kawasan-camera", { detail: { zoom: 0, gx: (px - cx) / frame.rPx, gz: (py - cy) / frame.rPx } }));
+  };
   return (
     <div className="nhud-minimap city-hud-box">
-      <svg viewBox="0 0 150 110" aria-hidden>
+      <svg viewBox="0 0 150 110" aria-hidden onClick={goto} className="nhud-minimap__map">
         <defs><pattern id="nhud-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0L0 0 0 10" fill="none" stroke="rgb(255 255 255 / .06)" strokeWidth="0.6" /></pattern></defs>
         <rect width="150" height="110" fill="url(#nhud-grid)" />
         {frame && <path d={frame.d} className="nhud-minimap__seat" />}

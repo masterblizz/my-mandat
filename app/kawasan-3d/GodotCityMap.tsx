@@ -103,11 +103,11 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
   useEffect(() => {
     if (ready) send();
   }, [ready, send]);
-  // mini-map zoom buttons → the 3D camera
+  // mini-map zoom buttons and taps → the 3D camera
   useEffect(() => {
     const onCam = (e: Event) => {
-      const detail = (e as CustomEvent<{ zoom?: number }>).detail;
-      frameRef.current?.contentWindow?.postMessage({ type: "kawasan-camera", zoom: detail?.zoom ?? 0 }, origin);
+      const detail = (e as CustomEvent<{ zoom?: number; gx?: number; gz?: number }>).detail;
+      frameRef.current?.contentWindow?.postMessage({ type: "kawasan-camera", zoom: detail?.zoom ?? 0, gx: detail?.gx, gz: detail?.gz }, origin);
     };
     window.addEventListener("kawasan-camera", onCam);
     return () => window.removeEventListener("kawasan-camera", onCam);
