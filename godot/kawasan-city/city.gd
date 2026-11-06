@@ -351,6 +351,7 @@ func _build() -> void:
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
 	_mask_outside()
+	_build_elevation()
 	roads = []
 	lots = []
 	town_centre = Vector3.ZERO
@@ -399,7 +400,7 @@ func _build() -> void:
 	await _breathe(0.9)
 	_flush_buckets()
 	var gmi := MeshInstance3D.new()
-	gmi.mesh = ground_st.commit()
+	gmi.mesh = _drape(ground_st.commit())
 	gmi.material_override = mat_ground
 	# flat roads/plaza/river ribbons: receive shadows, never cast them
 	# (self-shadow acne flips the ground dark as the cascades move)
@@ -414,6 +415,11 @@ func _build() -> void:
 	$Birds.setup(self)
 	$Zones.relayout()
 	_billboards()
+	# signs and tags added straight to the scene ride on the ground too
+	if elev_n > 0:
+		for ch in gen.get_children():
+			if ch is Label3D:
+				(ch as Label3D).position.y += elev_at((ch as Label3D).position)
 	_build_outline()
 	$CameraRig.view_scale = view_scale
 	$CameraRig.preset("city")
@@ -964,6 +970,10 @@ var _last_mat: Material
 var _last_bk: Dictionary
 func _add(mesh: Mesh, mat: Material, xf: Transform3D, col: Color) -> void:
 	xf = frame * xf
+	if elev_n > 0 and not _no_elev:
+		# a building rises whole, by the ground at its own lot
+		var base: Vector3 = frame.origin if frame != Transform3D.IDENTITY else (_anchor if _anchor.x != INF else xf.origin)
+		xf.origin.y += elev_at(base)
 	var bk: Dictionary
 	if mesh == _last_mesh and mat == _last_mat and not _last_bk.is_empty():
 		bk = _last_bk
@@ -1125,6 +1135,9 @@ func _single(mesh: Mesh, mat: Material, xf: Transform3D) -> void:
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.transform = frame * xf
+	if elev_n > 0 and not _no_elev:
+		var base: Vector3 = frame.origin if frame != Transform3D.IDENTITY else (_anchor if _anchor.x != INF else mi.transform.origin)
+		mi.transform.origin.y += elev_at(base)
 	_note_height(mi.transform)
 	gen.add_child(mi)
 
@@ -1497,6 +1510,142 @@ func _arc_r(arc: Dictionary, a: float) -> float:
 ##   strip   - a pekan strung along one trunk road, lorongs off both sides
 ##   oldtown - a colonial shophouse grid core with taman estates outside
 ##   taman   - a ring road and spokes, each sector its own looped estate
+# ── base elevation ───────────────────────────────────────────────────
+## The ground the whole seat stands on: a smooth, low, wide swell (a few
+## km across, under ~2.5 degrees) that everything follows. Roads, river
+## and paving are draped on it, each building is lifted whole by the
+## height at its lot (so it sits on a level pad), cars and the game's
+## markers ride on it. It fades to sea level at the coast and the raster
+## edge. Paddy plains are flat.
+var elev_n := 0
+var elev_h := PackedFloat32Array()
+var _no_elev := false            # set while building ground/sea that stay put
+var _anchor := Vector3(INF, 0, 0) # a world-placed building's own centre
+
+func _elev_amp() -> float:
+	if bool(traits.get("paddy", false)):
+		return 0.0
+	if bool(traits.get("hilly", false)):
+		return 18.0
+	return {"metro": 2.0, "city": 4.0, "town": 8.0, "rural": 8.0}.get(tier, 6.0)
+
+
+func _build_elevation() -> void:
+	elev_n = 0
+	elev_h = PackedFloat32Array()
+	_elev_cache_k = Vector2(INF, INF)
+	var amp := _elev_amp()
+	if amp <= 0.0:
+		return
+	var n := int(2.0 * EXT / TG)
+	# distance from the sea (open water stays at sea level)
+	var dist := PackedFloat32Array()
+	dist.resize(n * n)
+	var coastal := not land_rings.is_empty() or sea_dir != Vector3.ZERO
+	for iz in n:
+		for ix in n:
+			var p := Vector3(-EXT + (ix + 0.5) * TG, 0, -EXT + (iz + 0.5) * TG)
+			dist[iz * n + ix] = 0.0 if (coastal and in_sea(p)) else 1e9
+	var d1 := TG
+	var d2 := TG * 1.4142
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			var v := dist[i]
+			if ix > 0: v = minf(v, dist[i - 1] + d1)
+			if iz > 0:
+				v = minf(v, dist[i - n] + d1)
+				if ix > 0: v = minf(v, dist[i - n - 1] + d2)
+				if ix < n - 1: v = minf(v, dist[i - n + 1] + d2)
+			dist[i] = v
+	for iz in range(n - 1, -1, -1):
+		for ix in range(n - 1, -1, -1):
+			var i := iz * n + ix
+			var v := dist[i]
+			if ix < n - 1: v = minf(v, dist[i + 1] + d1)
+			if iz < n - 1:
+				v = minf(v, dist[i + n] + d1)
+				if ix < n - 1: v = minf(v, dist[i + n + 1] + d2)
+				if ix > 0: v = minf(v, dist[i + n - 1] + d2)
+			dist[i] = v
+	var fn := FastNoiseLite.new()
+	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	fn.seed = seat_seed + 101
+	fn.frequency = 1.0 / 2600.0
+	fn.fractal_octaves = 2
+	elev_h.resize(n * n)
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			var x := -EXT + (ix + 0.5) * TG
+			var z := -EXT + (iz + 0.5) * TG
+			var f := clampf((dist[i] - 60.0) / 700.0, 0.0, 1.0)
+			f = f * f * (3.0 - 2.0 * f)
+			var edge := minf(minf(ix, n - 1 - ix), minf(iz, n - 1 - iz))
+			f *= clampf(float(edge) / 10.0, 0.0, 1.0)
+			elev_h[i] = amp * f * (fn.get_noise_2d(x, z) * 0.5 + 0.5)
+	elev_n = n
+
+
+var _elev_cache_k := Vector2(INF, INF)
+var _elev_cache_v := 0.0
+
+## Base ground height at p (metres above sea level in the model).
+func elev_at(p: Vector3) -> float:
+	if elev_n == 0:
+		return 0.0
+	var k := Vector2(p.x, p.z)
+	if k == _elev_cache_k:
+		return _elev_cache_v
+	var fx := (p.x + EXT) / TG - 0.5
+	var fz := (p.z + EXT) / TG - 0.5
+	var ix := clampi(int(floor(fx)), 0, elev_n - 2)
+	var iz := clampi(int(floor(fz)), 0, elev_n - 2)
+	var tx := clampf(fx - ix, 0.0, 1.0)
+	var tz := clampf(fz - iz, 0.0, 1.0)
+	var i := iz * elev_n + ix
+	var h0 := lerpf(elev_h[i], elev_h[i + 1], tx)
+	var h1 := lerpf(elev_h[i + elev_n], elev_h[i + elev_n + 1], tx)
+	_elev_cache_k = k
+	_elev_cache_v = lerpf(h0, h1, tz)
+	return _elev_cache_v
+
+
+## Ground height at p: the base swell plus the open-land relief.
+func ground_at(p: Vector3) -> float:
+	return elev_at(p) + terrain_at(p)
+
+
+## Drape a committed mesh's vertices on the base elevation.
+func _drape(mesh: ArrayMesh) -> ArrayMesh:
+	if elev_n == 0 or mesh == null:
+		return mesh
+	var out := ArrayMesh.new()
+	for si in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(si)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		# the bilinear lookup inlined: a ground mesh has ~1M vertices
+		var n := elev_n
+		var h := elev_h
+		var inv := 1.0 / TG
+		for i in v.size():
+			var q := v[i]
+			var fx := (q.x + EXT) * inv - 0.5
+			var fz := (q.z + EXT) * inv - 0.5
+			var ix := clampi(int(fx), 0, n - 2)
+			var iz := clampi(int(fz), 0, n - 2)
+			var tx := clampf(fx - ix, 0.0, 1.0)
+			var tz := clampf(fz - iz, 0.0, 1.0)
+			var k := iz * n + ix
+			var a := h[k] + (h[k + 1] - h[k]) * tx
+			var b := h[k + n] + (h[k + n + 1] - h[k + n]) * tx
+			q.y += a + (b - a) * tz
+			v[i] = q
+		arr[Mesh.ARRAY_VERTEX] = v
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return out
+
+
 # ── terrain relief ───────────────────────────────────────────────────
 ## Rolling ground on the open land: a height field (32 m grid) that is
 ## exactly flat wherever anything stands (roads, lots, lanes, the river,
@@ -1592,10 +1741,17 @@ func _build_terrain() -> void:
 				any = any or hv > 0.3
 			terrain_h[i] = hv
 	terrain_n = n
-	if not any:
+	if not any and elev_n == 0:
 		return
 	# 4. the mesh: only the quads that rise above the flat ground (they
-	# start just under it, so the seam with the level city is hidden)
+	# start just under it, so the seam with the level city is hidden);
+	# with a base swell this is the ground under the whole seat
+	var tot := PackedFloat32Array()
+	tot.resize(n * n)
+	var any_base := elev_n == n
+	for i in n * n:
+		tot[i] = terrain_h[i] + (elev_h[i] if any_base else 0.0)
+		any = any or tot[i] > 0.3
 	var verts := PackedVector3Array()
 	verts.resize(n * n)
 	var norms := PackedVector3Array()
@@ -1603,11 +1759,11 @@ func _build_terrain() -> void:
 	for iz in n:
 		for ix in n:
 			var i := iz * n + ix
-			verts[i] = Vector3(-EXT + (ix + 0.5) * TG, terrain_h[i] - 0.05, -EXT + (iz + 0.5) * TG)
-			var hl := terrain_h[i - 1] if ix > 0 else terrain_h[i]
-			var hr := terrain_h[i + 1] if ix < n - 1 else terrain_h[i]
-			var hd := terrain_h[i - n] if iz > 0 else terrain_h[i]
-			var hu := terrain_h[i + n] if iz < n - 1 else terrain_h[i]
+			verts[i] = Vector3(-EXT + (ix + 0.5) * TG, tot[i] - 0.05, -EXT + (iz + 0.5) * TG)
+			var hl := tot[i - 1] if ix > 0 else tot[i]
+			var hr := tot[i + 1] if ix < n - 1 else tot[i]
+			var hd := tot[i - n] if iz > 0 else tot[i]
+			var hu := tot[i + n] if iz < n - 1 else tot[i]
 			norms[i] = Vector3(hl - hr, 2.0 * TG, hd - hu).normalized()
 	var idx := PackedInt32Array()
 	for iz in n - 1:
@@ -1616,7 +1772,7 @@ func _build_terrain() -> void:
 			var b := a + 1
 			var c := a + n
 			var d := c + 1
-			if maxf(maxf(terrain_h[a], terrain_h[b]), maxf(terrain_h[c], terrain_h[d])) < 0.06:
+			if maxf(maxf(tot[a], tot[b]), maxf(tot[c], tot[d])) < 0.06:
 				continue
 			idx.append_array(PackedInt32Array([a, c, b, b, c, d]))
 	if idx.is_empty():
@@ -2768,14 +2924,15 @@ func _build_features() -> void:
 	for run in _inside_runs(river_fine):
 		_ribbon(wst, run, RIVER_HALF, 0.03, Color.WHITE)
 	var wmi := MeshInstance3D.new()
-	wmi.mesh = wst.commit()
+	wmi.mesh = _drape(wst.commit())
 	wmi.material_override = mat_water
 	gen.add_child(wmi)
 	for run in _inside_runs(river_fine):
 		_ribbon(ground_st, run, RIVER_HALF + 5.0, 0.02, Color(0.5, 0.46, 0.33))
 	_mark_polyline(river_fine, RIVER_HALF + 6.0)
 
-	# coastal seats: open sea beyond a beach on one side
+	# coastal seats: open sea beyond a beach on one side (sea level)
+	_no_elev = true
 	if not land_rings.is_empty():
 		_build_shore()
 	elif sea_dir != Vector3.ZERO:
@@ -2789,6 +2946,7 @@ func _build_features() -> void:
 			if on_land(tp):
 				tree(tp, true)
 
+	_no_elev = false
 	if not has_highway:
 		highway_pts = PackedVector3Array()
 		return
@@ -2803,6 +2961,10 @@ func _build_features() -> void:
 	var o := 0.0
 	while o < length:
 		var p := highway_curve.sample_baked(o)
+		# lane dashes and lamps only where the carriageway is drawn
+		if not on_land(p):
+			o += 12.0
+			continue
 		var t := (highway_curve.sample_baked(minf(o + 1.0, length)) - p).normalized()
 		var yaw := atan2(-t.z, t.x)
 		var n := Vector3(-t.z, 0, t.x)
@@ -3325,6 +3487,12 @@ func _build_tourism() -> void:
 
 
 func _hotel(c: Vector3) -> void:
+	_anchor = c
+	_hotel_inner(c)
+	_anchor = Vector3(INF, 0, 0)
+
+
+func _hotel_inner(c: Vector3) -> void:
 	var h := (rng.randf_range(26.0, 48.0) if tier in ["metro", "city"] else rng.randf_range(12.0, 22.0)) * lerpf(0.7, 1.0, fill)
 	var facade: Color = [Color(0.95, 0.93, 0.88), Color(0.86, 0.9, 0.95), Color(0.93, 0.86, 0.78)][rng.randi() % 3]
 	flat_block(c, Vector3(20, 6, 16), Color(0.8, 0.78, 0.74))                       # lobby podium
@@ -3343,6 +3511,12 @@ func _hotel(c: Vector3) -> void:
 
 
 func _chalets(c: Vector3) -> void:
+	_anchor = c
+	_chalets_inner(c)
+	_anchor = Vector3(INF, 0, 0)
+
+
+func _chalets_inner(c: Vector3) -> void:
 	var roof: Color = [Color(0.62, 0.32, 0.2), Color(0.3, 0.45, 0.32), Color(0.5, 0.35, 0.22)][rng.randi() % 3]
 	box(c, Vector3(8, 0.15, 5), Color(0.3, 0.65, 0.9))                              # pool
 	for k in 6:
@@ -4064,6 +4238,12 @@ func _cutout_ground(gm: StandardMaterial3D) -> void:
 
 
 func _build_ground() -> void:
+	_no_elev = true
+	_build_ground_inner()
+	_no_elev = false
+
+
+func _build_ground_inner() -> void:
 	var g := PlaneMesh.new()
 	g.size = Vector2(40000, 40000)
 	var gm := StandardMaterial3D.new()

@@ -196,6 +196,7 @@ func _update_site() -> void:
 	_site.visible = on
 	if on:
 		_site.position = Vector3(float(land_pick[0]), 0.3, float(land_pick[1]))
+		_site.position.y += city.elev_at(_site.position)
 
 
 ## Facilities on zones founded on empty land: scaffolding with a crane
@@ -219,6 +220,7 @@ func _update_facilities() -> void:
 			continue
 		var root := Node3D.new()
 		root.position = Vector3(float(zp[0]), 0, float(zp[1]))
+		root.position.y = city.elev_at(root.position)
 		var zid := str(z.get("id", ""))
 		if not _site_roads.has(zid):
 			# route and claim once: a claimed site would block its own lane
@@ -257,7 +259,7 @@ func _access_lane(road: Array) -> void:
 		var y := Vector3(0, float(layer[1]), 0)
 		st.set_color(layer[2])
 		for v in [a - n * w, a + n * w, b + n * w, a - n * w, b + n * w, b - n * w, a - n * w, b + n * w, a + n * w, a - n * w, b - n * w, b + n * w]:
-			st.add_vertex(v + y)
+			st.add_vertex(v + y + Vector3(0, city.elev_at(v), 0))
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	var m := StandardMaterial3D.new()
@@ -364,6 +366,7 @@ func _update_events() -> void:
 			continue
 		var root := Node3D.new()
 		root.position = centres[i]
+		root.position.y = city.elev_at(root.position)
 		_events.add_child(root)
 		var kind := str(ev.get("type", ""))
 		var entry := {"type": kind, "root": root, "parts": []}
@@ -375,7 +378,7 @@ func _update_events() -> void:
 		remove_child(tag)
 		root.add_child(tag)
 		tag.text = "! " + str(ev.get("label", kind.to_upper())) + " !"
-		tag.position = Vector3(0, 46 + (float(city.height_at(root.position, 0)) if city.has_method("height_at") else 0.0), 0)
+		tag.position = Vector3(0, 46 + (maxf(0.0, float(city.height_at(root.position, 0)) - root.position.y) if city.has_method("height_at") else 0.0), 0)
 		tag.outline_size = 14
 		entry["tag"] = tag
 		_ev_nodes.append(entry)
@@ -602,7 +605,7 @@ func _refresh_labels() -> void:
 		# all names only while aiming a project; otherwise just the selected zone
 		l.visible = l.text != "" and i < centres.size() and (placing or is_sel)
 		if i < centres.size():
-			l.position = (centres[i] as Vector3) + Vector3(0, 14.0, 0)
+			l.position = (centres[i] as Vector3) + Vector3(0, 14.0 + city.elev_at(centres[i]), 0)
 		l.modulate = Color(0.98, 0.8, 0.3)
 		l.font_size = 17 if placing else 26
 	for i in range(zones.size(), zone_labels.size()):
@@ -729,7 +732,7 @@ func _focus_selected(move_camera: bool) -> void:
 	if idx < 0:
 		return
 	var c: Vector3 = centres[idx]
-	marker.position = c
+	marker.position = c + Vector3(0, city.elev_at(c), 0)
 	if move_camera:
 		var rig = city.get_node("CameraRig")
 		rig.target = Vector3(c.x, rig.target.y, c.z)
@@ -762,7 +765,12 @@ func _unhandled_input(e: InputEvent) -> void:
 	var dir := cam.project_ray_normal(e.position)
 	if dir.y >= -0.01:
 		return
+	# the ground isn't level any more: refine the hit against its height
 	var hit := o + dir * (-o.y / dir.y)
+	for it in 3:
+		var gy: float = city.elev_at(hit)
+		hit = o + dir * ((gy - o.y) / dir.y)
+	hit.y = 0.0
 	var best := -1
 	var best_d := _spacing()
 	if placing:

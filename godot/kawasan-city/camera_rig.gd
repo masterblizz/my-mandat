@@ -284,7 +284,9 @@ func _report_view(dt: float) -> void:
 
 
 func _apply() -> void:
-	position = _target
+	# look at the ground, wherever its height is
+	var city0 := get_parent()
+	position = _target + Vector3(0, float(city0.elev_at(_target)) if city0.has_method("elev_at") else 0.0, 0)
 	basis = Basis.from_euler(Vector3(deg_to_rad(_pitch), deg_to_rad(_yaw), 0))
 	cam.position = Vector3(0, 0, _dist)
 	cam.rotation = Vector3.ZERO
@@ -296,6 +298,9 @@ func _apply() -> void:
 	if city.has_method("height_at"):
 		var cp := cam.global_position
 		var clear: float = city.height_at(cp) + 8.0
+		# and never under the rolling ground
+		if city.has_method("ground_at"):
+			clear = maxf(clear, float(city.ground_at(cp)) + 12.0)
 		if cp.y < clear:
 			cam.global_position = Vector3(cp.x, clear, cp.z)
 			cam.look_at(_target, Vector3.UP)
