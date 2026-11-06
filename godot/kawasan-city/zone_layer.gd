@@ -119,7 +119,7 @@ func _probe_land() -> void:
 	var tried := 0
 	for i in 400:
 		var p: Vector3 = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * float(city.reach_r)
-		if not city.in_seat(p):
+		if not city.on_land(p):
 			continue
 		tried += 1
 		if city.land_free(p, 30.0, 30.0):
