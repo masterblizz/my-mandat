@@ -44,13 +44,15 @@ export type GodotCityMapProps = {
   onAerial?: (on: boolean) => void;
   /** while placing: empty land the player tapped (world x, z), shown as a site marker */
   landPick?: [number, number] | null;
+  /** disasters by zone id: type and its on-map label */
+  events?: Record<string, { type: string; label: string }>;
   onLandClick?: (x: number, z: number) => void;
   setSelectedZoneId: (id: string) => void;
   lang: Lang;
   height?: CSSProperties["height"];
 };
 
-export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone, onAerial, landPick = null, onLandClick }: GodotCityMapProps) {
+export default function GodotCityMap({ profile, zones, selectedZoneId, setSelectedZoneId, lang, height = "100%", zoneNames, placing = false, intro = null, onIntroDone, onAerial, landPick = null, onLandClick, events }: GodotCityMapProps) {
   // the aerial shot: Godot holds overhead then descends (camera_rig.gd,
   // INTRO_HOLD + INTRO_DESCENT = 5.2 s); the frame gets film letterbox bars
   const [aerial, setAerial] = useState<{ code: string; name: string; place: string } | null>(null);
@@ -72,11 +74,12 @@ export default function GodotCityMap({ profile, zones, selectedZoneId, setSelect
       projects: z.projects.length, building: z.building?.length ?? 0,
       // a zone founded on empty land: its spot, facility and whether it is built
       pos: z.pos, facility: z.facility, done: z.facility ? z.projects.includes(z.facility) : undefined,
+      event: events?.[z.id],
     })),
     selected: selectedZoneId,
     placing,
     landPick,
-  }), [profile, zones, selectedZoneId, zoneNames, placing, landPick]);
+  }), [profile, zones, selectedZoneId, zoneNames, placing, landPick, events]);
 
   const send = useCallback(() => {
     frameRef.current?.contentWindow?.postMessage({ type: "kawasan-state", state }, origin);

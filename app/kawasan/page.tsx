@@ -22,7 +22,7 @@ import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
-import { STAMINA_MAX, termCalendar } from "../data/ybService";
+import { CITY_EVENTS, STAMINA_MAX, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
 import { boundaryAreaKm2, boundaryCityCoast, boundaryCityLand, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
@@ -2869,6 +2869,11 @@ export default function KawasanDevelopmentPage() {
   const workProgress = (remaining: number) => Math.max(0.15, 1 - remaining / 2.5);
   // Same zones plus live construction sites — passed only to the 3D map so
   // the render-only `building` field can never leak into a save.
+  // disasters striking the kawasan right now (flood / fire / drought)
+  const cityEvents = useMemo(() => journey.service.events ?? [], [journey.service.events]);
+  const eventFor = (zoneId?: string) => cityEvents.find((ev) => ev.zone === zoneId);
+  const godotEvents = useMemo(() => Object.fromEntries(cityEvents.map((ev) => [ev.zone, { type: ev.type, label: CITY_EVENTS[ev.type].title[lang].toUpperCase() }])),
+    [cityEvents, lang]);
   const mapZones = useMemo(() => zones.map((zone) => {
     const works = seatWorks.filter((work) => work.zone === zone.id);
     if (!works.length) return zone;
@@ -3168,6 +3173,13 @@ export default function KawasanDevelopmentPage() {
         `Suku tahun selesai · ${finishing.length} projek siap · bajet ${delta >= 0 ? "+" : "−"}RM ${formatNumber(Math.abs(delta))}`,
         `Quarter complete · ${finishing.length} projects delivered · budget ${delta >= 0 ? "+" : "−"}RM ${formatNumber(Math.abs(delta))}`));
     }
+    const freshEvent = (after.journey.service.events ?? []).find((ev) => !(before.journey.service.events ?? []).some((old) => old.id === ev.id));
+    if (freshEvent) {
+      setClockRunning(false);
+      focusZone(freshEvent.zone);
+      setZonePanelOpen(true);
+      setNotice(t(lang, `${CITY_EVENTS[freshEvent.type].title.ms}! Jam dijeda — hantar bantuan bencana.`, `${CITY_EVENTS[freshEvent.type].title.en}! Clock paused — send disaster relief.`));
+    }
     const fresh = after.journey.service.issues.filter((issue) => !before.journey.service.issues.some((old) => old.id === issue.id));
     if (fresh[0] && (!speed || speed === "day" || speed === "week")) {
       setClockRunning(false);
@@ -3295,7 +3307,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} landPick={landTarget} onLandClick={handleLandSelect} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
+                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} events={godotEvents} landPick={landTarget} onLandClick={handleLandSelect} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3343,6 +3355,12 @@ export default function KawasanDevelopmentPage() {
               {selectedZone && !zonePanelOpen && !dockOpen && <button type="button" onClick={() => setZonePanelOpen(true)} className="city-zone-chip city-hud-box absolute left-1/2 top-[88px] z-20 -translate-x-1/2 border px-3 py-2 text-[9px] font-black tracking-widest text-gold shadow-xl" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)} ▾</button>}
               {selectedZone && zonePanelOpen && !dockOpen && <div className={`city-hud-box city-zone-card ${unlocked ? "city-zone-card--raised" : ""} absolute left-1/2 top-[88px] z-20 w-[min(380px,calc(100%-32px))] -translate-x-1/2 border p-3 shadow-2xl`} style={{ borderColor: "rgb(var(--cyan-rgb) / .42)", background: "rgb(var(--bg-rgb) / .9)", backdropFilter: "blur(12px)", fontFamily: "'Space Mono', monospace" }}>
                 <div className="flex items-start gap-2"><span className="text-xl">{cityActivity.icon}</span><div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-widest text-gold">{zoneIcon(selectedZone.kind)} {zoneName(lang, selectedZone)}</div><p className="mt-1 text-[10px] leading-relaxed text-text-muted">{cityActivity.detail}</p></div><button type="button" onClick={() => { setZonePanelOpen(false); setDockMode(null); }} className="shrink-0 px-1 text-sm leading-none text-text-muted hover:text-white" aria-label={t(lang, "Tutup panel zon", "Close zone panel")}>×</button></div>
+                {eventFor(selectedZone.id) && (() => { const ev = eventFor(selectedZone.id)!; const info = CITY_EVENTS[ev.type]; const blocker = ybActivityBlocker(useGameStore.getState(), "relief", selectedZone.id); return (
+                  <div className="city-zone-event mt-2 flex items-center gap-2 rounded-xl border px-2 py-1.5" style={{ borderColor: "rgb(255 90 78 / .6)", background: "rgb(255 90 78 / .14)" }}>
+                    <span className="text-lg">{info.icon}</span>
+                    <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-black text-white">{info.title[lang]} · {t(lang, `${Math.max(0, ev.until - journey.termDay)} hari lagi`, `${Math.max(0, ev.until - journey.termDay)} days left`)}</div><div className="truncate text-[9px] text-text-muted">{info.detail[lang]}</div></div>
+                    <button type="button" onClick={() => runActivity("relief", selectedZone.id)} disabled={!!blocker} title={blocker?.[lang]} className="nhud-btn nhud-btn--gold shrink-0 border px-2 py-1 text-[9px] font-black disabled:opacity-40" style={{ borderColor: "rgb(var(--gold-rgb) / .6)", color: "var(--gold)" }}>🚒 {t(lang, "Bantuan", "Relief")} · RM25k</button>
+                  </div>); })()}
                 <div className="mt-2 flex gap-2"><button type="button" onClick={cityActivity.run} disabled={!cityActivity.enabled} className="nhud-btn nhud-btn--green min-w-0 flex-1 truncate border px-2 py-2 text-[9px] font-black tracking-widest disabled:opacity-40" style={{ borderColor: "rgb(var(--cyan-rgb) / .5)", color: "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>{cityActivity.label} →</button>{unlocked && <button type="button" onClick={() => setDockMode((mode) => mode === "build" ? null : "build")} className="nhud-btn nhud-btn--gold shrink-0 border px-3 py-2 text-[9px] font-black tracking-widest" style={{ borderColor: "rgb(var(--gold-rgb) / .5)", color: "var(--gold)", background: "rgb(var(--gold-rgb) / .08)" }}>🏗 {t(lang, "BINA", "BUILD")}</button>}</div>
               </div>}
               {unlocked && <BuildDock

@@ -37,6 +37,9 @@ var land_pick = null                  # [x, z] of the empty land picked while pl
 var _site: Node3D                     # marker for that spot
 var _facilities: Node3D               # buildings on zones founded on empty land
 var _fac_key := ""
+var _events: Node3D                   # disaster effects (flood / fire / drought)
+var _ev_key := ""
+var _ev_nodes := []                   # [{type, root, parts...}] animated each frame
 var _site_roads := {}                 # zone id -> access road, routed once per city build
 
 
@@ -320,6 +323,208 @@ func _facility_model(r: Node3D, f: String) -> void:
 			_fbox(r, Vector3.ZERO, Vector3(20, 8, 14), white)
 
 
+## Disasters in the 3D city: rising flood water, a fire with smoke, or
+## parched cracked ground with dead crops, centred on the stricken zone,
+## with a pulsing warning label. Rebuilt when the set of events changes.
+func _update_events() -> void:
+	var key := ""
+	for i in mini(zones.size(), centres.size()):
+		var ev = zones[i].get("event", null)
+		if ev is Dictionary:
+			key += "%s:%s:%s;" % [zones[i].get("id"), ev.get("type"), ev.get("label")]
+	if key == _ev_key:
+		return
+	_ev_key = key
+	if _events == null:
+		_events = Node3D.new()
+		add_child(_events)
+	for ch in _events.get_children():
+		ch.free()
+	_ev_nodes = []
+	for i in mini(zones.size(), centres.size()):
+		var ev = zones[i].get("event", null)
+		if not (ev is Dictionary):
+			continue
+		var root := Node3D.new()
+		root.position = centres[i]
+		_events.add_child(root)
+		var kind := str(ev.get("type", ""))
+		var entry := {"type": kind, "root": root, "parts": []}
+		match kind:
+			"flood": _flood(root, entry)
+			"fire": _fire(root, entry)
+			"drought": _drought(root, entry)
+		var tag := _make_label(30, Color(1.0, 0.4, 0.3))
+		remove_child(tag)
+		root.add_child(tag)
+		tag.text = "! " + str(ev.get("label", kind.to_upper())) + " !"
+		tag.position = Vector3(0, 46 + (float(city.height_at(root.position, 0)) if city.has_method("height_at") else 0.0), 0)
+		tag.outline_size = 14
+		entry["tag"] = tag
+		_ev_nodes.append(entry)
+
+
+func _ev_mat(col: Color, emit := 0.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.roughness = 0.9
+	if col.a < 1.0:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if emit > 0.0:
+		m.emission_enabled = true
+		m.emission = Color(col.r, col.g, col.b)
+		m.emission_energy_multiplier = emit
+	return m
+
+
+func _flood(root: Node3D, entry: Dictionary) -> void:
+	var r := clampf(float(city.r_city) * 0.16, 70.0, 170.0)
+	var water := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = 1.2
+	cm.radial_segments = 40
+	water.mesh = cm
+	water.material_override = _ev_mat(Color(0.25, 0.55, 0.85, 0.8), 0.4)
+	water.position = Vector3(0, 2.5, 0)
+	cm.height = 5.0
+	root.add_child(water)
+	entry["water"] = water
+	# floating debris
+	for k in 6:
+		var a := TAU * k / 6.0 + 0.4
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(3, 0.6, 2)
+		mi.mesh = bm
+		mi.material_override = _ev_mat(Color(0.45, 0.33, 0.2))
+		mi.position = Vector3(cos(a) * r * 0.6, 1.6, sin(a) * r * 0.6)
+		root.add_child(mi)
+		entry.parts.append(mi)
+
+
+func _fire(root: Node3D, entry: Dictionary) -> void:
+	# flames on the roof of whatever stands there (or on the ground)
+	var h: float = 0.0
+	if city.has_method("height_at"):
+		h = float(city.height_at(root.position, 0))
+	for k in 5:
+		var a := TAU * k / 5.0
+		var d := 12.0 + 10.0 * float(k % 2)
+		var flame := MeshInstance3D.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 9.0
+		cone.height = 30.0
+		cone.radial_segments = 8
+		flame.mesh = cone
+		flame.material_override = _ev_mat(Color(1.0, 0.45 if k % 2 == 0 else 0.7, 0.1, 0.9), 3.0)
+		flame.position = Vector3(cos(a) * d, h + 15.0, sin(a) * d)
+		root.add_child(flame)
+		entry.parts.append(flame)
+	var smoke := CPUParticles3D.new()
+	smoke.amount = 70
+	smoke.lifetime = 6.0
+	smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	smoke.emission_sphere_radius = 10.0
+	smoke.direction = Vector3(0.2, 1, 0)
+	smoke.spread = 12.0
+	smoke.gravity = Vector3(1.5, 3.0, 0)
+	smoke.initial_velocity_min = 6.0
+	smoke.initial_velocity_max = 10.0
+	smoke.scale_amount_min = 8.0
+	smoke.scale_amount_max = 18.0
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 8
+	sm.rings = 4
+	smoke.mesh = sm
+	smoke.material_override = _ev_mat(Color(0.25, 0.25, 0.27, 0.55))
+	smoke.position = Vector3(0, h + 30.0, 0)
+	root.add_child(smoke)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.5, 0.15)
+	glow.light_energy = 4.0
+	glow.omni_range = 120.0
+	glow.position = Vector3(0, h + 12.0, 0)
+	root.add_child(glow)
+	entry["glow"] = glow
+
+
+func _drought(root: Node3D, entry: Dictionary) -> void:
+	var r := clampf(float(city.r_city) * 0.18, 80.0, 190.0)
+	var ground := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = 0.3
+	cm.radial_segments = 40
+	ground.mesh = cm
+	ground.material_override = _ev_mat(Color(0.72, 0.55, 0.3, 0.92))
+	ground.position = Vector3(0, 0.25, 0)
+	root.add_child(ground)
+	# cracks
+	for k in 10:
+		var a := TAU * k / 10.0 + randf() * 0.3
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(r * 0.7, 0.1, 0.8)
+		mi.mesh = bm
+		mi.material_override = _ev_mat(Color(0.35, 0.25, 0.15))
+		mi.position = Vector3(cos(a) * r * 0.35, 0.45, sin(a) * r * 0.35)
+		mi.rotation.y = -a
+		root.add_child(mi)
+	# dead crops / bare trees
+	for k in 14:
+		var a := randf() * TAU
+		var d := sqrt(randf()) * r * 0.85
+		var trunk := MeshInstance3D.new()
+		var tm := CylinderMesh.new()
+		tm.top_radius = 0.15
+		tm.bottom_radius = 0.35
+		tm.height = 5.0
+		trunk.mesh = tm
+		trunk.material_override = _ev_mat(Color(0.42, 0.32, 0.22))
+		trunk.position = Vector3(cos(a) * d, 2.5, sin(a) * d)
+		trunk.rotation.z = randf_range(-0.3, 0.3)
+		root.add_child(trunk)
+		var bush := MeshInstance3D.new()
+		var bs := SphereMesh.new()
+		bs.radius = 1.6
+		bs.height = 2.2
+		bush.mesh = bs
+		bush.material_override = _ev_mat(Color(0.62, 0.55, 0.3))
+		bush.position = trunk.position + Vector3(0, 2.6, 0)
+		root.add_child(bush)
+	entry["sun"] = ground
+
+
+func _process_events(dt: float) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for e in _ev_nodes:
+		var tag: Label3D = e.get("tag")
+		if tag:
+			var k := 0.5 + 0.5 * sin(t * 6.0)
+			tag.modulate = Color(1.0, 0.85, 0.25).lerp(Color(1.0, 0.25, 0.2), k)
+		match str(e.type):
+			"flood":
+				var w: Node3D = e.water
+				w.position.y = 2.5 + sin(t * 0.8) * 0.8
+				for p in e.parts:
+					(p as Node3D).position.y = 5.3 + sin(t * 1.3 + (p as Node3D).position.x) * 0.4
+					(p as Node3D).rotation.y += dt * 0.2
+			"fire":
+				var i := 0
+				for p in e.parts:
+					var f := 1.0 + 0.25 * sin(t * 9.0 + i * 1.7)
+					(p as Node3D).scale = Vector3(1.0, f, 1.0)
+					i += 1
+				var g: OmniLight3D = e.glow
+				g.light_energy = 3.0 + 1.5 * sin(t * 11.0)
+
+
 ## The aerial intro shot has finished.
 func post_intro_done() -> void:
 	if _embedded:
@@ -347,6 +552,7 @@ func apply_state(d: Dictionary) -> void:
 	land_pick = d.get("landPick", null)
 	_update_site()
 	_update_facilities()
+	_update_events()
 	_refresh_labels()
 	_focus_selected(moved)
 
@@ -432,6 +638,7 @@ func _lot_fits(lot: Dictionary, want: String) -> bool:
 ## city depends on the seat.
 func relayout() -> void:
 	_fac_key = ""   # a rebuilt city needs its founded sites claimed again
+	_ev_key = ""
 	_site_roads = {}
 	centres = []
 	zone_lots = []
@@ -476,6 +683,7 @@ func relayout() -> void:
 			zone_lots.append({})
 	_refresh_labels()
 	_focus_selected(false)
+	_update_events()
 
 
 func _spacing() -> float:
@@ -499,6 +707,7 @@ func _focus_selected(move_camera: bool) -> void:
 
 
 func _process(dt: float) -> void:
+	_process_events(dt)
 	if marker == null or not marker.visible:
 		return
 	_t += dt

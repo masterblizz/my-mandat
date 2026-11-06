@@ -4,7 +4,6 @@ import { ReactNode, useEffect, useState } from "react";
 import Image from "next/image";
 import { useLang, t } from "../../i18n/useLang";
 import { useUIStore, type Lang } from "../../store/uiStore";
-import AuthBackground from "./AuthBackground";
 import { BG, PANEL, BORDER, INPUT_BG, TEXT, TEXT_DIM, TEXT_FAINT, CYAN, GOLD, RED, GREEN, ERROR_TEXT } from "./theme";
 import { plexMono, inter } from "./fonts";
 
@@ -139,10 +138,13 @@ export default function TacticalAuthShell({ eyebrow, heading, children, cardWidt
 
   return (
     <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden"
+      className="navy-ui navy-auth relative flex min-h-screen items-center justify-center overflow-hidden"
       style={{ background: BG, fontFamily: inter.style.fontFamily }}
     >
-      <AuthBackground />
+      {/* the 3D city behind the sign-in card, as in the game */}
+      <div aria-hidden className="navy-ui__backdrop pointer-events-none absolute inset-0">
+        <Image src="/elected-city-bg.webp" alt="" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 60%" }} />
+      </div>
 
       <NewsTicker lang={lang} />
 

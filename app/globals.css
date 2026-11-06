@@ -2331,3 +2331,55 @@ body:has(.navy-room) .app-statusbar { background: rgb(10 20 40) !important; bord
 .kw-map-frame :is(.city-hud-box, .nhud-rail, .nhud-top, .nhud-seat, .nhud-minimap, .city-hub-bar, .city-build-dock, .city-next-goal) { transition: opacity .8s ease; }
 @media (orientation: landscape) and (max-height: 500px) { .city-aerial-film__title { font-size: 20px; } .city-aerial-film__title small { font-size: 10px; } }
 @media (prefers-reduced-motion: reduce) { .city-aerial-film__bar, .city-aerial-film__title { animation-duration: .01s; } }
+
+/* ── Navy UI: main menu + sign-in in the 3D city look ─────────────────
+   The city behind (same render as the elected screen) under a navy
+   wash, glass panels, bold Inter, glossy pills: gold for the main
+   action, navy for the rest, red for exit. */
+.navy-ui { --nh-panel: rgb(14 26 48 / .82); --nh-edge: rgb(140 190 255 / .3); background: #0a1428 !important; }
+.navy-ui, .navy-ui :is(button, a, span, div, h1, h2, label, input, p) { font-family: 'Inter', system-ui, sans-serif !important; }
+.navy-ui__backdrop { z-index: 0; }
+.navy-ui__backdrop::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgb(8 18 36 / .86) 0%, rgb(8 18 36 / .55) 38%, rgb(8 18 36 / .18) 70%, rgb(8 18 36 / .35) 100%), linear-gradient(180deg, rgb(8 18 36 / .5), transparent 30%, transparent 70%, rgb(8 18 36 / .6)); }
+.navy-auth .navy-ui__backdrop::after { background: radial-gradient(ellipse at 50% 50%, rgb(8 18 36 / .45), rgb(8 18 36 / .8) 75%); }
+/* menu: no tactical map, particles or radar over the city */
+.navy-ui .main-menu-map, .navy-ui .mm-particles, .navy-ui .mm-radar { display: none !important; }
+.navy-ui .main-menu-layout > div[class*="z-[1]"] { display: none !important; }
+.navy-ui .main-menu-sidebar { background: linear-gradient(90deg, rgb(10 20 40 / .9), rgb(10 20 40 / .72)) !important; border-right: 1px solid var(--nh-edge) !important; backdrop-filter: blur(10px); }
+.navy-ui [class*="tracking-"] { letter-spacing: .04em !important; }
+/* menu buttons */
+.navy-ui .main-menu-sidebar nav button {
+  border-radius: 14px !important; border: 1.5px solid rgb(255 255 255 / .18) !important;
+  background: linear-gradient(180deg, rgb(40 72 124 / .92), rgb(20 40 76 / .92)) !important; color: #fff !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .22), inset 0 -3px 0 rgb(0 0 0 / .25), 0 4px 12px rgb(0 0 0 / .35) !important;
+  font-weight: 900 !important; text-transform: none; transition: transform .12s ease, filter .12s ease;
+}
+.navy-ui .main-menu-sidebar nav button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+.navy-ui .main-menu-sidebar nav button[data-group] { background: rgb(255 255 255 / .06) !important; box-shadow: none !important; border-color: rgb(255 255 255 / .12) !important; }
+.navy-ui .main-menu-sidebar nav button:disabled { opacity: .5; filter: grayscale(.4); }
+.navy-ui .main-menu-sidebar nav button[aria-expanded], .navy-ui .main-menu-sidebar nav button:first-child {
+  background: linear-gradient(180deg, #ffe066, #f5a90f) !important; color: #2a1a00 !important; border-color: rgb(255 255 255 / .55) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #a86c00, 0 8px 18px rgb(0 0 0 / .35) !important;
+}
+.navy-ui .main-menu-sidebar nav button[aria-expanded] *, .navy-ui .main-menu-sidebar nav button:first-child * { color: #2a1a00 !important; }
+.navy-ui .main-menu-sidebar nav button:last-child { background: linear-gradient(180deg, rgb(140 40 48 / .9), rgb(90 20 28 / .9)) !important; color: #fff !important; }
+.navy-ui .main-menu-sidebar nav button:last-child * { color: #fff !important; }
+/* the player card under the menu */
+.navy-ui .main-menu-sidebar > :last-child :is(a, button) { border-radius: 16px !important; background: var(--nh-panel) !important; border: 1px solid var(--nh-edge) !important; }
+/* sign-in */
+.navy-auth .auth-card { border-radius: 20px !important; background: rgb(14 26 48 / .86) !important; border: 1px solid var(--nh-edge) !important; backdrop-filter: blur(14px); box-shadow: 0 18px 50px rgb(0 0 0 / .5) !important; }
+.navy-auth .auth-card > span.pointer-events-none { display: none !important; }
+.navy-auth .auth-card input { border-radius: 12px !important; background: rgb(255 255 255 / .06) !important; border: 1px solid rgb(140 190 255 / .3) !important; color: #fff !important; }
+.navy-auth .auth-card button, .navy-auth .auth-card a[role="button"] { border-radius: 999px !important; font-weight: 900 !important; letter-spacing: .03em !important; }
+.navy-auth .auth-card button[type="submit"] {
+  background: linear-gradient(180deg, #ffe066, #f5a90f) !important; color: #2a1a00 !important; border: 2px solid rgb(255 255 255 / .5) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .5), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #a86c00, 0 8px 18px rgb(0 0 0 / .35) !important;
+}
+.navy-auth .auth-card button:not([type="submit"]) { background: linear-gradient(180deg, rgb(40 72 124 / .92), rgb(20 40 76 / .92)) !important; color: #fff !important; border: 1.5px solid rgb(255 255 255 / .22) !important; }
+.navy-auth .auth-card button:not([type="submit"]) * { color: #fff !important; }
+.navy-auth .auth-card a[href="/kawasan-3d"] {
+  border-radius: 999px !important; border: 2px solid rgb(255 255 255 / .5) !important; font-weight: 900 !important; letter-spacing: .03em !important;
+  color: #0d2a1c !important; background: linear-gradient(180deg, #f3fbef, #cfe9cf) !important;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / .55), inset 0 -3px 0 rgb(0 0 0 / .15), 0 3px 0 #6f9a78, 0 6px 14px rgb(0 0 0 / .3) !important;
+}
+.navy-auth .auth-card a[href="/kawasan-3d"] * { color: #0d2a1c !important; }

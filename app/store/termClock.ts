@@ -3,6 +3,7 @@ import type { CityZone } from "./journey";
 import { journal, reduceJourney, shiftSupport } from "./journey";
 import { repSide, seatStateId } from "./representative";
 import {
+  CITY_EVENTS, CITY_EVENT_PER_MILLE, CITY_EVENT_TYPES, MAX_CITY_EVENTS, type CityEvent,
   ISSUE_LIFETIME_DAYS, ISSUE_SPAWN_PER_MILLE, MAX_OPEN_ISSUES, PRESENCE_DECAY_PER_DAY, QUARTER_DAYS,
   STAMINA_MAX, STAMINA_REGEN_PER_DAY, TERM_DAYS, TERM_QUARTERS, WEEK_SLOTS, YB_ISSUES, YB_ISSUE_TYPES,
   ZONE_STAT_LABEL, dewanSitting, getYbActivity, type YbActivityId, type YbIssue, type ZoneStatKey,
@@ -109,6 +110,36 @@ export function advanceTerm(s: GameState, days: number): Partial<GameState> {
         `Aduan baharu: ${YB_ISSUES[type].title.ms}. Selesaikan dalam ${ISSUE_LIFETIME_DAYS} hari.`,
         `New complaint: ${YB_ISSUES[type].title.en}. Resolve it within ${ISSUE_LIFETIME_DAYS} days.`);
     }
+    // Disasters: active ones wear their zone down, expired ones leave a
+    // scar, and now and then a new one strikes a zone that fits it.
+    let events: CityEvent[] = [...(j.service.events ?? [])];
+    for (const ev of events) {
+      const info = CITY_EVENTS[ev.type];
+      if ((day - ev.day) % info.every === 0) cityZones = withZone({ ...state, journey: { ...j, cityZones } }, ev.zone, info.stat, -info.drain);
+    }
+    for (const ev of events.filter((item) => item.until <= day)) {
+      const info = CITY_EVENTS[ev.type];
+      cityZones = withZone({ ...state, journey: { ...j, cityZones } }, ev.zone, info.stat, -info.scar);
+      trust = clamp(trust - 2);
+      entries = journal({ ...j, journal: entries },
+        `${info.title.ms} reda tanpa bantuan. Kesan kekal (${ZONE_STAT_LABEL[info.stat].ms} −${info.scar}, kepercayaan −2).`,
+        `${info.title.en} passed with no relief. Lasting damage (${ZONE_STAT_LABEL[info.stat].en} −${info.scar}, trust −2).`);
+    }
+    events = events.filter((item) => item.until > day);
+    const evRoll = hash(`${seat}:${state.careerProgress.term}:${day}:event`);
+    const seatZoneList = cityZones[seat] ?? [];
+    if (seatZoneList.length && events.length < MAX_CITY_EVENTS && evRoll % 1000 < CITY_EVENT_PER_MILLE) {
+      const type = CITY_EVENT_TYPES[(evRoll >>> 10) % CITY_EVENT_TYPES.length];
+      const info = CITY_EVENTS[type];
+      const fit = seatZoneList.filter((zone) => info.kinds.includes(zone.kind) && !events.some((item) => item.zone === zone.id));
+      const pool = fit.length ? fit : seatZoneList;
+      const zone = pool[(evRoll >>> 16) % pool.length];
+      events.push({ id: `${state.careerProgress.term}-${day}-${type}`, type, zone: zone.id, day, until: day + info.lasts });
+      entries = journal({ ...j, journal: entries },
+        `${info.title.ms}! ${info.detail.ms} Gerakkan bantuan bencana.`,
+        `${info.title.en}! ${info.detail.en} Send disaster relief.`);
+    }
+    service.events = events;
     state = { ...state, journey: { ...j, termDay: day, service, cityZones, trust, journal: entries } };
     if (day % QUARTER_DAYS === 0) state = { ...state, ...reduceJourney(state, { type: "quarter" }) };
     if (state.careerProgress.month >= 60) break;
@@ -127,6 +158,7 @@ export function ybActivityBlocker(s: GameState, id: YbActivityId, zoneId?: strin
   if (s.resources.funds < activity.cost) return { ms: "Dana pejabat tidak mencukupi.", en: "Not enough office funds." };
   if (activity.sittingOnly && !dewanSitting(alignedTermDay(s))) return { ms: "Dewan tidak bersidang sekarang.", en: "The Dewan is not sitting now." };
   if (activity.zone && !seatZones(s).some((zone) => zone.id === zoneId)) return { ms: "Pilih zon dalam bandar dahulu.", en: "Select a zone in the city first." };
+  if (id === "relief" && !(service.events ?? []).some((ev) => ev.zone === zoneId)) return { ms: "Tiada bencana di zon ini.", en: "No disaster in this zone." };
   return null;
 }
 
@@ -201,6 +233,18 @@ export function performYbActivity(s: GameState, id: YbActivityId, zoneId?: strin
       funds += 30_000;
       organisation = clamp(organisation + 1);
       break;
+    case "relief": {
+      const ev = (service.events ?? []).find((item) => item.zone === zoneId);
+      if (ev) {
+        const info = CITY_EVENTS[ev.type];
+        service.events = (service.events ?? []).filter((item) => item.id !== ev.id);
+        cityZones = withZone({ ...s, journey: { ...j, cityZones } }, ev.zone, info.stat, 4);
+        trust = clamp(trust + 2);
+        service.presence = round1(clamp(service.presence + 6));
+        resolvedNote = { ms: ` ${info.title.ms} dikawal (${ZONE_STAT_LABEL[info.stat].ms} +4, kepercayaan +2).`, en: ` ${info.title.en} brought under control (${ZONE_STAT_LABEL[info.stat].en} +4, trust +2).` };
+      }
+      break;
+    }
     case "rest":
       service.stamina = clamp(service.stamina + 45, 0, STAMINA_MAX);
       break;
