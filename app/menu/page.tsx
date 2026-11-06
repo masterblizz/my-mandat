@@ -2,7 +2,6 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import MalaysiaMap from "../components/map/MalaysiaMap";
 import CreditsModal from "../components/menu/CreditsModal";
@@ -13,11 +12,8 @@ import { hubRoute, newJourney, normalizeJourney } from "../store/journey";
 import { useGameStore } from "../store/gameStore";
 import { getActiveSaveSlotId, getSavedGames, setActiveSaveSlot, type SavedGameSlot } from "../store/saveGame";
 import { useLang, t, type Lang } from "../i18n/useLang";
-import { inTerm, termQuarter } from "../store/termClock";
-import { TERM_QUARTERS } from "../data/ybService";
 import { isRulerState } from "../utils/governmentTerms";
 import { createClient } from "../utils/supabase/client";
-import { playerPortraitSrc } from "../lib/playerAvatar";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { savePrnLocked } from "../config/freeTier";
 
@@ -105,7 +101,6 @@ export default function MainMenuPage() {
   const [selected, setSelected] = useState(0);
   const [soloOpen, setSoloOpen] = useState(false);
   const [clock, setClock] = useState("--:--:--");
-  const [mounted, setMounted] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [continueSlot, setContinueSlot] = useState<SavedGameSlot | null>(null);
   // Save slots live in localStorage, so this can only be known post-mount
@@ -114,22 +109,10 @@ export default function MainMenuPage() {
   // effect below checks for real.
   const [hasSave, setHasSave] = useState(false);
 
-  const {
-    leader, day, totalDays, states: liveStates, getTotalProjectedSeats, getNationalSupport, settings,
-    resetGame, journey, careerProgress,
-  } = useGameStore();
+  const { states: liveStates, settings, resetGame } = useGameStore();
   const isPrn = settings.electionScope === "prn";
   // Live campaign state (restored from the active save), not the static starting data.
   const prnState = isPrn ? liveStates.find((state) => state.id === settings.prnStateId) ?? liveStates[0] : null;
-  const seatTotal = isPrn ? (prnState?.dunSeats ?? 0) : 222;
-  const projectedSeats = isPrn ? (prnState?.projectedSeats ?? 0) : getTotalProjectedSeats();
-  const nationalSupport = isPrn && prnState
-    ? { mandat: Math.round(prnState.mandatSupport), lawan: Math.round(prnState.lawanSupport), others: Math.round(prnState.othersSupport) }
-    : getNationalSupport();
-  const daysLeft = Math.max(0, totalDays - day + 1);
-  // In the term the campaign day is frozen at its last value; the term
-  // quarter is the clock that moves.
-  const termStat = inTerm(journey) ? { value: `${termQuarter({ journey, careerProgress })}/${TERM_QUARTERS}`, label: t(lang, "SUKU PENGGAL", "TERM QUARTER") } : null;
 
   // With a save, CONTINUE leads the solo list; without one, START NEW does and the disabled CONTINUE drops below it.
   const menuItems: MenuItem[] = useMemo(() => MENU_ITEMS_CONFIG
@@ -223,7 +206,6 @@ export default function MainMenuPage() {
   }, [router, resetGame]);
 
   useEffect(() => {
-    setMounted(true);
     setHasSave(getSavedGames().length > 0);
     const update = () => setClock(new Date().toLocaleTimeString("en-GB", { hour12: false }));
     update();
@@ -374,36 +356,6 @@ export default function MainMenuPage() {
             })}
           </nav>
 
-          {/* Player card, and — only when there is a run to continue — its
-              three headline numbers. No timelines or tables on the title screen. */}
-          <Link
-            href="/profile"
-            className="mt-4 flex items-center gap-3 rounded-md border px-3 py-2.5 transition hover:border-cyan/70"
-            style={{ borderColor: "rgb(var(--cyan-rgb) / 0.2)", background: "linear-gradient(135deg, rgb(var(--cyan-rgb) / 0.06), rgb(var(--bg-rgb) / 0.62))" }}
-          >
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border-2" style={{ borderColor: leader.partyColor || "var(--cyan)", background: "rgb(var(--cyan-rgb) / .08)" }}>
-              <Image src={playerPortraitSrc(leader.avatarIndex)} alt={leader.name} fill sizes="44px" style={{ objectFit: "cover", objectPosition: "center 18%" }} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-black tracking-[.08em] text-white">{leader.name}</div>
-            </div>
-            <span className="text-[14px]" style={{ color: "var(--cyan)" }}>›</span>
-          </Link>
-
-          {mounted && hasSave && (
-            <div className="main-menu-stats mt-2 grid grid-cols-3 gap-2">
-              {[
-                { icon: "🪑", value: `${projectedSeats}/${seatTotal}`, label: t(lang, "menu_page.seats"), color: "var(--cyan)" },
-                { icon: "📈", value: `${nationalSupport.mandat}%`, label: t(lang, "menu_page.support"), color: "var(--text-primary)" },
-                { icon: "📅", value: termStat?.value ?? `${daysLeft}`, label: termStat?.label ?? t(lang, "menu_page.daysLeft"), color: "var(--gold)" },
-              ].map((stat) => (
-                <div key={stat.label} className="rounded-md border px-2 py-1.5 text-center" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.14)", background: "rgb(var(--bg-rgb) / 0.6)" }}>
-                  <div className="text-[15px] font-black" style={{ color: stat.color }}><span className="mr-1 text-[12px]">{stat.icon}</span>{stat.value}</div>
-                  <div className="truncate text-[8px] tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </aside>
         <div className="main-menu-intel pointer-events-none relative z-10 min-w-0 overflow-hidden">
           <CornerFrame />
