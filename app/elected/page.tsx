@@ -14,10 +14,6 @@ import Fold from "../components/results/Fold";
 import { playerPortraitSrc } from "../lib/playerAvatar";
 
 
-function winnerColor(winner: "mandat" | "lawan" | "others", partyColor: string) {
-  return winner === "mandat" ? partyColor : winner === "lawan" ? "var(--warn-orange)" : "var(--text-muted)";
-}
-
 export default function ElectedPage() {
   const lang = useLang();
   const { isPending, navigate } = usePendingNav();
@@ -189,9 +185,9 @@ export default function ElectedPage() {
           )}
         </div>
 
-        {/* Optional detail: full count and the state seat map */}
+        {/* Optional detail: the full count in the player's seat */}
         <Fold className="mt-5 rounded-2xl border" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.3)", background: "rgb(var(--bg-rgb) / 0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }} summaryClassName="px-3 py-2.5 text-text-muted" summary={<>ⓘ {t(lang, "BUTIRAN UNDI", "VOTE DETAILS")}</>}>
-          <div className="grid gap-4 px-3 pb-3 md:grid-cols-2">
+          <div className="px-3 pb-3">
             <div className="space-y-2.5">
               {[
                 { label: partyDisplay, votes: ownSeat.mandatVotes, pct: ownSeat.constituency.mandat, color: leader.partyColor },
@@ -212,36 +208,6 @@ export default function ElectedPage() {
                 <span>👥 {formatNumber(ownSeat.votesCast)} / {formatNumber(ownSeat.registeredVoters)}</span>
                 <span>📊 {formatPercent(ownSeat.majorityPct)} {t(lang, "mata", "pts")}</span>
                 <span>🛡 {ownSeat.constituency.safety.toUpperCase()}</span>
-              </div>
-            </div>
-            <div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(22px,1fr))] gap-1">
-                {stateSeatDetails.map((seat) => {
-                  const isOwn = seat.constituency.id === leader.homeConstituencyId;
-                  const color = winnerColor(seat.constituency.winner, leader.partyColor);
-                  return (
-                    <div
-                      key={seat.constituency.id}
-                      title={`${seat.constituency.name} — ${seat.result}`}
-                      className="relative flex aspect-square items-center justify-center"
-                      style={{
-                        // color-mix keeps this valid for CSS-variable party colours too
-                        // (`var(--cyan)22` is not a colour).
-                        background: `color-mix(in srgb, ${color} 14%, transparent)`,
-                        border: isOwn ? "2px solid var(--gold)" : `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
-                        boxShadow: isOwn ? "0 0 10px rgb(var(--gold-rgb) / 0.5)" : "none",
-                      }}
-                    >
-                      {isOwn && <span className="text-[10px]" style={{ color: "var(--gold)" }}>★</span>}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-text-muted">
-                <span><span style={{ color: leader.partyColor }}>■</span> {partyDisplay}</span>
-                <span><span style={{ color: "var(--warn-orange)" }}>■</span> {t(lang, "elected_page.opposition")}</span>
-                <span><span style={{ color: "var(--text-muted)" }}>■</span> {t(lang, "elected_page.others")}</span>
-                <span><span style={{ color: "var(--gold)" }}>★</span> {t(lang, "elected_page.yourSeat")}</span>
               </div>
             </div>
           </div>
