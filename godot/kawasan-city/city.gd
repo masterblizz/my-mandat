@@ -98,7 +98,7 @@ var mat_roof: StandardMaterial3D
 var mat_glass: StandardMaterial3D
 var mat_lowrise: StandardMaterial3D
 var mat_landmark: StandardMaterial3D
-var mat_water: StandardMaterial3D
+var mat_water: Material
 var mat_ground: StandardMaterial3D
 var mat_lawn: StandardMaterial3D
 var mat_tree: StandardMaterial3D
@@ -377,6 +377,10 @@ func _build() -> void:
 	homes_built = 0.0
 	_build_tourism()
 	await _breathe(0.3)
+	# hills first in a hilly seat: the interior is forest, the houses
+	# spread round its foot
+	if bool(traits.get("hilly", false)):
+		_forest_hills()
 	_plan_lanes()
 	await _breathe(0.35)
 	_frontage()
@@ -787,11 +791,66 @@ func _make_materials() -> void:
 	tree_broadleaf_mesh = _glb_mesh("res://assets/tree_far_broadleaf.glb")
 	tree_palm_mesh = _glb_mesh("res://assets/tree_far_palm.glb")
 
-	mat_water = StandardMaterial3D.new()
-	mat_water.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat_water.albedo_color = Color(0.2, 0.62, 0.72)   # soft turquoise
-	mat_water.metallic = 0.3
-	mat_water.roughness = 0.05
+	mat_water = _water_material()
+
+
+## Water for rivers, lakes and the sea: two scrolling normal maps for
+## small moving ripples, a slow large-scale tint so open water isn't one
+## flat colour, and a sky-tinted sheen at grazing angles. Works in the
+## web build's compatibility renderer (no depth or screen reads).
+const WATER_SHADER := """
+shader_type spatial;
+render_mode cull_disabled, specular_schlick_ggx;
+uniform vec3 deep : source_color = vec3(0.09, 0.42, 0.56);
+uniform vec3 shallow : source_color = vec3(0.24, 0.66, 0.72);
+uniform vec3 sheen : source_color = vec3(0.78, 0.9, 0.96);
+uniform sampler2D waves : hint_normal;
+uniform sampler2D tint;
+varying vec3 wpos;
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	vec2 p = wpos.xz;
+	vec3 n1 = texture(waves, p * 0.011 + TIME * vec2(0.006, 0.004)).rgb;
+	vec3 n2 = texture(waves, p * 0.019 - TIME * vec2(0.005, 0.007)).rgb;
+	NORMAL_MAP = normalize(n1 + n2 - 1.0) * 0.5 + 0.5;
+	NORMAL_MAP_DEPTH = 0.55;
+	float m = texture(tint, p * 0.0011).r;
+	vec3 col = mix(deep, shallow, smoothstep(0.25, 0.8, m));
+	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	ALBEDO = mix(col, sheen, f * 0.4);
+	ROUGHNESS = 0.07;
+	METALLIC = 0.12;
+	SPECULAR = 0.65;
+}
+"""
+
+func _water_material() -> Material:
+	var sh := Shader.new()
+	sh.code = WATER_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	var wn := NoiseTexture2D.new()
+	wn.width = 256
+	wn.height = 256
+	wn.seamless = true
+	wn.as_normal_map = true
+	wn.bump_strength = 6.0
+	var f1 := FastNoiseLite.new()
+	f1.frequency = 0.03
+	f1.fractal_octaves = 3
+	wn.noise = f1
+	var tn := NoiseTexture2D.new()
+	tn.width = 128
+	tn.height = 128
+	tn.seamless = true
+	var f2 := FastNoiseLite.new()
+	f2.frequency = 0.02
+	tn.noise = f2
+	m.set_shader_parameter("waves", wn)
+	m.set_shader_parameter("tint", tn)
+	return m
 
 
 # ── geometry helpers ─────────────────────────────────────────────────
@@ -1445,7 +1504,9 @@ func _set_zoning() -> void:
 	if landmarks:
 		ind = "none"   # downtown KL: no factory sector
 	zoning.industry = ind
-	zoning.plantation = bool(zoning.plantation) and bool(traits.get("plantation", false)) and not bool(traits.get("paddy", false))
+	# oil palm is lowland: paddy seats keep their sawah, highland seats
+	# (Cameron, Kundasang) aren't palm country
+	zoning.plantation = bool(zoning.plantation) and bool(traits.get("plantation", false)) and not bool(traits.get("paddy", false)) and not bool(traits.get("hilly", false))
 	industrial_bearing = INF
 	if ind == "none":
 		return
@@ -2166,6 +2227,9 @@ func _build_shore() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
+	var shallows := SurfaceTool.new()
+	shallows.begin(Mesh.PRIMITIVE_TRIANGLES)
+	shallows.set_normal(Vector3.UP)
 	st.set_color(Color(0.86, 0.8, 0.62))
 	const IN := 26.0
 	const OUT := 3.0
@@ -2208,6 +2272,16 @@ func _build_shore() -> void:
 			var D := Vector3(a.x - na.x * IN * ka, y, a.y - na.y * IN * ka)
 			for v in [A, B, C, A, C, D, A, C, B, A, D, C]:
 				st.add_vertex(v)
+			# shallows: turquoise fading out to open water over ~60 m
+			var A2 := Vector3(a.x + na.x * (OUT + 60.0) * ka, -0.3, a.y + na.y * (OUT + 60.0) * ka)
+			var B2 := Vector3(b.x + nb.x * (OUT + 60.0) * kb, -0.3, b.y + nb.y * (OUT + 60.0) * kb)
+			var A1 := Vector3(A.x, -0.3, A.z)
+			var B1 := Vector3(B.x, -0.3, B.z)
+			var cin := Color(0.42, 0.82, 0.8, 0.85)
+			var cout := Color(0.3, 0.72, 0.78, 0.0)
+			for pr in [[A1, cin], [B1, cin], [B2, cout], [A1, cin], [B2, cout], [A2, cout]]:
+				shallows.set_color(pr[1])
+				shallows.add_vertex(pr[0])
 			if rng.randf() < 0.08:
 				var m := (a + b) * 0.5 - nrm[k] * 30.0
 				var tp := Vector3(m.x, 0, m.y)
@@ -2217,6 +2291,13 @@ func _build_shore() -> void:
 	sand.vertex_color_use_as_albedo = true
 	sand.roughness = 1.0
 	_single(st.commit(), sand, Transform3D.IDENTITY)
+	var shm := StandardMaterial3D.new()
+	shm.vertex_color_use_as_albedo = true
+	shm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	shm.roughness = 0.15
+	shm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_single(shallows.commit(), shm, Transform3D.IDENTITY)
 
 
 func in_sea(p: Vector3) -> bool:
@@ -2404,7 +2485,7 @@ func city_summary() -> Dictionary:
 		var dk := str(lot.get("district", ""))
 		by_district[dk] = int(by_district.get(dk, 0)) + 1
 		homes += int(lot.get("homes", 0))
-	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size()}
+	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size(), "hills": hills_built}
 
 ## The planning district a point falls in: the band out from the centre
 ## (core, commercial, taman, outskirts) and, for the outer bands, which
@@ -3186,6 +3267,7 @@ func _build_spec(spec: Dictionary, r: float) -> void:
 ## Trees in whatever ground is still free: back gardens, verges, the
 ## leftover corners between curved streets, then the forest outside.
 func _fill_trees() -> void:
+	_street_trees()
 	if bool(traits.get("paddy", false)):
 		_paddy_fields()
 	if bool(zoning.get("plantation", false)):
@@ -3241,6 +3323,126 @@ func _fill_trees() -> void:
 		var mp := _polar_raw(2600.0, feature_turn + PI * 0.5)
 		ball(mp, Vector3(2200, 1500, 1800), Color(0.26, 0.36, 0.24))
 		ball(mp + Vector3(0, 560, 0), Vector3(700, 520, 600), Color(0.46, 0.47, 0.48))
+
+
+## Bukit for a hilly seat: smooth forested hills on the open land past
+## the town and beyond the seat boundary (where nothing is built), each a
+## rounded bump with rainforest trees standing on its slopes. Only seats
+## whose real terrain is hilly get them.
+var _hill_mesh: ArrayMesh
+var hills_built := 0
+func _forest_hills() -> void:
+	hills_built = 0
+	if _hill_mesh == null:
+		_hill_mesh = _unit_hill()
+	var hills := []
+	var inside := 0
+	var want := 34 if tier == "rural" else 24
+	for attempt in want * 12:
+		if hills.size() >= want:
+			break
+		var r := rng.randf_range(maxf(r_taman, r_city * 0.4), reach_r * 1.35)
+		var c := _polar_raw(r, rng.randf() * TAU)
+		var R := rng.randf_range(140.0, 360.0)
+		var H := R * rng.randf_range(0.22, 0.42)
+		var ok := true
+		for h in hills:
+			if Vector2(c.x - h[0].x, c.z - h[0].z).length() < (R + float(h[1])) * 0.75:
+				ok = false
+				break
+		if not ok:
+			continue
+		# open ground under it: nothing built inside the seat, land outside
+		for k in 16:
+			var q := c + Vector3(cos(k * 0.785) * R * (0.35 if k < 8 else 0.8), 0, sin(k * 0.785) * R * (0.35 if k < 8 else 0.8))
+			if in_sea(q):
+				ok = false
+				break
+			var ci := _cell(q)
+			if ci >= 0 and in_seat(q) and occ[ci] == 1:
+				ok = false
+				break
+		if not ok:
+			continue
+		# only a few inside the seat (the land is where people live), the
+		# rest rise beyond the boundary
+		if in_seat(c):
+			if inside >= 7:
+				continue
+			inside += 1
+		hills.append([c, R])
+		hills_built += 1
+		var sx := R * rng.randf_range(0.85, 1.15)
+		var sz := R * rng.randf_range(0.85, 1.15)
+		var yaw := rng.randf() * TAU
+		var green := Color(0.17, 0.33, 0.16).lerp(Color(0.25, 0.41, 0.19), rng.randf())
+		var bs := Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(sx, H, sz))
+		_add(_hill_mesh, mat_lawn, Transform3D(bs, c), green)
+		# keep the rest of the generator off it, and plant its slopes
+		if in_seat(c):
+			_rect_scan(c, yaw, sx * 1.6, sz * 1.6, 2)
+		var n := int(R * R / 420.0)
+		var inv := bs.inverse()
+		for k in n:
+			var u := Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1))
+			var t2 := u.x * u.x + u.z * u.z
+			if t2 > 0.85:
+				continue
+			var y := H * _hill_h(sqrt(t2))
+			var p := c + Basis(Vector3.UP, yaw) * Vector3(u.x * sx, 0, u.z * sz)
+			tree(p + Vector3(0, y - 0.6, 0), rng.randf() < 0.12)
+
+
+func _hill_h(t: float) -> float:
+	var q := clampf(1.0 - t * t, 0.0, 1.0)
+	return q * q
+
+
+## A unit hill (radius 1, height 1): smooth (1 - r^2)^2 profile.
+func _unit_hill() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	const RINGS := 10
+	const SEG := 28
+	var pt := func(i: int, j: int) -> Vector3:
+		var t := float(i) / RINGS
+		var a := TAU * float(j) / SEG
+		return Vector3(cos(a) * t, _hill_h(t) - 0.02, sin(a) * t)
+	for i in RINGS:
+		for j in SEG:
+			var a: Vector3 = pt.call(i, j)
+			var b: Vector3 = pt.call(i + 1, j)
+			var c: Vector3 = pt.call(i + 1, j + 1)
+			var d: Vector3 = pt.call(i, j + 1)
+			for v in [a, b, c, a, c, d]:
+				st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
+
+
+## Shade trees along the main roads (rain trees on the verge), wherever
+## the verge was left open.
+func _street_trees() -> void:
+	for rd in roads:
+		if int(rd.cls) > 1:
+			continue
+		var L: float = rd.cum[rd.cum.size() - 1]
+		var off: float = float(rd.half) + 2.6 + 1.4
+		var s := rng.randf_range(4.0, 14.0)
+		while s < L:
+			var sm := road_sample(rd, s)
+			s += rng.randf_range(14.0, 22.0)
+			if (rd.gaps as PackedByteArray)[sm[2]] == 1 or int((rd.wet as PackedByteArray)[sm[2]]) == 1:
+				continue
+			var t: Vector3 = sm[1]
+			var n := Vector3(-t.z, 0, t.x)
+			for side in [-1.0, 1.0]:
+				var p: Vector3 = sm[0] + n * off * float(side)
+				var ci := _cell(p)
+				if ci < 0 or occ[ci] != 0 or not on_land(p):
+					continue
+				occ[ci] = 2
+				tree(p, rng.randf() < 0.3)
 
 
 ## Ladang sawit on the rural fringe of a plantation seat: rectangular
