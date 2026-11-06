@@ -39,7 +39,7 @@ export const SPEED_LABEL: Record<GameSpeed, Bilingual> = {
   quarter: { ms: "Suku tahun", en: "Quarterly" },
 };
 
-export type YbActivityId = "clinic" | "visit" | "kenduri" | "ceramah" | "sitting" | "media" | "fundraise" | "rest";
+export type YbActivityId = "clinic" | "visit" | "kenduri" | "ceramah" | "sitting" | "media" | "fundraise" | "rest" | "relief";
 
 export interface YbActivity {
   id: YbActivityId;
@@ -77,6 +77,9 @@ export const YB_ACTIVITIES: YbActivity[] = [
   { id: "fundraise", icon: "💰", slots: 1, stamina: 20, cost: 0,
     title: { ms: "Majlis kutipan dana", en: "Fundraising dinner" },
     detail: { ms: "Dana pejabat +RM30k, jentera +1.", en: "Office funds +RM30k, organisation +1." } },
+  { id: "relief", icon: "🚒", slots: 1, stamina: 25, cost: 25_000, zone: true,
+    title: { ms: "Gerak bantuan bencana", en: "Send disaster relief" },
+    detail: { ms: "Hantar pasukan bantuan ke zon bencana: bencana tamat, statistik terjejas +4, kepercayaan +2.", en: "Send a relief team to the disaster zone: ends the disaster, the hit stat +4, trust +2." } },
   { id: "rest", icon: "🛌", slots: 1, stamina: 0, cost: 0,
     title: { ms: "Rehat bersama keluarga", en: "Rest with family" },
     detail: { ms: "Pulihkan tenaga +45.", en: "Recover stamina +45." } },
@@ -102,7 +105,31 @@ export const YB_ISSUE_TYPES = Object.keys(YB_ISSUES) as YbIssueType[];
 
 export interface YbIssue { id: string; type: YbIssueType; zone: string; day: number; expires: number }
 
+// ── city disasters ────────────────────────────────────────────────────
+// Floods, fires and droughts strike a zone of the kawasan, wear its stats
+// down every few days while they last and show in the 3D city. Relief
+// (the "relief" agenda activity) ends one early; left alone it burns out
+// with a lasting scar.
+export type CityEventType = "flood" | "fire" | "drought";
+export interface CityEvent { id: string; type: CityEventType; zone: string; day: number; until: number }
+export const CITY_EVENTS: Record<CityEventType, { icon: string; stat: ZoneStatKey; drain: number; every: number; lasts: number; scar: number; kinds: string[]; title: Bilingual; detail: Bilingual }> = {
+  flood: { icon: "🌊", stat: "infra", drain: 2, every: 3, lasts: 12, scar: 4, kinds: ["river", "village", "housing", "market"],
+    title: { ms: "Banjir besar", en: "Major flood" },
+    detail: { ms: "Air naik di zon ini: jalan dan rumah ditenggelami.", en: "Water is rising in this zone: roads and homes are under water." } },
+  fire: { icon: "🔥", stat: "economy", drain: 3, every: 2, lasts: 6, scar: 5, kinds: ["urban", "commercial", "market", "industry", "housing"],
+    title: { ms: "Kebakaran", en: "Fire" },
+    detail: { ms: "Api marak di zon ini: kedai dan kilang terbakar.", en: "Fire is spreading in this zone: shops and factories are burning." } },
+  drought: { icon: "🌵", stat: "economy", drain: 2, every: 4, lasts: 20, scar: 4, kinds: ["village", "river", "education", "community"],
+    title: { ms: "Kemarau teruk", en: "Severe drought" },
+    detail: { ms: "Tiada hujan berminggu-minggu: tanaman layu dan mati.", en: "No rain for weeks: crops are withering and dying." } },
+};
+export const CITY_EVENT_TYPES = Object.keys(CITY_EVENTS) as CityEventType[];
+export const CITY_EVENT_PER_MILLE = 14;
+export const MAX_CITY_EVENTS = 2;
+
 export interface YbService {
+  /** active disasters in the kawasan (older saves have none) */
+  events?: CityEvent[];
   slots: number;
   stamina: number;
   presence: number;
