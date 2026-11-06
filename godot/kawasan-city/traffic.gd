@@ -221,7 +221,7 @@ func _move_trains(dt: float) -> void:
 			var sj := fposmod(tr.s - tr.dir * j * CAR_LEN, L)
 			var p := curve.sample_baked(sj)
 			var fwd := (curve.sample_baked(fposmod(sj + tr.dir * 2.0, L)) - p).normalized()
-			p += Vector3(fwd.z, 0, -fwd.x) * 1.5 + Vector3(0, city.LRT_Y + 1.3 + 1.6, 0)
+			p += Vector3(fwd.z, 0, -fwd.x) * 1.5 + Vector3(0, city.LRT_Y + 1.3 + 1.6 + city.elev_at(p), 0)
 			if not p.is_finite() or not fwd.is_finite() or fwd.length_squared() < 1e-6:
 				p = Vector3(0, -50.0, 0)
 				fwd = Vector3.RIGHT
@@ -248,7 +248,7 @@ func _process(dt: float) -> void:
 			c.t = fposmod(c.t + c.speed * 1.6 * c.dir * dt, hw_len)
 			var p := hw.sample_baked(c.t)
 			fwd = (hw.sample_baked(fposmod(c.t + c.dir * 2.0, hw_len)) - p).normalized()
-			pos = p + Vector3(0, 0.3, 0)
+			pos = p + Vector3(0, 0.3 + city.elev_at(p), 0)
 			# the expressway is only drawn inside the seat boundary
 			hidden = not city.on_land(p)
 		else:
@@ -262,7 +262,7 @@ func _process(dt: float) -> void:
 				c.t = 0.0
 				c.dir = 1.0
 			var sm: Array = city.road_sample(rd, c.t)
-			pos = sm[0] + Vector3(0, 0.12 + city.road_elev(rd, c.t), 0)
+			pos = sm[0] + Vector3(0, 0.12 + city.road_elev(rd, c.t) + city.elev_at(sm[0]), 0)
 			fwd = sm[1] * c.dir
 			hidden = rd.gaps[sm[2]] == 1
 		# keep left: offset to the left of the direction of travel
