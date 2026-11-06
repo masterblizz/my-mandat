@@ -200,3 +200,80 @@ export function boundaryCityOutline(rings: Boundary, minStep = 0.012): number[][
     return out;
   }).filter((ring) => ring.length >= 6);
 }
+
+// ── real coastline ────────────────────────────────────────────────────
+const ALL_STATES = ["johor", "kedah", "kelantan", "melaka", "ns", "pahang", "penang", "perak", "perlis", "sabah", "sarawak", "selangor", "terengganu", "wp"];
+let landCache: Promise<{ ring: [number, number][]; box: [number, number, number, number] }[]> | null = null;
+function loadLand() {
+  if (!landCache) landCache = Promise.all(ALL_STATES.map((id) => loadStateBoundaries("P", id))).then((all) => {
+    const out: { ring: [number, number][]; box: [number, number, number, number] }[] = [];
+    for (const seats of all) for (const rings of Object.values(seats)) for (const ring of rings) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [x, y] of ring) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      out.push({ ring, box: [x0, y0, x1, y1] });
+    }
+    return out;
+  });
+  return landCache;
+}
+const inRing = (ring: [number, number][], lon: number, lat: number) => {
+  let c = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]; const [xj, yj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+};
+
+// Coarse outlines of the neighbours' land along Malaysia's land borders
+// (southern Thailand, Kalimantan, Brunei), so a border seat isn't taken
+// for a coastal one. Seas beside them (Andaman, Gulf of Thailand, South
+// China Sea, Celebes Sea) stay outside.
+const FOREIGN_LAND: [number, number][][] = [
+  [[100.0, 7.5], [100.12, 6.75], [100.25, 6.3], [100.6, 5.9], [101.0, 5.4], [101.6, 5.4], [101.9, 5.7], [102.12, 6.18], [102.05, 7.5]],
+  [[108.0, 1.0], [109.6, 1.9], [110.5, 0.9], [112.0, 1.3], [113.5, 2.0], [114.5, 3.5], [115.5, 4.45], [116.0, 4.5], [117.0, 4.35], [117.6, 4.25], [118.0, 4.0], [118.0, -2.0], [108.0, -2.0]],
+  [[114.05, 4.6], [114.4, 5.05], [115.0, 4.95], [115.15, 4.7], [115.35, 4.75], [115.35, 4.35], [114.8, 4.0], [114.1, 4.3]],
+];
+
+/**
+ * Where the sea is, for the 3D city: rays from the city centre are taken
+ * just past the seat boundary; a ray whose point lies in no parliamentary
+ * seat of any state is over the sea. Returns the mean sea direction in the
+ * city frame (x east, z south) and the coastline's distance along it in
+ * mean-ray units (the city multiplies by r_city), or null when inland.
+ */
+export async function boundaryCityCoast(rings: Boundary): Promise<{ dir: [number, number]; edge: number } | null> {
+  const land = await loadLand();
+  const f = boundaryCityFrame(rings);
+  if (!f.meanDeg) return null;
+  const kx = Math.cos((f.lat * Math.PI) / 180);
+  const pts = rings.flatMap((r) => r.map(([lon, lat]) => [(lon - f.lon) * kx, lat - f.lat] as const));
+  const segs = rings.flatMap((r) => r.map(([lon, lat], i) => { const [lon2, lat2] = r[(i + 1) % r.length]; return [(lon - f.lon) * kx, lat - f.lat, (lon2 - f.lon) * kx, lat2 - f.lat] as const; }));
+  const onLand = (lon: number, lat: number) => FOREIGN_LAND.some((ring) => inRing(ring, lon, lat)) || land.some(({ ring, box }) => lon >= box[0] && lon <= box[2] && lat >= box[1] && lat <= box[3] && inRing(ring, lon, lat));
+  let sx = 0, sz = 0, n = 0;
+  const hits: number[] = [];
+  const N = 72;
+  for (let s = 0; s < N; s++) {
+    const a = (s / N) * Math.PI * 2;
+    const dx = Math.cos(a), dy = Math.sin(a); // east, north
+    let far = 0;
+    for (const [x1, y1, x2, y2] of segs) {
+      const ex = x2 - x1, ey = y2 - y1, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const t = (x1 * ey - y1 * ex) / den, u = (x1 * dy - y1 * dx) / den;
+      if (t > 0 && u >= 0 && u <= 1) far = Math.max(far, t);
+    }
+    if (!far) continue;
+    const probe = far + Math.max(0.006, f.meanDeg * 0.12);
+    if (!onLand(f.lon + (dx * probe) / kx, f.lat + dy * probe)) { sx += dx; sz -= dy; n++; hits.push(far); }
+  }
+  if (n < 4) return null; // a stray estuary gap, not a coast
+  const len = Math.hypot(sx, sz) || 1;
+  const dir: [number, number] = [sx / len, sz / len];
+  // the coastline: boundary points' mean projection on the sea side
+  const proj = pts.map(([x, y]) => (x * dir[0] - y * dir[1]) / f.meanDeg);
+  const farP = Math.max(...proj);
+  const coastPts = proj.filter((p) => p > farP * 0.6);
+  const edge = coastPts.reduce((a, b) => a + b, 0) / Math.max(1, coastPts.length);
+  return { dir: [+dir[0].toFixed(3), +dir[1].toFixed(3)], edge: +edge.toFixed(3) };
+}
