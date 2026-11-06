@@ -1497,6 +1497,162 @@ func _arc_r(arc: Dictionary, a: float) -> float:
 ##   strip   - a pekan strung along one trunk road, lorongs off both sides
 ##   oldtown - a colonial shophouse grid core with taman estates outside
 ##   taman   - a ring road and spokes, each sector its own looped estate
+# ── terrain relief ───────────────────────────────────────────────────
+## Rolling ground on the open land: a height field (32 m grid) that is
+## exactly flat wherever anything stands (roads, lots, lanes, the river,
+## the beach and sea) and rises gently with distance from them, so the
+## built city keeps its level ground and the countryside between and
+## beyond undulates. Paddy plains stay flat; hilly seats roll highest.
+var ground_mat: StandardMaterial3D
+const TG := 32.0
+var terrain_n := 0
+var terrain_h := PackedFloat32Array()
+
+func _terrain_amp() -> float:
+	if bool(traits.get("paddy", false)):
+		return 0.0
+	if bool(traits.get("hilly", false)):
+		return 55.0
+	return {"metro": 6.0, "city": 8.0, "town": 14.0, "rural": 16.0}.get(tier, 12.0)
+
+
+func _build_terrain() -> void:
+	terrain_n = 0
+	terrain_h = PackedFloat32Array()
+	var amp := _terrain_amp()
+	if amp <= 0.0 or ground_mat == null:
+		return
+	var n := int(2.0 * EXT / TG)
+	# 1. built cells: anything taken inside the seat, and the sea
+	var dist := PackedFloat32Array()
+	dist.resize(n * n)
+	var big := 1e9
+	for iz in n:
+		for ix in n:
+			var x0 := -EXT + ix * TG
+			var z0 := -EXT + iz * TG
+			var built := false
+			for sz in 3:
+				for sx in 3:
+					var p := Vector3(x0 + (sx + 0.5) * TG / 3.0, 0, z0 + (sz + 0.5) * TG / 3.0)
+					if in_sea(p):
+						built = true
+						break
+					var ci := _cell(p)
+					if ci >= 0 and occ[ci] == 1 and in_seat(p):
+						built = true
+						break
+				if built:
+					break
+			dist[iz * n + ix] = 0.0 if built else big
+	# 2. distance to the nearest built cell (two-pass chamfer)
+	var d1 := TG
+	var d2 := TG * 1.4142
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			var v := dist[i]
+			if ix > 0: v = minf(v, dist[i - 1] + d1)
+			if iz > 0:
+				v = minf(v, dist[i - n] + d1)
+				if ix > 0: v = minf(v, dist[i - n - 1] + d2)
+				if ix < n - 1: v = minf(v, dist[i - n + 1] + d2)
+			dist[i] = v
+	for iz in range(n - 1, -1, -1):
+		for ix in range(n - 1, -1, -1):
+			var i := iz * n + ix
+			var v := dist[i]
+			if ix < n - 1: v = minf(v, dist[i + 1] + d1)
+			if iz < n - 1:
+				v = minf(v, dist[i + n] + d1)
+				if ix < n - 1: v = minf(v, dist[i + n + 1] + d2)
+				if ix > 0: v = minf(v, dist[i + n - 1] + d2)
+			dist[i] = v
+	# 3. heights: smooth noise, faded in away from anything built and out
+	# toward the edge of the raster (the flat ground carries on beyond)
+	var fn := FastNoiseLite.new()
+	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	fn.seed = seat_seed + 17
+	fn.frequency = 1.0 / 650.0
+	fn.fractal_octaves = 3
+	terrain_h.resize(n * n)
+	var any := false
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			var x := -EXT + (ix + 0.5) * TG
+			var z := -EXT + (iz + 0.5) * TG
+			var f := clampf((dist[i] - 48.0) / 220.0, 0.0, 1.0)
+			f = f * f * (3.0 - 2.0 * f)
+			var edge := minf(minf(ix, n - 1 - ix), minf(iz, n - 1 - iz))
+			f *= clampf(float(edge) / 6.0, 0.0, 1.0)
+			var hv := 0.0
+			if f > 0.0:
+				hv = amp * f * pow(fn.get_noise_2d(x, z) * 0.5 + 0.5, 1.3)
+				any = any or hv > 0.3
+			terrain_h[i] = hv
+	terrain_n = n
+	if not any:
+		return
+	# 4. the mesh: only the quads that rise above the flat ground (they
+	# start just under it, so the seam with the level city is hidden)
+	var verts := PackedVector3Array()
+	verts.resize(n * n)
+	var norms := PackedVector3Array()
+	norms.resize(n * n)
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			verts[i] = Vector3(-EXT + (ix + 0.5) * TG, terrain_h[i] - 0.05, -EXT + (iz + 0.5) * TG)
+			var hl := terrain_h[i - 1] if ix > 0 else terrain_h[i]
+			var hr := terrain_h[i + 1] if ix < n - 1 else terrain_h[i]
+			var hd := terrain_h[i - n] if iz > 0 else terrain_h[i]
+			var hu := terrain_h[i + n] if iz < n - 1 else terrain_h[i]
+			norms[i] = Vector3(hl - hr, 2.0 * TG, hd - hu).normalized()
+	var idx := PackedInt32Array()
+	for iz in n - 1:
+		for ix in n - 1:
+			var a := iz * n + ix
+			var b := a + 1
+			var c := a + n
+			var d := c + 1
+			if maxf(maxf(terrain_h[a], terrain_h[b]), maxf(terrain_h[c], terrain_h[d])) < 0.06:
+				continue
+			idx.append_array(PackedInt32Array([a, c, b, b, c, d]))
+	if idx.is_empty():
+		return
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_INDEX] = idx
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = am
+	mi.material_override = ground_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gen.add_child(mi)
+
+
+## Height of the rolling ground at p (0 on anything built, or off the field).
+func terrain_at(p: Vector3) -> float:
+	if terrain_n == 0:
+		return 0.0
+	var fx := (p.x + EXT) / TG - 0.5
+	var fz := (p.z + EXT) / TG - 0.5
+	var ix := int(floor(fx))
+	var iz := int(floor(fz))
+	if ix < 0 or iz < 0 or ix >= terrain_n - 1 or iz >= terrain_n - 1:
+		return 0.0
+	var tx := fx - ix
+	var tz := fz - iz
+	var i := iz * terrain_n + ix
+	var h0 := lerpf(terrain_h[i], terrain_h[i + 1], tx)
+	var h1 := lerpf(terrain_h[i + terrain_n], terrain_h[i + terrain_n + 1], tx)
+	return maxf(0.0, lerpf(h0, h1, tz) - 0.05)
+
+
 # ── road graph ───────────────────────────────────────────────────────
 ## A road that stops just short of another (a street ending a few metres
 ## from the next one, a spur running past an arterial) is carried on to
@@ -3573,6 +3729,7 @@ func _fill_trees() -> void:
 		_paddy_fields()
 	if bool(zoning.get("plantation", false)):
 		_oil_palm_estates()
+	_build_terrain()
 	for i in 9000:
 		var a := rng.randf() * TAU
 		var r := sqrt(rng.randf()) * maxf(1150.0, reach_r * 1.3)
@@ -3590,7 +3747,7 @@ func _fill_trees() -> void:
 			continue
 		if ci >= 0:
 			occ[ci] = 2   # a tree: blocks lots, but a new building site may clear it
-		tree(p, rng.randf() < 0.25)
+		tree(p + Vector3(0, terrain_at(p), 0), rng.randf() < 0.25)
 	# mountain ranges ringing the valley, in layers: a near forested
 	# ridge, then bluer and paler ranges behind it that the haze softens
 	var hilly := bool(traits.get("hilly", false))
@@ -3928,8 +4085,12 @@ func _build_ground() -> void:
 	ramp.add_point(0.5, Color(0.45, 0.62, 0.27))
 	nt.color_ramp = ramp
 	gm.albedo_texture = nt
-	gm.uv1_scale = Vector3(6, 6, 1)
+	# world-space mapping, so the flat ground, the coast polygon and the
+	# rolling terrain on top all share one continuous grass pattern
+	gm.uv1_triplanar = true
+	gm.uv1_scale = Vector3.ONE / 4000.0
 	gm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	ground_mat = gm
 	# the land carries on past the boundary as plain grass (nothing is
 	# built there: the occupancy raster is taken outside the seat)
 	if land_rings.is_empty():
@@ -3938,7 +4099,6 @@ func _build_ground() -> void:
 	else:
 		# the real shoreline: open water underneath, the land on top of it
 		box(Vector3(0, -0.4, 0), Vector3(40000, 0.05, 40000), Color.WHITE, mat_water)
-		gm.uv1_scale = Vector3(1, 1, 1)
 		_single(_poly_mesh(land_rings, 0.0, 6.0 / 16000.0), gm, Transform3D.IDENTITY)
 		_ground_no_shadow()
 	# paved downtown (a smaller town centre in towns, none in villages)
