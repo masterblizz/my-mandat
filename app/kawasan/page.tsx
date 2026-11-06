@@ -105,6 +105,9 @@ type Zone = {
   infra: number;
   sentiment: number;
   projects: string[];
+  /** Founded on empty land: world x/z in the 3D city and its facility. */
+  pos?: [number, number];
+  facility?: string;
   /** Render-only construction sites for the 3D map; never persisted. */
   building?: { id: string; progress: number; label?: string }[];
 };
@@ -338,6 +341,28 @@ function termBuildBlock(month: number, lang: ReturnType<typeof useLang>): string
   return null;
 }
 
+/** Facilities that can stand on their own on empty land, and the kind of
+ *  zone they found there. Site preparation adds to the cost. */
+const LAND_FACILITIES: Record<string, { archetype: ZoneArchetype; kind: ZoneKind }> = {
+  clinic: { archetype: "clinicHall", kind: "community" },
+  surau: { archetype: "clinicHall", kind: "community" },
+  school: { archetype: "schoolZone", kind: "education" },
+  stadium: { archetype: "schoolZone", kind: "education" },
+  park: { archetype: "riverside", kind: "river" },
+  market: { archetype: "marketHawkers", kind: "market" },
+  mall: { archetype: "commercialHub", kind: "commercial" },
+  office: { archetype: "commercialHub", kind: "commercial" },
+};
+const LAND_PREP_COST = 60_000;
+
+/** A new zone on empty land: modest stats (nothing there yet). */
+function landZone(project: Project, at: [number, number], zones: Zone[]): Zone {
+  const f = LAND_FACILITIES[project.id];
+  const repeat = zones.filter((zone) => zone.facility === project.id).length + 1;
+  return { id: `land-${Math.round(at[0])}-${Math.round(at[1])}-${Date.now() % 100000}`, archetype: f.archetype, kind: f.kind, repeat,
+    infra: 34, welfare: 34, economy: 34, sentiment: 40, projects: [], pos: at, facility: project.id };
+}
+
 function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<typeof useLang>) {
   const requires = project.requires;
   if (!requires || !zone) return null;
@@ -355,6 +380,8 @@ function lockReason(project: Project, zone: Zone | undefined, lang: ReturnType<t
 
 function zoneName(lang: Lang, zone: Zone) {
   if (zone.realName) return zone.realName;
+  // a zone the player founded on empty land is named after its facility
+  if (zone.facility) return `${t(lang, `kawasan_page.projectTitle_${zone.facility}`)} · ${t(lang, "Tapak", "Site")} ${zone.repeat}`;
   const name = t(lang, `kawasan_page.zoneName_${zone.archetype}`);
   return zone.repeat ? `${name} ${zone.repeat}` : name;
 }
@@ -2632,6 +2659,8 @@ export default function KawasanDevelopmentPage() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   // placement: the zone the player is aiming at (confirmed before building)
   const [placeTargetId, setPlaceTargetId] = useState<string | null>(null);
+  // or a spot of empty land the player tapped (world x, z)
+  const [landTarget, setLandTarget] = useState<[number, number] | null>(null);
   const [manifestoDraft, setManifestoDraft] = useState(leader.manifesto ?? "");
   const [manifestoSaved, setManifestoSaved] = useState(true);
   // Transient feedback states — Save flips a button to a green "✓ SAVED"
@@ -2953,9 +2982,10 @@ export default function KawasanDevelopmentPage() {
     ? { icon: "📈", title: t(lang, "Pusat tinjauan", "Polling centre"), detail: t(lang, "Semak momentum dan perubahan sokongan.", "Review momentum and shifts in support."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/commission"), enabled: true }
     : { icon: "🏢", title: t(lang, "Pejabat politik anda", "Your political office"), detail: t(lang, "Rancang langkah seterusnya dan semak perjalanan karier.", "Plan the next move and review your career journey."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true };
 
-  function runProject(project: Project, targetZoneId = selectedZone?.id) {
-    const targetZone = zones.find((zone) => zone.id === targetZoneId);
+  function runProject(project: Project, targetZoneId = selectedZone?.id, newZone?: Zone) {
+    const targetZone = newZone ?? zones.find((zone) => zone.id === targetZoneId);
     if (!targetZone) return;
+    const cost = project.cost + (newZone ? LAND_PREP_COST : 0);
     // Defensive: the UI never exposes a clickable project button pre-win
     // (see the locked-panel branch below), but guard the action itself
     // too in case something calls it directly.
@@ -2969,12 +2999,12 @@ export default function KawasanDevelopmentPage() {
       setNotice(t(lang, "kawasan_page.projectAlreadyApprovedForThisZone"));
       return;
     }
-    const locked = lockReason(project, targetZone, lang);
+    const locked = newZone ? null : lockReason(project, targetZone, lang);
     if (locked) {
       setNotice(t(lang, "kawasan_page.projectStillLocked"));
       return;
     }
-    if (journey.publicBudget < project.cost) {
+    if (journey.publicBudget < cost) {
       setNotice(t(lang, "kawasan_page.insufficientBudget"));
       return;
     }
@@ -2982,16 +3012,20 @@ export default function KawasanDevelopmentPage() {
     const current = useGameStore.getState().journey;
     if (current.construction.some(w => w.seat === seatId && w.zone === targetZone.id && w.project === project.id)) return;
     useGameStore.setState(state => ({ journey: { ...state.journey,
-      publicBudget: state.journey.publicBudget - project.cost,
-      cityZones: { ...state.journey.cityZones, [seatId]: zones },
+      publicBudget: state.journey.publicBudget - cost,
+      cityZones: { ...state.journey.cityZones, [seatId]: newZone ? [...zones, newZone] : zones },
       construction: [...state.journey.construction, { seat: seatId, zone: targetZone.id, project: project.id, target: project.target, boost: projectGain(project, targetZone), remaining: 2 }],
     } }));
+    if (newZone) setZones((list) => [...list, newZone]);
     setSelectedZoneId(targetZone.id);
     setPendingProjectId(null);
     setPlaceTargetId(null);
+    setLandTarget(null);
     setOverlay("none");
 
-    setNotice(t(lang, "Pembinaan bermula. Siap dalam dua suku tahun.", "Construction started. Completion in two quarters."));
+    setNotice(newZone
+      ? t(lang, "Tapak baharu dibuka. Pembinaan siap dalam dua suku tahun.", "New site opened. Construction completes in two quarters.")
+      : t(lang, "Pembinaan bermula. Siap dalam dua suku tahun.", "Construction started. Completion in two quarters."));
   }
 
   function handleZoneSelect(zoneId: string) {
@@ -3000,16 +3034,29 @@ export default function KawasanDevelopmentPage() {
     setFocusZoneId(null);
     setZonePanelOpen(true);
     setHudHidden(false);
-    if (pendingProject) { setPlaceTargetId(zoneId); setZonePanelOpen(false); }
+    if (pendingProject) { setPlaceTargetId(zoneId); setLandTarget(null); setZonePanelOpen(false); }
+  }
+
+  // empty land tapped in the 3D city while placing a project
+  function handleLandSelect(x: number, z: number) {
+    if (!pendingProject) return;
+    setLandTarget([x, z]);
+    setPlaceTargetId(null);
   }
 
   function confirmPlacement() {
+    if (pendingProject && landTarget) {
+      if (!LAND_FACILITIES[pendingProject.id]) return;
+      runProject(pendingProject, undefined, landZone(pendingProject, landTarget, zones));
+      return;
+    }
     if (pendingProject && placeTargetId) runProject(pendingProject, placeTargetId);
   }
 
   function cancelPlacement() {
     setPendingProjectId(null);
     setPlaceTargetId(null);
+    setLandTarget(null);
     setOverlay("none");
   }
 
@@ -3229,7 +3276,7 @@ export default function KawasanDevelopmentPage() {
             <div className="relative h-full">
               {useGlMap && mapEngine === "godot" ? (
                 <GodotCityMap profile={godotProfile} zones={mapZones} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} height="100%"
-                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
+                  zoneNames={placingZoneNames ?? godotZoneNames} placing={!!pendingProject} landPick={landTarget} onLandClick={handleLandSelect} intro={cityIntro} onIntroDone={() => setIntroOn(false)} onAerial={setAerialOn} />
               ) : useGlMap ? (
                 <City3DMapGL zones={mapZones} alerts={mapAlerts} overlay={overlay} onOverlayChange={setOverlay} panToZone={panToZone} selectedZoneId={selectedZone?.id ?? selectedZoneId} setSelectedZoneId={handleZoneSelect} lang={lang} gridSize={gridSize} density={density} densityLabel={sceneLabel} traits={traits} celebration={celebration} overall={overall} focusZoneId={focusZoneId} onEnterFocusedZone={enterFocusedBuilding} destinationTags={cityDestinationTags} showAllDestinationTags={activityMarkersVisible} onEnterDestination={enterDestination} height="100%" />
               ) : (
@@ -3305,12 +3352,20 @@ export default function KawasanDevelopmentPage() {
                 pending={pendingProject ? {
                   icon: pendingProject.icon, title: projectTitle(pendingProject.id), cost: pendingProject.cost, statLabel: statLabel(lang, pendingProject.target),
                   options: placementTop.map(({ zone, gain }) => ({ zoneId: zone.id, label: zoneName(lang, zone), icon: zoneIcon(zone.kind), from: zone[pendingProject.target], gain })),
-                  target: placeTarget ? { zoneId: placeTarget.id, label: zoneName(lang, placeTarget), icon: zoneIcon(placeTarget.kind), from: placeTarget[pendingProject.target], gain: projectGain(pendingProject, placeTarget),
+                  land: landTarget ? (() => {
+                    const stub = landZone(pendingProject, landTarget, zones);
+                    const ok = !!LAND_FACILITIES[pendingProject.id];
+                    return { label: t(lang, "Tanah kosong · zon baharu", "Empty land · new zone"), from: stub[pendingProject.target], gain: projectGain(pendingProject, stub), prep: LAND_PREP_COST,
+                      blocked: termBuildBlock(careerProgress.month, lang) ?? (!ok ? t(lang, "Projek ini perlu dibina di zon sedia ada", "This project must go in an existing zone")
+                        : journey.publicBudget < pendingProject.cost + LAND_PREP_COST ? t(lang, "kawasan_page.insufficientBudget") : null) };
+                  })() : null,
+                  landOk: !!LAND_FACILITIES[pendingProject.id],
+                  target: !landTarget && placeTarget ? { zoneId: placeTarget.id, label: zoneName(lang, placeTarget), icon: zoneIcon(placeTarget.kind), from: placeTarget[pendingProject.target], gain: projectGain(pendingProject, placeTarget),
                     blocked: termBuildBlock(careerProgress.month, lang) ?? (placeTarget.projects.includes(pendingProject.id) ? t(lang, "Sudah dibina di zon ini", "Already built in this zone")
                       : seatWorks.some((work) => work.zone === placeTarget.id && work.project === pendingProject.id) ? t(lang, "Sedang dibina di zon ini", "Under construction in this zone")
                       : lockReason(pendingProject, placeTarget, lang) ?? (journey.publicBudget < pendingProject.cost ? t(lang, "kawasan_page.insufficientBudget") : null)) } : null,
                 } : null}
-                onPlacementTarget={(zoneId) => { setPlaceTargetId(zoneId); focusZone(zoneId); }}
+                onPlacementTarget={(zoneId) => { setPlaceTargetId(zoneId); setLandTarget(null); focusZone(zoneId); }}
                 onConfirmPlacement={confirmPlacement}
                 onPickProject={pickProject}
                 onCancelPlacement={cancelPlacement}

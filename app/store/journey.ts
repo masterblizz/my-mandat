@@ -29,6 +29,10 @@ export interface CityZone {
   repeat: number;
   kind: "urban" | "village" | "housing" | "commercial" | "education" | "industry" | "river" | "market" | "community";
   economy: number; welfare: number; infra: number; sentiment: number; projects: string[];
+  /** A zone the player founded on empty land: its spot in the 3D city
+   *  (world x, z) and the facility built there. */
+  pos?: [number, number];
+  facility?: string;
 }
 export interface Journey {
   chapter: Chapter;

@@ -32,6 +32,10 @@ export type DockPlacement = {
   options: PlaceOption[];
   /** the zone being aimed at; `blocked` says why it cannot take the project */
   target: (PlaceOption & { blocked: string | null }) | null;
+  /** empty land picked in the city instead of a zone */
+  land: { label: string; from: number; gain: number; prep: number; blocked: string | null } | null;
+  /** this project can found a new zone on empty land */
+  landOk: boolean;
 };
 export type DockWork = { key: string; zoneId: string; zoneLabel: string; icon: string; title: string; remaining: number; progress: number };
 
@@ -97,7 +101,7 @@ export default function BuildDock({
         <section role="status" aria-label={t(lang, "Mod penempatan", "Placement mode")} className="city-placement mb-2 border px-3 py-2 shadow-xl" style={{ ...box, borderColor: "rgb(var(--gold-rgb) / .75)", boxShadow: "0 0 22px rgb(var(--gold-rgb) / .18)" }}>
           <div className="flex items-center gap-2 text-[10px] font-black tracking-wider text-gold">
             <span className="animate-pulse" aria-hidden>◎</span>
-            <span className="min-w-0 flex-1 truncate">{pending.icon} {pending.title} · RM {formatNumber(pending.cost)} · <span className="text-white">{t(lang, "pilih zon (★ = paling perlu)", "pick a zone (★ = most need)")}</span></span>
+            <span className="min-w-0 flex-1 truncate">{pending.icon} {pending.title} · RM {formatNumber(pending.cost)} · <span className="text-white">{pending.landOk ? t(lang, "pilih zon ★ atau ketik tanah kosong", "pick a ★ zone or tap empty land") : t(lang, "pilih zon (★ = paling perlu)", "pick a zone (★ = most need)")}</span></span>
             <button type="button" onClick={onCancelPlacement} className="nhud-btn nhud-btn--cream shrink-0 border px-2 py-1 text-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .45)" }}>{t(lang, "Batal", "Cancel")}</button>
           </div>
           {pending.options.length > 0 && (
@@ -115,7 +119,21 @@ export default function BuildDock({
               })}
             </div>
           )}
-          {pending.target ? (
+          {pending.land ? (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[11px] font-black text-white">🟩 {pending.land.label}</div>
+                {pending.land.blocked
+                  ? <div className="truncate text-[9px] font-bold text-warn-orange">⚠ {pending.land.blocked}</div>
+                  : <div className="truncate text-[9px] font-bold text-text-muted">{pending.statLabel} <b style={{ color: scoreColor(pending.land.from) }}>{pending.land.from}</b> → <b className="text-neon-green">{Math.min(100, pending.land.from + pending.land.gain)}</b> · {t(lang, "penyediaan tapak", "site prep")} +RM {formatNumber(pending.land.prep)}</div>}
+              </div>
+              <button type="button" onClick={onConfirmPlacement} disabled={!!pending.land.blocked}
+                className="nhud-btn nhud-btn--gold shrink-0 border px-3 py-1.5 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-45"
+                style={{ borderColor: "rgb(var(--gold-rgb) / .6)", color: "var(--gold)" }}>
+                🏗 {t(lang, "Bina di sini", "Build here")}
+              </button>
+            </div>
+          ) : pending.target ? (
             <div className="mt-2 flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[11px] font-black text-white">{pending.target.icon} {pending.target.label}</div>

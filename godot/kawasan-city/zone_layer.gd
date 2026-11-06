@@ -33,6 +33,11 @@ var _press := Vector2.ZERO
 var _embedded := false
 var zone_labels: Array[Label3D] = []
 var placing := false
+var land_pick = null                  # [x, z] of the empty land picked while placing
+var _site: Node3D                     # marker for that spot
+var _facilities: Node3D               # buildings on zones founded on empty land
+var _fac_key := ""
+var _site_roads := {}                 # zone id -> access road, routed once per city build
 
 
 func setup(c: Node3D) -> void:
@@ -108,7 +113,25 @@ func _on_js_state(args: Array) -> void:
 
 
 ## Tells the game the seat's city has finished building (the intro waits for it).
+func _probe_land() -> void:
+	var ok := 0
+	var free := 0
+	var tried := 0
+	for i in 400:
+		var p: Vector3 = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * float(city.reach_r)
+		if not city.in_seat(p):
+			continue
+		tried += 1
+		if city.land_free(p, 30.0, 30.0):
+			free += 1
+			if city.access_road(p).size() == 2:
+				ok += 1
+	print("LANDPROBE tried=", tried, " free=", free, " reachable=", ok)
+
+
 func post_built() -> void:
+	if "--probe-land" in OS.get_cmdline_user_args():
+		_probe_land()
 	if _embedded:
 		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-city-built' }, '*')", true)
 
@@ -118,6 +141,183 @@ func post_built() -> void:
 func post_view(yaw: float, x: float, z: float, dist: float, ground: float, r_city: float) -> void:
 	if _embedded:
 		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-view', yaw: %.1f, x: %.1f, z: %.1f, dist: %.1f, ground: %.1f, rCity: %.1f }, '*')" % [yaw, x, z, dist, ground, r_city], true)
+
+
+func _post_land(p: Vector3) -> void:
+	if _embedded:
+		JavaScriptBridge.eval("window.parent.postMessage({ type: 'kawasan-land-click', x: %.1f, z: %.1f }, '*')" % [p.x, p.z], true)
+	else:
+		land_pick = [p.x, p.z]
+		_update_site()
+
+
+## The picked building site: a pulsing green pad with corner posts.
+func _update_site() -> void:
+	if _site == null:
+		_site = Node3D.new()
+		add_child(_site)
+		var pad := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(30, 0.4, 30)
+		pad.mesh = pm
+		var mat := _overlay_mat(Color(0.3, 0.95, 0.45, 0.45))
+		pad.material_override = mat
+		_site.add_child(pad)
+		for cx in [-1, 1]:
+			for cz in [-1, 1]:
+				var post := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(1.2, 6, 1.2)
+				post.mesh = bm
+				post.material_override = _overlay_mat(Color(1.0, 0.85, 0.2, 1.0))
+				post.position = Vector3(cx * 15, 3, cz * 15)
+				_site.add_child(post)
+	var on: bool = placing and land_pick is Array and (land_pick as Array).size() == 2
+	_site.visible = on
+	if on:
+		_site.position = Vector3(float(land_pick[0]), 0.3, float(land_pick[1]))
+
+
+## Facilities on zones founded on empty land: scaffolding with a crane
+## while under construction, the finished building once done.
+func _update_facilities() -> void:
+	var key := ""
+	for z in zones:
+		if z.get("facility", null) != null:
+			key += "%s:%s:%s:%s;" % [z.get("id"), z.get("facility"), z.get("done"), z.get("pos")]
+	if key == _fac_key:
+		return
+	_fac_key = key
+	if _facilities == null:
+		_facilities = Node3D.new()
+		add_child(_facilities)
+	for ch in _facilities.get_children():
+		ch.free()
+	for z in zones:
+		var zp = z.get("pos", null)
+		if z.get("facility", null) == null or not (zp is Array):
+			continue
+		var root := Node3D.new()
+		root.position = Vector3(float(zp[0]), 0, float(zp[1]))
+		var zid := str(z.get("id", ""))
+		if not _site_roads.has(zid):
+			# route and claim once: a claimed site would block its own lane
+			_site_roads[zid] = city.access_road(root.position)
+			city.claim_site(root.position, _site_roads[zid])
+		var road: Array = _site_roads[zid]
+		city.clear_trees(root.position, 18.0)
+		_access_lane(road)
+		_facilities.add_child(root)
+		if bool(z.get("done", false)):
+			_facility_model(root, str(z.facility))
+		else:
+			_scaffold(root)
+
+
+## The site's access lane: asphalt over a kerbed pavement, joining the
+## road it was routed to, with the trees along it cleared.
+func _access_lane(road: Array) -> void:
+	if road.size() != 2:
+		return
+	var a: Vector3 = road[0]
+	var b: Vector3 = road[1]
+	var d := Vector3(b.x - a.x, 0, b.z - a.z)
+	var L := d.length()
+	if L < 1.0:
+		return
+	var dir := d / L
+	var n := Vector3(-dir.z, 0, dir.x)
+	for k in int(L / 6.0) + 1:
+		city.clear_trees(a + dir * (k * 6.0), 5.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for layer in [[5.4, 0.06, Color(0.72, 0.71, 0.68)], [4.0, 0.1, Color(0.16, 0.17, 0.18)]]:
+		var w: float = layer[0]
+		var y := Vector3(0, float(layer[1]), 0)
+		st.set_color(layer[2])
+		for v in [a - n * w, a + n * w, b + n * w, a - n * w, b + n * w, b - n * w, a - n * w, b + n * w, a + n * w, a - n * w, b - n * w, b + n * w]:
+			st.add_vertex(v + y)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.95
+	mi.material_override = m
+	_facilities.add_child(mi)
+
+
+func _fbox(parent: Node3D, pos: Vector3, size: Vector3, col: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.roughness = 0.85
+	mi.material_override = m
+	mi.position = pos + Vector3(0, size.y * 0.5, 0)
+	parent.add_child(mi)
+
+
+func _scaffold(r: Node3D) -> void:
+	_fbox(r, Vector3.ZERO, Vector3(28, 0.3, 28), Color(0.55, 0.45, 0.32))       # cleared site
+	for cx in [-1, 1]:
+		for cz in [-1, 1]:
+			_fbox(r, Vector3(cx * 8, 0, cz * 6), Vector3(0.8, 12, 0.8), Color(0.75, 0.75, 0.72))
+	_fbox(r, Vector3(0, 6, 0), Vector3(17, 0.6, 13), Color(0.75, 0.75, 0.72))
+	_fbox(r, Vector3(0, 12, 0), Vector3(17, 0.6, 13), Color(0.75, 0.75, 0.72))
+	_fbox(r, Vector3(11, 0, -9), Vector3(1.6, 34, 1.6), Color(0.98, 0.78, 0.12))  # crane mast
+	_fbox(r, Vector3(4, 33, -9), Vector3(22, 1.4, 1.4), Color(0.98, 0.78, 0.12))  # jib
+
+
+func _facility_model(r: Node3D, f: String) -> void:
+	var white := Color(0.95, 0.95, 0.93)
+	match f:
+		"clinic":
+			_fbox(r, Vector3.ZERO, Vector3(24, 9, 16), white)
+			_fbox(r, Vector3(0, 9, 0), Vector3(25, 0.8, 17), Color(0.2, 0.55, 0.7))
+			_fbox(r, Vector3(0, 9.8, 0), Vector3(6, 0.6, 2), Color(0.9, 0.15, 0.15))
+			_fbox(r, Vector3(0, 9.8, 0), Vector3(2, 0.6, 6), Color(0.9, 0.15, 0.15))
+		"surau":
+			_fbox(r, Vector3.ZERO, Vector3(16, 7, 16), white)
+			var dome := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 5.5
+			sm.height = 8.0
+			dome.mesh = sm
+			var dm := StandardMaterial3D.new()
+			dm.albedo_color = Color(0.2, 0.6, 0.55)
+			dome.material_override = dm
+			dome.position = Vector3(0, 8.5, 0)
+			r.add_child(dome)
+			_fbox(r, Vector3(10, 0, 10), Vector3(1.8, 18, 1.8), white)
+		"school", "stadium":
+			if f == "stadium":
+				_fbox(r, Vector3.ZERO, Vector3(28, 0.2, 20), Color(0.3, 0.62, 0.3))
+				for sd in [-1, 1]:
+					_fbox(r, Vector3(0, 0, sd * 11), Vector3(28, 5, 3), Color(0.85, 0.86, 0.88))
+			else:
+				_fbox(r, Vector3(0, 0, -6), Vector3(26, 10, 7), Color(0.96, 0.9, 0.78))
+				_fbox(r, Vector3(-10, 0, 3), Vector3(6, 10, 12), Color(0.96, 0.9, 0.78))
+				_fbox(r, Vector3(0, 10, -6), Vector3(27, 0.8, 8), Color(0.6, 0.25, 0.2))
+		"park":
+			_fbox(r, Vector3.ZERO, Vector3(28, 0.25, 28), Color(0.32, 0.62, 0.3))
+			for k in 7:
+				var a := TAU * k / 7.0
+				_fbox(r, Vector3(cos(a) * 9, 0, sin(a) * 9), Vector3(1, 4, 1), Color(0.4, 0.28, 0.18))
+				_fbox(r, Vector3(cos(a) * 9, 4, sin(a) * 9), Vector3(5, 4, 5), Color(0.2, 0.5, 0.22))
+		"market":
+			_fbox(r, Vector3.ZERO, Vector3(26, 5, 16), Color(0.9, 0.85, 0.72))
+			_fbox(r, Vector3(0, 5, 0), Vector3(28, 1.2, 18), Color(0.85, 0.35, 0.2))
+		"mall":
+			_fbox(r, Vector3.ZERO, Vector3(28, 14, 22), Color(0.85, 0.88, 0.92))
+			_fbox(r, Vector3(0, 14, 0), Vector3(20, 2, 14), Color(0.3, 0.5, 0.75))
+		"office":
+			_fbox(r, Vector3.ZERO, Vector3(14, 46, 14), Color(0.55, 0.68, 0.82))
+			_fbox(r, Vector3(0, 46, 0), Vector3(10, 3, 10), Color(0.8, 0.82, 0.85))
+		_:
+			_fbox(r, Vector3.ZERO, Vector3(20, 8, 14), white)
 
 
 ## The aerial intro shot has finished.
@@ -144,6 +344,9 @@ func apply_state(d: Dictionary) -> void:
 	var moved := sel != selected
 	selected = sel
 	placing = bool(d.get("placing", false))
+	land_pick = d.get("landPick", null)
+	_update_site()
+	_update_facilities()
 	_refresh_labels()
 	_focus_selected(moved)
 
@@ -228,6 +431,8 @@ func _lot_fits(lot: Dictionary, want: String) -> bool:
 ## a kind that fits its archetype. Re-run after every rebuild, since the
 ## city depends on the seat.
 func relayout() -> void:
+	_fac_key = ""   # a rebuilt city needs its founded sites claimed again
+	_site_roads = {}
 	centres = []
 	zone_lots = []
 	var n := zones.size()
@@ -236,6 +441,12 @@ func relayout() -> void:
 	var used := {}
 	for i in n:
 		var z: Dictionary = zones[i]
+		var zp = z.get("pos", null)
+		if zp is Array and zp.size() == 2:
+			# founded on empty land: it stands exactly where it was built
+			centres.append(Vector3(float(zp[0]), 0, float(zp[1])))
+			zone_lots.append({})
+			continue
 		var want := Vector3.ZERO
 		if i > 0 and n > 1:
 			var r := R * sqrt(float(i) / (n - 1))
@@ -316,6 +527,24 @@ func _unhandled_input(e: InputEvent) -> void:
 	var hit := o + dir * (-o.y / dir.y)
 	var best := -1
 	var best_d := _spacing()
+	if placing:
+		# aiming a project: a tap on a zone picks it, a tap on open ground
+		# (inside the seat, free of roads and buildings) picks that land
+		best_d = 24.0
+		for i in centres.size():
+			var dz: float = hit.distance_to(centres[i])
+			if dz < best_d:
+				best_d = dz
+				best = i
+		if best < 0:
+			# open, free of other buildings and sites, and reachable by road
+			if city.land_free(hit, 30.0, 30.0) and city.access_road(hit).size() == 2:
+				_post_land(hit)
+			return
+		selected = str(zones[best].get("id", ""))
+		_focus_selected(true)
+		_post_click(selected)
+		return
 	for i in centres.size():
 		var d: float = hit.distance_to(centres[i])
 		if d < best_d:

@@ -37,6 +37,9 @@ export type Zone = {
   infra: number;
   sentiment: number;
   projects: string[];
+  /** Founded on empty land: world x/z in the 3D city and its facility. */
+  pos?: [number, number];
+  facility?: string;
   /** Approved projects still under construction (render-only, never persisted). progress is 0..1. */
   building?: { id: string; progress: number; label?: string }[];
 };
