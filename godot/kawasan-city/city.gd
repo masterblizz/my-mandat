@@ -1029,9 +1029,18 @@ func in_seat(p: Vector3) -> bool:
 	return false
 
 
+## Land you can build on: inside the seat and short of the beach (the
+## sea and a 32 m strand before it carry no roads, rails or buildings).
+func on_land(p: Vector3) -> bool:
+	if not in_seat(p):
+		return false
+	return sea_dir == Vector3.ZERO or p.dot(sea_dir) < sea_edge - 32.0
+
+
 ## Mark every occupancy cell outside the boundary as taken (scanline fill).
 func _mask_outside() -> void:
 	if seat_poly.is_empty():
+		_mask_sea()
 		return
 	occ.fill(1)
 	var xs := PackedFloat32Array()
@@ -1056,6 +1065,19 @@ func _mask_outside() -> void:
 			for ix in range(i0, i1):
 				occ[row + ix] = 0
 			k2 += 2
+	_mask_sea()
+
+
+## The sea and its beach are taken in the occupancy map.
+func _mask_sea() -> void:
+	if sea_dir == Vector3.ZERO:
+		return
+	for iz in GN:
+		var z := -EXT + (iz + 0.5) * CELL
+		for ix in GN:
+			var x := -EXT + (ix + 0.5) * CELL
+			if x * sea_dir.x + z * sea_dir.z > sea_edge - 32.0:
+				occ[iz * GN + ix] = 1
 
 
 ## Draw a polyline only where it is inside the seat, as separate runs.
@@ -1065,7 +1087,7 @@ func _inside_runs(pts: PackedVector3Array) -> Array:
 	var runs := []
 	var cur := PackedVector3Array()
 	for p in pts:
-		if in_seat(p):
+		if on_land(p):
 			cur.append(p)
 		elif cur.size() > 0:
 			if cur.size() > 1:
@@ -1175,7 +1197,7 @@ func _gen_radial() -> void:
 					var bend := rng.randf_range(-0.08, 0.08)
 					var end := _polar(ra + spur, a + bend)
 					_make_road([_polar(ra, a), _polar(ra + spur * 0.5, a + bend * 0.4), end], 2)
-					if in_seat(end):
+					if on_land(end):
 						_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 					_mark_rect(end, 0.0, 17.0, 17.0)
 
@@ -1184,7 +1206,7 @@ func _cul_de_sac(from: Vector3, dir: Vector3, length: float) -> void:
 	var n := Vector3(-dir.z, 0, dir.x) * rng.randf_range(-0.25, 0.25) * length
 	var end := from + dir * length + n
 	_make_road([from, from + dir * length * 0.5 + n * 0.4, end], 2)
-	if in_seat(end):
+	if on_land(end):
 		_disc(ground_st, end, 7.5, ROAD_Y[2] + 0.001, C_ASPHALT)
 	_mark_rect(end, 0.0, 17.0, 17.0)
 
@@ -1409,10 +1431,24 @@ func _make_road(ctrl: Array, cls: int) -> void:
 	var gaps := PackedByteArray()
 	gaps.resize(pts.size())
 	# outside the seat boundary the road is not drawn (and cars hide there)
-	if not seat_poly.is_empty():
-		for k in pts.size():
-			if not in_seat(pts[k]):
+	for k in pts.size():
+		if not on_land(pts[k]):
+			gaps[k] = 1
+	# a scrap of road left between gaps (or a gap and an end) shorter than
+	# a short block leads nowhere: drop it too
+	var k0 := 0
+	while k0 < pts.size():
+		if gaps[k0] == 1:
+			k0 += 1
+			continue
+		var k1 := k0
+		while k1 < pts.size() and gaps[k1] == 0:
+			k1 += 1
+		var cut := k0 > 0 or k1 < pts.size()
+		if cut and cum[k1 - 1] - cum[k0] < 45.0:
+			for k in range(k0, k1):
 				gaps[k] = 1
+		k0 = k1
 	var rd := {"pts": pts, "cum": cum, "cls": cls, "half": ROAD_HALF[cls], "wet": wet, "gaps": gaps}
 	roads.append(rd)
 	_mark_road(rd, ROAD_HALF[cls] + (2.6 if cls < 2 else 1.6))
@@ -1581,7 +1617,7 @@ func _rect_free(c: Vector3, yaw: float, w: float, d: float) -> bool:
 ## Open land the player can build on: inside the seat, off the sea, and
 ## free of roads, buildings and lots (trees are cleared for the site).
 func land_free(c: Vector3, w: float, d: float) -> bool:
-	if not in_seat(c) or in_sea(c):
+	if not on_land(c) or in_sea(c):
 		return false
 	for p in _rect_points(c, 0.0, w, d):
 		var ci := _cell(p)
@@ -1619,7 +1655,7 @@ func access_road(c: Vector3) -> Array:
 			var side := Vector3(-dir.z, 0, dir.x) * 3.0
 			for e in [p, p + side, p - side]:
 				var ci := _cell(e)
-				if ci < 0 or occ[ci] == 1 or not in_seat(e):
+				if ci < 0 or occ[ci] == 1 or not on_land(e):
 					ok = false
 					break
 			s += 2.0
@@ -1742,7 +1778,7 @@ func _build_features() -> void:
 		for i in 40:
 			var along := Vector3(-sea_dir.z, 0, sea_dir.x) * rng.randf_range(-700, 700)
 			var tp := sea_dir * (edge - rng.randf_range(24, 40)) + along
-			if in_seat(tp):
+			if on_land(tp):
 				tree(tp, true)
 
 	if not has_highway:
@@ -1795,7 +1831,7 @@ func _build_lrt() -> void:
 			var yaw := atan2(-t.z, t.x)
 			var n := Vector3(-t.z, 0, t.x)
 			var mid := (a + b) * 0.5
-			if not in_seat(mid):
+			if not on_land(mid):
 				continue
 			box(mid + Vector3(0, LRT_Y, 0), Vector3(L + 0.3, 1.3, 6.0), concrete, null, yaw)
 			for sd in [-1.0, 1.0]:
@@ -1810,7 +1846,7 @@ func _build_lrt() -> void:
 		var s := 150.0
 		while s < length - 60.0:
 			var p := c.sample_baked(s)
-			if _shape_r(p) < r_taman and in_seat(p):
+			if _shape_r(p) < r_taman and on_land(p):
 				var t := (c.sample_baked(s + 1.0) - p).normalized()
 				_lrt_station(p, atan2(-t.z, t.x))
 			s += 300.0
@@ -2215,7 +2251,7 @@ func _paddy_fields() -> void:
 		while v < reach:
 			var c := b * Vector3(u, 0, v)
 			var r := _shape_r(c)
-			if r > r_city * 0.85 and r < reach and in_seat(c) and _rect_free(c, yaw, 40, 30):
+			if r > r_city * 0.85 and r < reach and on_land(c) and _rect_free(c, yaw, 40, 30):
 				_mark_rect(c, yaw, 40, 30)
 				lots.append({"p": c, "kind": "paddy", "yaw": yaw, "w": 40.0, "d": 30.0})
 				var col := Color(0.42, 0.62, 0.28).lerp(Color(0.72, 0.68, 0.3), rng.randf() * 0.6)

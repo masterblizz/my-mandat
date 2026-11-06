@@ -227,7 +227,7 @@ func _move_trains(dt: float) -> void:
 				fwd = Vector3.RIGHT
 			var b := Basis(Vector3.UP, atan2(-fwd.z, fwd.x))
 			train_nodes[i * TRAIN_CARS + j].transform = Transform3D(b, p)
-			train_nodes[i * TRAIN_CARS + j].visible = city.in_seat(p)
+			train_nodes[i * TRAIN_CARS + j].visible = city.on_land(p)
 
 
 func _process(dt: float) -> void:
@@ -250,7 +250,7 @@ func _process(dt: float) -> void:
 			fwd = (hw.sample_baked(fposmod(c.t + c.dir * 2.0, hw_len)) - p).normalized()
 			pos = p + Vector3(0, 0.3, 0)
 			# the expressway is only drawn inside the seat boundary
-			hidden = not city.in_seat(p)
+			hidden = not city.on_land(p)
 		else:
 			var rd: Dictionary = city.roads[c.road]
 			var L: float = rd.cum[rd.cum.size() - 1]
