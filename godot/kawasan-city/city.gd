@@ -4458,17 +4458,73 @@ func _warehouse() -> void:
 
 
 ## Rumah kampung on stilts, tangga at the front, fruit trees behind.
+## Rumah kampung on stilts with a zinc roof and fruit trees behind. The
+## house itself is one merged mesh (under-floor, walls, roof in their own
+## colours), a few variants built once, each lot then a single instance
+## scaled to its size: rural seats hold tens of thousands of these.
+var _kampung_meshes := []
 func _kampung_house() -> void:
+	if _kampung_meshes.is_empty():
+		_kampung_meshes = _kampung_variants()
 	var w := rng.randf_range(7, 9)
 	var dd := rng.randf_range(6, 8)
-	var wood := Color(0.55, 0.38, 0.24).lerp(Color(0.72, 0.56, 0.38), rng.randf())
-	# the stilts read as one dark under-floor block at true scale
-	box(Vector3.ZERO, Vector3(w - 0.8, 1.4, dd - 0.8), Color(0.35, 0.26, 0.18))
-	box(Vector3(0, 1.4, 0), Vector3(w, 3.0, dd), wood)
-	gable(Vector3(0, 4.4, 0), w, dd, 3.6, ZINC[rng.randi() % ZINC.size()])
+	var m: ArrayMesh = _kampung_meshes[rng.randi() % _kampung_meshes.size()]
+	var g := rng.randf_range(0.86, 1.12)
+	_add(m, mat_plain, Transform3D(Basis.from_scale(Vector3(w / 8.0, 1.0, dd / 7.0)), Vector3.ZERO), Color(g, g, g))
 	tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
 	if rng.randf() < 0.5:
 		tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
+
+
+func _kampung_variants() -> Array:
+	var out := []
+	var woods := [Color(0.58, 0.41, 0.26), Color(0.69, 0.53, 0.36)]
+	for roof in ZINC:
+		for wood in woods:
+			var roof_b := Basis(Vector3.UP, PI * 0.5) * Basis.from_scale(Vector3(8.0, 3.6, 8.8))
+			out.append(_merge_parts([
+				[box_mesh, Transform3D(Basis.from_scale(Vector3(7.2, 1.4, 6.2)), Vector3(0, 0.7, 0)), Color(0.35, 0.26, 0.18)],
+				[box_mesh, Transform3D(Basis.from_scale(Vector3(8.0, 3.0, 7.0)), Vector3(0, 2.9, 0)), wood],
+				[prism_mesh, Transform3D(roof_b, Vector3(0, 4.4 + 1.8, 0)), roof],
+			]))
+	return out
+
+
+## One mesh from [mesh, transform, colour] parts (vertex colours carry
+## each part's colour; the instance colour tints the whole).
+func _merge_parts(parts: Array) -> ArrayMesh:
+	var V := PackedVector3Array()
+	var N := PackedVector3Array()
+	var C := PackedColorArray()
+	var I := PackedInt32Array()
+	for pt in parts:
+		var arr: Array = (pt[0] as PrimitiveMesh).get_mesh_arrays()
+		var xf: Transform3D = pt[1]
+		var col: Color = pt[2]
+		var nb := xf.basis.inverse().transposed()
+		var base := V.size()
+		var pv: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var pn: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		for k in pv.size():
+			V.append(xf * pv[k])
+			N.append((nb * pn[k]).normalized())
+			C.append(col)
+		var pi: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if pi.is_empty():
+			for k in pv.size():
+				I.append(base + k)
+		else:
+			for k in pi:
+				I.append(base + k)
+	var out := []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = V
+	out[Mesh.ARRAY_NORMAL] = N
+	out[Mesh.ARRAY_COLOR] = C
+	out[Mesh.ARRAY_INDEX] = I
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out)
+	return am
 
 
 ## Merdeka 118: faceted tiers stepping in as they rise, then a long spire.
