@@ -1,26 +1,67 @@
 "use client";
 
+// Profil YB: who you are in the game right now. The account side (rank,
+// XP, plan access, play time) and the career side as it is played today:
+// the seat you hold (real census figures), where you are in the term, and
+// your service record (complaints, facilities, trust, organisation,
+// budget). Navy city look, like the main menu and the kawasan HUD.
+
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import Header from "../components/layout/Header";
-import StatusBar from "../components/layout/StatusBar";
-import TacticalPanel from "../components/layout/TacticalPanel";
-import StatBar from "../components/ui/StatBar";
 import { useGameStore } from "../store/gameStore";
 import { usePremiumStatus } from "../hooks/usePremiumStatus";
 import { createClient } from "../utils/supabase/client";
 import { formatPlaytime, getPlayerRank, getRankPerks, playerXp } from "../lib/playerRank";
+import { playerPortraitSrc } from "../lib/playerAvatar";
+import { generateConstituencies } from "../data/constituencies";
+import { TERM_QUARTERS, WEEK_SLOTS, termCalendar } from "../data/ybService";
+import { formatNumber } from "../utils/format";
 import { useLang, t } from "../i18n/useLang";
-import Fold from "../components/results/Fold";
+
+// a colour at some opacity; rank colours can be CSS variables, not hex
+const fade = (c: string, a: number) => (c.startsWith("#") && c.length === 7 ? `${c}${Math.round(a * 255).toString(16).padStart(2, "0")}` : `color-mix(in srgb, ${c} ${Math.round(a * 100)}%, transparent)`);
+
+const panel = { background: "rgb(14 26 48 / .82)", border: "1px solid rgb(140 190 255 / .28)", backdropFilter: "blur(12px)" } as const;
+
+function Meter({ icon, label, value, max = 100, color, suffix = "" }: { icon: string; label: string; value: number; max?: number; color: string; suffix?: string }) {
+  const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[12px]"><span className="text-white/80"><span aria-hidden>{icon}</span> {label}</span><b style={{ color }}>{formatNumber(Math.round(value))}{suffix}</b></div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ background: "rgb(255 255 255 / .1)" }}><div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} /></div>
+    </div>
+  );
+}
+
+function Tile({ icon, label, value, color = "#fff" }: { icon: string; label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-xl px-3 py-2.5" style={{ background: "rgb(255 255 255 / .05)", border: "1px solid rgb(255 255 255 / .08)" }}>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55"><span aria-hidden>{icon}</span> {label}</div>
+      <div className="mt-0.5 truncate text-[17px] font-black" style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function Section({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl p-4" style={panel}>
+      <h2 className="mb-3 text-[12px] font-black uppercase tracking-[.18em]" style={{ color: "#ffcc29" }}><span aria-hidden>{icon}</span> {title}</h2>
+      {children}
+    </section>
+  );
+}
 
 export default function ProfilePage() {
   const lang = useLang();
-  const { leader, day, totalDays, careerProgress, journey, settings, states } = useGameStore();
+  const router = useRouter();
+  const { leader, day, careerProgress, journey, settings, states } = useGameStore();
   const { hasPremium, hasUltimate, isLoading } = usePremiumStatus();
   const [operator, setOperator] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    async function loadProfile() {
+    (async () => {
       try {
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
         const supabase = createClient();
@@ -28,69 +69,137 @@ export default function ProfilePage() {
         if (!user || !active) return;
         const { data } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
         if (active) setOperator(data?.username || user.user_metadata?.username || user.email?.split("@")[0] || null);
-      } catch { /* The local game profile remains useful offline. */ }
-    }
-    loadProfile();
+      } catch { /* the local game profile stays useful offline */ }
+    })();
     return () => { active = false; };
   }, []);
 
   const xp = useMemo(() => playerXp({ playedMinutes: careerProgress.playedMinutes, day, term: careerProgress.term, completed: careerProgress.completed, journalEntries: journey.journal.length }), [careerProgress, day, journey.journal.length]);
   const { rank, next, progress } = getPlayerRank(xp);
   const perks = getRankPerks(xp);
-  const prnState = states.find((state) => state.id === settings.prnStateId);
   const planName = hasUltimate ? "ULTIMATE" : hasPremium ? "PREMIUM" : "FREE";
-  const planColor = hasUltimate ? "#a78bfa" : hasPremium ? "var(--gold)" : "var(--cyan)";
-  const scope = settings.electionScope === "prn" ? `PRN · ${prnState?.name ?? settings.prnStateId}` : "PRU · MALAYSIA";
+  const planColor = hasUltimate ? "#a78bfa" : hasPremium ? "#ffcc29" : "#5ad1ff";
 
-  return <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,rgb(var(--cyan-rgb)/.12),transparent_42%),var(--bg)] pb-20 pt-[52px]" style={{ fontFamily: "'Space Mono', monospace" }}>
-    <Header />
-    <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">
-      <div className="mb-4 border p-4 sm:p-5" style={{ borderColor: rank.color, background: "rgb(var(--bg-rgb) / .78)", boxShadow: "0 0 38px rgb(var(--cyan-rgb) / .12)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border text-2xl" style={{ borderColor: rank.color, color: rank.color, background: "rgb(var(--bg-rgb) / .9)" }}>◈</div>
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-black text-white">{operator ?? leader.name}</h1>
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] font-black tracking-widest">
-                <span className="rounded-full border px-2.5 py-0.5" style={{ borderColor: rank.color, color: rank.color }}>{t(lang, rank.titleMs, rank.titleEn).toUpperCase()}</span>
-                <span className="rounded-full border px-2.5 py-0.5" style={{ borderColor: planColor, color: planColor }}>⭐ {isLoading ? t(lang, "MENYEMAK", "CHECKING") : planName}</span>
-                <span className="rounded-full border px-2.5 py-0.5 text-cyan" style={{ borderColor: "rgb(var(--cyan-rgb) / .35)" }}>{leader.partyAbbr}</span>
+  // the seat you hold, with its real (census) figures
+  const scope = settings.electionScope === "prn" ? "dun" : "parliament";
+  const homeState = states.find((s) => s.id === leader.homeState);
+  const seat = useMemo(() => (homeState ? generateConstituencies(homeState, scope).find((c) => c.id === leader.homeConstituencyId) : undefined), [homeState, scope, leader.homeConstituencyId]);
+  const inTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
+  const cal = termCalendar(journey.termDay);
+  const zones = journey.cityZones[leader.homeConstituencyId] ?? [];
+  const facilities = zones.reduce((n, z) => n + z.projects.length, 0) + journey.construction.filter((w) => w.seat === leader.homeConstituencyId).length;
+  const sentiment = zones.length ? Math.round(zones.reduce((n, z) => n + z.sentiment, 0) / zones.length) : null;
+  const svc = journey.service;
+  const side = journey.chapter === "opposition" ? t(lang, "Pembangkang", "Opposition") : t(lang, "Kerajaan", "Government");
+  const office = scope === "dun" ? t(lang, "ADUN", "State assembly member") : t(lang, "Ahli Parlimen", "Member of Parliament");
+
+  return (
+    <main className="navy-ui relative min-h-screen overflow-x-hidden pb-16 text-white" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div aria-hidden className="navy-ui__backdrop pointer-events-none fixed inset-0">
+        <Image src="/elected-city-bg.webp" alt="" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 60%" }} />
+      </div>
+      <div className="relative z-[1] mx-auto w-full max-w-5xl px-4 pt-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <button type="button" onClick={() => router.push(inTerm ? "/kawasan" : "/menu")} className="rounded-full px-4 py-2 text-[12px] font-black tracking-wider" style={panel}>
+            ← {inTerm ? t(lang, "Kembali ke kawasan", "Back to kawasan") : t(lang, "Menu utama", "Main menu")}
+          </button>
+          <div className="text-[12px] font-black tracking-[.2em] text-white/70">{t(lang, "PROFIL", "PROFILE")}</div>
+        </div>
+
+        {/* who you are */}
+        <section className="mb-4 rounded-2xl p-4 sm:p-5" style={{ ...panel, borderColor: fade(rank.color, 0.55) }}>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl" style={{ border: `2px solid ${leader.partyColor}` }}>
+              <Image src={playerPortraitSrc(leader.avatarIndex)} alt={leader.name} fill sizes="80px" className="object-cover" />
+            </div>
+            <div className="min-w-[180px] flex-1">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-white/55">{operator ?? t(lang, "Pemain", "Player")}</div>
+              <h1 className="break-words text-[22px] font-black leading-tight sm:text-[24px]">{inTerm ? "YB " : ""}{leader.name}</h1>
+              <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-black tracking-widest">
+                <span className="rounded-full px-2.5 py-0.5" style={{ border: `1px solid ${rank.color}`, color: rank.color }}>{t(lang, rank.titleMs, rank.titleEn).toUpperCase()}</span>
+                <span className="rounded-full px-2.5 py-0.5" style={{ border: `1px solid ${leader.partyColor}`, color: "#fff", background: fade(leader.partyColor, 0.2) }}>{leader.partyAbbr}</span>
+                <span className="rounded-full px-2.5 py-0.5" style={{ border: `1px solid ${planColor}`, color: planColor }}>⭐ {isLoading ? t(lang, "MENYEMAK", "CHECKING") : planName}</span>
               </div>
             </div>
-          </div>
-          <div className="flex gap-2 text-center">
-            <div className="min-w-[84px] border px-3 py-2" style={{ borderColor: "rgb(var(--cyan-rgb) / .25)" }}><div className="text-[15px]" aria-hidden>⏱</div><b className="block text-sm text-cyan">{formatPlaytime(careerProgress.playedMinutes ?? 0)}</b></div>
-            <div className="min-w-[84px] border px-3 py-2" style={{ borderColor: "rgb(var(--gold-rgb) / .25)" }}><div className="text-[15px]" aria-hidden>🏛</div><b className="block text-sm text-gold">{t(lang, `PENGGAL ${careerProgress.term}`, `TERM ${careerProgress.term}`)}</b></div>
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-[10px]"><span className="font-black tracking-widest" style={{ color: rank.color }}>⚡ {xp} XP</span><span className="text-text-muted">{next ? `→ ${t(lang, next.titleMs, next.titleEn)} · ${next.minXp - xp} XP` : t(lang, "🏆 RANK TERTINGGI", "🏆 TOP RANK")}</span></div>
-          <div className="mt-1.5 h-2 overflow-hidden bg-bar-empty"><div className="h-full transition-all" style={{ width: `${progress}%`, background: rank.color }} /></div>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-[1.1fr_.9fr]">
-        <TacticalPanel title={`📈 ${t(lang, "KEMAJUAN", "PROGRESS")}`}><div className="space-y-3"><StatBar label={`📅 ${t(lang, "Hari kempen", "Campaign days")}`} value={day} max={totalDays} color="var(--cyan)" /><StatBar label={`🎯 ${t(lang, "Objektif", "Objectives")}`} value={careerProgress.completed.length} max={8} color="var(--gold)" /><StatBar label={`🏗 ${t(lang, "Organisasi", "Organisation")}`} value={journey.organisation} max={100} color="var(--neon-green)" /><StatBar label={`🤝 ${t(lang, "Kepercayaan", "Trust")}`} value={journey.trust} max={100} color="#a78bfa" /></div></TacticalPanel>
-        <TacticalPanel title={`🔑 ${t(lang, "AKSES", "ACCESS")}`}>
-          <div className="space-y-2 text-[11px]">
-            <div className="flex flex-wrap gap-1.5 font-black tracking-widest">
-              <span className="rounded-full border px-2.5 py-1 text-white" style={{ borderColor: planColor }}>🗺️ {scope}</span>
-              <span className="rounded-full border px-2.5 py-1" style={{ borderColor: hasPremium ? "rgb(0 255 136 / .4)" : "rgba(255,255,255,.15)", color: hasPremium ? "var(--neon-green)" : "var(--text-muted)" }}>{hasPremium ? "✓ PRN" : "🔒 PRN (PERLIS ✓)"}</span>
-              <span className="rounded-full border px-2.5 py-1" style={{ borderColor: hasUltimate ? "rgb(167 139 250 / .6)" : "rgba(255,255,255,.15)", color: hasUltimate ? "#a78bfa" : "var(--text-muted)" }}>{hasUltimate ? "✓" : "🔒"} {t(lang, "ARKIB SENARIO", "SCENARIO ARCHIVE")}</span>
+            <div className="grid w-full grid-cols-2 gap-2 text-center sm:w-auto">
+              <div className="rounded-xl px-3 py-2" style={{ background: "rgb(255 255 255 / .05)" }}><div className="text-[10px] uppercase tracking-wider text-white/55">⏱ {t(lang, "Masa main", "Played")}</div><b className="text-[15px] text-[#5ad1ff]">{formatPlaytime(careerProgress.playedMinutes ?? 0)}</b></div>
+              <div className="rounded-xl px-3 py-2" style={{ background: "rgb(255 255 255 / .05)" }}><div className="text-[10px] uppercase tracking-wider text-white/55">🏛 {t(lang, "Penggal", "Term")}</div><b className="text-[15px] text-[#ffcc29]">{careerProgress.term}</b></div>
             </div>
-            <Fold className="text-text-muted" summaryClassName="text-[10px]" summary={<>ⓘ {t(lang, "BUTIRAN PELAN", "PLAN DETAILS")}</>}>
-              <p className="mt-1 leading-relaxed">{hasPremium ? t(lang, "Premium membuka kempen PRN di semua negeri, selain PRU nasional.", "Premium unlocks PRN campaigns in every state, on top of the national PRU.") : t(lang, "Akaun percuma bermain PRU nasional dan PRN Perlis. PRN negeri lain dibuka dengan Premium.", "Free accounts play the national PRU and the Perlis PRN. Other states' PRN unlocks with Premium.")}</p>
-              <p className="mt-1 leading-relaxed">{hasUltimate ? t(lang, "Semua senario eksklusif dan Arkib Senario tersedia.", "All exclusive scenarios and the Scenario Archive are available.") : t(lang, "Naik taraf untuk membuka PRN, tahap kesukaran lebih tinggi dan akses senario Ultimate.", "Upgrade to unlock PRN, higher difficulty and Ultimate scenario access.")}</p>
-            </Fold>
           </div>
-        </TacticalPanel>
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-[11px]"><span className="font-black" style={{ color: rank.color }}>⚡ {xp} XP</span><span className="text-white/60">{next ? `→ ${t(lang, next.titleMs, next.titleEn)} · ${next.minXp - xp} XP` : t(lang, "Rank tertinggi", "Top rank")}</span></div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: "rgb(255 255 255 / .1)" }}><div className="h-full rounded-full" style={{ width: `${progress}%`, background: rank.color }} /></div>
+          </div>
+        </section>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* the seat */}
+          <Section icon="📍" title={t(lang, "Kawasan anda", "Your kawasan")}>
+            {seat ? (
+              <>
+                <div className="mb-3"><div className="text-[20px] font-black leading-tight">{seat.code} {seat.name}</div><div className="text-[12px] text-white/65">{homeState?.name} · {inTerm ? `${office} · ${side}` : t(lang, "Calon", "Candidate")}</div></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Tile icon="👥" label={t(lang, "Penduduk", "Residents")} value={formatNumber(seat.population)} />
+                  <Tile icon="🗳" label={t(lang, "Pengundi", "Voters")} value={formatNumber(seat.voters)} />
+                  <Tile icon="🏠" label={t(lang, "Isi rumah", "Households")} value={seat.households ? formatNumber(seat.households) : "—"} />
+                  <Tile icon="🗺" label={t(lang, "Keluasan", "Area")} value={`${formatNumber(Math.round(seat.areaKm2))} km²`} />
+                </div>
+                {seat.households && <p className="mt-2 text-[10px] text-white/45">{t(lang, "Banci 2020, DOSM (data terbuka)", "2020 census, DOSM (open data)")}</p>}
+              </>
+            ) : <p className="text-[12px] text-white/60">{t(lang, "Tiada kawasan lagi — mulakan permainan baru.", "No kawasan yet — start a new game.")}</p>}
+          </Section>
+
+          {/* the term */}
+          <Section icon="📅" title={t(lang, "Penggal semasa", "Current term")}>
+            {inTerm ? (
+              <>
+                <div className="mb-3 flex items-baseline justify-between"><div className="text-[20px] font-black">{t(lang, `Suku ${cal.quarter}`, `Quarter ${cal.quarter}`)}<span className="text-[13px] text-white/55"> / {TERM_QUARTERS}</span></div><div className="text-[12px] text-white/65">{t(lang, `Hari ${cal.day} · Minggu ${cal.week}`, `Day ${cal.day} · Week ${cal.week}`)}</div></div>
+                <div className="mb-3 h-2 overflow-hidden rounded-full" style={{ background: "rgb(255 255 255 / .1)" }}><div className="h-full rounded-full" style={{ width: `${(cal.quarter / TERM_QUARTERS) * 100}%`, background: "#ffcc29" }} /></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Tile icon="💰" label={t(lang, "Bajet awam", "Public budget")} value={`RM ${formatNumber(journey.publicBudget)}`} color="#ffcc29" />
+                  <Tile icon="😊" label={t(lang, "Sentimen", "Sentiment")} value={sentiment === null ? "—" : `${sentiment}%`} />
+                  <Tile icon="❗" label={t(lang, "Aduan terbuka", "Open complaints")} value={formatNumber(svc.issues.length)} color={svc.issues.length ? "#ff9f43" : "#fff"} />
+                  <Tile icon="📋" label={t(lang, "Slot minggu ini", "Slots this week")} value={`${svc.slots}/${WEEK_SLOTS} · ⚡${Math.round(svc.stamina)}`} />
+                </div>
+              </>
+            ) : <p className="text-[12px] text-white/60">{t(lang, "Penggal bermula selepas anda dipilih sebagai wakil rakyat.", "The term starts once you are elected.")}</p>}
+          </Section>
+
+          {/* service record */}
+          <Section icon="🗂" title={t(lang, "Rekod khidmat", "Service record")}>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <Tile icon="✅" label={t(lang, "Aduan selesai", "Resolved")} value={formatNumber(svc.resolved)} color="#3ddc84" />
+              <Tile icon="⌛" label={t(lang, "Terlepas", "Missed")} value={formatNumber(svc.missed)} color={svc.missed ? "#ff6b6b" : "#fff"} />
+              <Tile icon="🏗" label={t(lang, "Kemudahan", "Facilities")} value={formatNumber(facilities)} />
+            </div>
+            <div className="space-y-2.5">
+              <Meter icon="🤝" label={t(lang, "Kepercayaan", "Trust")} value={journey.trust} color="#a78bfa" />
+              <Meter icon="🏗" label={t(lang, "Jentera", "Organisation")} value={journey.organisation} color="#3ddc84" />
+              <Meter icon="📍" label={t(lang, "Kehadiran di kawasan", "Presence in the seat")} value={svc.presence} color="#5ad1ff" />
+            </div>
+          </Section>
+
+          {/* account */}
+          <Section icon="🔑" title={t(lang, "Akaun & akses", "Account & access")}>
+            <div className="flex flex-wrap gap-1.5 text-[11px] font-black tracking-wider">
+              <span className="rounded-full px-3 py-1" style={{ border: "1px solid rgb(61 220 132 / .5)", color: "#3ddc84" }}>✓ PRU · MALAYSIA</span>
+              <span className="rounded-full px-3 py-1" style={{ border: `1px solid ${hasPremium ? "rgb(61 220 132 / .5)" : "rgb(255 255 255 / .18)"}`, color: hasPremium ? "#3ddc84" : "rgb(255 255 255 / .55)" }}>{hasPremium ? "✓" : "🔒"} PRN</span>
+              <span className="rounded-full px-3 py-1" style={{ border: `1px solid ${hasUltimate ? "rgb(167 139 250 / .6)" : "rgb(255 255 255 / .18)"}`, color: hasUltimate ? "#a78bfa" : "rgb(255 255 255 / .55)" }}>{hasUltimate ? "✓" : "🔒"} {t(lang, "ARKIB SENARIO", "SCENARIO ARCHIVE")}</span>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-white/60">{hasPremium
+              ? t(lang, "Premium membuka kempen PRN di semua negeri, selain PRU nasional.", "Premium unlocks PRN campaigns in every state, on top of the national PRU.")
+              : t(lang, "Akaun percuma bermain PRU nasional. Naik taraf untuk PRN di semua negeri.", "Free accounts play the national PRU. Upgrade for PRN in every state.")}</p>
+            <div className="mt-3 text-[11px] font-black uppercase tracking-[.16em] text-white/55">🎖 {t(lang, "Kelebihan rank", "Rank abilities")}</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {perks.features.map((f) => (
+                <span key={f.labelEn} title={t(lang, f.descriptionMs, f.descriptionEn)} className="rounded-full px-3 py-1 text-[11px] font-bold" style={{ border: `1px solid ${fade(rank.color, 0.4)}`, background: "rgb(255 255 255 / .04)" }}>
+                  <span aria-hidden>{f.icon}</span> {t(lang, f.labelMs, f.labelEn)}
+                </span>
+              ))}
+            </div>
+          </Section>
+        </div>
       </div>
-      <div className="mt-4"><TacticalPanel title={`🎖 ${t(lang, "KELEBIHAN RANK", "RANK ABILITIES")}`}>
-        <div className="flex flex-wrap gap-2">{perks.features.map((feature, index) => <span key={feature.labelEn} title={t(lang, feature.descriptionMs, feature.descriptionEn)} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: index === perks.features.length - 1 ? rank.color : "rgb(var(--cyan-rgb) / .22)", background: "rgb(var(--bg-rgb) / .45)" }}><span className="text-base" style={{ color: index === perks.features.length - 1 ? rank.color : "var(--cyan)" }}>{feature.icon}</span><b className="text-[10px] tracking-wider text-white">{t(lang, feature.labelMs, feature.labelEn)}</b></span>)}</div>
-        <Fold className="mt-2 text-[10px] text-text-muted" summaryClassName="text-[10px]" summary={<>ⓘ {t(lang, "APA ITU?", "WHAT DO THEY DO?")}</>}>
-          <ul className="mt-1 space-y-1 leading-relaxed">{perks.features.map((feature) => <li key={feature.labelEn}><span aria-hidden>{feature.icon}</span> <b className="text-white">{t(lang, feature.labelMs, feature.labelEn)}</b> — {t(lang, feature.descriptionMs, feature.descriptionEn)}</li>)}</ul>
-        </Fold>
-      </TacticalPanel></div>
-    </div>
-    <StatusBar />
-  </main>;
+    </main>
+  );
 }
