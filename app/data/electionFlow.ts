@@ -11,12 +11,12 @@ export interface ElectionFlowStep {
   tone: "purple" | "mint" | "gold" | "neutral" | "red" | "green" | "blue";
 }
 
-export const CAMPAIGN_PERIOD_DAYS = 14;
 export const TOTAL_ELECTION_DAYS = 30;
 export const NOMINATION_DAY = 15;
-export const CAMPAIGN_START_DAY = 16;
-export const CAMPAIGN_END_DAY = 29;
-export const POLLING_DAY = 30;
+export const CAMPAIGN_START_DAY = NOMINATION_DAY + 1;
+export const POLLING_DAY = TOTAL_ELECTION_DAYS;
+export const CAMPAIGN_END_DAY = POLLING_DAY - 1;
+export const CAMPAIGN_PERIOD_DAYS = CAMPAIGN_END_DAY - CAMPAIGN_START_DAY + 1;
 
 export const electionFlowSteps: ElectionFlowStep[] = [
   {
@@ -57,8 +57,8 @@ export const electionFlowSteps: ElectionFlowStep[] = [
   },
   {
     id: "nomination",
-    period: "Hari 7–14",
-    periodEN: "Day 7–14",
+    period: `Hari ${NOMINATION_DAY}`,
+    periodEN: `Day ${NOMINATION_DAY}`,
     title: "Hari Penamaan Calon",
     titleEN: "Nomination Day",
     description: "Calon-calon daftarkan diri; kertas penamaan diserahkan kepada Pegawai Pengurus.",
@@ -69,8 +69,8 @@ export const electionFlowSteps: ElectionFlowStep[] = [
   },
   {
     id: "campaign",
-    period: "14 hari",
-    periodEN: "14 days",
+    period: `Hari ${CAMPAIGN_START_DAY}–${CAMPAIGN_END_DAY} · ${CAMPAIGN_PERIOD_DAYS} hari`,
+    periodEN: `Day ${CAMPAIGN_START_DAY}–${CAMPAIGN_END_DAY} · ${CAMPAIGN_PERIOD_DAYS} days`,
     title: "Tempoh Berkempen",
     titleEN: "Campaign Period",
     description: "Kempen hanya bermula selepas Hari Penamaan Calon dan berjalan sehingga 1 hari sebelum Hari Mengundi.",

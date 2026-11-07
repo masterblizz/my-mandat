@@ -37,7 +37,7 @@ const MENU_ICONS: Record<string, string> = {
 // Solo Campaign expands to show its run-specific actions.
 const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "solo", href: null, toggles: "solo" },
-  { id: "02", href: "/warroom", group: "solo" },
+  { id: "02", href: null, group: "solo" }, // opens ContinueRunModal → hubRoute(save)
   { id: "01", href: "/setup", group: "solo" },
   { id: "03", href: "/load-game", group: "solo" },
   { id: "05", href: "/stats", group: "solo" },

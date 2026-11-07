@@ -7,7 +7,8 @@ import StatBar from "../components/ui/StatBar";
 import Toggle from "../components/ui/Toggle";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
-import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, type GameSpeed } from "../data/ybService";
+import { GAME_SPEEDS, SPEED_DAYS, SPEED_LABEL, TERM_QUARTERS, type GameSpeed } from "../data/ybService";
+import { TOTAL_ELECTION_DAYS } from "../data/electionFlow";
 import { useLang, t } from "../i18n/useLang";
 import { FREE_PRN_STATE, prnStateUnlocked } from "../config/freeTier";
 import { states } from "../data/states";
@@ -128,7 +129,7 @@ function GameplayTab() {
           {/* a game is a five-year term; the election campaign at its end
               always runs TOTAL_ELECTION_DAYS (30) days */}
           <SettingRow label={t(lang, "⏱ TEMPOH", "⏱ LENGTH")}>
-            <span className="text-[12px] font-black text-cyan">{t(lang, "Penggal 5 tahun · 20 suku · kempen 30 hari", "5-year term · 20 quarters · 30-day campaign")}</span>
+            <span className="text-[12px] font-black text-cyan">{t(lang, `Penggal 5 tahun · ${TERM_QUARTERS} suku · pilihan raya ${TOTAL_ELECTION_DAYS} hari`, `5-year term · ${TERM_QUARTERS} quarters · ${TOTAL_ELECTION_DAYS}-day election`)}</span>
           </SettingRow>
 
           <SettingRow label={t(lang, "🗳 MOD", "🗳 MODE")}>
