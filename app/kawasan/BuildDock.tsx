@@ -252,19 +252,19 @@ export default function BuildDock({
 
       <div className="flex flex-wrap items-stretch gap-1.5 border p-1.5 shadow-2xl" style={{ ...box, borderColor: "rgb(var(--cyan-rgb) / .45)" }}>
         {agenda && (
-          <button type="button" onClick={() => toggle("agenda")} aria-expanded={mode === "agenda"}
+          <button type="button" data-tour="agenda" onClick={() => toggle("agenda")} aria-expanded={mode === "agenda"}
             className="nhud-btn nhud-btn--cream shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
             style={{ borderColor: "rgb(var(--cyan-rgb) / .65)", color: mode === "agenda" ? "var(--bg)" : "var(--cyan)", background: mode === "agenda" ? "var(--cyan)" : "rgb(var(--cyan-rgb) / .1)" }}>
             📋 <span className="hidden sm:inline">{t(lang, "AGENDA", "AGENDA")}</span>{agendaBadge ? <span className="ml-1 opacity-80">{agendaBadge}</span> : null}
           </button>
         )}
-        <button type="button" onClick={() => toggle("build")} aria-expanded={open}
+        <button type="button" data-tour="build" onClick={() => toggle("build")} aria-expanded={open}
           className="nhud-btn nhud-btn--gold shrink-0 border px-2.5 py-1.5 text-[10px] font-black tracking-widest"
           style={{ borderColor: "rgb(var(--gold-rgb) / .65)", color: open ? "var(--bg)" : "var(--gold)", background: open ? "var(--gold)" : "rgb(var(--gold-rgb) / .1)" }}>
           🏗 <span className={agenda ? "hidden sm:inline" : undefined}>{t(lang, "BINA", "BUILD")}</span> {open ? "▾" : "▴"}
         </button>
         <div className={`grid min-w-0 flex-1 grid-cols-1 gap-1.5 text-[8px] font-bold tracking-wider ${clock ? "lg:grid-cols-2" : "sm:grid-cols-3"}`}>
-          <div className="min-w-0 px-1">
+          <div className="min-w-0 px-1" data-tour="budget">
             <div className="hidden truncate text-text-muted sm:block">{t(lang, "BAJET AWAM", "PUBLIC BUDGET")}</div>
             <div className="truncate text-[11px] font-black text-gold">RM {formatNumber(budget)}</div>
             <div className="truncate text-[8px] sm:hidden" style={{ color: forecast.net >= 0 ? "var(--neon-green)" : "var(--neon-red)" }}>{signedRM(forecast.net)} / {t(lang, "suku", "qtr")}</div>
