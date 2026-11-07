@@ -2940,14 +2940,27 @@ export default function KawasanDevelopmentPage() {
     return names;
   }, [pendingProject, placementTop.map((option) => option.zone.id).join(), placeTarget?.id, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const canRunCityActivity = journey.chapter === "campaign" && day < totalDays && journey.decisions > 0;
-  const cityActivity = repTerm && journey.chapter === "government" && selectedZone?.kind === "industry"
-    ? { icon: "⚖️", title: t(lang, "Pusat pentadbiran", "Administration centre"), detail: t(lang, "Semak dasar kerajaan dan rekod penggal anda.", "Review government policy and your term record."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/administration"), enabled: true }
-    : repTerm && selectedZone?.kind === "river"
-    ? { icon: "🗺️", title: (settings.electionScope === "prn" ? t(lang, "Pusat analisis negeri", "State analysis centre") : t(lang, "Pusat analisis negara", "National analysis centre")), detail: t(lang, "Lihat sokongan parti dan kesan kerja kawasan anda.", "See party support and the effect of your constituency work."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/national"), enabled: true }
-    : repTerm && (selectedZone?.kind === "housing" || selectedZone?.kind === "village")
-    ? { icon: "📡", title: t(lang, "Pusat media", "Media centre"), detail: t(lang, "Suarakan isu kawasan dan jawab kritikan.", "Raise constituency issues and answer critics."), label: t(lang, "Masuk bangunan", "Enter building"), run: () => router.push("/location/media"), enabled: true }
-    : repTerm
-    ? { icon: "🏢", title: t(lang, "Pejabat wakil rakyat", "Representative office"), detail: t(lang, "Terima aduan penduduk dan semak rekod khidmat anda.", "Take residents' complaints and review your service record."), label: t(lang, "Masuk pejabat", "Enter office"), run: () => router.push("/office"), enabled: true }
+  // In the YB term a zone's card acts on that zone (the office, media,
+  // administration and nation buildings have their own hub buttons): send
+  // relief to a disaster, answer an open complaint there, or go down to
+  // the ground to lift its weakest stat.
+  const zoneEvent = selectedZone ? cityEvents.find((ev) => ev.zone === selectedZone.id) : undefined;
+  const zoneIssue = selectedZone ? journey.service.issues.find((issue) => issue.zone === selectedZone.id) : undefined;
+  const zoneStats = selectedZone ? ([["infra", t(lang, "Infra", "Infra")], ["welfare", t(lang, "Rakyat", "Welfare")], ["economy", t(lang, "Ekonomi", "Economy")]] as const) : [];
+  const weakest = selectedZone ? zoneStats.reduce((lo, st) => (selectedZone[st[0]] < selectedZone[lo[0]] ? st : lo), zoneStats[0]) : null;
+  const statLine = selectedZone ? `${zoneStats.map(([key, label]) => `${label} ${Math.round(selectedZone[key])}`).join(" · ")} · ${t(lang, "Sentimen", "Sentiment")} ${Math.round(selectedZone.sentiment)}%` : "";
+  const zoneAction = (id: YbActivityId, icon: string, title: string, detail: string) => {
+    const activity = getYbActivity(id)!;
+    const blocked = selectedZone ? ybActivityBlocker(useGameStore.getState(), id, selectedZone.id) : null;
+    return { icon, title, detail: blocked ? `${detail} · ${blocked[lang]}` : detail,
+      label: `${activity.title[lang]} · RM${formatNumber(activity.cost)}`, run: () => runActivity(id, selectedZone?.id), enabled: !blocked };
+  };
+  const cityActivity = repTerm && selectedZone && zoneEvent
+    ? zoneAction("relief", CITY_EVENTS[zoneEvent.type].icon, CITY_EVENTS[zoneEvent.type].title[lang], `${CITY_EVENTS[zoneEvent.type].detail[lang]} ${statLine}`)
+    : repTerm && selectedZone && zoneIssue
+    ? zoneAction("visit", YB_ISSUES[zoneIssue.type].icon, YB_ISSUES[zoneIssue.type].title[lang], t(lang, `Aduan terbuka di zon ini (${Math.max(0, zoneIssue.expires - journey.termDay)} hari lagi). ${statLine}`, `Open complaint in this zone (${Math.max(0, zoneIssue.expires - journey.termDay)} days left). ${statLine}`))
+    : repTerm && selectedZone
+    ? zoneAction("visit", "🚶", zoneName(lang, selectedZone), t(lang, `${statLine}. Turun padang menaikkan ${weakest?.[1] ?? "statistik"} paling lemah.`, `${statLine}. A ground visit lifts the weakest stat, ${weakest?.[1] ?? "a stat"}.`))
     : ["results", "formation", "opposition", "rebuilding"].includes(journey.chapter)
     ? { icon: journey.chapter === "results" ? "📊" : journey.chapter === "formation" ? "🤝" : "🧭", title: journey.chapter === "results" ? t(lang, "Pusat keputusan", "Results centre") : journey.chapter === "formation" ? t(lang, "Dewan rundingan", "Negotiation hall") : t(lang, "Pusat gerakan", "Movement centre"), detail: t(lang, "Bab politik seterusnya menanti di pusat bandar.", "Your next political chapter awaits in the city centre."), label: t(lang, "Sambung perjalanan", "Continue journey"), run: () => router.push(`${resumeRoute(useGameStore.getState())}?from=city`), enabled: true }
     : journey.chapter === "government" && !repTerm && selectedZone?.kind === "commercial"
