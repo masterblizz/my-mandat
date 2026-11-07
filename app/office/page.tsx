@@ -8,7 +8,7 @@ import StatusBar from "../components/layout/StatusBar";
 import { useGameStore, type ActivityApproach } from "../store/gameStore";
 import { repSide, seatStateId } from "../store/representative";
 import { clockRunnable, termQuarter } from "../store/termClock";
-import { SPEED_DAYS, TERM_QUARTERS, type GameSpeed } from "../data/ybService";
+import { QUARTER_DAYS, SITTING_WINDOW, SPEED_DAYS, TERM_QUARTERS, type GameSpeed } from "../data/ybService";
 import { useLang, t, type Lang } from "../i18n/useLang";
 import { currentLocalTimeIsNight, homeSeatProfile } from "../lib/seatProfile";
 import dynamic from "next/dynamic";
@@ -39,6 +39,8 @@ function MonthlyFieldCalendar({
   seatName,
   campaignDay,
   totalDays,
+  termDay = null,
+  prn = false,
 }: {
   lang: Lang;
   scheduleBuilt: boolean;
@@ -47,6 +49,9 @@ function MonthlyFieldCalendar({
   seatName: string;
   campaignDay: number;
   totalDays: number;
+  /** The YB term's day when in office: milestones are Dewan sittings and quarter ends, not the election. */
+  termDay?: number | null;
+  prn?: boolean;
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -118,8 +123,16 @@ function MonthlyFieldCalendar({
   // Election milestones are projected onto the player's real field calendar
   // from campaign day one. This turns abstract "Day 15" language into dates
   // the player can plan around alongside their local visits.
-  const electionMilestones = [
-    { day: 1, title: t(lang, "PRU bermula", "Election starts"), tone: "cyan" },
+  const termMilestones = termDay === null ? [] : Array.from({ length: 3 }, (_, k) => {
+    const q = Math.floor(termDay / QUARTER_DAYS) + k;
+    if (q >= TERM_QUARTERS) return [];
+    return [
+      { off: q * QUARTER_DAYS + SITTING_WINDOW.start - termDay, title: prn ? t(lang, "DUN bersidang", "Assembly sitting") : t(lang, "Dewan bersidang", "Dewan sitting"), tone: "cyan" },
+      { off: (q + 1) * QUARTER_DAYS - 1 - termDay, title: t(lang, `Tamat suku ${q + 1}`, `Quarter ${q + 1} ends`), tone: "gold" },
+    ].filter((m) => m.off >= 0);
+  }).flat().map((m) => ({ day: m.off, title: m.title, tone: m.tone, date: eventDate(m.off) }));
+  const electionMilestones = termDay !== null ? termMilestones : [
+    { day: 1, title: prn ? t(lang, "PRN bermula", "State election starts") : t(lang, "PRU bermula", "Election starts"), tone: "cyan" },
     { day: 15, title: t(lang, "Penamaan calon", "Nomination day"), tone: "gold" },
     { day: 16, title: t(lang, "Kempen bermula", "Campaign starts"), tone: "green" },
     { day: 29, title: t(lang, "Hari tenang", "Cooling-off day"), tone: "red" },
@@ -143,9 +156,9 @@ function MonthlyFieldCalendar({
             : t(lang, "DRAF BELUM SIAP", "DRAFT NOT BUILT")}
         </span>
       </div>
-      <div className="mt-3">
+      {termDay === null && <div className="mt-3">
         <CampaignTimeline day={campaignDay} totalDays={totalDays} lang={lang} compact />
-      </div>
+      </div>}
       <div className="mt-3 grid grid-cols-7 gap-1 text-center">{Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-[8px] font-black text-text-muted">{weekday.format(new Date(2026, 8, 28 + index))}</span>)}</div>
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((date) => {
@@ -510,7 +523,7 @@ export default function PoliticalOfficePage() {
             rural={isRural}
             night={isNight}
             onAssistant={() => setAssistantOpen(true)}
-            assistantLabel={`PERSONAL ASSISTANT · ${t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}`}
+            assistantLabel={`${t(lang, "PEMBANTU PERIBADI", "PERSONAL ASSISTANT")} · ${t(lang, "KLIK UNTUK BERBINCANG", "CLICK TO TALK")}`}
             hotspots={Object.fromEntries((["desk", "schedule", "news", "files"] as const).map((key, i) => [key, {
               key, icon: hotspots[i].icon, title: hotspots[i].title, onClick: () => setActive(hotspots[i].title),
             }]))}
@@ -583,6 +596,8 @@ export default function PoliticalOfficePage() {
                         seatName={localProfile.seatName}
                         campaignDay={day}
                         totalDays={totalDays}
+                        termDay={repTerm ? journey.termDay : null}
+                        prn={settings.electionScope === "prn"}
                       />
                     ) : (
                       <div

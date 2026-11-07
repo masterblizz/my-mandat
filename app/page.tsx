@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import IntroFilm from "./components/ui/IntroFilm";
+import { useLang, t } from "./i18n/useLang";
 
 const OPENING_SEEN_KEY = "mymandat-opening-seen";
 
 export default function Home() {
   const router = useRouter();
+  const lang = useLang();
   const [showOpening, setShowOpening] = useState(false);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function Home() {
         }}
       >
         <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan/20 border-t-cyan" />
-        <p className="text-[10px] font-bold tracking-[0.26em] text-cyan">MEMBUKA MY MANDAT…</p>
+        <p className="text-[10px] font-bold tracking-[0.26em] text-cyan">{t(lang, "MEMBUKA MY MANDAT…", "OPENING MY MANDAT…")}</p>
       </main>
     );
   }

@@ -1,8 +1,8 @@
 // Extracted by i18n codemod from app/components/auth/TacticalAuthShell.tsx.
 const components_auth_TacticalAuthShell = {
-  selangorStillTooCloseToCall: { ms: "SELANGOR MASIH TERLALU RAPAT UNTUK DIRAMAL", en: "SELANGOR STILL TOO CLOSE TO CALL" },
-  borneoBlocWatchedByAllCoalitions: { ms: "BLOK BORNEO DIPANTAU SEMUA KOALISI", en: "BORNEO BLOC WATCHED BY ALL COALITIONS" },
-  socialWarRoomDetectsSwing: { ms: "WAR ROOM MEDIA SOSIAL KESAN SWING", en: "SOCIAL WAR ROOM DETECTS SWING" },
+  selangorStillTooCloseToCall: { ms: "ADUAN BANJIR MENINGKAT DI KAWASAN PINGGIR BANDAR", en: "FLOOD COMPLAINTS RISE IN SUBURBAN SEATS" },
+  borneoBlocWatchedByAllCoalitions: { ms: "PENDUDUK MENUNTUT KLINIK DAN SALIRAN BAHARU", en: "RESIDENTS CALL FOR NEW CLINICS AND DRAINAGE" },
+  socialWarRoomDetectsSwing: { ms: "YB BARU DIUJI DALAM 100 HARI PERTAMA", en: "NEW YBs TESTED IN THEIR FIRST 100 DAYS" },
   liveNews: { ms: "BERITA LANGSUNG", en: "LIVE NEWS" },
   population: { ms: "PENDUDUK", en: "POPULATION" },
   area: { ms: "KELUASAN", en: "AREA" },

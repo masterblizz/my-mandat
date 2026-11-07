@@ -28,6 +28,8 @@ import {
   homeSeatProfile,
 } from "../../lib/seatProfile";
 import { assistantStandingSrc } from "../../lib/assistantAvatar";
+import { inTerm } from "../../store/termClock";
+import { termCalendar, TERM_QUARTERS } from "../../data/ybService";
 import {
   getLiveNewsForDay,
   newsMatchesElectionScope,
@@ -1121,6 +1123,8 @@ export default function LocationPage() {
     }).slice(0, 12);
   }, [journey.appointments, lang, settings.electionScope]);
   const warScopePrn = (settings.electionScope ?? "pru") === "prn";
+  const inTermNow = inTerm(journey);
+  const termCal = termCalendar(journey.termDay);
   const warPrnState = states.find((state) => state.id === (settings.prnStateId ?? "selangor"));
   const warTotalSeats = warScopePrn && warPrnState ? warPrnState.dunSeats : 222;
   // A location task (prepare / commit) is still open today: the 3D room
@@ -1153,6 +1157,13 @@ export default function LocationPage() {
     majority: Math.floor(warTotalSeats / 2) + 1,
     day,
     totalDays,
+    // the media room's screens: the term clock in office, campaign day otherwise
+    clock: inTermNow ? t(lang, `SUKU ${termCal.quarter}/${TERM_QUARTERS} · MGG ${termCal.week}`, `Q ${termCal.quarter}/${TERM_QUARTERS} · WK ${termCal.week}`) : t(lang, `HARI ${day}/${totalDays}`, `DAY ${day}/${totalDays}`),
+    tags: inTermNow
+      ? (lang === "ms" ? [`#YB${leader.homeConstituencyName.replace(/\s+/g, "")}`, "#AduanRakyat", "#KosSaraHidup", warScopePrn ? `#DUN${(warPrnState?.shortName ?? "").replace(/\s+/g, "")}` : "#Parlimen"]
+        : [`#YB${leader.homeConstituencyName.replace(/\s+/g, "")}`, "#Constituents", "#CostOfLiving", warScopePrn ? `#DUN${(warPrnState?.shortName ?? "").replace(/\s+/g, "")}` : "#Parliament"])
+      : (lang === "ms" ? [`#${leader.partyAbbr}Menang`, warScopePrn ? `#PRN${(warPrnState?.shortName ?? "").replace(/\s+/g, "")}` : "#PRU16", "#KosSaraHidup", "#AnakMudaMengundi"]
+        : [`#${leader.partyAbbr}Wins`, warScopePrn ? `#PRN${(warPrnState?.shortName ?? "").replace(/\s+/g, "")}` : "#GE16", "#CostOfLiving", "#YouthVote"]),
     headline: hotUpdate ? (lang === "ms" ? hotUpdate.headline : hotUpdate.headlineEN) : "",
     partyName: leader.party,
     partyAbbr: leader.partyAbbr,
@@ -1181,7 +1192,9 @@ export default function LocationPage() {
     else if (id === "exit") router.push("/kawasan");
     else if (id === "nominate") router.push("/campaign");
     else if (id === "rally" || id === "manifesto" || id === "press" || id === "social") setActivityOpen(true);
-    else if (id === "control") router.push("/messaging");
+    // the broadcast console: the campaign's messaging room, or in the term
+    // this room's own constituency media activity (messaging is campaign-only)
+    else if (id === "control") { if (journey.chapter === "campaign") router.push("/messaging"); else setActivityOpen(true); }
     else if (id === "count") router.push("/polling");
     else if (id === "route") router.push("/calendar");
     else if (id === "poll" || id === "booth" || id === "board" || id === "transport" || id === "meeting" || id === "policy") setActivityOpen(true);
@@ -1347,16 +1360,16 @@ export default function LocationPage() {
       ? [
           `Penduduk ${seatLabel} desak tindakan segera isu saliran`,
           "Tinjauan baharu: pengundi muda kembali menilai manifesto",
-          "Pasukan kempen umum jadual lawatan komuniti hujung minggu",
+          inTermNow ? "Pejabat YB umum jadual lawatan komuniti hujung minggu" : "Pasukan kempen umum jadual lawatan komuniti hujung minggu",
           "Kos sara hidup kekal kebimbangan utama penduduk bandar",
-          "Pusat media menunggu respons rasmi calon",
+          inTermNow ? "Pusat media menunggu respons rasmi YB" : "Pusat media menunggu respons rasmi calon",
         ]
       : [
           `${seatLabel} residents demand immediate action on drainage`,
           "New poll: young voters reassess the manifesto",
-          "Campaign team announces weekend community visits",
+          inTermNow ? "YB's office announces weekend community visits" : "Campaign team announces weekend community visits",
           "Cost of living remains the top urban concern",
-          "Media centre awaits the candidate's official response",
+          inTermNow ? "Media centre awaits the YB's official response" : "Media centre awaits the candidate's official response",
         ];
   const locationCosts: Record<
     string,
@@ -1440,7 +1453,7 @@ export default function LocationPage() {
   ).length;
   const activityReason = (activity: "prepare" | "commit") => {
     const key = `location:${kind in SCENES ? kind : "party"}:${activity}`;
-    if (journey.actionsToday.includes(key) || journey.termActions.includes(key)) return t(lang, "Tindakan ini sudah dibuat hari ini. Tekan TAMAT HARI untuk tindakan baharu.", "This action is already complete today. Press END DAY for new actions.");
+    if (journey.actionsToday.includes(key) || journey.termActions.includes(key)) return campaignActive ? t(lang, "Tindakan ini sudah dibuat hari ini. Tekan TAMAT HARI untuk tindakan baharu.", "This action is already complete today. Press END DAY for new actions.") : t(lang, "Tindakan ini sudah dibuat suku ini. Teruskan masa penggal untuk tindakan baharu.", "This action is already done this quarter. Let the term clock run for new actions.");
     if (campaignActive && journey.decisions < 1) return t(lang, "Tenaga habis. Tekan TAMAT HARI untuk sambung esok.", "No energy left. Press END DAY to continue tomorrow.");
     const cost = activityCost[activity];
     if (campaignActive && resources.funds < cost.funds) return t(lang, "Dana tidak mencukupi untuk tindakan ini.", "Insufficient funds for this action.");
@@ -1859,9 +1872,9 @@ export default function LocationPage() {
         )}
         {activityOpen && (
           <section
-            className="fixed top-[62%] z-[71] w-[min(360px,calc(100%-32px))] -translate-y-1/2 border p-3 shadow-2xl"
+            className="fixed top-[128px] z-[71] hidden w-[340px] border p-3 shadow-2xl lg:block"
             style={{
-              right: "max(20px, calc((100vw - 1480px) / 2 + 20px))",
+              left: "max(40px, calc((100vw - 1480px) / 2 + 40px))",
               borderColor: `${scene.accent}88`,
               background: "rgb(2 8 20 / .97)",
               backdropFilter: "blur(14px)",
@@ -2324,7 +2337,9 @@ export default function LocationPage() {
             {(activityReason("prepare") || activityReason("commit")) && <p className="mt-2 text-[9px] leading-relaxed text-gold">{activityReason("prepare") ?? activityReason("commit")}</p>}
           </section>
         )}
-        <section
+        {/* the campaign's daily energy and END DAY only while campaigning:
+            in the YB term the day doesn't advance here (the term clock does) */}
+        {campaignActive && <section
           className="absolute bottom-12 left-36 z-20 hidden border p-3 md:block"
           style={{
             borderColor: "rgb(var(--gold-rgb) / .45)",
@@ -2357,7 +2372,7 @@ export default function LocationPage() {
           >
             {t(lang, "TAMAT HARI", "END DAY")} {day}/{totalDays} →
           </button>
-        </section>
+        </section>}
         {assistantOpen && (
           <section
             className="absolute bottom-12 left-4 z-20 w-[min(360px,calc(100%-32px))] border p-3 shadow-2xl"
@@ -2435,7 +2450,7 @@ export default function LocationPage() {
           >
             ← {t(lang, "BANDAR", "CITY")}
           </button>
-          <button
+          {campaignActive && <button
             type="button"
             onClick={advanceDay}
             className="flex-1 border px-3 py-2 text-[9px] font-black text-gold"
@@ -2445,7 +2460,7 @@ export default function LocationPage() {
             }}
           >
             {t(lang, "TAMAT HARI", "END DAY")} · {journey.decisions}/3
-          </button>
+          </button>}
         </div>
         <footer
           className="absolute bottom-0 left-0 right-0 z-20 flex h-8 items-center overflow-hidden border-t bg-[#07111c]"

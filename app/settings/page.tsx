@@ -125,10 +125,10 @@ function GameplayTab() {
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
         <TacticalPanel title={t(lang, "settings_page.gameplaySettings")}>
-          {/* the campaign always runs TOTAL_ELECTION_DAYS (30) days; the old
-              length picker had no effect, so it shows the fixed length */}
+          {/* a game is a five-year term; the election campaign at its end
+              always runs TOTAL_ELECTION_DAYS (30) days */}
           <SettingRow label={t(lang, "⏱ TEMPOH", "⏱ LENGTH")}>
-            <span className="text-[12px] font-black text-cyan">{t(lang, "30 hari kempen", "30-day campaign")}</span>
+            <span className="text-[12px] font-black text-cyan">{t(lang, "Penggal 5 tahun · 20 suku · kempen 30 hari", "5-year term · 20 quarters · 30-day campaign")}</span>
           </SettingRow>
 
           <SettingRow label={t(lang, "🗳 MOD", "🗳 MODE")}>

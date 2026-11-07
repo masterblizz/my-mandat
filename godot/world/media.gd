@@ -240,13 +240,21 @@ func _apply_state_extra(s: Dictionary) -> void:
 	var day := int(s.get("day", 1))
 	var total_days := int(s.get("totalDays", 30))
 	var titles := ["LIVE", "BREAKING", "POLL", "STREET", "SOCIAL", "CAMERA 3"] if en else ["LANGSUNG", "TERKINI", "TINJAUAN", "LAPANGAN", "MEDIA SOSIAL", "KAMERA 3"]
+	# the page sends the clock line ("Q 3/20 · WK 28" in the YB term), else campaign day
+	var clock := String(s.get("clock", ""))
+	if clock == "":
+		clock = "%s %d/%d" % ["DAY" if en else "HARI", day, total_days]
 	for i in monitor_labels.size():
-		var body := headline if i < 2 else ("%s %d/%d" % ["DAY" if en else "HARI", day, total_days] if i == 2 else ("%s · %s" % [abbr, "LIVE" if en else "LANGSUNG"]))
+		var body := headline if i < 2 else (clock if i == 2 else ("%s · %s" % [abbr, "LIVE" if en else "LANGSUNG"]))
 		monitor_labels[i].text = "%s\n%s" % [titles[i], body]
 	# Label3D cannot clip, so the ticker shows a line that fits the red bar
-	var line := "%s %d/%d  ●  %s" % ["DAY" if en else "HARI", day, total_days, headline]
+	var line := "%s  ●  %s" % [clock, headline]
 	ticker.text = line if line.length() <= 58 else line.substr(0, 57) + "…"
 	var tags := ["#%sMenang" % abbr, "#PRU16", "#KosSaraHidup", "#AnakMudaMengundi"] if not en else ["#%sWins" % abbr, "#GE16", "#CostOfLiving", "#YouthVote"]
+	# the page's own tags (term issues, the PRN negeri), when it sends them
+	var page_tags = s.get("tags", null)
+	if page_tags is Array and (page_tags as Array).size() >= trend_labels.size():
+		tags = page_tags
 	for i in trend_labels.size():
 		trend_labels[i].text = "%d.  %s" % [i + 1, tags[i]]
 	if room_labels.has("__trend"):

@@ -1,7 +1,7 @@
 // Extracted by i18n codemod from app/login/page.tsx.
 const login_page = {
   loginIsnTConfiguredForThis: { ms: "Log masuk belum dikonfigurasi untuk deployment ini.", en: "Login isn't configured for this deployment yet." },
-  electionCampaignSimulator: { ms: "SIMULATOR KEMPEN PILIHAN RAYA", en: "ELECTION CAMPAIGN SIMULATOR" },
+  electionCampaignSimulator: { ms: "SIMULATOR POLITIK MALAYSIA", en: "MALAYSIAN POLITICAL SIMULATOR" },
   logInToMymandat: { ms: "Log Masuk ke MyMandat", en: "Log In to MyMandat" },
   email: { ms: "EMEL", en: "EMAIL" },
   eGOperator01EmailCom: { ms: "cth. operator01@emel.com", en: "e.g. operator01@email.com" },
@@ -9,7 +9,7 @@ const login_page = {
   rememberMe: { ms: "INGAT SAYA", en: "REMEMBER ME" },
   forgotPassword: { ms: "LUPA KATA LALUAN", en: "FORGOT PASSWORD" },
   verifying: { ms: "MENGESAHKAN…", en: "VERIFYING…" },
-  startCampaign: { ms: "MULA KEMPEN »", en: "START CAMPAIGN »" },
+  startCampaign: { ms: "LOG MASUK »", en: "LOG IN »" },
   or: { ms: "ATAU", en: "OR" },
   connecting: { ms: "MENYAMBUNG…", en: "CONNECTING…" },
   signInWithGoogle: { ms: "MASUK DENGAN GOOGLE", en: "SIGN IN WITH GOOGLE" },

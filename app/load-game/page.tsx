@@ -13,6 +13,8 @@ import {
   type SavedGameSlot,
 } from "../store/saveGame";
 import { hubRoute, normalizeJourney } from "../store/journey";
+import { inTerm } from "../store/termClock";
+import { TERM_QUARTERS, termCalendar } from "../data/ybService";
 import { useGameStore } from "../store/gameStore";
 import { usePendingNav } from "../hooks/usePendingNav";
 import { useLang, t, type Lang } from "../i18n/useLang";
@@ -43,7 +45,16 @@ function getSummary(slot: SavedGameSlot) {
   const statesWon = isPrn ? undefined : slot.state.states.filter((state) => state.status === "winning").length;
   const seatTotal = isPrn ? (prnState?.dunSeats ?? 0) : 222;
   const projectedSeats = isPrn ? (prnState?.projectedSeats ?? 0) : slot.state.states.reduce((sum, state) => sum + state.projectedSeats, 0);
+  // a save in the YB term: where the term stands, not campaign projections
+  const journey = normalizeJourney(slot.state.journey);
+  const term = inTerm(journey);
+  const zones = journey.cityZones[slot.state.leader.homeConstituencyId] ?? [];
+  const sentiment = zones.length ? Math.round(zones.reduce((n, z) => n + z.sentiment, 0) / zones.length) : null;
   return {
+    term,
+    quarter: termCalendar(journey.termDay).quarter,
+    sentiment,
+    budget: new Intl.NumberFormat("en-MY", { notation: "compact", maximumFractionDigits: 1 }).format(journey.publicBudget),
     isPrn,
     stateName: prnState?.name,
     statesWon,
@@ -206,12 +217,16 @@ export default function LoadGamePage() {
 
                     {slot && summary && (
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-black">
-                        {[
+                        {(summary.term ? [
+                          { icon: "📅", value: t(lang, `SUKU ${summary.quarter}/${TERM_QUARTERS}`, `Q ${summary.quarter}/${TERM_QUARTERS}`), title: t(lang, "Penggal", "Term"), color: "var(--cyan)" },
+                          { icon: "😊", value: summary.sentiment === null ? "—" : `${summary.sentiment}%`, title: t(lang, "Sentimen", "Sentiment"), color: "var(--neon-green)" },
+                          { icon: "💰", value: `RM ${summary.budget}`, title: t(lang, "Bajet awam", "Public budget"), color: "var(--gold)" },
+                        ] : [
                           { icon: "🗳️", value: `${summary.projectedSeats}/${summary.seatTotal}`, title: t(lang, "load_game_page.projected"), color: "var(--cyan)" },
                           { icon: summary.isPrn ? "🗺️" : "🏴", value: summary.isPrn ? (summary.stateName ?? "—") : String(summary.statesWon), title: summary.isPrn ? t(lang, "load_game_page.negeri") : t(lang, "load_game_page.safeStates"), color: "var(--cyan)" },
                           { icon: "💰", value: `RM ${summary.funds}`, title: t(lang, "load_game_page.funds"), color: "var(--gold)" },
                           { icon: "📰", value: t(lang, slot.state.mediaSentiment === "positive" ? "load_game_page.sentimentPositive" : slot.state.mediaSentiment === "negative" ? "load_game_page.sentimentNegative" : "load_game_page.sentimentNeutral"), title: t(lang, "load_game_page.sentiment"), color: slot.state.mediaSentiment === "positive" ? "var(--neon-green)" : slot.state.mediaSentiment === "negative" ? "var(--neon-red)" : "var(--text-muted)" },
-                        ].map((item) => (
+                        ]).map((item) => (
                           <span key={item.title} title={item.title} className="rounded-full border px-2.5 py-1" style={{ borderColor: "rgb(var(--cyan-rgb) / 0.16)", background: "rgb(var(--cyan-rgb) / 0.035)", color: item.color }}>
                             {item.icon} {item.value}
                           </span>

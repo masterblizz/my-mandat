@@ -14,8 +14,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
-  title: "MY MANDAT — Malaysian Political Campaign Simulator",
-  description: "Tactical election command simulator. 14 states. 222 seats. Win 112 to govern.",
+  title: "MY MANDAT — Malaysian Political Simulator",
+  description: "Serve your seat as a YB for five years, then defend it at the next election. 222 Parliament and 600 DUN seats, real census data.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "MY MANDAT" },
   icons: { apple: "/logo-peti-undi.png" },
