@@ -34,6 +34,8 @@ export interface CityZone {
   pos?: [number, number];
   facility?: string;
 }
+export type CityTutorialStage = "story" | "tour" | "done";
+
 export interface Journey {
   chapter: Chapter;
   decisions: number;
@@ -70,6 +72,8 @@ export interface Journey {
   scenarioPackId: ScenarioPackId | null;
   scenarioPackTerm: number | null;
   onboarded: boolean;
+  /** New-game walkthrough on /kawasan: story intro, then the HUD tour, then done. */
+  cityTutorial: CityTutorialStage;
   personalOffice: PersonalOfficeId | null;
   originIssue: Issue | null;
   leadershipApproach: LeadershipApproach | null;
@@ -97,10 +101,11 @@ export const POLICY_DATA = [
   { id: "antiCorruption", ms: "Audit bebas", en: "Independent audit", cost: 90000, trust: 5, stability: -4 },
 ];
 export function newJourney(): Journey {
-  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [], streaks: {}, rank: null, termDay: 0, service: newYbService() };
+  return { chapter: "campaign", decisions: 3, actionsToday: [], locationObjectives: [], readOfficeMail: [], partners: [], coalitionTerms: {}, coalitionConfirmed: false, appointments: {}, cabinetQuality: 0, ministerLoyalty: {}, ministerIncidents: [], outcome: null, publicBudget: 0, trust: 50, stability: 65, organisation: 40, pledges: [], policies: [], termActions: [], storyResolved: [], storyChoices: {}, prnIssueActions: {}, prnCandidateId: null, prnCandidateHistory: [], manifestoPackageId: null, manifestoHistory: [], campaignEvents: [], relationships: {}, journal: [], records: [], scenario: "flood", scenarioPackId: null, scenarioPackTerm: null, onboarded: false, cityTutorial: "story", personalOffice: null, originIssue: null, leadershipApproach: null, characterStage: "member", resultRecorded: false, cityZones: {}, construction: [], streaks: {}, rank: null, termDay: 0, service: newYbService() };
 }
 export function normalizeJourney(value?: Partial<Journey>): Journey {
-  return { ...newJourney(), ...value };
+  // saves from before the walkthrough are games already under way: skip it
+  return { ...newJourney(), ...value, cityTutorial: value ? (value.cityTutorial ?? "done") : "story" };
 }
 export function journal(j: Journey, ms: string, en: string): JournalEntry[] {
   return [{ id: `${Date.now()}-${j.journal.length}-${j.decisions}`, ms, en }, ...j.journal].slice(0, 12);

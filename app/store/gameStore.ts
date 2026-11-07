@@ -1,5 +1,5 @@
 "use client";
-import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, shiftSupport, rollStreaks, CAMPAIGN_REPEATABLES, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach } from "./journey";
+import { newJourney, finishElection, reduceJourney, governingSeats, coalitionPool, coalitionDealEffect, coalitionOpeningCost, outcomeOf, journal, shiftSupport, rollStreaks, CAMPAIGN_REPEATABLES, type Journey, type JourneyAction, type Chapter, type CoalitionDeal, type PersonalOfficeId, type Issue, type LeadershipApproach, type CityTutorialStage } from "./journey";
 import { create } from "zustand";
 import { StateData, states as initialStates } from "../data/states";
 import { processDay } from "./electionEngine";
@@ -160,6 +160,7 @@ export interface GameState {
   // Actions
   setHasWonElection: (won: boolean) => void;
   setPersonalOffice: (office: PersonalOfficeId) => void;
+  setCityTutorial: (stage: CityTutorialStage) => void;
   completeCharacterPrologue: (issue: Issue, approach: LeadershipApproach) => void;
   setCareerProgress: (patch: Partial<CareerProgress>) => void;
   setGovernmentProgress: (patch: Partial<GovernmentProgress>) => void;
@@ -406,6 +407,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { journey: { ...state.journey, chapter, characterStage: chapter === "government" ? "nationalLeader" : "partyLeader", publicBudget: chapter === "government" ? 900000 - coalitionOpeningCost(state) : 0, stability: chapter === "government" ? stability : state.journey.stability, journal: journal(state.journey, "Penggal bermula. Tunaikan janji atau bina gerakan kembali.", "Your term begins. Deliver your promises or build a comeback.") } };
   }),
   setHasWonElection: (won) => set({ hasWonElection: won }),
+  setCityTutorial: (stage) => set((state) => ({ journey: { ...state.journey, cityTutorial: stage } })),
   setPersonalOffice: (office) => set((state) => {
     const trustBonus = office === "community" ? 5 : office === "city" ? 1 : 0;
     const organisationBonus = office === "digital" ? 5 : office === "city" ? 3 : 0;

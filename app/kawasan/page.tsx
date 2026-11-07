@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import JourneyPanel from "../components/career/JourneyPanel";
 import CityOnboarding from "./CityOnboarding";
+import { HudTour, StoryIntro } from "./CityTutorial";
+import { assistantAvatarSrc } from "../lib/assistantAvatar";
 import CampaignBriefing from "./CampaignBriefing";
 import CityHubBar from "./CityHubBar";
 import CampaignTimeline from "../components/campaign/CampaignTimeline";
@@ -22,7 +24,7 @@ import BuildDock, { type DockCard, type DockMode, type DockProblem, type DockTab
 import { TermClockControls, YbAgendaPanel, type AgendaIssue } from "./YbAgenda";
 import NextGoal, { type NextGoalItem } from "./NextGoal";
 import { CityMiniMap, CityRail, CitySeatCard, CityTopBar } from "./CityHud";
-import { CITY_EVENTS, STAMINA_MAX, termCalendar } from "../data/ybService";
+import { CITY_EVENTS, STAMINA_MAX, TERM_QUARTERS, termCalendar } from "../data/ybService";
 import { seatRealDensity } from "../data/seatDensity";
 import { boundaryAreaKm2, boundaryCityCoast, boundaryCityLand, boundaryCityOutline, boundaryShape, boundaryShapeK, type Boundary, loadSeatBoundary, seatGeo, type SeatGeo } from "../data/seatGeo";
 import { SPEED_DAYS, YB_ACTIVITIES, YB_ISSUES, dewanSitting, getYbActivity, type GameSpeed, type YbActivityId } from "../data/ybService";
@@ -2649,6 +2651,16 @@ export default function KawasanDevelopmentPage() {
   const [panToZone, setPanToZone] = useState<{ id: string; at: number } | null>(null);
   // Representative career: the term (either bench) is lived in the kawasan.
   const repTerm = !!journey.rank && (journey.chapter === "government" || journey.chapter === "opposition");
+  // the city has finished building (its HUD summary arrived): the new-game
+  // walkthrough waits for it, and for the fly-in to end
+  const [cityReady, setCityReady] = useState(false);
+  useEffect(() => {
+    const on = () => setCityReady(true);
+    window.addEventListener("kawasan-city-summary", on);
+    return () => window.removeEventListener("kawasan-city-summary", on);
+  }, []);
+  const assistantAvatar = useGameStore((s) => s.assistantAvatar);
+  const setCityTutorial = useGameStore((s) => s.setCityTutorial);
   const termBuilder = journey.chapter === "government" || repTerm;
 
   const homeState = states.find((state) => state.id === (settings.electionScope === "prn" ? settings.prnStateId : leader.homeState)) ?? states.find((state) => state.id === leader.homeState) ?? states[0];
@@ -3253,6 +3265,16 @@ export default function KawasanDevelopmentPage() {
     <div className={`kw-page-shell min-h-screen ${hudHidden ? "city-hud-hidden" : ""} ${aerialOn ? "city-aerial-on" : ""}`}>
       <Header />
       <CityOnboarding />
+      {repTerm && ownSeat && cityReady && !introOn && !aerialOn && journey.cityTutorial === "story" && (
+        <StoryIntro lang={lang}
+          facts={{ leaderName: leader.name, partyAbbr: leader.partyAbbr, partyColor: leader.partyColor, seatCode: ownSeat.code, seatName: ownSeat.name,
+            stateName: homeState?.name ?? "", population: ownSeat.population, households: ownSeat.households ?? null, density: seatRealDensity(ownSeat),
+            areaKm2: ownSeat.areaKm2, budget: journey.publicBudget, quarters: TERM_QUARTERS, assistantSrc: assistantAvatarSrc(assistantAvatar) }}
+          onTour={() => { setHudHidden(false); setCityTutorial("tour"); }} onSkip={() => setCityTutorial("done")} />
+      )}
+      {repTerm && ownSeat && cityReady && !introOn && !aerialOn && journey.cityTutorial === "tour" && (
+        <HudTour lang={lang} onDone={() => setCityTutorial("done")} />
+      )}
       {notice && (
         <div role="status" className="fixed right-6 top-[58px] z-[80] border px-5 py-3 text-[11px] font-black tracking-[0.2em] uppercase" style={{ borderColor: "rgb(var(--gold-rgb)/0.58)", background: "linear-gradient(135deg, rgb(var(--gold-rgb)/0.16), rgb(var(--bg-rgb) / 0.96))", color: "var(--gold)", fontFamily: "Space Mono, monospace" }}>
           {notice}
