@@ -178,7 +178,7 @@ export default function LoginPage() {
           <div style={{ flex: 1, height: 1, background: BORDER }} />
         </div>
 
-        <div className="auth-row auth-row--buttons">
+        <div className="auth-row--buttons">
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -199,13 +199,6 @@ export default function LoginPage() {
           {googleLoading ? t(lang, "login_page.connecting") : <>🔑 {t(lang, "login_page.signInWithGoogle")}</>}
         </button>
 
-        <Link
-          href="/kawasan-3d"
-          className={plexMono.className}
-          style={{ display: "block", width: "100%", marginTop: 10, border: `1px solid ${CYAN}`, color: CYAN, padding: 10, textAlign: "center", fontSize: 11, letterSpacing: 1 }}
-        >
-          🏙️ {t(lang, "login_page.tryCityDemo")}
-        </Link>
         </div>
 
         <div className={`auth-foot ${plexMono.className}`} style={{ textAlign: "center", fontSize: 11, color: TEXT_FAINT, marginTop: 18 }}>
