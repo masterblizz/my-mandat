@@ -24,7 +24,9 @@ export function computeSeatDetails(state: StateData, partyLabel: string, seatSco
   return constituencies.map((constituency, index) => {
     const seed = constituency.id.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) + index * 13;
     const turnoutPct = Math.max(55, Math.min(88, state.turnoutTarget + ((seed % 17) - 8) * 0.55));
-    const registeredVoters = Math.round(avgRegistered * (0.88 + (seed % 25) / 100));
+    // a real seat's electorate follows its census population (the same
+    // figure the kawasan screen shows); other seats share the state's roll
+    const registeredVoters = constituency.households ? constituency.voters : Math.round(avgRegistered * (0.88 + (seed % 25) / 100));
     const votesCast = Math.round(registeredVoters * (turnoutPct / 100));
     const mandatVotes = Math.round(votesCast * (constituency.mandat / 100));
     const lawanVotes = Math.round(votesCast * (constituency.lawan / 100));

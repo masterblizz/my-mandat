@@ -875,6 +875,16 @@ func _smooth_curve(pts: Array) -> Curve3D:
 	return c
 
 
+## Which side of the river p lies on (+1 / -1), 0 if unknown.
+func _river_side(p: Vector3) -> float:
+	if river_pts.size() < 2:
+		return 0.0
+	var nt := _river_near(p)
+	var q: Vector3 = nt[0]
+	var tan: Vector3 = nt[1]
+	return signf(tan.cross(Vector3(p.x - q.x, 0, p.z - q.z)).y)
+
+
 ## Nearest point on the river (ground plane) and the river's direction there.
 func _river_near(p: Vector3) -> Array:
 	var best := INF
@@ -2370,7 +2380,18 @@ func _make_road(ctrl: Array, cls: int) -> void:
 		var e := i
 		while e < pts.size() and wet[e] == 1:
 			e += 1
-		if e - i > 12:
+		# a short wet run is a bridge only if the road really crosses: the
+		# points either side lie on opposite banks. A road that just grazes
+		# the water (running alongside) is moved onto its bank instead.
+		var crosses := true
+		if e - i <= 12:
+			if i == 0 or e >= pts.size():
+				crosses = false   # the road ends at the water's edge
+			else:
+				var sa := _river_side(pts[i - 1])
+				var sb := _river_side(pts[e])
+				crosses = sa != 0.0 and sb != 0.0 and sa != sb
+		if e - i > 12 or not crosses:
 			# ease in/out of the bank over a few points either side
 			var lo := maxi(0, i - 4)
 			var hi := mini(pts.size(), e + 4)
