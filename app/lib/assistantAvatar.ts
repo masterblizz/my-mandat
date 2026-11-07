@@ -1,14 +1,16 @@
-// Each campaign PA is a paired identity: the video/headshot and the office
-// full-body asset are authored from the very same person.  Keep the pair in
-// one record so a location can never accidentally show a different face.
+// Each campaign PA is a paired identity: the headshot and the office
+// full-body asset are the very same person. The headshots are rendered from
+// the 3D office's own cast models (godot/world/cast/pa_*.glb, standing pose;
+// see scripts/pa-portrait), so the PA in dialogs is the PA in the office.
+// Keep the pair in one record so a location can never show a different face.
 const ASSISTANT_PROFILES = [
   {
-    portrait: "/candidate-portraits/v3/v3-001.png",
+    portrait: "/assistant/pa-male-3d.png",
     standing: "/personal-assistant-01-standing.png",
     gender: "male",
   },
   {
-    portrait: "/candidate-portraits/v3/v3-062.png",
+    portrait: "/assistant/pa-female-3d.png",
     standing: "/personal-assistant-02-standing.png",
     gender: "female",
   },
