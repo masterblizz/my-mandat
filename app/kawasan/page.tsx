@@ -2707,6 +2707,8 @@ export default function KawasanDevelopmentPage() {
       coast: seatCoast ?? undefined,
       // households decide how many homes stand; visitors the hotels and chalets
       population: ownSeat?.population,
+      // the census's own household count where the seat is a real one
+      households: ownSeat?.households,
       tourists: ownSeat ? seatVisitors(ownSeat.name, { coastal: traits.coastal || !!seatCoast, hilly: traits.hilly, klLandmarks: traits.klLandmarks }) : undefined,
       land: seatLand ?? undefined,
       // real area: city seats are drawn at their true size (see city.gd)

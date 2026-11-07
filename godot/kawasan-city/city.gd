@@ -184,7 +184,9 @@ func _configure(p: Dictionary) -> void:
 	# seat's real households decide how many homes stand (a city at real
 	# size reaches that; a pekan in a huge rural seat cannot)
 	var pop := float(p.get("population", 0.0))
-	home_target = pop / 4.2 / HOMES_SCALE if pop > 0.0 else -1.0
+	var hh := float(p.get("households", 0.0))
+	# the census household count when the seat is a real one
+	home_target = (hh if hh > 0.0 else pop / 4.2) / HOMES_SCALE if (pop > 0.0 or hh > 0.0) else -1.0
 	tourists = float(p.get("tourists", 0.0))
 	coast_dir = Vector2.ZERO
 	var co = p.get("coast", null)

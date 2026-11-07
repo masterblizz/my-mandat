@@ -240,7 +240,7 @@ export default function CityIntro({ lang, geo, stateId, stateName, seatCode, sea
       )}
       {tip && stage < 3 && <div className="city-intro-tip" style={{ left: tip.x, top: tip.y }}>{tip.title}{tip.sub && <small>{tip.sub}</small>}</div>}
       {stage <= 2 && <CityLoading lang={lang} engineReady={engineReady} built={ready} progress={progress} />}
-      {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan: DOSM, data terbuka (CC BY 4.0)", "Boundary: DOSM open data (CC BY 4.0)")}</div>}
+      {stage >= 2 && ring.length > 0 && <div className="absolute bottom-2 left-3 text-[8px] tracking-wider text-text-muted">{t(lang, "Sempadan & banci 2020: DOSM, data terbuka (CC BY 4.0)", "Boundary & 2020 census: DOSM open data (CC BY 4.0)")}</div>}
       <button type="button" onClick={() => { flyOnce(); setGone(true); window.setTimeout(onDone, 400); }}
         className="absolute right-4 top-3 rounded border px-3 py-1.5 text-[10px] font-black tracking-widest text-text-muted"
         style={{ borderColor: "rgb(var(--cyan-rgb) / .35)", background: "rgb(4 16 27 / .7)" }}>
