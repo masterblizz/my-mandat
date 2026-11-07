@@ -1849,22 +1849,40 @@ func terrain_at(p: Vector3) -> float:
 const WALK_SHADER := """
 shader_type spatial;
 render_mode cull_back;
+// INSTANCE_CUSTOM: x path length, y speed, z phase, w hip height (local).
+// Vertex alpha tags the swinging parts: ~0.3 / ~0.6 the two leg (or arm)
+// sets in opposite phase, 1.0 the rest. Figures walk out, pause, walk
+// back, pause; legs swing only while walking.
 void vertex() {
 	float len = max(INSTANCE_CUSTOM.x, 0.01);
-	float cyc = 2.0 * len;
-	float s = mod(TIME * INSTANCE_CUSTOM.y + INSTANCE_CUSTOM.z, cyc);
-	float d = s < len ? s : cyc - s;
+	float spd = max(INSTANCE_CUSTOM.y, 0.001);
+	float dwell = len * 0.8;
+	float cyc = 2.0 * (len + dwell);
+	float s = mod(TIME * spd + INSTANCE_CUSTOM.z, cyc);
+	float d; float back = 0.0; float moving = 1.0;
+	if (s < len) { d = s; }
+	else if (s < len + dwell) { d = len; moving = 0.0; }
+	else if (s < 2.0 * len + dwell) { d = 2.0 * len + dwell - s; back = 1.0; }
+	else { d = 0.0; moving = 0.0; back = 1.0; }
 	vec3 v = VERTEX;
 	vec3 n = NORMAL;
-	if (s >= len) { v.xz = -v.xz; n.xz = -n.xz; }
+	float hip = max(INSTANCE_CUSTOM.w, 0.01);
+	float a = COLOR.a;
+	if (a < 0.9) {
+		float ph = a < 0.45 ? 0.0 : 3.14159;
+		float k = clamp((hip - v.y) / hip, 0.0, 1.0);
+		v.z += sin(TIME * spd * 9.0 / hip + INSTANCE_CUSTOM.z + ph) * 0.32 * hip * k * moving;
+	}
+	if (back > 0.5) { v.xz = -v.xz; n.xz = -n.xz; }
 	v.z += d;
-	v.y += abs(sin((TIME * INSTANCE_CUSTOM.y + INSTANCE_CUSTOM.z) * INSTANCE_CUSTOM.w)) * 0.05;
+	v.y += abs(sin((TIME * spd * 9.0 / hip + INSTANCE_CUSTOM.z))) * 0.03 * hip * moving;
 	VERTEX = v;
 	NORMAL = n;
+	COLOR.a = 1.0;
 }
 void fragment() {
 	ALBEDO = COLOR.rgb;
-	ROUGHNESS = 0.9;
+	ROUGHNESS = 0.85;
 }
 """
 var mat_walk: ShaderMaterial
@@ -1891,10 +1909,15 @@ func _person_variants() -> Array:
 	for i in shirts.size():
 		var sk: Color = skins[i % skins.size()]
 		var legs := Color(0.15, 0.17, 0.22) if i % 3 != 2 else Color(0.35, 0.3, 0.25)
+		var hair := Color(0.08, 0.07, 0.06) if i % 4 != 3 else Color(0.85, 0.85, 0.88)   # some in tudung / songkok-white
 		out.append(_merge_parts([
-			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.4, 1.05, 0.28)), Vector3(0, 0.53, 0)), legs],
-			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.52, 0.75, 0.32)), Vector3(0, 1.43, 0)), shirts[i]],
-			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.3, 0.32, 0.3)), Vector3(0, 2.0, 0)), sk],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.18, 1.05, 0.24)), Vector3(-0.11, 0.53, 0)), legs, 0.3],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.18, 1.05, 0.24)), Vector3(0.11, 0.53, 0)), legs, 0.6],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.48, 0.72, 0.28)), Vector3(0, 1.41, 0)), shirts[i]],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.12, 0.66, 0.14)), Vector3(-0.31, 1.4, 0)), shirts[i].darkened(0.1)],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.12, 0.66, 0.14)), Vector3(0.31, 1.4, 0)), shirts[i].darkened(0.1)],
+			[sphere_mesh, Transform3D(Basis.from_scale(Vector3(0.3, 0.34, 0.3)), Vector3(0, 1.98, 0)), sk],
+			[sphere_mesh, Transform3D(Basis.from_scale(Vector3(0.32, 0.2, 0.32)), Vector3(0, 2.1, -0.02)), hair],
 		]))
 	return out
 
@@ -1932,9 +1955,9 @@ func _animal(sz: float, col: Color, patch: Color, goat: bool) -> ArrayMesh:
 	var hoof := Color(0.12, 0.1, 0.09)
 	var horn := Color(0.88, 0.82, 0.68)
 	var parts := []
-	var add := func(m: Mesh, size: Vector3, at: Vector3, c: Color, rx := 0.0, rz := 0.0) -> void:
+	var add := func(m: Mesh, size: Vector3, at: Vector3, c: Color, rx := 0.0, rz := 0.0, tag := 1.0) -> void:
 		var bs := Basis(Vector3.FORWARD, rz) * Basis(Vector3.RIGHT, rx) * Basis.from_scale(size)
-		parts.append([m, Transform3D(bs, at), c])
+		parts.append([m, Transform3D(bs, at), c, tag])
 	var by := legh + H * 0.5
 	# body and a paler belly underneath it
 	add.call(_ell, Vector3(W, H, L), Vector3(0, by, 0), col)
@@ -1966,11 +1989,16 @@ func _animal(sz: float, col: Color, patch: Color, goat: bool) -> ArrayMesh:
 			var p := Vector3(lx * W * 0.24, 0, lz * L * 0.3)
 			# the upper leg runs up into the body (its rounded underside
 			# would otherwise leave a gap above the legs)
-			add.call(_cyl, Vector3(W * 0.26, legh * 0.5 + H * 0.4, W * 0.26), p + Vector3(0, legh * 0.75 + H * 0.2, 0), col)
-			add.call(_cyl, Vector3(W * 0.16, legh * 0.55, W * 0.16), p + Vector3(0, legh * 0.32, 0), col.darkened(0.1))
-			add.call(_cyl, Vector3(W * 0.2, 0.1 * sz, W * 0.2), p + Vector3(0, 0.05 * sz, 0), hoof)
+			# diagonal pairs step together (front-left with back-right)
+			var tg := 0.3 if lx * lz > 0.0 else 0.6
+			add.call(_cyl, Vector3(W * 0.26, legh * 0.5 + H * 0.4, W * 0.26), p + Vector3(0, legh * 0.75 + H * 0.2, 0), col, 0.0, 0.0, tg)
+			add.call(_cyl, Vector3(W * 0.16, legh * 0.55, W * 0.16), p + Vector3(0, legh * 0.32, 0), col.darkened(0.1), 0.0, 0.0, tg)
+			add.call(_cyl, Vector3(W * 0.2, 0.1 * sz, W * 0.2), p + Vector3(0, 0.05 * sz, 0), hoof, 0.0, 0.0, tg)
 	return _merge_parts(parts)
 
+
+const _LEGH_COW := 0.74
+const _LEGH_GOAT := 0.555   # 0.74 x 0.5 size x 1.5 leggier
 
 func _livestock_meshes() -> void:
 	if _cow_meshes.is_empty():
@@ -1984,7 +2012,7 @@ func _livestock_meshes() -> void:
 
 
 ## Queue one moving figure: it walks from a toward b and back.
-func _walker(mesh: Mesh, a: Vector3, b: Vector3, speed: float, step_rate: float, scale := 1.0) -> void:
+func _walker(mesh: Mesh, a: Vector3, b: Vector3, speed: float, hip: float, scale := 1.0) -> void:
 	var d := Vector3(b.x - a.x, 0, b.z - a.z)
 	var length := d.length()
 	var yaw := atan2(d.x, d.z) if length > 0.01 else rng.randf() * TAU
@@ -2000,8 +2028,9 @@ func _walker(mesh: Mesh, a: Vector3, b: Vector3, speed: float, step_rate: float,
 	var x := bs.x
 	var y := bs.y
 	var z := bs.z
-	arr.append_array([x.x, y.x, z.x, o.x, x.y, y.y, z.y, o.y, x.z, y.z, z.z, o.z, 1.0, 1.0, 1.0, 1.0,
-		length / scale, speed / scale, rng.randf() * 100.0, step_rate])
+	var tint := rng.randf_range(0.88, 1.08)
+	arr.append_array([x.x, y.x, z.x, o.x, x.y, y.y, z.y, o.y, x.z, y.z, z.z, o.z, tint, tint, tint * rng.randf_range(0.96, 1.02), 1.0,
+		length / scale, speed / scale, rng.randf() * 100.0, hip])
 
 
 ## Build the queued figures: one MultiMesh per mesh and ground tile,
@@ -2075,7 +2104,8 @@ func _pedestrians() -> void:
 			if L < 45.0:
 				continue
 			var s0 := rng.randf() * (L - 40.0)
-			var s1 := s0 + rng.randf_range(20.0, minf(55.0, L - s0))
+			# short straight stretches: a long chord would cut across a bend
+			var s1 := s0 + rng.randf_range(10.0, minf(22.0, L - s0))
 			var m0 := road_sample(rd, s0)
 			var m1 := road_sample(rd, s1)
 			var gaps: PackedByteArray = rd.gaps
@@ -2097,14 +2127,16 @@ func _pedestrians() -> void:
 				if rng.randf() > keep:
 					continue
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
-			var off: float = float(rd.half) + (1.3 if int(rd.cls) < 2 else 0.8)
+			var off: float = float(rd.half) + (1.6 if int(rd.cls) < 2 else 1.0)
 			var t0: Vector3 = m0[1]
 			var t1: Vector3 = m1[1]
+			if t0.dot(t1) < 0.985:
+				continue
 			a = (m0[0] as Vector3) + Vector3(-t0.z, 0, t0.x) * side * off
 			b = (m1[0] as Vector3) + Vector3(-t1.z, 0, t1.x) * side * off
 		if not on_land(a) or not on_land(b):
 			continue
-		_walker(_people_meshes[rng.randi() % _people_meshes.size()], a, b, rng.randf_range(1.1, 1.5), rng.randf_range(5.0, 7.0), 1.25)
+		_walker(_people_meshes[rng.randi() % _people_meshes.size()], a, b, rng.randf_range(1.1, 1.5), 1.05, 1.25)
 		walkers_built += 1
 
 
@@ -2173,7 +2205,7 @@ func _livestock_farms() -> void:
 			var reach := rng.randf_range(2.0, 7.0)
 			var bpt := a + Vector3(sin(hd), 0, cos(hd)) * reach
 			var mesh: Mesh = (_goat_meshes if goats else _cow_meshes)[rng.randi() % (_goat_meshes.size() if goats else _cow_meshes.size())]
-			_walker(mesh, a, bpt, rng.randf_range(0.08, 0.22), rng.randf_range(2.0, 3.5), 1.0)
+			_walker(mesh, a, bpt, rng.randf_range(0.25, 0.45), _LEGH_GOAT if goats else _LEGH_COW, 1.0)
 			livestock_built += 1
 		made += 1
 
@@ -4870,7 +4902,7 @@ func _kampung_house() -> void:
 			var a: Vector3 = frame * Vector3(rng.randf_range(-4.0, 4.0), 0, rng.randf_range(-6.5, -5.0))
 			var hd := rng.randf() * TAU
 			var mesh: Mesh = (_goat_meshes if goats else _cow_meshes)[rng.randi() % (_goat_meshes.size() if goats else _cow_meshes.size())]
-			_walker(mesh, a, a + Vector3(sin(hd), 0, cos(hd)) * rng.randf_range(1.0, 2.5), rng.randf_range(0.06, 0.15), 2.5)
+			_walker(mesh, a, a + Vector3(sin(hd), 0, cos(hd)) * rng.randf_range(1.0, 2.5), rng.randf_range(0.2, 0.35), _LEGH_GOAT if goats else _LEGH_COW)
 			livestock_built += 1
 
 
@@ -4899,6 +4931,8 @@ func _merge_parts(parts: Array) -> ArrayMesh:
 		var arr: Array = (pt[0] as PrimitiveMesh).get_mesh_arrays()
 		var xf: Transform3D = pt[1]
 		var col: Color = pt[2]
+		if pt.size() > 3:
+			col.a = float(pt[3])   # swing tag for the walk shader
 		var nb := xf.basis.inverse().transposed()
 		var base := V.size()
 		var pv: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
