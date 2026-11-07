@@ -1,4 +1,5 @@
 import { normalizeJourney } from "./journey";
+import { RENAMED_PARLIAMENT_SEATS } from "../data/constituencies";
 import type { GameState } from "./gameStore";
 import { inTerm, termQuarter } from "./termClock";
 import { TERM_QUARTERS } from "../data/ybService";
@@ -140,7 +141,12 @@ function normalizeSlots(slots: SavedGameSlot[]) {
     // kept the flavour home state (default Selangor); the seat is an N.xxx
     // in the PRN negeri, so home is that negeri.
     const prnStateId = slot.state.settings?.electionScope === "prn" ? slot.state.settings.prnStateId : null;
-    const leader = prnStateId && slot.state.leader && slot.state.leader.homeState !== prnStateId ? { leader: { ...slot.state.leader, homeState: prnStateId } } : {};
+    let leader = prnStateId && slot.state.leader && slot.state.leader.homeState !== prnStateId ? { leader: { ...slot.state.leader, homeState: prnStateId } } : {};
+    // A home seat that has since been renamed to its real DOSM name keeps
+    // its id; carry the stored name over so the save reads the same seat.
+    const base = ("leader" in leader ? leader.leader : slot.state.leader);
+    const renamed = base ? RENAMED_PARLIAMENT_SEATS[base.homeConstituencyId] : undefined;
+    if (base && renamed && base.homeConstituencyName === renamed[0]) leader = { leader: { ...base, homeConstituencyName: renamed[1] } };
     normalized.push({ ...slot, state: { ...slot.state, ...settings, ...leader, journey, opponentLog: slot.state.opponentLog ?? [], politicalReactions: slot.state.politicalReactions ?? [], aiNews: slot.state.aiNews ?? [], nationalSupportDelta: slot.state.nationalSupportDelta ?? 0 }, slotNumber });
   }
 

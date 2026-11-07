@@ -47,8 +47,8 @@ export function deriveSeatTraits(seatName: string, stateId: string, seatCode = "
   const has = (...words: string[]) => words.some((word) => name.includes(word));
   const bukitBintang = seatCode.startsWith("P.") && name === "bukit bintang";
   return {
-    coastal: has("pantai", "teluk", "tanjung", "kuala", "pelabuhan", "port", "langkawi", "mersing", "pengerang", "sabak", "labuan", "sandakan", "tawau", "kudat", "semporna", "miri", "bintulu", "santubong", "bagan", "kepala batas", "balik pulau", "marang", "dungun", "kemaman", "besut", "bachok", "tumpat", "pontian", "batu pahat", "muar", "klang", "lumut", "beruas"),
-    paddy: ["kedah", "perlis", "kelantan"].includes(stateId) || has("sabak bernam", "sungai besar", "sekinchan", "tanjung karang", "pendang", "yan", "kubang"),
+    coastal: has("pantai", "teluk", "tanjung", "tanjong", "kuala", "pelabuhan", "port", "langkawi", "mersing", "pengerang", "sabak", "labuan", "sandakan", "tawau", "kudat", "semporna", "miri", "bintulu", "santubong", "bagan", "kepala batas", "balik pulau", "marang", "dungun", "kemaman", "besut", "bachok", "tumpat", "pontian", "batu pahat", "muar", "klang", "lumut", "beruas"),
+    paddy: ["kedah", "perlis", "kelantan"].includes(stateId) || has("sabak bernam", "sungai besar", "sekinchan", "tanjung karang", "tanjong karang", "pendang", "yan", "kubang"),
     // Langkawi: Gunung Raya and Mat Cincang rise straight out of the island
     hilly: HILLY_BUKIT_EXCEPTIONS.includes(name) || name === "langkawi" || has("gua", "hulu", "ulu", "cameron", "kundasang", "ranau", "keningau", "tambunan", "lipis", "raub", "bentong", "jelebu", "tapah", "kinta", "lenggong", "gerik", "baling", "jeli", "tenom"),
     // real industrial districts: Gebeng (Kuantan), Kerteh (Kemaman), Bintulu LNG,

@@ -37,18 +37,45 @@ export interface Constituency {
   areaType: AreaType;
 }
 
+// Parliament seats renamed to their real DOSM names (they used to carry
+// a DUN or pre-2018 name, or a variant spelling): seat id -> [old, new].
+// Seat ids are positional, so saves keep the same seat; saveGame.ts
+// updates a stored home-seat name from this.
+export const RENAMED_PARLIAMENT_SEATS: Record<string, readonly [string, string]> = {
+  "johor-15": ["Benut", "Parit Sulong"],
+  "johor-21": ["Permas", "Pasir Gudang"],
+  "kedah-13": ["Kota Siputeh", "Sungai Petani"],
+  "kedah-12": ["Kulim-BB", "Kulim-Bandar Baharu"],
+  "pahang-9": ["Muadzam Shah", "Kuala Krau"],
+  "perak-18": ["Sungai Rapat", "Parit"],
+  "perak-22": ["Slim", "Tapah"],
+  "perak-23": ["Hulu Perak", "Pasir Salak"],
+  "perak-20": ["Ipoh Timur", "Ipoh Timor"],
+  "perak-14": ["Bagan Datok", "Bagan Datuk"],
+  "perak-13": ["Tanjung Malim", "Tanjong Malim"],
+  "penang-12": ["Padang Serai", "Bagan"],
+  "penang-7": ["Tanjung", "Tanjong"],
+  "sabah-13": ["Labuk Sugut", "Tenom"],
+  "sabah-19": ["Silam", "Batu Sapi"],
+  "sarawak-28": ["Kota Belait", "Baram"],
+  "sarawak-14": ["Tanjung Manis", "Tanjong Manis"],
+  "selangor-10": ["Serdang", "Bangi"],
+  "selangor-21": ["Hulu Kelang", "Sungai Buloh"],
+  "selangor-3": ["Tanjung Karang", "Tanjong Karang"],
+};
+
 const PARLIAMENT_NAMES: Record<string, string[]> = {
   johor: [
     "Ledang", "Segamat", "Sekijang", "Labis", "Pagoh",
     "Ayer Hitam", "Sri Gading", "Batu Pahat", "Simpang Renggam", "Kluang",
     "Sembrong", "Mersing", "Tenggara", "Kota Tinggi", "Pengerang",
-    "Benut", "Pontian", "Tanjung Piai", "Pulai", "Iskandar Puteri",
-    "Johor Bahru", "Permas", "Kulai", "Tebrau", "Muar", "Bakri",
+    "Parit Sulong", "Pontian", "Tanjung Piai", "Pulai", "Iskandar Puteri",
+    "Johor Bahru", "Pasir Gudang", "Kulai", "Tebrau", "Muar", "Bakri",
   ],
   kedah: [
     "Padang Terap", "Jerlun", "Kubang Pasu", "Alor Setar", "Kuala Kedah",
     "Langkawi", "Pendang", "Jerai", "Sik", "Baling",
-    "Padang Serai", "Merbok", "Kulim-BB", "Kota Siputeh", "Pokok Sena",
+    "Padang Serai", "Merbok", "Kulim-Bandar Baharu", "Sungai Petani", "Pokok Sena",
   ],
   kelantan: [
     "Pengkalan Chepa", "Kota Bharu", "Pasir Mas", "Rantau Panjang", "Kubang Kerian",
@@ -64,43 +91,43 @@ const PARLIAMENT_NAMES: Record<string, string[]> = {
   ],
   pahang: [
     "Cameron Highlands", "Lipis", "Raub", "Jerantut", "Indera Mahkota",
-    "Kuantan", "Paya Besar", "Pekan", "Maran", "Muadzam Shah",
+    "Kuantan", "Paya Besar", "Pekan", "Maran", "Kuala Krau",
     "Rompin", "Temerloh", "Bentong", "Bera",
   ],
   perak: [
     "Gerik", "Lenggong", "Larut", "Parit Buntar", "Bagan Serai",
     "Bukit Gantang", "Taiping", "Padang Rengas", "Sungai Siput", "Tambun",
-    "Lumut", "Beruas", "Teluk Intan", "Tanjung Malim", "Bagan Datok",
-    "Gopeng", "Batu Gajah", "Kuala Kangsar", "Sungai Rapat", "Ipoh Barat",
-    "Ipoh Timur", "Kampar", "Slim", "Hulu Perak",
+    "Lumut", "Beruas", "Teluk Intan", "Tanjong Malim", "Bagan Datuk",
+    "Gopeng", "Batu Gajah", "Kuala Kangsar", "Parit", "Ipoh Barat",
+    "Ipoh Timor", "Kampar", "Tapah", "Pasir Salak",
   ],
   perlis: ["Padang Besar", "Kangar", "Arau"],
   penang: [
     "Kepala Batas", "Tasek Gelugor", "Nibong Tebal", "Bukit Mertajam", "Batu Kawan",
-    "Balik Pulau", "Bukit Bendera", "Tanjung", "Jelutong", "Bukit Gelugor",
-    "Bayan Baru", "Permatang Pauh", "Padang Serai",
+    "Balik Pulau", "Bukit Bendera", "Tanjong", "Jelutong", "Bukit Gelugor",
+    "Bayan Baru", "Permatang Pauh", "Bagan",
   ],
   sabah: [
     "Kudat", "Kota Marudu", "Kota Belud", "Tuaran", "Sepanggar",
     "Kota Kinabalu", "Putatan", "Penampang", "Papar", "Kimanis",
-    "Beaufort", "Sipitang", "Ranau", "Labuk Sugut", "Beluran",
-    "Libaran", "Sandakan", "Kinabatangan", "Lahad Datu", "Silam",
+    "Beaufort", "Sipitang", "Ranau", "Tenom", "Beluran",
+    "Libaran", "Sandakan", "Kinabatangan", "Lahad Datu", "Batu Sapi",
     "Semporna", "Tawau", "Kalabakan", "Keningau", "Pensiangan",
   ],
   sarawak: [
     "Mas Gading", "Santubong", "Petra Jaya", "Bandar Kuching", "Stampin",
     "Kota Samarahan", "Puncak Borneo", "Serian", "Batang Sadong", "Batang Lupar",
-    "Sri Aman", "Lubok Antu", "Betong", "Saratok", "Tanjung Manis",
+    "Sri Aman", "Lubok Antu", "Betong", "Saratok", "Tanjong Manis",
     "Igan", "Sarikei", "Julau", "Kanowit", "Lanang",
     "Sibu", "Mukah", "Selangau", "Kapit", "Hulu Rajang",
-    "Bintulu", "Sibuti", "Miri", "Kota Belait", "Limbang", "Lawas",
+    "Bintulu", "Sibuti", "Miri", "Baram", "Limbang", "Lawas",
   ],
   selangor: [
-    "Sabak Bernam", "Sungai Besar", "Hulu Selangor", "Tanjung Karang", "Kuala Selangor",
+    "Sabak Bernam", "Sungai Besar", "Hulu Selangor", "Tanjong Karang", "Kuala Selangor",
     "Selayang", "Gombak", "Ampang", "Pandan", "Hulu Langat",
-    "Serdang", "Puchong", "Subang", "Petaling Jaya", "Damansara",
+    "Bangi", "Puchong", "Subang", "Petaling Jaya", "Damansara",
     "Kapar", "Klang", "Kota Raja", "Shah Alam", "Sepang",
-    "Kuala Langat", "Hulu Kelang",
+    "Kuala Langat", "Sungai Buloh",
   ],
   terengganu: [
     "Besut", "Setiu", "Kuala Nerus", "Kuala Terengganu", "Marang",
