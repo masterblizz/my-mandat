@@ -1,9 +1,9 @@
 // Extracted by i18n codemod from app/register/page.tsx.
 const register_page = {
   registrationIsnTConfiguredForThis: { ms: "Pendaftaran belum dikonfigurasi untuk deployment ini.", en: "Registration isn't configured for this deployment yet." },
-  electionCampaignSimulator: { ms: "SIMULATOR KEMPEN PILIHAN RAYA", en: "ELECTION CAMPAIGN SIMULATOR" },
+  electionCampaignSimulator: { ms: "SIMULATOR POLITIK MALAYSIA", en: "MALAYSIAN POLITICAL SIMULATOR" },
   checkYourEmail: { ms: "Semak Emel Anda", en: "Check Your Email" },
-  aConfirmationLinkWasSentTo: { ms: "Pautan pengesahan telah dihantar ke {email}. Sahkan emel anda, kemudian log masuk untuk mula kempen.", en: "A confirmation link was sent to {email}. Verify it, then log in to start your campaign." },
+  aConfirmationLinkWasSentTo: { ms: "Pautan pengesahan telah dihantar ke {email}. Sahkan emel anda, kemudian log masuk untuk mula berkhidmat sebagai YB.", en: "A confirmation link was sent to {email}. Verify it, then log in to start serving as a YB." },
   goToLogin: { ms: "KE LOG MASUK »", en: "GO TO LOGIN »" },
   registerNewOperator: { ms: "Daftar Operator Baharu", en: "Register New Operator" },
   email: { ms: "EMEL", en: "EMAIL" },

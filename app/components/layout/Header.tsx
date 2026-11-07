@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLang, t } from "../../i18n/useLang";
 import { useGameStore } from "../../store/gameStore";
+import { inTerm } from "../../store/termClock";
 import { usePremiumStatus } from "../../hooks/usePremiumStatus";
 import LangThemeToggle from "./LangThemeToggle";
 import { getPlayerRank, playerXp } from "../../lib/playerRank";
@@ -49,6 +50,13 @@ export default function Header() {
 
   const showCityHub = isCityHubRoute(pathname) || isGoverningRoute(pathname);
   const governingRoute = isGoverningRoute(pathname);
+  // during the YB term the title names the seat and term, wherever you are
+  const termOn = useGameStore((state) => inTerm(state.journey));
+  const termNo = useGameStore((state) => state.careerProgress.term);
+  const homeSeat = useGameStore((state) => state.leader.homeConstituencyName);
+  const termTitle = !termOn ? null : electionScope === "prn"
+    ? { ms: `PENGGAL ${termNo} · ADUN ${homeSeat}`, en: `TERM ${termNo} · ADUN FOR ${homeSeat}` }
+    : { ms: `PENGGAL ${termNo} · AHLI PARLIMEN ${homeSeat}`, en: `TERM ${termNo} · MP FOR ${homeSeat}` };
   const showGenericBack = GENERIC_BACK_ROUTES.includes(pathname);
   const showMenuBack = MENU_BACK_ROUTES.includes(pathname);
 
@@ -148,7 +156,9 @@ export default function Header() {
       </div>
 
       <div className="app-header__title hidden text-xs uppercase tracking-widest text-text-muted md:block">
-        {governingRoute
+        {termTitle
+          ? t(lang, termTitle.ms, termTitle.en)
+          : governingRoute
           ? t(lang, "components_layout_Header.governmentAdministrationNonElectionMode")
           : electionScope === "prn"
             ? t(lang, "components_layout_Header.stateElectionCommandSimulator")

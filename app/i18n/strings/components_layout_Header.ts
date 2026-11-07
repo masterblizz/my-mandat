@@ -8,8 +8,8 @@ const components_layout_Header = {
   warRoomHome: { ms: "LAMAN WAR ROOM", en: "WAR ROOM HOME" },
   warRoomLocked: { ms: "WAR ROOM DIKUNCI", en: "WAR ROOM LOCKED" },
   governmentAdministrationNonElectionMode: { ms: "PENTADBIRAN KERAJAAN - BUKAN MOD PILIHAN RAYA", en: "GOVERNMENT ADMINISTRATION - NON-ELECTION MODE" },
-  stateElectionCommandSimulator: { ms: "PILIHAN RAYA NEGERI - SIMULATOR ARAHAN", en: "STATE ELECTION - COMMAND SIMULATOR" },
-  generalElectionCommandSimulator: { ms: "PILIHAN RAYA UMUM - SIMULATOR ARAHAN", en: "GENERAL ELECTION - COMMAND SIMULATOR" },
+  stateElectionCommandSimulator: { ms: "MOD PRN - SIMULATOR POLITIK", en: "STATE MODE - POLITICAL SIMULATOR" },
+  generalElectionCommandSimulator: { ms: "MOD PRU - SIMULATOR POLITIK", en: "GE MODE - POLITICAL SIMULATOR" },
   sysOnline: { ms: "SISTEM DALAM TALIAN", en: "SYS ONLINE" },
 };
 

@@ -59,7 +59,7 @@ const settings_page = {
   opCompletion: { ms: "SELESAI OPERASI", en: "OP COMPLETION" },
   mediaAlerts: { ms: "AMARAN MEDIA", en: "MEDIA ALERTS" },
   about: { ms: "TENTANG", en: "ABOUT" },
-  malaysianPoliticalCampaignSimulator: { ms: "SIMULATOR KEMPEN POLITIK MALAYSIA", en: "MALAYSIAN POLITICAL CAMPAIGN SIMULATOR" },
+  malaysianPoliticalCampaignSimulator: { ms: "SIMULATOR POLITIK MALAYSIA", en: "MALAYSIAN POLITICAL SIMULATOR" },
   techStack: { ms: "TEKNOLOGI", en: "TECH STACK" },
   framework: { ms: "RANGKA KERJA", en: "FRAMEWORK" },
   language: { ms: "BAHASA", en: "LANGUAGE" },

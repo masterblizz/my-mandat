@@ -48,7 +48,7 @@ const AVATARS = Array.from({ length: PLAYER_AVATAR_COUNT }, (_, i) => ({ src: pl
 const STEPS = [
   { icon: "🗂️", ms: "MOD", en: "MODE", titleMs: "Pilih dunia permainan", titleEn: "Choose your world" },
   { icon: "👤", ms: "WATAK", en: "LEADER", titleMs: "Siapa anda?", titleEn: "Who are you?" },
-  { icon: "🗳️", ms: "UNDI", en: "ELECTION", titleMs: "Pilih medan pertempuran", titleEn: "Pick your battlefield" },
+  { icon: "🗳️", ms: "UNDI", en: "ELECTION", titleMs: "Pilih medan politik anda", titleEn: "Choose your political arena" },
   { icon: "📍", ms: "KERUSI", en: "SEAT", titleMs: "Kerusi yang anda menangi", titleEn: "The seat you won" },
   { icon: "⚔️", ms: "CABARAN", en: "CHALLENGE", titleMs: "Tahap cabaran", titleEn: "Challenge level" },
   { icon: "🚀", ms: "MULA", en: "START", titleMs: "Sedia untuk mula?", titleEn: "Ready to start?" },
@@ -398,7 +398,7 @@ export default function SetupPage() {
         {step === FIRST_STEP && hasUltimate && !premiumLoading && (
           <div className="mt-2 flex w-full max-w-[1100px] items-center gap-3 text-[10px] font-black tracking-[0.28em] text-text-muted">
             <span className="h-px flex-1 bg-white/10" />
-            {t(lang, "ATAU BINA KEMPEN TERSUAI", "OR BUILD A CUSTOM CAMPAIGN")}
+            {t(lang, "ATAU BINA PERMAINAN TERSUAI", "OR BUILD A CUSTOM GAME")}
             <span className="h-px flex-1 bg-white/10" />
           </div>
         )}
