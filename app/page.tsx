@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import IntroVideo from "./components/ui/IntroVideo";
+import IntroFilm from "./components/ui/IntroFilm";
 
 const OPENING_SEEN_KEY = "mymandat-opening-seen";
 
@@ -35,19 +35,11 @@ export default function Home() {
         }}
       >
         <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan/20 border-t-cyan" />
-        <p className="text-[10px] font-bold tracking-[0.26em] text-cyan">MENYEDIAKAN PUSAT ARAHAN…</p>
+        <p className="text-[10px] font-bold tracking-[0.26em] text-cyan">MEMBUKA MY MANDAT…</p>
       </main>
     );
   }
 
-  return (
-    <IntroVideo
-      leaderName="COMMANDER"
-      partyName="MyMandat"
-      partyAbbr="MANDAT"
-      partyColor="var(--cyan)"
-      difficulty="normal"
-      onComplete={enterLanding}
-    />
-  );
+  return <IntroFilm onComplete={enterLanding} />;
 }
+
