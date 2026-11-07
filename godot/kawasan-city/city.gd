@@ -1899,48 +1899,76 @@ func _person_variants() -> Array:
 	return out
 
 
-## A quadruped facing +Z, built from boxes: body, neck rising to a head
-## with a muzzle, ears, optional horns and hump, a tail, legs with dark
-## hooves. `goat` gives the slimmer build, upright horns and a beard.
+## A quadruped facing +Z, built from low-poly rounded parts: an
+## ellipsoid body and belly, a tapered neck, a rounded head and muzzle,
+## ears, horns (cones), a tail with a tuft, and legs with hooves.
+## `goat` gives the slimmer, leggier build, upright horns and a beard.
+var _ell: SphereMesh
+var _cyl: CylinderMesh
+var _cone: CylinderMesh
 func _animal(sz: float, col: Color, patch: Color, goat: bool) -> ArrayMesh:
-	var L := 2.1 * sz          # body length
-	var W := 0.78 * sz         # body width
-	var H := 0.82 * sz         # body depth
-	var legh := (0.78 if not goat else 0.52) * sz * (1.0 if not goat else 1.6)
+	if _ell == null:
+		_ell = SphereMesh.new()
+		_ell.radius = 0.5
+		_ell.height = 1.0
+		_ell.radial_segments = 10
+		_ell.rings = 6
+		_cyl = CylinderMesh.new()
+		_cyl.top_radius = 0.5
+		_cyl.bottom_radius = 0.5
+		_cyl.height = 1.0
+		_cyl.radial_segments = 6
+		_cyl.rings = 1
+		_cone = CylinderMesh.new()
+		_cone.top_radius = 0.0
+		_cone.bottom_radius = 0.5
+		_cone.height = 1.0
+		_cone.radial_segments = 6
+		_cone.rings = 1
+	var L := 2.0 * sz
+	var W := 0.82 * sz
+	var H := 0.86 * sz
+	var legh := 0.74 * sz * (1.0 if not goat else 1.5)
 	var hoof := Color(0.12, 0.1, 0.09)
-	var horn := Color(0.86, 0.8, 0.66)
-	var top := legh + H
+	var horn := Color(0.88, 0.82, 0.68)
 	var parts := []
-	var add := func(size: Vector3, at: Vector3, c: Color, rx := 0.0) -> void:
-		var bs := Basis(Vector3.RIGHT, rx) * Basis.from_scale(size)
-		parts.append([box_mesh, Transform3D(bs, at), c])
-	# body (slightly deeper at the chest), belly patch
-	add.call(Vector3(W, H, L), Vector3(0, legh + H * 0.5, 0), col)
-	add.call(Vector3(W * 1.01, H * 0.26, L * 0.78), Vector3(0, legh + H * 0.12, 0), patch)   # pale belly
+	var add := func(m: Mesh, size: Vector3, at: Vector3, c: Color, rx := 0.0, rz := 0.0) -> void:
+		var bs := Basis(Vector3.FORWARD, rz) * Basis(Vector3.RIGHT, rx) * Basis.from_scale(size)
+		parts.append([m, Transform3D(bs, at), c])
+	var by := legh + H * 0.5
+	# body and a paler belly underneath it
+	add.call(_ell, Vector3(W, H, L), Vector3(0, by, 0), col)
+	add.call(_ell, Vector3(W * 0.86, H * 0.5, L * 0.8), Vector3(0, by - H * 0.2, 0.02 * L), patch)
 	if not goat:
-		add.call(Vector3(W * 0.7, H * 0.28, L * 0.22), Vector3(0, top + H * 0.08, L * 0.28), col.darkened(0.06))   # hump
-	# neck up and forward, head, muzzle
-	var nk := Vector3(0, top - H * 0.15, L * 0.5 + H * 0.18)
-	add.call(Vector3(W * 0.48, H * 0.75, H * 0.5), nk, col, -0.55)
-	var hd := nk + Vector3(0, H * 0.32, H * 0.42)
-	add.call(Vector3(W * 0.5, H * 0.5, H * 0.62), hd, col.darkened(0.08))
-	add.call(Vector3(W * 0.42, H * 0.34, H * 0.3), hd + Vector3(0, -H * 0.08, H * 0.42), patch.lerp(Color(0.85, 0.7, 0.62), 0.5))
+		add.call(_ell, Vector3(W * 0.62, H * 0.42, L * 0.3), Vector3(0, by + H * 0.4, L * 0.24), col.darkened(0.05))   # hump
+	# neck reaching forward and up, head, muzzle
+	var nk := Vector3(0, by + H * 0.18, L * 0.46)
+	add.call(_cyl, Vector3(W * 0.5, H * 0.7, W * 0.5), nk, col, 0.95)
+	var hd := nk + Vector3(0, H * 0.24, H * 0.42)
+	add.call(_ell, Vector3(W * 0.5, H * 0.5, H * 0.66), hd, col.darkened(0.06), 0.35)
+	add.call(_ell, Vector3(W * 0.4, H * 0.34, H * 0.34), hd + Vector3(0, -H * 0.12, H * 0.34), patch.lerp(Color(0.86, 0.72, 0.64), 0.55))
 	for sx in [-1.0, 1.0]:
-		add.call(Vector3(H * 0.34, H * 0.1, H * 0.16), hd + Vector3(sx * W * 0.36, H * 0.12, -H * 0.12), col.darkened(0.15))   # ears
+		add.call(_ell, Vector3(H * 0.34, H * 0.1, H * 0.18), hd + Vector3(sx * W * 0.34, H * 0.1, -H * 0.1), col.darkened(0.12), 0.0, sx * 0.3)   # ears
 		if goat:
-			add.call(Vector3(H * 0.08, H * 0.42, H * 0.08), hd + Vector3(sx * W * 0.12, H * 0.42, -H * 0.18), horn, -0.5)
+			add.call(_cone, Vector3(H * 0.1, H * 0.46, H * 0.1), hd + Vector3(sx * W * 0.1, H * 0.42, -H * 0.18), horn, -0.55)
 		else:
-			add.call(Vector3(H * 0.26, H * 0.08, H * 0.08), hd + Vector3(sx * W * 0.3, H * 0.3, -H * 0.1), horn)
+			add.call(_cone, Vector3(H * 0.1, H * 0.32, H * 0.1), hd + Vector3(sx * W * 0.3, H * 0.28, -H * 0.06), horn, 0.0, -sx * 1.05)
 	if goat:
-		add.call(Vector3(H * 0.12, H * 0.3, H * 0.12), hd + Vector3(0, -H * 0.38, H * 0.3), col.darkened(0.25))   # beard
-	# tail
-	add.call(Vector3(H * 0.1, H * (0.7 if not goat else 0.25), H * 0.1), Vector3(0, top - H * (0.45 if not goat else 0.0), -L * 0.5 - H * 0.04), col.darkened(0.2), 0.2)
-	# legs with hooves
+		add.call(_cone, Vector3(H * 0.14, H * 0.3, H * 0.14), hd + Vector3(0, -H * 0.36, H * 0.26), col.darkened(0.25), PI)   # beard
+	# tail hanging from the rump, with a dark tuft
+	var tl := Vector3(0, by + H * 0.1 - H * (0.35 if not goat else 0.0), -L * 0.5)
+	add.call(_cyl, Vector3(H * 0.08, H * (0.75 if not goat else 0.3), H * 0.08), tl, col.darkened(0.15), 0.12 if not goat else -0.9)
+	if not goat:
+		add.call(_ell, Vector3(H * 0.16, H * 0.22, H * 0.16), tl + Vector3(0, -H * 0.4, -0.04), col.darkened(0.45))
+	# legs: a thicker upper leg into a slim shin, then the hoof
 	for lx in [-1.0, 1.0]:
 		for lz in [-1.0, 1.0]:
-			var p := Vector3(lx * W * 0.3, 0, lz * L * 0.36)
-			add.call(Vector3(W * 0.2, legh, W * 0.2), p + Vector3(0, legh * 0.5 + 0.06 * sz, 0), col.darkened(0.12))
-			add.call(Vector3(W * 0.22, 0.12 * sz, W * 0.24), p + Vector3(0, 0.06 * sz, 0), hoof)
+			var p := Vector3(lx * W * 0.24, 0, lz * L * 0.3)
+			# the upper leg runs up into the body (its rounded underside
+			# would otherwise leave a gap above the legs)
+			add.call(_cyl, Vector3(W * 0.26, legh * 0.5 + H * 0.4, W * 0.26), p + Vector3(0, legh * 0.75 + H * 0.2, 0), col)
+			add.call(_cyl, Vector3(W * 0.16, legh * 0.55, W * 0.16), p + Vector3(0, legh * 0.32, 0), col.darkened(0.1))
+			add.call(_cyl, Vector3(W * 0.2, 0.1 * sz, W * 0.2), p + Vector3(0, 0.05 * sz, 0), hoof)
 	return _merge_parts(parts)
 
 
