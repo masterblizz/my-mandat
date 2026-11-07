@@ -1,5 +1,6 @@
-// Approximate real population density (people per km²) for the seats the
-// 3D city is drawn for. The generated seat population/area are RNG values,
+// Population density (people per km²) for the seats the 3D city is drawn
+// for. Real seats use their census 2020 population and area (seatCensus.ts);
+// the table below only covers seats without census figures. The generated seat population/area are RNG values,
 // so the city used to build from a coarse 3-band "areaType" only; this
 // gives well-known seats their real-world character (KL core ≫ Petaling
 // Jaya ≫ a state capital ≫ a market town ≫ kampung).
@@ -44,8 +45,10 @@ const BAND: Record<AreaType, [number, number]> = {
   rural: [20, 300],
 };
 
-export function seatRealDensity(seat: { name: string; areaType: AreaType; population: number; areaKm2: number } | null | undefined): number {
+export function seatRealDensity(seat: { name: string; areaType: AreaType; population: number; areaKm2: number; households?: number } | null | undefined): number {
   if (!seat) return 800;
+  // a real seat: its census 2020 population over its census area
+  if (seat.households && seat.areaKm2 > 0) return Math.max(1, Math.round(seat.population / seat.areaKm2 / 10) * 10);
   const known = KNOWN_DENSITY[seat.name.toLowerCase()];
   if (known) return known;
   const [lo, hi] = BAND[seat.areaType];

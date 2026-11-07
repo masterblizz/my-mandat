@@ -1,5 +1,6 @@
 import { StateData } from "./states";
 import { SEAT_CODES } from "./seatCodes";
+import { PARLIMEN_CENSUS, DUN_CENSUS, type CensusRow } from "./seatCensus";
 
 export type AreaType = "rural" | "suburban" | "urban_dense";
 
@@ -19,11 +20,14 @@ export interface Constituency {
   // by raw voter turnout, which says nothing about how physically built-up
   // a seat is (see areaKm2).
   population: number;
-  // Modeled seat area, independent of population — a small dense urban
-  // seat and a huge sparse rural seat can carry similar populations, so
-  // area (not population alone) is what should drive how "packed" the
-  // 3D city reads.
+  // Seat area. Real seats use the 2020 census figures (population,
+  // households, area; see seatCensus.ts); placeholder seats keep a modeled
+  // area independent of population — a small dense urban seat and a huge
+  // sparse rural seat can carry similar populations, so area (not
+  // population alone) is what should drive how "packed" the 3D city reads.
   areaKm2: number;
+  // Real households (census 2020) when the seat is a real one.
+  households?: number;
   // How built-up the seat actually is, used by /kawasan to pick the right
   // asset set (skyscrapers vs. terrace houses vs. kampung). Named real
   // seats known to be dense urban cores or clear satellite towns are
@@ -396,6 +400,29 @@ function officialCodes(state: StateData, scope: ConstituencyScope, names: string
   return codes.map((code) => code ?? free.shift());
 }
 
+// Seat names compare across spellings the game and DOSM use differently
+// (Tanjung/Tanjong, Ipoh Timur/Timor, Bagan Datok/Datuk, Kulim-BB).
+const normName = (n: string) => n.toLowerCase()
+  .replace(/tanjung/g, "tanjong").replace(/timur/g, "timor").replace(/datok/g, "datuk")
+  .replace(/\bbb\b/g, "bandar baharu").replace(/[^a-z0-9]/g, "");
+
+let censusByName: Map<string, CensusRow> | null = null;
+
+/** The census row for a real seat: matched by official code when the
+ *  census name agrees (placeholder seats can be handed a free official
+ *  code, which must not pull in another seat's figures), else by name for
+ *  parliament seats whose code here differs from DOSM's. */
+function censusFor(stateId: string, scope: ConstituencyScope, code: string, name: string): CensusRow | null {
+  const row = scope === "dun" ? DUN_CENSUS[`${stateId}:${code}`] : PARLIMEN_CENSUS[code];
+  if (row && normName(row[3]) === normName(name)) return row;
+  if (scope === "dun") return null;
+  if (!censusByName) {
+    censusByName = new Map();
+    for (const r of Object.values(PARLIMEN_CENSUS)) censusByName.set(`${r[4]}:${normName(r[3])}`, r);
+  }
+  return censusByName.get(`${stateId}:${normName(name)}`) ?? null;
+}
+
 export function generateConstituencies(state: StateData, scope: ConstituencyScope = "parliament"): Constituency[] {
   const seatCount = scope === "dun" ? state.dunSeats : state.seats;
   const seed = state.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 97 + seatCount + (scope === "dun" ? 1307 : 0);
@@ -442,9 +469,12 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
     // same deterministic per-seat spread (hash, not rand(), so the seeded
     // sequence above — and every existing seat voter/result figure — stays
     // byte-identical to before this split).
+    // A real seat takes its census 2020 population, households and area;
+    // only placeholder seats fall back to the modeled spread.
+    const census = censusFor(state.id, scope, code, name);
     const popBase = state.population / seatCount;
     const popJitter = 0.72 + (((seed + (i + 1) * 131) % 97) / 97) * 0.66;
-    const population = Math.max(28800, Math.round((popBase * popJitter) / 500) * 500);
+    const population = census ? census[0] : Math.max(28800, Math.round((popBase * popJitter) / 500) * 500);
     const voters = Math.max(15000, Math.round((population * 0.52) / 500) * 500);
 
     // Area is modeled independently of population (a separate seeded stream)
@@ -455,10 +485,10 @@ export function generateConstituencies(state: StateData, scope: ConstituencyScop
     // with rarer large rural outliers, roughly matching the real spread
     // between dense urban cores and sprawling interior seats.
     const areaRand = seededRand(seed * 7 + (i + 1) * 733)();
-    const areaKm2 = Math.round(8 + Math.pow(areaRand, 2.2) * 2500);
+    const areaKm2 = census ? Math.max(1, census[2]) : Math.round(8 + Math.pow(areaRand, 2.2) * 2500);
     const areaType = deriveAreaType(name, state.demographics.urban, population / areaKm2);
 
-    result.push({ id, name, code, mandat, lawan, others, winner, margin, safety, voters, population, areaKm2, areaType });
+    result.push({ id, name, code, mandat, lawan, others, winner, margin, safety, voters, population, areaKm2, areaType, ...(census ? { households: census[1] } : {}) });
   }
 
   return result;
