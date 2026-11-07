@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { getElectionFlowStatus } from "../../data/electionFlow";
+import { getElectionFlowStatus, NOMINATION_DAY, CAMPAIGN_START_DAY, CAMPAIGN_END_DAY, POLLING_DAY } from "../../data/electionFlow";
 import { t, type Lang } from "../../i18n/useLang";
 
 type Phase = { id: "prepare" | "nomination" | "campaign" | "polling"; starts: number; ends: number; shortMs: string; shortEn: string; titleMs: string; titleEn: string; helpMs: string; helpEn: string; actionMs: string; actionEn: string; color: string };
 
 const PHASES: Phase[] = [
-  { id: "prepare", starts: 1, ends: 14, shortMs: "SEDIA", shortEn: "PREP", titleMs: "Persediaan & strategi awal", titleEn: "Preparation & early strategy", helpMs: "Susun calon, pilih negeri sasaran dan kuatkan jentera sebelum penamaan calon.", helpEn: "Place candidates, choose target states and strengthen your machine before nomination.", actionMs: "Rancang di pejabat / War Room", actionEn: "Plan in office / War Room", color: "var(--cyan)" },
-  { id: "nomination", starts: 15, ends: 15, shortMs: "CALON", shortEn: "NOM.", titleMs: "Hari Penamaan Calon", titleEn: "Nomination Day", helpMs: "Sahkan calon sekarang. Calon yang belum dinamakan akan melemahkan kempen anda.", helpEn: "Confirm candidates now. Unnominated candidates will weaken your campaign.", actionMs: "Sahkan semua calon", actionEn: "Confirm all candidates", color: "var(--gold)" },
-  { id: "campaign", starts: 16, ends: 29, shortMs: "KEMPEN", shortEn: "CAMPAIGN", titleMs: "Tempoh berkempen", titleEn: "Campaign period", helpMs: "Lancar ceramah, operasi akar umbi dan media. Urus tenaga serta dana setiap hari.", helpEn: "Launch rallies, grassroots operations and media. Manage energy and funds each day.", actionMs: "Jalankan operasi hari ini", actionEn: "Run today’s operations", color: "var(--neon-green)" },
-  { id: "polling", starts: 30, ends: 30, shortMs: "UNDI", shortEn: "VOTE", titleMs: "Hari Mengundi", titleEn: "Polling Day", helpMs: "Pantau turnout dan gerakkan pengundi sebelum pusat mengundi ditutup.", helpEn: "Monitor turnout and mobilise voters before polls close.", actionMs: "Pantau turnout", actionEn: "Monitor turnout", color: "var(--neon-red)" },
+  { id: "prepare", starts: 1, ends: NOMINATION_DAY - 1, shortMs: "SEDIA", shortEn: "PREP", titleMs: "Persediaan & strategi awal", titleEn: "Preparation & early strategy", helpMs: "Susun calon, pilih negeri sasaran dan kuatkan jentera sebelum penamaan calon.", helpEn: "Place candidates, choose target states and strengthen your machine before nomination.", actionMs: "Rancang di pejabat / War Room", actionEn: "Plan in office / War Room", color: "var(--cyan)" },
+  { id: "nomination", starts: NOMINATION_DAY, ends: NOMINATION_DAY, shortMs: "CALON", shortEn: "NOM.", titleMs: "Hari Penamaan Calon", titleEn: "Nomination Day", helpMs: "Sahkan calon sekarang. Calon yang belum dinamakan akan melemahkan kempen anda.", helpEn: "Confirm candidates now. Unnominated candidates will weaken your campaign.", actionMs: "Sahkan semua calon", actionEn: "Confirm all candidates", color: "var(--gold)" },
+  { id: "campaign", starts: CAMPAIGN_START_DAY, ends: CAMPAIGN_END_DAY, shortMs: "KEMPEN", shortEn: "CAMPAIGN", titleMs: "Tempoh berkempen", titleEn: "Campaign period", helpMs: "Lancar ceramah, operasi akar umbi dan media. Urus tenaga serta dana setiap hari.", helpEn: "Launch rallies, grassroots operations and media. Manage energy and funds each day.", actionMs: "Jalankan operasi hari ini", actionEn: "Run today’s operations", color: "var(--neon-green)" },
+  { id: "polling", starts: POLLING_DAY, ends: POLLING_DAY, shortMs: "UNDI", shortEn: "VOTE", titleMs: "Hari Mengundi", titleEn: "Polling Day", helpMs: "Pantau turnout dan gerakkan pengundi sebelum pusat mengundi ditutup.", helpEn: "Monitor turnout and mobilise voters before polls close.", actionMs: "Pantau turnout", actionEn: "Monitor turnout", color: "var(--neon-red)" },
 ];
 
 function phaseForDay(day: number) {
