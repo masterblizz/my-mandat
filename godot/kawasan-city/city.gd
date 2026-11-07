@@ -351,6 +351,7 @@ func _build() -> void:
 	occ = PackedByteArray()
 	occ.resize(GN * GN)
 	_mask_outside()
+	_build_sea_dist()
 	_build_elevation()
 	roads = []
 	lots = []
@@ -1539,13 +1540,46 @@ func _build_elevation() -> void:
 		return
 	var n := int(2.0 * EXT / TG)
 	# distance from the sea (open water stays at sea level)
+	var dist := sea_dist if sea_dist.size() == n * n else PackedFloat32Array()
+	if dist.is_empty():
+		dist.resize(n * n)
+		dist.fill(1e9)
+	var fn := FastNoiseLite.new()
+	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	fn.seed = seat_seed + 101
+	fn.frequency = 1.0 / 2600.0
+	fn.fractal_octaves = 2
+	elev_h.resize(n * n)
+	for iz in n:
+		for ix in n:
+			var i := iz * n + ix
+			var x := -EXT + (ix + 0.5) * TG
+			var z := -EXT + (iz + 0.5) * TG
+			var f := clampf((dist[i] - 60.0) / 700.0, 0.0, 1.0)
+			f = f * f * (3.0 - 2.0 * f)
+			var edge := minf(minf(ix, n - 1 - ix), minf(iz, n - 1 - iz))
+			f *= clampf(float(edge) / 10.0, 0.0, 1.0)
+			elev_h[i] = amp * f * (fn.get_noise_2d(x, z) * 0.5 + 0.5)
+	elev_n = n
+
+
+var _elev_cache_k := Vector2(INF, INF)
+var _elev_cache_v := 0.0
+
+## Distance from the open sea on the 32 m grid (1e9 inland seats), for
+## the base elevation to fade to sea level along the coast.
+var sea_dist := PackedFloat32Array()
+func _build_sea_dist() -> void:
+	sea_dist = PackedFloat32Array()
+	if land_rings.is_empty() and sea_dir == Vector3.ZERO:
+		return
+	var n := int(2.0 * EXT / TG)
 	var dist := PackedFloat32Array()
 	dist.resize(n * n)
-	var coastal := not land_rings.is_empty() or sea_dir != Vector3.ZERO
 	for iz in n:
 		for ix in n:
 			var p := Vector3(-EXT + (ix + 0.5) * TG, 0, -EXT + (iz + 0.5) * TG)
-			dist[iz * n + ix] = 0.0 if (coastal and in_sea(p)) else 1e9
+			dist[iz * n + ix] = 0.0 if in_sea(p) else 1e9
 	var d1 := TG
 	var d2 := TG * 1.4142
 	for iz in n:
@@ -1568,27 +1602,8 @@ func _build_elevation() -> void:
 				if ix < n - 1: v = minf(v, dist[i + n + 1] + d2)
 				if ix > 0: v = minf(v, dist[i + n - 1] + d2)
 			dist[i] = v
-	var fn := FastNoiseLite.new()
-	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	fn.seed = seat_seed + 101
-	fn.frequency = 1.0 / 2600.0
-	fn.fractal_octaves = 2
-	elev_h.resize(n * n)
-	for iz in n:
-		for ix in n:
-			var i := iz * n + ix
-			var x := -EXT + (ix + 0.5) * TG
-			var z := -EXT + (iz + 0.5) * TG
-			var f := clampf((dist[i] - 60.0) / 700.0, 0.0, 1.0)
-			f = f * f * (3.0 - 2.0 * f)
-			var edge := minf(minf(ix, n - 1 - ix), minf(iz, n - 1 - iz))
-			f *= clampf(float(edge) / 10.0, 0.0, 1.0)
-			elev_h[i] = amp * f * (fn.get_noise_2d(x, z) * 0.5 + 0.5)
-	elev_n = n
+	sea_dist = dist
 
-
-var _elev_cache_k := Vector2(INF, INF)
-var _elev_cache_v := 0.0
 
 ## Base ground height at p (metres above sea level in the model).
 func elev_at(p: Vector3) -> float:
@@ -3071,7 +3086,8 @@ func city_summary() -> Dictionary:
 		e.lots += 1
 		e.homes += int(lot.get("homes", 0))
 		by_zone[z] = e
-		var dk := str(lot.get("district", ""))
+		# district worked out here rather than for every lot as it's placed
+		var dk := str(lot.get("district", district_of(lot.p)))
 		by_district[dk] = int(by_district.get(dk, 0)) + 1
 		homes += int(lot.get("homes", 0))
 	# bridges: one per run of a road over water, at its middle
@@ -3123,7 +3139,7 @@ func district_of(p: Vector3) -> String:
 func _lot(c: Vector3, yaw: float, kind: String, w: float, d: float) -> void:
 	var p := Vector3(c.x, 0, c.z)
 	lots.append({"p": p, "kind": kind, "yaw": yaw, "w": w, "d": d,
-		"zone": LOT_ZONE.get(kind, "civic"), "district": district_of(p), "homes": 0})
+		"zone": LOT_ZONE.get(kind, "civic"), "homes": 0})
 
 
 func _place(c: Vector3, yaw: float, kind := "", w := 0.0, d := 0.0) -> void:
@@ -3131,7 +3147,7 @@ func _place(c: Vector3, yaw: float, kind := "", w := 0.0, d := 0.0) -> void:
 	if kind != "":
 		var p := Vector3(c.x, 0, c.z)
 		lots.append({"p": p, "kind": kind, "yaw": yaw, "w": w, "d": d,
-			"zone": LOT_ZONE.get(kind, "civic"), "district": district_of(p), "homes": 0})
+			"zone": LOT_ZONE.get(kind, "civic"), "homes": 0})
 
 
 ## A landmark on the free lot nearest its real map position (spiral
@@ -3570,10 +3586,12 @@ func _infill_homes() -> void:
 			mark = homes_built
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var seed := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
-		if not on_land(seed) or in_sea(seed) or in_industry(seed) or _urban_r(seed) < r_commercial:
-			continue
+		# cheapest test first: most seeds in a filled seat land on taken
+		# cells (built, outside the seat or in the sea), one array read
 		var ci := _cell(seed)
 		if ci < 0 or occ[ci] == 1:
+			continue
+		if not on_land(seed) or in_sea(seed) or in_industry(seed) or _urban_r(seed) < r_commercial:
 			continue
 		var best := _net_near(net, seed)
 		var bd := Vector2(best.x - seed.x, best.z - seed.z).length()
@@ -3614,6 +3632,9 @@ func _infill_homes() -> void:
 		await _breathe(0.45 + 0.4 * homes_built / maxf(home_target, 1.0))
 		var spec: Dictionary = {"kind": "flat", "w": 16.0, "d": 13.0, "gap": 3.0, "h": rng.randf_range(16, 36)} if urban and rng.randf() < 0.6 else ({"kind": "bungalow", "w": 16.0, "d": 16.0, "gap": 2.0} if urban else {"kind": "kampung", "w": 10.0, "d": 10.0, "gap": 4.0})
 		var c := _polar(rng.randf_range(0.12, 1.0) * r_city, rng.randf() * TAU)
+		var cc := _cell(c)
+		if cc < 0 or occ[cc] == 1:
+			continue
 		if not on_land(c) or in_sea(c) or in_industry(c) or _urban_r(c) < r_core:
 			continue
 		var q := _net_near(net, c)
