@@ -21,7 +21,7 @@ const HIGHWAY_HALF := 11.0
 const LRT_Y := 10.0             # guideway soffit height
 
 const C_CONCRETE := Color(0.72, 0.71, 0.68)
-const C_PAVING := Color(0.5, 0.46, 0.41)
+const C_PAVING := Color(0.7, 0.68, 0.64)   # pale concrete: darker read near-black over the city
 const C_KERB := Color(0.6, 0.58, 0.54)
 const C_ASPHALT := Color(0.16, 0.17, 0.18)
 
@@ -398,7 +398,7 @@ func _build() -> void:
 	# lawns and shade trees on the paved centre, in whatever space the
 	# buildings left (runs after them so it never takes a lot)
 	if tier in ["metro", "city"]:
-		_plaza_greenery(r_core - 10.0)
+		_plaza_greenery(minf(r_core - 10.0, 450.0))
 	elif tier == "town" and layout == "radial":
 		_plaza_greenery(r_core * 0.6)
 	_fill_trees()
@@ -2954,10 +2954,13 @@ func _ribbon_piece(st: SurfaceTool, seg: PackedVector3Array, _unused: int, half:
 
 ## The paved downtown: not a perfect circle but the city's own outline
 ## (stretched like everything else) at radius r, cut to the seat boundary.
-func _paving(r: float) -> void:
+func _paving(r: float, cap := INF) -> void:
 	var ring := PackedVector2Array()
 	for i in 72:
 		var p := _polar(r, TAU * i / 72.0)
+		# the outline stretches it; cap the real distance from the centre
+		if Vector2(p.x, p.z).length() > cap:
+			p = p.normalized() * cap
 		ring.append(Vector2(p.x, p.z))
 	var parts := [ring]
 	if not seat_poly.is_empty():
@@ -2970,10 +2973,18 @@ func _paving(r: float) -> void:
 		ground_st.set_color(C_PAVING)
 		ground_st.set_normal(Vector3.UP)
 		for k in range(0, tris.size(), 3):
-			# both windings: the ground material may cull back faces
-			for m in [0, 1, 2, 0, 2, 1]:
-				var v: Vector2 = poly[tris[k + m]]
-				ground_st.add_vertex(Vector3(v.x, 0.015, v.y))
+			# one face only, wound like the road ribbons (facing up): the
+			# ground material draws both sides, and a second, downward copy
+			# on the same plane was lit from below and read near-black
+			var a := Vector3(poly[tris[k]].x, 0.015, poly[tris[k]].y)
+			var b := Vector3(poly[tris[k + 1]].x, 0.015, poly[tris[k + 1]].y)
+			var c := Vector3(poly[tris[k + 2]].x, 0.015, poly[tris[k + 2]].y)
+			if (b - a).cross(c - a).y < 0.0:
+				var tmp := b
+				b = c
+				c = tmp
+			for v in [a, b, c]:
+				ground_st.add_vertex(v)
 
 
 func _disc(st: SurfaceTool, c: Vector3, r: float, y: float, col: Color) -> void:
@@ -2982,9 +2993,10 @@ func _disc(st: SurfaceTool, c: Vector3, r: float, y: float, col: Color) -> void:
 	for i in 16:
 		var a0 := TAU * i / 16.0
 		var a1 := TAU * (i + 1) / 16.0
+		# wound to face up, like the road ribbons
 		st.add_vertex(Vector3(c.x, y, c.z))
-		st.add_vertex(Vector3(c.x + cos(a0) * r, y, c.z + sin(a0) * r))
 		st.add_vertex(Vector3(c.x + cos(a1) * r, y, c.z + sin(a1) * r))
+		st.add_vertex(Vector3(c.x + cos(a0) * r, y, c.z + sin(a0) * r))
 
 
 # ── occupancy map ────────────────────────────────────────────────────
@@ -4716,8 +4728,10 @@ func _build_ground_inner() -> void:
 		_ground_no_shadow()
 	# paved downtown (a smaller town centre in towns, none in villages)
 	# warm, darker paving: the old light grey bleached to white in the sun
+	# a paved plaza only in the heart of downtown (a KL-sized CBD paved
+	# edge to edge read as one black slab); the blocks round it keep grass
 	if tier in ["metro", "city"]:
-		_paving(r_core - 10.0)
+		_paving(r_core - 10.0, 420.0)
 	elif tier == "town" and layout == "radial":
 		_paving(r_core * 0.6)
 
