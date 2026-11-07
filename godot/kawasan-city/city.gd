@@ -359,6 +359,8 @@ func _build() -> void:
 	lots = []
 	town_centre = Vector3.ZERO
 	buckets = {}
+	_walk_items = {}
+	livestock_built = 0
 	_last_bk = {}
 	_last_mesh = null
 	_last_mat = null
@@ -409,6 +411,8 @@ func _build() -> void:
 	# (self-shadow acne flips the ground dark as the cascades move)
 	gmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	gen.add_child(gmi)
+	_pedestrians()
+	_flush_walkers()
 	$Traffic.setup(self)
 	if not has_node("Birds"):
 		var birds := Node3D.new()
@@ -1836,6 +1840,281 @@ func terrain_at(p: Vector3) -> float:
 	return maxf(0.0, lerpf(h0, h1, tz) - 0.05)
 
 
+# ── people & animals ─────────────────────────────────────────────────
+## Walkers and grazing animals: static MultiMeshes (built once, no
+## per-frame instance updates, which the web renderer mishandles) whose
+## figures move in the shader. Each instance walks back and forth along a
+## short straight path: INSTANCE_CUSTOM = (length, speed, phase, step rate);
+## local +Z is the way it faces, mirrored on the walk back.
+const WALK_SHADER := """
+shader_type spatial;
+render_mode cull_back;
+void vertex() {
+	float len = max(INSTANCE_CUSTOM.x, 0.01);
+	float cyc = 2.0 * len;
+	float s = mod(TIME * INSTANCE_CUSTOM.y + INSTANCE_CUSTOM.z, cyc);
+	float d = s < len ? s : cyc - s;
+	vec3 v = VERTEX;
+	vec3 n = NORMAL;
+	if (s >= len) { v.xz = -v.xz; n.xz = -n.xz; }
+	v.z += d;
+	v.y += abs(sin((TIME * INSTANCE_CUSTOM.y + INSTANCE_CUSTOM.z) * INSTANCE_CUSTOM.w)) * 0.05;
+	VERTEX = v;
+	NORMAL = n;
+}
+void fragment() {
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 0.9;
+}
+"""
+var mat_walk: ShaderMaterial
+var _people_meshes := []
+var _cow_meshes := []
+var _goat_meshes := []
+var walkers_built := 0
+var livestock_built := 0
+var _walk_items := {}   # mesh -> {tile: [floats]}
+
+func _walk_material() -> ShaderMaterial:
+	if mat_walk == null:
+		var sh := Shader.new()
+		sh.code = WALK_SHADER
+		mat_walk = ShaderMaterial.new()
+		mat_walk.shader = sh
+	return mat_walk
+
+
+func _person_variants() -> Array:
+	var out := []
+	var shirts := [Color(0.92, 0.92, 0.9), Color(0.2, 0.35, 0.7), Color(0.75, 0.2, 0.2), Color(0.95, 0.75, 0.2), Color(0.25, 0.55, 0.35), Color(0.55, 0.3, 0.55)]
+	var skins := [Color(0.78, 0.58, 0.42), Color(0.55, 0.38, 0.26)]
+	for i in shirts.size():
+		var sk: Color = skins[i % skins.size()]
+		var legs := Color(0.15, 0.17, 0.22) if i % 3 != 2 else Color(0.35, 0.3, 0.25)
+		out.append(_merge_parts([
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.4, 1.05, 0.28)), Vector3(0, 0.53, 0)), legs],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.52, 0.75, 0.32)), Vector3(0, 1.43, 0)), shirts[i]],
+			[box_mesh, Transform3D(Basis.from_scale(Vector3(0.3, 0.32, 0.3)), Vector3(0, 2.0, 0)), sk],
+		]))
+	return out
+
+
+func _animal(body: Vector3, h: float, col: Color, head: Color) -> ArrayMesh:
+	# body w x hgt x length on four legs, head ahead (+Z) and a little up
+	var leg := Vector3(body.x * 0.22, h, body.x * 0.22)
+	var parts := [
+		[box_mesh, Transform3D(Basis.from_scale(body), Vector3(0, h + body.y * 0.5, 0)), col],
+		[box_mesh, Transform3D(Basis.from_scale(Vector3(body.x * 0.6, body.y * 0.55, body.z * 0.28)), Vector3(0, h + body.y * 0.75, body.z * 0.58)), head],
+	]
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			parts.append([box_mesh, Transform3D(Basis.from_scale(leg), Vector3(sx * body.x * 0.32, h * 0.5, sz * body.z * 0.36)), col.darkened(0.2)])
+	return _merge_parts(parts)
+
+
+func _livestock_meshes() -> void:
+	if _cow_meshes.is_empty():
+		# lembu: tan Kedah-Kelantan, brown, white, black
+		for c in [Color(0.72, 0.52, 0.32), Color(0.5, 0.32, 0.18), Color(0.9, 0.88, 0.83), Color(0.16, 0.15, 0.14)]:
+			_cow_meshes.append(_animal(Vector3(0.8, 0.85, 2.1), 0.8, c, c.darkened(0.15)))
+	if _goat_meshes.is_empty():
+		for c in [Color(0.93, 0.92, 0.88), Color(0.55, 0.38, 0.24), Color(0.18, 0.16, 0.15)]:
+			_goat_meshes.append(_animal(Vector3(0.42, 0.48, 1.0), 0.45, c, c.darkened(0.1)))
+
+
+## Queue one moving figure: it walks from a toward b and back.
+func _walker(mesh: Mesh, a: Vector3, b: Vector3, speed: float, step_rate: float, scale := 1.0) -> void:
+	var d := Vector3(b.x - a.x, 0, b.z - a.z)
+	var length := d.length()
+	var yaw := atan2(d.x, d.z) if length > 0.01 else rng.randf() * TAU
+	var o := Vector3(a.x, elev_at(a) + 0.07, a.z)
+	var tk := Vector2i(floori(o.x / TILE), floori(o.z / TILE))
+	var bm: Dictionary = _walk_items.get(mesh, {})
+	if bm.is_empty():
+		_walk_items[mesh] = bm
+	var arr: Array = bm.get(tk, [])
+	if arr.is_empty():
+		bm[tk] = arr
+	var bs := Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale)
+	var x := bs.x
+	var y := bs.y
+	var z := bs.z
+	arr.append_array([x.x, y.x, z.x, o.x, x.y, y.y, z.y, o.y, x.z, y.z, z.z, o.z, 1.0, 1.0, 1.0, 1.0,
+		length / scale, speed / scale, rng.randf() * 100.0, step_rate])
+
+
+## Build the queued figures: one MultiMesh per mesh and ground tile,
+## standing at the tile's centre, dropped beyond a short range.
+func _flush_walkers() -> void:
+	var mat := _walk_material()
+	for mesh in _walk_items:
+		var tiles: Dictionary = _walk_items[mesh]
+		for tk in tiles:
+			var buf := PackedFloat32Array(tiles[tk])
+			var n := buf.size() / 20
+			if n == 0:
+				continue
+			var cen := Vector3((tk.x + 0.5) * TILE, 0, (tk.y + 0.5) * TILE)
+			for i in n:
+				buf[i * 20 + 3] -= cen.x
+				buf[i * 20 + 11] -= cen.z
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
+			mm.use_custom_data = true
+			mm.mesh = mesh
+			mm.instance_count = n
+			mm.buffer = buf
+			# the figures move up to their path length away from where they
+			# stand: keep them from being culled at the tile's edge
+			mm.custom_aabb = AABB(Vector3(-TILE, -5, -TILE), Vector3(TILE * 2, 80, TILE * 2))
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.material_override = mat
+			mmi.position = cen
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mmi.visibility_range_end = 1600.0
+			mmi.visibility_range_end_margin = 200.0
+			gen.add_child(mmi)
+	_walk_items = {}
+
+
+## Pedestrians on the pavements (busiest in the town centre) and, in
+## kampung country, on the lanes between the houses.
+func _pedestrians() -> void:
+	walkers_built = 0
+	if roads.is_empty():
+		return
+	if _people_meshes.is_empty():
+		_people_meshes = _person_variants()
+	var want: int = {"metro": 1100, "city": 800, "town": 480, "rural": 360}.get(tier, 400)
+	var lane_share := 0.55 if tier == "rural" else (0.3 if tier == "town" else 0.1)
+	# half of them in the centre, where the shops are, whatever the seat
+	var central := want / 2
+	var tries := 0
+	while walkers_built < want and tries < want * 14:
+		tries += 1
+		# (a village centre has few streets: give up on it after a while)
+		var in_centre := walkers_built < central and tries < want * 6
+		var a: Vector3
+		var b: Vector3
+		if not in_centre and not lanes.is_empty() and rng.randf() < lane_share:
+			var ln: PackedVector3Array = lanes[rng.randi() % lanes.size()]
+			if ln.size() < 10:
+				continue
+			var i := rng.randi_range(2, ln.size() - 8)
+			var j := mini(ln.size() - 2, i + rng.randi_range(5, 12))
+			var t := (ln[j] - ln[i]).normalized()
+			var n := Vector3(-t.z, 0, t.x) * (1.0 if rng.randf() < 0.5 else -1.0) * (LANE_HALF + 0.8)
+			a = ln[i] + n
+			b = ln[j] + n
+		else:
+			var rd: Dictionary = roads[rng.randi() % roads.size()]
+			var L: float = rd.cum[rd.cum.size() - 1]
+			if L < 45.0:
+				continue
+			var s0 := rng.randf() * (L - 40.0)
+			var s1 := s0 + rng.randf_range(20.0, minf(55.0, L - s0))
+			var m0 := road_sample(rd, s0)
+			var m1 := road_sample(rd, s1)
+			var gaps: PackedByteArray = rd.gaps
+			var wet: PackedByteArray = rd.wet
+			var bad := false
+			for k in range(int(m0[2]), int(m1[2]) + 1):
+				if gaps[k] == 1 or wet[k] == 1:
+					bad = true
+					break
+			if bad:
+				continue
+			# busier toward the centre
+			var ur := _urban_r(m0[0])
+			if in_centre:
+				if ur > maxf(r_commercial * 1.3, r_taman * 0.5):
+					continue
+			else:
+				var keep := 1.0 if ur < r_commercial else (0.35 if ur < r_taman else 0.12)
+				if rng.randf() > keep:
+					continue
+			var side := 1.0 if rng.randf() < 0.5 else -1.0
+			var off: float = float(rd.half) + (1.3 if int(rd.cls) < 2 else 0.8)
+			var t0: Vector3 = m0[1]
+			var t1: Vector3 = m1[1]
+			a = (m0[0] as Vector3) + Vector3(-t0.z, 0, t0.x) * side * off
+			b = (m1[0] as Vector3) + Vector3(-t1.z, 0, t1.x) * side * off
+		if not on_land(a) or not on_land(b):
+			continue
+		_walker(_people_meshes[rng.randi() % _people_meshes.size()], a, b, rng.randf_range(1.1, 1.5), rng.randf_range(5.0, 7.0), 1.25)
+		walkers_built += 1
+
+
+## Ternakan: fenced pastures with a shed (kandang) on the open land of
+## village and town seats, cattle grazing in them (goats in hill country),
+## each animal ambling a few metres back and forth.
+func _livestock_farms() -> void:
+	if not (tier in ["rural", "town"]) or landmarks:
+		return
+	_livestock_meshes()
+	var want := 26 if tier == "rural" else 12
+	var goat_share := 0.65 if bool(traits.get("hilly", false)) else 0.3
+	var made := 0
+	var wood := Color(0.45, 0.32, 0.2)
+	for attempt in want * 10:
+		if made >= want:
+			break
+		var c := _polar(rng.randf_range(maxf(r_commercial * 1.2, r_taman * 0.5), r_city * 1.0), rng.randf() * TAU)
+		var yaw := rng.randf() * TAU
+		var w := rng.randf_range(60.0, 120.0)
+		var d := rng.randf_range(45.0, 85.0)
+		if not on_land(c) or in_industry(c) or not _rect_free(c, yaw, w + 8.0, d + 8.0):
+			continue
+		_mark_rect(c, yaw, w + 4.0, d + 4.0)
+		_lot(c, yaw, "farm", w, d)
+		var b := Basis(Vector3.UP, yaw)
+		var ux := b * Vector3(1, 0, 0)
+		var uz := b * Vector3(0, 0, 1)
+		# pasture: a sun-dried paddock over the grass
+		var p0 := c - ux * w * 0.5 - uz * d * 0.5
+		var p1 := c + ux * w * 0.5 - uz * d * 0.5
+		var p2 := c + ux * w * 0.5 + uz * d * 0.5
+		var p3 := c - ux * w * 0.5 + uz * d * 0.5
+		var y := Vector3(0, 0.035, 0)
+		# (same winding as the road ribbons: the face that looks up)
+		_quad(ground_st, p0 + y, p3 + y, p2 + y, p1 + y, Color(0.6, 0.66, 0.34).lerp(Color(0.68, 0.64, 0.38), rng.randf()), Vector3.UP)
+		# fence: posts every 8 m and two rails along each side
+		for side in [[p0, p1], [p1, p2], [p2, p3], [p3, p0]]:
+			var s: Vector3 = side[0]
+			var e: Vector3 = side[1]
+			var L := s.distance_to(e)
+			var dir := (e - s) / L
+			var ryaw := atan2(-dir.z, dir.x)
+			var k := 0.0
+			while k <= L:
+				box(s + dir * k, Vector3(0.18, 1.3, 0.18), wood)
+				k += 8.0
+			for ry in [0.55, 1.05]:
+				box(s + dir * L * 0.5 + Vector3(0, ry, 0), Vector3(L, 0.08, 0.06), wood.lightened(0.1), null, ryaw)
+		# kandang in one corner
+		var shed := p0 + ux * 9.0 + uz * 7.0
+		frame = Transform3D(b, shed)
+		box(Vector3.ZERO, Vector3(12, 3.2, 8), wood.lightened(0.15), mat_lowrise)
+		gable(Vector3(0, 3.2, 0), 12, 8, 1.8, ZINC[rng.randi() % ZINC.size()])
+		frame = Transform3D.IDENTITY
+		# the herd
+		var goats := rng.randf() < goat_share
+		var herd := rng.randi_range(10, 22) if goats else rng.randi_range(6, 14)
+		for i in herd:
+			var u := rng.randf_range(-w * 0.4, w * 0.4)
+			var v := rng.randf_range(-d * 0.35, d * 0.35)
+			var a := c + ux * u + uz * v
+			var hd := rng.randf() * TAU
+			var reach := rng.randf_range(2.0, 7.0)
+			var bpt := a + Vector3(sin(hd), 0, cos(hd)) * reach
+			var mesh: Mesh = (_goat_meshes if goats else _cow_meshes)[rng.randi() % (_goat_meshes.size() if goats else _cow_meshes.size())]
+			_walker(mesh, a, bpt, rng.randf_range(0.08, 0.22), rng.randf_range(2.0, 3.5), 1.0)
+			livestock_built += 1
+		made += 1
+
+
 # ── road graph ───────────────────────────────────────────────────────
 ## A road that stops just short of another (a street ending a few metres
 ## from the next one, a spur running past an arterial) is carried on to
@@ -3093,7 +3372,7 @@ const LOT_ZONE := {
 	"carpark": "commercial", "market": "commercial",
 	"hotel": "tourism", "chalet": "tourism",
 	"factory": "industrial", "warehouse": "industrial",
-	"paddy": "agriculture", "plantation": "agriculture",
+	"paddy": "agriculture", "plantation": "agriculture", "farm": "agriculture",
 	"trees": "green", "park": "green", "field": "green", "lake": "green",
 }
 
@@ -3130,7 +3409,8 @@ func city_summary() -> Dictionary:
 				bridges.append([snappedf(m.x, 1.0), snappedf(m.z, 1.0)])
 			k = e
 	return {"tier": tier, "layout": layout, "zoning": zoning, "homes": homes, "zones": by_zone, "districts": by_district.size(),
-		"hills": hills_built, "tea": tea_hills, "bridges": bridges, "r_city": snappedf(r_city, 1.0),
+		"hills": hills_built, "tea": tea_hills, "walkers": walkers_built, "livestock": livestock_built, "bridges": bridges,
+		"farms": lots.filter(func(l): return l.kind == "farm").slice(0, 6).map(func(l): return [snappedf(l.p.x, 1.0), snappedf(l.p.z, 1.0)]), "r_city": snappedf(r_city, 1.0),
 		"junctions": _junction_degrees(), "graph": {"nodes": (road_graph.get("nodes", []) as Array).size(), "edges": (road_graph.get("edges", []) as Array).size()}}
 
 
@@ -3960,6 +4240,7 @@ func _fill_trees() -> void:
 		_paddy_fields()
 	if bool(zoning.get("plantation", false)):
 		_oil_palm_estates()
+	_livestock_farms()
 	_build_terrain()
 	for i in 9000:
 		var a := rng.randf() * TAU
@@ -4518,6 +4799,16 @@ func _kampung_house() -> void:
 	tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
 	if rng.randf() < 0.5:
 		tree(Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(3.5, 5.5)), rng.randf() < 0.65)
+	# a cow or a couple of goats tethered by the house, grazing in circles
+	if tier in ["rural", "town"] and rng.randf() < 0.07:
+		_livestock_meshes()
+		var goats := rng.randf() < 0.5
+		for k in (rng.randi_range(1, 3) if goats else 1):
+			var a: Vector3 = frame * Vector3(rng.randf_range(-4.0, 4.0), 0, rng.randf_range(-6.5, -5.0))
+			var hd := rng.randf() * TAU
+			var mesh: Mesh = (_goat_meshes if goats else _cow_meshes)[rng.randi() % (_goat_meshes.size() if goats else _cow_meshes.size())]
+			_walker(mesh, a, a + Vector3(sin(hd), 0, cos(hd)) * rng.randf_range(1.0, 2.5), rng.randf_range(0.06, 0.15), 2.5)
+			livestock_built += 1
 
 
 func _kampung_variants() -> Array:
